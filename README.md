@@ -1,8 +1,5 @@
-# data-shapes
-RDF Data Shapes WG repo
+RDF Data Shapes WG Repository
 =====
-
-RDF Data Shapes Working Group specifications.
 
 Editor's drafts:
 * [UCR](https://w3c.github.io/data-shapes/data-shapes-ucr/)
