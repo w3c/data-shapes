@@ -1,0 +1,203 @@
+# baseURI: http://topbraid.org/examples/ldomsquare
+# imports: http://www.w3.org/ns/ldom/core
+
+# An example LDOM model about rectangles and squares, demonstrating all major
+# features of LDOM with simple examples.
+
+# Contact: Holger Knublauch (holger@topquadrant.com)
+
+@prefix arg: <http://www.w3.org/ns/ldom/arg#> .
+@prefix ex: <http://topbraid.org/examples/ldomsquare#> .
+@prefix ldom: <http://www.w3.org/ns/ldom/core#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <http://schema.org/>
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+
+# The ldom:Graph --------------------------------------------------------------
+
+<http://topbraid.org/examples/ldomsquare>
+	a ldom:Graph ;
+	ldom:library <http://www.w3.org/ns/ldom/core> ;
+	rdfs:label "LDOM Square Example" ;
+	rdfs:comment "A simple example model demonstrating some key features of LDOM. Have a look at the ex:computeArea function, the rule attached to ex:Rectangle and the constraint attached to ex:Square." ;
+.
+
+
+# Classes ---------------------------------------------------------------------
+
+ex:Rectangle
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Rectangle" ;
+	ldom:property [
+		ldom:predicate ex:height ;
+		ldom:minCount 1 ;
+		ldom:maxCount 1 ;
+		ldom:valueType xsd:integer ;
+		rdfs:label "height" ;
+		rdfs:comment "The height of the Rectangle." ;
+	] ;
+	ldom:property [
+		ldom:predicate ex:width ;
+		ldom:minCount 1 ;
+		ldom:maxCount 1 ;
+		ldom:valueType xsd:integer ;
+		rdfs:label "width" ;
+		rdfs:comment "The width of the Rectangle." ;
+	] ;
+	ldom:property [
+		a ldom:DerivedPropertyConstraint ;
+		ldom:predicate ex:area ;
+		ldom:maxCount 1 ;
+		ldom:sparql "ex:computeArea(?this)" ;
+		ldom:valueType xsd:integer ;
+		rdfs:label "area" ;
+		rdfs:comment "The area of the Rectangle, defined as the product of width x height." ;
+	] ;
+	ldom:property [
+		ldom:predicate ex:creator ;
+		ldom:maxCount 1 ;
+		ldom:valueType schema:Person ;
+		rdfs:label "creator" ;
+		rdfs:comment "The creator of the Rectangle." ;
+	] ;
+	ldom:constraint [
+		a ex:PositivePropertyValueConstraint ;
+		arg:property ex:height ;
+	] ;
+	ldom:constraint [
+		a ex:PositivePropertyValueConstraint ;
+		arg:property ex:width ;
+	] ;
+	ldom:constraint [
+		a ldom:ShapeConstraint ;
+		ldom:predicate ex:creator ;
+		rdfs:comment "There must be at least one creator with an email address" ; 
+		ldom:some [
+			ldom:property [
+				ldom:predicate schema:email ;
+				ldom:minCount 1 ;
+			] ;
+		] ;
+	] ;
+	ldom:rule [
+		ldom:sparql """
+			CONSTRUCT {
+				?this ex:area ?area .                 # Infer ?area as a value of ex:area
+			}
+			WHERE {
+				?this ex:width ?width .               # Get the width of ?this Rectangle
+				?this ex:height ?height .             # Get the height of ?this Rectangle
+				BIND ((?width * ?height) AS ?area) .  # Compute area := width * height
+			}
+			""" ;
+	] ;
+.
+
+ex:Square
+	a rdfs:Class ;
+	rdfs:label "Square" ;
+	rdfs:subClassOf ex:Rectangle ;
+	ldom:constraint [
+		ldom:message "Width and height of a Square must be equal" ;
+		ldom:path ex:width ;
+		ldom:path ex:height ;
+		ldom:sparql """
+			ASK WHERE {
+				?this ex:width ?width .
+				?this ex:height ?height .
+				FILTER (?width != ?height) .
+			}
+			""" ;
+	] ;
+.
+
+schema:Person
+	a rdfs:Class ;
+	rdfs:label "Person" ;
+	rdfs:subClassOf rdfs:Resource ;
+	ldom:property [
+		ldom:predicate schema:email ;
+		ldom:valueType xsd:string ;
+		rdfs:label "email" ;
+		rdfs:comment "Zero or more email addresses of the person." ;
+	] ;
+.
+
+  
+# Example Instances -----------------------------------------------------------
+  
+ex:InvalidSquare
+	a ex:Square ;
+	ex:creator ex:PersonWithoutEmail ;
+	ex:height 8 ;
+	ex:width 9 ;
+	rdfs:label "Invalid square" ;
+.
+  
+ex:TestRectangle
+	a ex:Rectangle ;
+	ex:creator ex:PersonWithEmail ;
+	ex:height 6 ;
+	ex:width 7 ;
+	rdfs:label "Test rectangle" ;
+.
+
+ex:PersonWithoutEmail
+	a schema:Person ;
+.
+
+ex:PersonWithEmail
+	a schema:Person ;
+	schema:email "john@example.com" ;
+.
+
+
+# Templates -------------------------------------------------------------------
+  
+ex:PositivePropertyValueConstraint
+	a ldom:ConstraintTemplate ;
+	rdfs:subClassOf ldom:TemplateConstraint ;
+	rdfs:label "Positive property value constraint" ;
+	ldom:labelTemplate "Values of property {?property} must be > 0" ;
+	rdfs:comment "A template that can be used to define a LDOM constraint on a given property (arg:property) to make sure that the values of that property are > 0." ;
+	ldom:argument [
+		ldom:predicate arg:property ;
+		ldom:valueType rdf:Property ;
+		rdfs:label "property" ;
+		rdfs:comment "The property to constrain (e.g. ex:width or ex:height)." ;
+	] ;
+	ldom:sparql """
+		SELECT (?property AS ?path) ?message
+		WHERE {
+			?this ?property ?value .
+			FILTER (?value <= 0) .
+			BIND (CONCAT(\"Property \", ldom:label(?property), 
+				\" must only have positive values, but found \", xsd:string(?value)) AS ?message) .
+		}
+		""" ;
+.
+  
+# Functions -------------------------------------------------------------------
+  
+ex:computeArea
+	a ldom:Function ;
+	rdfs:subClassOf ldom:Functions ;
+	rdfs:label "compute area" ;
+	rdfs:comment "Computes the area of a given rectangle (?arg1) as the product of its width and height." ;
+	ldom:argument [
+		ldom:predicate ldom:arg1 ;
+		ldom:valueType ex:Rectangle ;
+		rdfs:comment "The rectangle whose area to compute." ;
+	] ;
+	ldom:sparql """
+		SELECT ((?width * ?height) AS ?result)
+		WHERE {
+			?arg1 ex:width ?width .
+			?arg1 ex:height ?height .
+		}
+		""" ;
+	ldom:returnType xsd:integer ;
+.
