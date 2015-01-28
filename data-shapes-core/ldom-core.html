@@ -21,6 +21,9 @@
 	      };
 	    </script>
 		<style>
+			.template-body {
+				background-color: #fcfaee;
+			}
 			.todo {
 				color: red;
 			}
@@ -78,6 +81,13 @@
 	    		<p class="todo">
 	    			TODO: Explain general syntax for templates: ldom:argument, ldom:sparql
 	    		</p>
+    		</section>
+    		<section>
+    			<h2>Template Inheritance</h2>
+    			<p class="todo">
+    				TODO: templates can be organized in subclass hierarchy so that
+    				a single template instance can combine multiple multiple SPARQL queries.
+    			</p>
     		</section>
     		<section>
 	    		<h2>Template Calls</h2>
@@ -160,8 +170,75 @@
     		<p class="todo">
     			TODO: These are used at ldom:property for a given property (ldom:predicate).
     		</p>
-   			<section>
+   			<section id="property-cardinality">
    				<h3>Cardinality (ldom:minCount, ldom:maxCount)</h3>
+   				<p>
+   					Property constraints may have the properties <code>ldom:minCount</code>
+   					and <code>ldom:maxCount</code> to limit the number of triples
+   					that have the given <code>ldom:predicate</code> as predicate
+   					and <code>?this</code> as subject.
+   					The values of <code>ldom:minCount</code> and <code>ldom:maxCount</code>
+   					must be comparable to <code>xsd:integer</code>.
+   					Default value of <code>ldom:minCount</code> is 0 and for
+   					<code>ldom:maxCount</code> infinite.
+   				</p>
+   				<p>
+   					The following example...
+   				</p>
+   				<pre class="example">
+ex:Rectangle
+	ldom:property [
+		ldom:predicate ex:height ;
+		ldom:minCount 1 ;
+		ldom:maxCount 1 ;
+	] ; ...</pre>
+				<p>
+					The interpretation of <code>ldom:minCount</code> and <code>ldom:maxCount</code>
+					must be equivalent to the following SPARQL query:
+				</p>
+				<pre class="template-body">
+CONSTRUCT {
+	_:error a ldom:Error ;
+		ldom:root ?this ;
+		ldom:path ?predicate .
+}
+WHERE {
+	BIND (ldom:valueCount(?this, ?predicate) AS ?count) .
+	FILTER ((?count &lt; ?minCount) || (bound(?maxCount) &amp;&amp; (?count &gt; ?maxCount))) .
+}</pre>
+   			</section>
+   			<section id="property-hasValue">
+   				<h3>ldom:hasValue</h3>
+   				<p>
+   					Property constraints may have the property <code>ldom:hasValue</code>
+   					to verify that there is a triple that has the current node <code>?this</code>
+   					as subject, the specified <code>ldom:predicate</code> as predicate,
+   					and the specified <code>ldom:hasValue</code> as its object.
+   				</p>
+   				<p>
+   					The following example defines a shape matching all nodes that have
+   					the gender <code>ex:male</code>.
+   				</p>
+   				<pre class="example">
+ex:MalePerson
+	ldom:property [
+		ldom:predicate ex:gender ;
+		ldom:hasValue ex:male ;
+	] ; ...</pre>
+				<p>
+					The interpretation of <code>ldom:hasValue</code> must be equivalent to the
+					following SPARQL query:
+				</p>
+				<pre class="template-body">
+CONSTRUCT {
+	_:error a ldom:Error ;
+		ldom:root ?this ;
+		ldom:path ?predicate ;
+		ldom:value ?hasValue .
+}
+WHERE {
+	FILTER NOT EXISTS { ?this ?predicate ?hasValue }
+}</pre>
    			</section>
    			<section>
    				<h3>Value type</h3>
