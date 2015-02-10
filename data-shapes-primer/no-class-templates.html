@@ -168,9 +168,7 @@ function prepareHighlight (highlightables, onClass, offClass, slide) {
             These issues can have a status of <code>unassigned</code> or <code>assigned</code>.
       			Issues must have one submitter (a <code>schema:Person</code>) and may be assinged to someone (also a <code>schema:Person</code>) 
             Example instances, both conforming and not, are included.
-            The mechanism by which the instance data is associated with, or validated against the a shape is not described as this point.
-            <span class="todo">This WG is expected to define ways to link instance data to shapes, e.g. instance-shape, class-to-shape, query-endpoint-to-shape, etc.
-            This document may include examples of such linkages.</span>
+            Some mechanisms by which the instance data may be associated with, or validated against the a shape are descibed later in <a href="#associations">Associating Data with Shapes</a>.
       		</p>
       		<p>
       			LDOM definitions are represented in RDF and can be serialized in multiple RDF formats.
@@ -533,7 +531,7 @@ function prepareHighlight (highlightables, onClass, offClass, slide) {
 }
 </pre>
           <div class="verticalDivider"><!-- acts as a divider --></div>
-    	  	<pre class="instance turtle" style="float:left;"><span class="comment"># instance</span>
+    	  	<pre class="instance turtle" style="float:left;"><span class="comment"># passing instance</span>
 <span class="keyword">PREFIX</span> <span class="type">ex:</span> <span class="function-name">http://ex.example/#</span><span class="comment">
 </span><span class="keyword">PREFIX</span> <span class="type">foaf:</span> <span class="function-name">http://xmlns.com/foaf/</span>
 <span class="keyword">PREFIX</span> <span class="type">xsd:</span> <span class="function-name">http://www.w3.org/2001/XMLSchema#</span><span class="comment">
@@ -1135,8 +1133,80 @@ schema:Person
 
     	</section>
     	
+    	<section id="associations">
+    		<h2>Associating Data with Shapes</h2>
+        <p>
+          The above examples illustrate how nodes in data can be validated against a shape.
+          There's no limit to the mechanisms that might associate data with a shape, e.g.
+        </p>
+        <ul>
+          <li>
+            <p>
+              an node claiming to conform to some shape
+            </p>
+            <pre><span class="type">clinic:</span><span class="constant">patient2134</span> <span class="keyword">a</span> <span class="type">clinic:</span><span class="constant">PatientRecord</span> ;
+  <span class="type">ldom:</span><span class="constant">instanceShape</span> [
+    <span class="type">ldom:</span><span class="constant">property</span> [
+        <span class="type">ldom:</span><span class="constant">predicate</span> <span class="type">clinic:</span><span class="constant">phone</span> ;
+        <span class="type">ldom:</span><span class="constant">valueType</span> <span class="type">xsd:</span><span class="constant">string</span> ;
+        <span class="type">ldom:</span><span class="constant">minCount</span> 1 ; <span class="type">ldom:</span><span class="constant">maxCount</span> 1
+    ]
+  ] <span class="keyword">.</span></pre>
+          </li>
+          <li>
+            <p>
+              every instance of a class conforms to some shape
+            </p>
+            <pre><span class="type">clinic:</span><span class="constant">PatientRecord</span> <span class="keyword">a</span> <span class="type">owl:</span><span class="constant">Class</span> ;
+  <span class="type">ldom:</span><span class="constant">classShape</span> [
+    <span class="type">ldom:</span><span class="constant">property</span> [
+        <span class="type">ldom:</span><span class="constant">predicate</span> <span class="type">clinic:</span><span class="constant">phone</span> ;
+        <span class="type">ldom:</span><span class="constant">valueType</span> <span class="type">xsd:</span><span class="constant">string</span> ;
+        <span class="type">ldom:</span><span class="constant">minCount</span> 1 ; <span class="type">ldom:</span><span class="constant">maxCount</span> 1
+    ]
+  ] <span class="keyword">.</span></pre>
+          </li>
+          <li>
+            <p>
+              description of data available at a SPARQL interface
+            </p>
+            <pre>[ <span class="type">sd:</span><span class="constant">endpoint</span> <span class="function-name">&lt;<a href="http://www.example/sparql/">http://www.example/sparql/</a>&gt;</span> ;
+  <span class="type">sd:</span><span class="constant">defaultDataset</span> [
+    <span class="type">sd:</span><span class="constant">defaultGraph</span> [
+      <span class="type">sd:</span><span class="constant">Graph</span> [
+        <span class="type">ldom:</span><span class="constant">hasShape</span> <span class="type">ex:</span><span class="constant">IssueShape</span>
+      ] ] ] ] <span class="keyword">.</span></pre>
+          </li>
+          <li>
+            <p>
+              LDP Container with starting element passed in the protocol
+            </p>
+            <pre>[ <span class="keyword">a</span> <span class="type">ldp:</span><span class="constant">RootedPOSTConstraint</span> ;
+  <span class="type">ldp:</span><span class="constant">onContainer</span> <span class="function-name">&lt;MyContactsLDPContainer&gt;</span>
+  <span class="type">ldom:</span><span class="constant">hasShape</span> <span class="function-name">&lt;PersonInMyContactsDB&gt;</span> ] <span class="keyword">.</span></pre>
+          </li>
+          <li>
+            <p>
+              LDP Container with a query identifying the starting node
+            </p>
+            <pre>[ <span class="keyword">a</span> <span class="type">ldp:</span><span class="constant">QueriedPOSTConstraint</span> ;
+  <span class="type">ldp:</span><span class="constant">onContainer</span> <span class="function-name">&lt;MyContactsLDPContainer&gt;</span>
+  <span class="type">ldom:</span><span class="constant">withQuery</span> <span class="string">"SELECT ?s { &#8230; }"</span> ;
+  <span class="type">ldom:</span><span class="constant">hasShape</span> <span class="function-name">&lt;PersonInMyContactsDB&gt;</span> ] <span class="keyword">.</span></pre>
+          </li>
+        </ul>
+
+        <p>
+          LDOM defines two predicates, <span class="type">ldom:</span><span class="constant">instanceShape</span> and <span class="type">ldom:</span><span class="constant">classShape</span>.
+          The former asserts that a particular node in some graph conforms to a specific shape.
+          The latter asserts that every node of some type conforms to a specific shape.
+          It is expected that different communities will develop many more associations, much as the WSDL community created an association between input and output documents and an XML schema which described them.
+        </p>
+
+      </section>
+
     	<section id="constraints">
-    		<h2>Constraints</h2>
+    		<h2>Extensible Constraints</h2>
     		<p>
     			The property declarations shown in the previous chapter define conditions that
     			all graphs conforming to that shape need to fulfill.
