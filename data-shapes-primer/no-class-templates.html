@@ -580,10 +580,11 @@ prepareHighlight(['state', 'reportedBy', 'name', 'mbox'], "highlight1", "lowligh
         Note that as of RDF 1.1, simple literals have a datatype of xsd:string.</li>
         <li>The final property restriction asserts that the object of <span class="type">foaf:</span><span class="constant">mbox</span> be an <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-iri">RDF IRI</a>.</li>
       </ul>
-			<p>
-				LDOM introduces a property <code>ldom:abstract</code> that can be set to <code>true</code>
-				for classes that should not be directly instantiated.
-				Furthermore, classes may be marked <code>ldom:private</code> to indicate that they
+			<p class="issue">
+				Shapes my extend other shapes by referencing them with the <code>ldom:extends</code> property.
+				The property <code>ldom:abstract</code> that can be set to <code>true</code>
+				for shapes that serve only as building blocks for more complex shapes.
+				Furthermore, shapes may be marked <code>ldom:private</code> to indicate that they
 				are only meant to be used inside of the graph that they have been defined in.
 				This can be used to discourage instantiation outside of controlled scenarios.
 			</p>
@@ -673,8 +674,8 @@ prepareHighlight(['state', 'reportedBy', 'name', 'mbox'], "highlight1", "lowligh
 					Furthermore, they can verify that a given node in a graph fulfills the requirements for a <span class="function-name">sh:IssueShape</span>.
 				</p>
 				<p>
-					The system property <code>ldom:property</code> is used to link a class with its
-					property declarations.  Properties get inherited by subclasses.
+					The system property <code>ldom:property</code> is used to link a shape with its
+					property declarations.
 					The values of this property are nodes with the following properties:
 				</p>
 				<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
@@ -698,18 +699,24 @@ prepareHighlight(['state', 'reportedBy', 'name', 'mbox'], "highlight1", "lowligh
 						<td>Type: integer &gt;= 0, the maximum number of values required. Defaults to unlimited.</td>
 					</tr>
 					<tr>
-						<td><code>ldom:valueType</code></td>
+						<td><code>ldom:valueShape</code></td>
 						<td>
-							a node which matches <code>ldom:Shape</code>, the type or datatype that all values of the property must have.
+							The object matches the refrenced <code>ldom:Shape</code>. 
 						</td>
 					</tr>
 					<tr>
+						<td><code>ldom:valueType</code></td>
+						<td>
+							identifies the datatype for an RDF literal.
+						</td>
+					</tr>
+					<tr class="issue">
 						<td><code>ldom:allowedValues</code></td>
 						<td>Type: <code>ldom:Set</code> (with property <code>ldom:member</code>), points to a set enumerating the allowed values.</td>
 					</tr>
-					<tr>
-						<td><code>ldom:hasValue</code></td>
-						<td>points to a specific value that the property must have.</td>
+					<tr class="issue">
+						<td><code>ldom:allowedValue</code></td>
+						<td>Type: the same as the ldom:valueType of the surrounding property.</td>
 					</tr>
 					<tr>
 						<td><code>rdfs:label</code></td>
@@ -1394,18 +1401,26 @@ prepareHighlight(['state999', 'reportedBy', 'reportedIssue', 'name999', 'mbox999
 					as shown in the next example:
 	    		</p>
           <pre class="example">
-ex:SquareShape
-  a ldom:Shape ;
-  rdfs:label "Square" ;
+ex:IssueShape a ldom:Shape ;
+  ldom:property [
+    ldom:predicate ex:reportedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1 ; ldom:maxCount 1
+  ] ;
+  ldom:property [
+    ldom:predicate ex:assignedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1
+  ] .
   ldom:constraint [
-    ldom:message "Width and height of a Square must be equal" ;
-    ldom:path ex:width ;
-    ldom:path ex:height ;
+    ldom:message "issues can't be assigned before they're reporeted" ;
+    ldom:path ex:reportedOn ;
+    ldom:path ex:assignedOn ;
     ldom:extension [
       ldom:langauge &lt;http://www.w3.org/Submission/spin-overview/&gt; ;
       ldom:action """
       ASK {
-        ?this ex:submittedOn ?submDt .
+        ?this ex:reportedOn ?submDt .
         ?this ex:assignedOn ?assnDt .
         FILTER (?submDt != ?assnDt) .
       }
@@ -1438,33 +1453,41 @@ ex:SquareShape
 					As alternatives to ASK, you can use SPARQL SELECT or CONSTRUCT queries to take more
 					control over which constraint violations to create.
 					While a little bit more verbose, one advantage of those syntaxes is greater flexibility
-					in how to build error messages etc. 
+					in how to build error messages etc.
 					The following example implements the same error condition as shown above, but using
 					a CONSTRUCT query.  An example of SELECT-based constraints can be found
 					<a href="#global-constraints">below</a>.
 				</p>
 	    		<pre class="example">
-ex:SquareShape
-	a ldom:Shape ;
-	rdfs:label "Square" ;
-	ldom:extends ex:RectangleShape ;
-	ldom:extension [
-    ldom:langauge &lt;http://www.w3.org/Submission/spin-overview/&gt; ;
-		ldom:action """
+ex:IssueShape a ldom:Shape ;
+  ldom:property [
+    ldom:predicate ex:reportedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1 ; ldom:maxCount 1
+  ] ;
+  ldom:property [
+    ldom:predicate ex:assignedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1
+  ] .
+  ldom:constraint [
+    ldom:extension [
+      ldom:langauge &lt;http://www.w3.org/Submission/spin-overview/&gt; ;
+      ldom:action """
 			CONSTRUCT {
 				_:cv a ldom:Error ;
 					ldom:root ?this ;
-					ldom:message "Width and height of a Square must be equal" ;
-					ldom:path ex:width ;
-					ldom:path ex:height 
+					ldom:message "issues can't be assigned before they're reporeted" ;
+					ldom:path ex:reportedOn ;
+					ldom:path ex:assignedOn 
 			}
 			WHERE {
-				?this ex:width ?width .
-				?this ex:height ?height .
-				FILTER (?width != ?height) .
-			}
-			""" ] ;
-	] .</pre>
+        ?this ex:reportedOn ?submDt .
+        ?this ex:assignedOn ?assnDt .
+        FILTER (?submDt != ?assnDt) .
+      }
+      """ ] ;
+  ] .</pre>
 			</section>
 			<section id="global-constraints">
 				<h3>Global Constraints</h3>
