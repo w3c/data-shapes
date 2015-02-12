@@ -411,7 +411,7 @@ function prepareHighlight (highlightables, onClass, offClass, slide) {
           In principle, any of those can be used to convey constraints or data.
           This Primer is available in <a href="http://www.w3.org/TR/turtle/">Turtle</a> and <a href="http://www.w3.org/TR/json-ld/">JSON-LD</a>.
         </p>
-        <form   id="langOptions" action="">View as: <input type="radio" name="presLang" value="turtle" checked="checked">Turtle (press 't')</input> <input type="radio" name="presLang" value="json-ld">JSON-LD (press 'j')</input> .</form>
+        <form id="langOptions" action="">View as: <input type="radio" name="presLang" value="turtle" checked="checked">Turtle (press 't')</input> <input type="radio" name="presLang" value="json-ld">JSON-LD (press 'j')</input> .</form>
       </section>
 
     	<section id="shapes">
@@ -1415,7 +1415,36 @@ prepareHighlight(['state999', 'reportedBy', 'reportedIssue', 'name999', 'mbox999
 					These constraints can be attached to class definitions using <code>ldom:constraint</code>
 					as shown in the next example:
 	    		</p>
-          <pre class="example">
+        <p class="issue">
+          It's not yet clear whether SPARQL is treated as an extension.
+          <form   id="sparqlOptions" action="">View as: <input type="radio" name="sparqlRepresentation" value="builtin" checked="checked">SPARQL is built-in to LDOM (press 'b')</input> <input type="radio" name="sparqlRepresentation" value="extension">SPARQL is treated as an extension (press 'e')</input> .</form>
+        </p>
+<div class="example wrapper">
+          <pre class="sparqlExt builtin">
+ex:IssueShape a ldom:Shape ;
+  ldom:property [
+    ldom:predicate ex:reportedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1 ; ldom:maxCount 1
+  ] ;
+  ldom:property [
+    ldom:predicate ex:assignedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1
+  ] .
+  ldom:constraint [
+    ldom:message "issues can't be assigned before they're reporeted" ;
+    ldom:path ex:reportedOn ;
+    ldom:path ex:assignedOn ;
+    ldom:spin """
+      ASK {
+        ?this ex:reportedOn ?submDt .
+        ?this ex:assignedOn ?assnDt .
+        FILTER (?submDt != ?assnDt) .
+      }
+      """
+  ] .</pre>
+          <pre class="sparqlExt extension">
 ex:IssueShape a ldom:Shape ;
   ldom:property [
     ldom:predicate ex:reportedOn ;
@@ -1439,8 +1468,9 @@ ex:IssueShape a ldom:Shape ;
         ?this ex:assignedOn ?assnDt .
         FILTER (?submDt != ?assnDt) .
       }
-      """ ] ;
+      """ ]
   ] .</pre>
+</div>
 				<p class="todo">
 					Open issue: Many people find it confusing that the expression seems to work
 					"backwards" and only find the counter-examples.  So the term "constraint"
@@ -1473,7 +1503,36 @@ ex:IssueShape a ldom:Shape ;
 					a CONSTRUCT query.  An example of SELECT-based constraints can be found
 					<a href="#global-constraints">below</a>.
 				</p>
-	    		<pre class="example">
+<div class="example wrapper">
+          <pre class="sparqlExt builtin">
+ex:IssueShape a ldom:Shape ;
+  ldom:property [
+    ldom:predicate ex:reportedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1 ; ldom:maxCount 1
+  ] ;
+  ldom:property [
+    ldom:predicate ex:assignedOn ;
+    ldom:valueType xsd:dateTime ;
+    ldom:minCount 1
+  ] .
+  ldom:constraint [
+    ldom:sparql """
+			CONSTRUCT {
+				_:cv a ldom:Error ;
+					ldom:root ?this ;
+					ldom:message "issues can't be assigned before they're reporeted" ;
+					ldom:path ex:reportedOn ;
+					ldom:path ex:assignedOn 
+			}
+			WHERE {
+        ?this ex:reportedOn ?submDt .
+        ?this ex:assignedOn ?assnDt .
+        FILTER (?submDt != ?assnDt) .
+      }
+      """
+  ] .</pre>
+          <pre class="sparqlExt extension">
 ex:IssueShape a ldom:Shape ;
   ldom:property [
     ldom:predicate ex:reportedOn ;
@@ -1501,8 +1560,9 @@ ex:IssueShape a ldom:Shape ;
         ?this ex:assignedOn ?assnDt .
         FILTER (?submDt != ?assnDt) .
       }
-      """ ] ;
+      """ ]
   ] .</pre>
+</div>
 			</section>
 			<section id="global-constraints">
 				<h3>Global Constraints</h3>
@@ -1512,19 +1572,36 @@ ex:IssueShape a ldom:Shape ;
 					These can be expressed by instantiating <code>ldom:GlobalConstraint</code>,
 					as shown in the following example.
 				</p>
-				<pre class="example">
+<div class="example wrapper">
+        <pre class="sparqlExt builtin">
 ex:MyConstraint
-	a ldom:GlobalConstraint ;
-	ldom:message "Deprecated properties should not be used anywhere." ;
-	ldom:level ldom:Warning ;
-	ldom:sparql """
-			SELECT ?root ?predicate ?value
-			WHERE {
-				?root ?predicate ?value .
-				?predicate owl:deprecated ?any .
-			}
-		""" ;
+  a ldom:GlobalConstraint ;
+  ldom:message "Deprecated properties should not be used anywhere." ;
+  ldom:level ldom:Warning ;
+  ldom:sparql """
+      SELECT ?root ?predicate ?value
+      WHERE {
+        ?root ?predicate ?value .
+        ?predicate owl:deprecated ?any .
+      }
+    """
 .</pre>
+        <pre class="sparqlExt extension">
+ex:MyConstraint
+  a ldom:GlobalConstraint ;
+  ldom:message "Deprecated properties should not be used anywhere." ;
+  ldom:level ldom:Warning ;
+  ldom:extension [
+      ldom:langauge &lt;http://www.w3.org/Submission/spin-overview/&gt; ;
+      ldom:action """
+      SELECT ?root ?predicate ?value
+      WHERE {
+        ?root ?predicate ?value .
+        ?predicate owl:deprecated ?any .
+      }
+    """ ]
+.</pre>
+</div>
 				<p>
 					By default, these constraints are assumed to have a SPARQL query, but
 					it is also possible to instantiate templates.
@@ -2108,46 +2185,71 @@ ex:TestCase
     		
     	</section>
         <script type="application/javascript">
-        function updateLang () {
-          $(".schema."+$('#langOptions input[name=presLang]').not(":checked").val()).hide();
-          $(".schema."+$('#langOptions input[name=presLang]:checked')        .val()).show();
-        }
-        function adjustHeight (from, to) {
-          var visibleTop = $(window).scrollTop();
-          var all = $(".schema."+from);
-          var adj = 0;
-          for (var i = 0; i < all.length; ++i) {
-            var elt = all.slice(i, i+1);
-            if (elt.offset().top >= visibleTop)
-              break;
-            adj += elt.siblings("."+to).height() - elt.height();
+	var bodyKeypressCallbacks = {};
+
+	/* a form like
+        <form id="langOptions" action="">View as: <input type="radio" name="presLang" value="turtle" checked="checked">Turtle (press 't')</input> <input type="radio" name="presLang" value="json-ld">JSON-LD (press 'j')</input> .</form>
+	controls display of sections like 
+	<pre class="schema turtle">...</pre>
+	<pre class="schema json-ld">...</pre>
+	 */
+	[
+	  { lookIn: ".schema", form: "#langOptions", radioName: "presLang", keys:
+	    { 74 : "json-ld", 106: "json-ld", 84 : "turtle", 116: "turtle" }
+	  },
+	  { lookIn: ".sparqlExt", form: "#sparqlOptions", radioName: "sparqlRepresentation", keys:
+	    { 66 : "builtin", 98: "builtin", 69 : "extension", 101: "extension" }
+	  }
+	].forEach(function (x) {
+
+	  /* In lookIn, reveal classes selected by radioName; hide others.
+	   */
+	  function revealClass (lookIn, form, radioName) {
+            $(lookIn+"."+$(form+" input[name="+radioName+"]").not(":checked").val()).hide();
+            $(lookIn+"."+$(form+" input[name="+radioName+"]" +    ":checked").val()).show();
           }
-          $(window).scrollTop($(window).scrollTop() + adj);
-        }
-        $('#langOptions input[name=presLang]').change(updateLang)
-        $(".schema."+$('#langOptions input[name=presLang]').not(":checked").val()).hide();
+	  /* Look in all lookIn containers for the height different of from and to targets.
+	   */
+          function adjustHeight (lookIn, from, to) {
+            var visibleTop = $(window).scrollTop();
+            var all = $(lookIn+"."+from); // all containers of from (and presumably, to)
+            var adj = 0;
+            for (var i = 0; i < all.length; ++i) {
+              var elt = all.slice(i, i+1);
+              if (elt.offset().top >= visibleTop) // stop when we pass the current scroll top.
+		break;
+              adj += elt.siblings("."+to).height() - elt.height();
+            }
+            $(window).scrollTop($(window).scrollTop() + adj); // move the scroll top.
+          }
+
+          var inputs = $(x.form + " input[name="+x.radioName+"]");
+	  // Listen for checkbox changes.
+          inputs.change(function() {revealClass(x.lookIn, x.form, x.radioName);})
+	  // Show only the currently selected class.
+          revealClass(x.lookIn, x.form, x.radioName);
+	  // Assign callbacks the the associated keycodes.
+	  Object.keys(x.keys).forEach(function (k) {
+	    bodyKeypressCallbacks[k] = function () {
+	      // If the corresponding radio button isn't already selected,
+              if(!inputs.filter("[value="+x.keys[k]+"]").is(":checked")) {
+		// adjust the height from the current class to the new class;
+		adjustHeight(x.lookIn, $("input[name="+x.radioName+"]:checked", x.form).val(), ""+x.keys[k]+"");
+		// set it as "checked";
+		inputs.filter("[value="+x.keys[k]+"]").prop("checked", true); // .change() did nothing
+		// swap which is displayed.
+		revealClass(x.lookIn, x.form, x.radioName);
+              }
+	      return false;
+	    };
+	  });
+	});
         $("html > body").keypress(function (evt) {
-          var langs = $('#langOptions input[name=presLang]');
           if (evt.ctrlKey)
             return true; // don't interfere with browser control keys.
-          switch (evt.which) {
-            case 74: case 106:
-              if(!langs.filter("[value=json-ld]").is(':checked')) {
-                adjustHeight($('input[name=presLang]:checked', '#langOptions').val(), "json-ld");
-                langs.filter("[value=json-ld]").prop('checked', true); // .change() did nothing
-                updateLang();
-              }
-              return false;
-            case 84: case 116:
-              if(!langs.filter("[value=turtle]").is(':checked')) {
-                adjustHeight($('input[name=presLang]:checked', '#langOptions').val(), "turtle");
-                langs.filter("[value=turtle]").prop('checked', true);
-                updateLang();
-              }
-              return false;
-            default:
-              return true;
-          }
+	  if (evt.which in bodyKeypressCallbacks)
+	    return bodyKeypressCallbacks[evt.which]();
+	  return true;
         });
         </script>
   	</body>
