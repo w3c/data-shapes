@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/ldom/core
 
 # LDOM - Linked Data Object Model
-# Draft Version 0.2.0 (2015-02-11)
+# Draft Version 0.2.0 (2015-02-12)
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
 @prefix ldom: <http://www.w3.org/ns/ldom/core#> .
@@ -727,11 +727,7 @@ ldom:TemplateConstraint
 # These templates are part of the core standard so that engines may decide to
 # hard-code them without requiring a full SPARQL implementation.
 
-# Note that most of these templates (those that can be used to provide user
-# interfaces with structural information) are to be used via ldom:property.
-# Some templates (ldom:ShapeConstraint) are meant to be used via ldom:constraint,
-# because they describe additional conditions that can be verified but that may
-# be hard to make sense of from a static point of view.
+# Note that all of these templates are recommended to be used via ldom:property.
 
 ldom:AbstractPropertyConstraint
 	a ldom:ConstraintTemplate ;
@@ -1070,6 +1066,7 @@ ldom:PropertyConstraint
 	rdfs:subClassOf ldom:AbstractMinInclusivePropertyConstraint ;
 	rdfs:subClassOf ldom:AbstractNodeTypePropertyConstraint ;
 	rdfs:subClassOf ldom:AbstractPatternPropertyConstraint ;
+	rdfs:subClassOf ldom:AbstractValueShapeConstraint ;
 	rdfs:subClassOf ldom:AbstractValueTypePropertyConstraint ;
 	rdfs:label "Property constraint" ;
 	rdfs:comment "Declares the structural constraints for a property at the associated class. The supported arguments are inherited from the superclasses." ;
@@ -1326,6 +1323,34 @@ ldom:AbstractPatternPropertyConstraint
 		""" ;
 .
 
+ldom:AbstractValueShapeConstraint
+	a ldom:ConstraintTemplate ;
+	rdfs:subClassOf ldom:AbstractPropertyConstraint ;
+	rdfs:label "Abstract value shape constraint" ;
+	rdfs:comment "Enforces a constraint that all values of the property must have a certain shape, whereby a shape is a collection of constraints." ;
+	ldom:abstract true ;
+	ldom:private true ;
+	ldom:argument [
+		ldom:predicate ldom:valueShape ;
+		ldom:optionalWhenInherited true ;
+		ldom:valueType rdfs:Resource ;
+		rdfs:label "all" ;
+		rdfs:comment "The shape that the values must have. Shapes are often classes but may also be untyped resources and even blank nodes that have constraints attached to them." ;
+	] ;  
+	ldom:queryLibraryGraph true ;
+	ldom:sparql """
+		SELECT (?this AS ?root) (?predicate AS ?path) ?value ?message 
+		WHERE {
+			{
+				?this ?predicate ?value .
+				FILTER (!ldom:hasShape(?value, ?valueShape)) .
+			}
+            BIND (CONCAT("Value ", ldom:label(?value), " at property ", ldom:propertyLabel(?predicate, ?this),
+            		" does not fulfill the constraints of shape ", ldom:label(?valueShape)) AS ?message) .
+		}
+		""" ;
+.
+
 
 # Inverse property constraints ------------------------------------------------
 
@@ -1418,86 +1443,6 @@ ldom:InversePropertyConstraint
 	rdfs:label "Inverse property constraint" ;
 	rdfs:comment "Declares the structural constraints for an incoming property at the associated class. The supported arguments are inherited from the superclasses." ;
 	ldom:labelTemplate "Inverse property {?predicate} : {?valueType} [{?minCount}..{?maxCount}]" ;
-.
-
-ldom:AbstractAllShapeConstraint
-	a ldom:ConstraintTemplate ;
-	rdfs:subClassOf ldom:AbstractPropertyConstraint ;
-	rdfs:label "Abstract all shape constraint" ;
-	rdfs:comment "Enforces a constraint that all values of the property must have a certain shape, whereby a shape is a collection of constraints." ;
-	ldom:abstract true ;
-	ldom:private true ;
-	ldom:argument [
-		ldom:predicate ldom:all ;
-		ldom:optionalWhenInherited true ;
-		ldom:valueType rdfs:Resource ;
-		rdfs:label "all" ;
-		rdfs:comment "The shape that the values must have. Shapes are often classes but may also be untyped resources and even blank nodes that have constraints attached to them." ;
-	] ;  
-	ldom:queryLibraryGraph true ;
-	ldom:sparql """
-		CONSTRUCT {
-			?cv a ldom:Error ;
-				ldom:message ?message ;
-				ldom:root ?this ;
-				ldom:path ?predicate ;
-				ldom:value ?value ;
-				ldom:detail ?s .
-			?s ?p ?o .
-		}
-		WHERE {
-			{
-				?this ?predicate ?value .
-				BIND (BNODE() AS ?cv) .
-			}
-            BIND (CONCAT("Value ", ldom:label(?value), " at property ", ldom:propertyLabel(?predicate, ?this),
-            		" does not fulfill the constraints of shape ", ldom:label(?all)) AS ?message)
-			(?value ?all) ldom:constraintViolations (?s ?p ?o) .
-		}
-		""" ;
-.
-
-ldom:AbstractSomeShapeConstraint
-	a ldom:ConstraintTemplate ;
-	rdfs:subClassOf ldom:AbstractPropertyConstraint ;
-	rdfs:label "Abstract some shape constraint" ;
-	rdfs:comment "Enforces a constraint that at least one of the values of the property must have a certain shape, whereby a shape is a collection of constraints." ;
-	ldom:abstract true ;
-	ldom:private true ;
-	ldom:argument [
-		ldom:predicate ldom:some ;
-		ldom:optionalWhenInherited true ;
-		ldom:valueType rdfs:Resource ;
-		rdfs:label "some" ;
-		rdfs:comment "The shape that the values must have. Shapes are often classes but may also be untyped resources and even blank nodes that have constraints attached to them." ;
-	] ;  
-	ldom:queryLibraryGraph true ;
-	ldom:sparql """
-		CONSTRUCT {
-			_:error a ldom:Error ;
-				ldom:message ?message ;
-				ldom:root ?this ;
-				ldom:path ?predicate ;
-				ldom:value ?value .
-		}
-		WHERE {
-			FILTER NOT EXISTS {
-				?this ?predicate ?value .
-				FILTER (ldom:hasShape(?value, ?some)) .
-			}
-            BIND (CONCAT("None of the values of property ", ldom:propertyLabel(?predicate, ?this),
-            		" fulfill the constraints of shape ", ldom:label(?some)) AS ?message)
-		}
-		""" ;
-.
-
-ldom:ShapeConstraint
-	a ldom:ConstraintTemplate ;
-	rdfs:subClassOf ldom:AbstractAllShapeConstraint ;
-	rdfs:subClassOf ldom:AbstractSomeShapeConstraint ;
-	ldom:labelTemplate "Shape constraint: All {?all}, Some {?some}" ;
-	rdfs:label "Shape constraint" ;
-	rdfs:comment "Enforces structural constraints on the shape of the values of the predicate." ;
 .
 
 ldom:OrConstraint
@@ -2057,7 +2002,6 @@ rdfs:subClassOf
 .
 
 ldom:abstract a rdf:Property ; rdfs:label "abstract" .
-ldom:all a rdf:Property ; rdfs:label "all" .
 ldom:allowedValues a rdf:Property ; rdfs:label "allowed values" .
 ldom:arg1 a rdf:Property ; rdfs:label "arg1" .
 ldom:arg2 a rdf:Property ; rdfs:label "arg2" .
@@ -2113,12 +2057,12 @@ ldom:root a rdf:Property ; rdfs:label "root" .
 ldom:rule a rdf:Property ; rdfs:label "rule" .
 ldom:shapeExtensionPath a rdf:Property ; rdfs:label "shape extension path" .
 ldom:shapeSelectionPath a rdf:Property ; rdfs:label "shape selection path" .
-ldom:some a rdf:Property ; rdfs:label "some" .
 ldom:sparql	a rdf:Property ; rdfs:label "SPARQL" .
 ldom:subNodeType a rdf:Property ; rdfs:label "sub node type" .
 ldom:subContextOf a rdf:Property ; rdfs:label "sub-context of" .
 ldom:totalDigits a rdf:Property ; rdfs:label "total digits" .
 ldom:uriStart a rdf:Property ; rdfs:label "URI start" .
+ldom:valueShape a rdf:Property ; rdfs:label "value shape" .
 ldom:valueType a rdf:Property ; rdfs:label "value type" .
 ldom:value a rdf:Property ; rdfs:label "value" .
 ldom:violation a rdf:Property ;	rdfs:label "violation" .
