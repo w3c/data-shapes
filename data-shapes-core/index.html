@@ -34,6 +34,9 @@
 			th {
 				text-align: left;
 			}
+			table.rule { background-color: #EBEBE0; }
+			table.rule td { text-align: center; }
+			td.up { border-bottom:1px solid black; }
 			
       .comment {
         /* font-lock-comment-face */
@@ -191,11 +194,353 @@
     	</section>
     	
     	<section>
-			<h2>Matching a Shape</h2>
+        <h2>Matching a Shape (normative)</h2>
+
+        <section>
+<h2>Typings</h2>
+The semantics of SHACL consits of assigning typings to nodes in an RDF graph.
+A typing is a map from RDF nodes (iri's or bNodes) to sets of labels in a Schema.
+We define the following operations on shape typings:
+
+<table>
+<tbody><tr>
+<td>{}</td><td>empty shape typing</td>
+</tr>
+<tr>
+<td><i>iri -&gt; label :: typing</i></td>
+<td>the result of assigning <i>iri</i> to <i>label</i> in <i>typing</i></td>
+</tr>
+<tr>
+<td><i>t1</i> ++ <i>t2</i></td>
+<td>combination of typings <i>t1</i> and <i>t2</i></td>
+</tr>
+<tr>
+<td><i>contains(t,<code>focus node</code>,label)</i></td>
+<td>returns true if the typing <i>t</i> asserts that <code>focus node</code> has shape <i>label</i></td>
+</tr>
+
+</tbody></table>
+</section>
+
+<section id="Context">
+<h2>Context</h2>
+<p>The shape schema validator acts in a context.
+A context is a tuple <i>(s, g, t)</i> where
+ <i>s</i> is a Schema, 
+ <i>g</i> is an RDF Graph and
+ <i>t</i> is a Typing. 
+</p> 
+</section>
+
+
+    	<section>
+<h3>Match focus node</h3>
+
+<i>ctx |- matchNode(<code>focus node</code>, label)</i> checks if a <code>focus node</code> conforms
+ with the shape associated with <i>label</i> in context <i>ctx</i>. 
+ If it conforms, it returns <i>(t,cs,rs)</i> where 
+<i>t</i> is a typing, 
+<i>cs</i> is a set of checked triples, 
+<i>rs</i> is a set of remaining triples.
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">matchNode</td>
+<td class="up">
+ ctx.schema(label) = shape &nbsp;&nbsp;&nbsp; 
+ ctx.graph.triplesAround(<code>focus node</code>) = ts &nbsp;&nbsp;&nbsp;
+ ctx { <code>focus node</code> -&gt; label } |- matchShape(ts, shape) = (t,cs,rs)
+</td>
+</tr>
+<tr><td>ctx |- matchNode(<code>focus node</code>,label) = (t,cs,rs)</td></tr>
+</tbody></table>
+</section>
+
+
+<section id="MatchShape">
+<h3>Match Shape</h3>
+<p>
+<i>ctx |- matchShape(triples, shape)</i> checks if a set of triples <i>triples</i> conforms
+ with <i>shape</i> in context <i>ctx</i>. 
+ If it conforms, it returns <i>(t,cs,rs)</i> where 
+<i>t</i> is a typing, 
+<i>cs</i> is a set of checked triples, 
+<i>rs</i> is a set of remaining triples.
+</p>
+
+<p>The empty shape matches any set of triples without any constraint.</p>
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">Empty</td>
+<td class="up">
+ &nbsp;
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts,Empty) = (ctx.typing,{},ts)</td></tr>
+</tbody></table>
+
+<p>There are five possibilities for cardinality: </p>
+
+<ul>
+<li>
+<p>When the cardinality is {0,unbounded} 
+ it matches any set of triples:</p>
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">BasicArc_unbounded1</td>
+<td class="up">
+  &nbsp;
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts,basicArc {0,unbounded}) = (ctx.typing,{},ts)</td></tr>
+</tbody></table>
+
+</li><li>
+<p>When the cardinality is <i>{m,unbounded}</i> for <i>m &gt; 0</i> it matches if
+ there is one triple that matches and if the rest of triples matches 
+ with a cardinality of <i>{m - 1, unbounded}</i></p>
+<p>Notice that it only matches if there are at least one triple</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">BasicArc_unbounded2</td>
+<td class="up">
+m &gt; 0 &nbsp;&nbsp;&nbsp;
+ctx |- matchArc(t,basicArc) = t1 &nbsp;&nbsp;&nbsp;
+ctx |- matchShape(ts,basicArc {m - 1,unbounded}) = (t2,cs,rs)
+</td>
+</tr>
+<tr><td>ctx |- matchShape(t:ts, basicArc {m,unbounded}) = (t1 ++ t2,t:cs,rs)</td></tr>
+</tbody></table>
+
+</li><li>
+
+<p>When the cardinality is <i>{0, n}</i> for <i>n &gt;= 0</i> it can match if there 
+is not triple that matches or if there 
+is one triple that matches and the rest of triples matches with a cardinality of <i>{0, n-1}</i></p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">BasicArc_bounded1</td>
+<td class="up">
+n &gt;= 0 &nbsp;&nbsp;&nbsp;
+ctx |- not (matchArcAny(ts,p,v)) 
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts, BasicArc {0, n}) = (ctx.typing,{},ts)</td></tr>
+</tbody></table>
+
+</li><li> 
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">BasicArc_bounded2</td>
+<td class="up">
+n &gt;= 0 &nbsp;&nbsp;&nbsp;
+matchArc(t,basicArc) = t1  &nbsp;&nbsp;&nbsp;
+ctx |- matchShape(ts,basicArc {0, n - 1}) = (t2,cs,rs)
+</td>
+</tr>
+<tr><td>ctx |- matchShape(t::ts, basicArc {0, n}) = (t1 ++ t2, t::cs, rs)</td></tr>
+</tbody></table>
+
+</li><li>
+<p>If the cardinality if <i>{m, n}</i> it matches if there is one triple that matches 
+ and if the rest of triples match with the cardinality <i>{m - 1, n - 1}</i></p>
+ 
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">BasicArc_bounded3</td>
+<td class="up">
+m &gt; 0, n &gt;= m &nbsp;&nbsp;&nbsp;
+matchBasicArc(t, basicArc) = t1  &nbsp;&nbsp;&nbsp;
+ctx |- matchShape(ts, basicArc {m-1, n-1} ) = (t2, cs, rs)
+</td>
+</tr>
+<tr><td>ctx |- matchShape(t::ts, basicArc {m, n}) = (t1 ++ t2, t::cs, rs)</td></tr>
+</tbody></table>
+
+</li></ul>
+
+<p>If the shape is a conjunction it matches if it matches the first element and 
+   then, the second with the remaining triples</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">And</td>
+<td class="up">
+ctx |- matchShape(ts, e1) = (t1, cs1, rs1) &nbsp;&nbsp;&nbsp;
+ctx |- matchShape(ts, e2) = (t2, cs2, rs2)
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts, And(e1, e2) = (t1 ++ t2, cs1 union cs2, rs1 intersection rs2)</td></tr>
+</tbody></table>
+
+<p>If the shape is a disjunction it matches if either the first element matches or the second, matching is the union</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">Or_1</td>
+<td class="up">
+ctx |- matchShape(ts, e1) = (t, cs, rs)
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts, Or(e1,e2) = (t, cs, rs)</td></tr>
+</tbody></table>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">Or_2</td>
+<td class="up">
+ctx |- matchShape(ts, e2) = (t, cs, rs)
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts, Or(e1,e2) = (t, cs, rs)</td></tr>
+</tbody></table>
+
+<p class="issue">exclusive OR to enable <a href="http://www.w3.org/2015/02/19-shapes-minutes">graph coverage</a> or <a href="https://www.w3.org/2014/data-shapes/wiki/Requirements#Expressivity:_Closed_Shapes">closed shapes</a></p>
+
+<p>If the shape is a negation of a shape it matches if the shape does not match</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">Not</td>
+<td class="up">
+ctx |- not(matchShape(ts,e))
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts, Not(e)) = (t, ts, {})</td></tr>
+</tbody></table>
+
+<p>A set of triples matches a closed shape if the set of triples matches the shape
+ and there are no remaining triples</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">Close</td>
+<td class="up">
+ctx |- matchShape(ts,e) = (t,cs,{})
+</td>
+</tr>
+<tr><td>ctx |- matchShape(ts, Closed(e)) = (t, cs, {})</td></tr>
+</tbody></table>
+
+</section>
+
+<section id="MatchBasicArc">
+<h3>Match BasicArc</h3>
+<p>ctx|-matchBasicArc(triple,basicArc</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">ObjectArc</td>
+<td class="up">
+ctx |- matchValue(o,v) = t
+</td>
+</tr>
+<tr><td>ctx |- matchBasicArc(&lt;s,p,o&gt;, Arc p v) = t&lt;/s,p,o&gt;</td></tr>
+</tbody></table>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">SubjectArc</td>
+<td class="up">
+ctx |- matchValue(s,v) = t
+</td>
+</tr>
+<tr><td>ctx |- matchBasicArc(&lt;s,p,o&gt;, InvArc p v) = t&lt;/s,p,o&gt;</td></tr>
+</tbody></table>
+
+</section>
+
+<section id="MatchValue">
+<h3>Match value</h3>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">valueSet</td>
+<td class="up">
+x in set
+</td>
+</tr>
+<tr><td>ctx |- matchValueSet(x, ValueSet(set)) = ctx.typing</td></tr>
+</tbody></table>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">valueObjectType</td>
+<td class="up">
+x hastype t
+</td>
+</tr>
+<tr><td>ctx |- matchValueType(x, ValueType(t)) = ctx.typing</td></tr>
+</tbody></table>
+
+<p>ValueRef handles references to shapes. There are two cases, 
+  the first initial case, when the context already contains the declaration
+  that <i>x</i> has shape <i>label</i> just returns the current typing.</p>
+  
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">valueRef_1</td>
+<td class="up">
+ contains(ctx.typing, x, label)
+</td>
+</tr>
+<tr><td>ctx |- matchValueRef(x, ValueRef(label)) = ctx.typing</td></tr>
+</tbody></table>
+
+<p>The second case, when the context does not contain the declaration that <i>x</i> has the shape <i>label</i>
+ is solved by trying to match <i>x</i> with shape <i>label</i> in the graph.</p>
+ 
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">valueRef_2</td>
+<td class="up">
+not(contains(ctx, x, label)) &nbsp; &nbsp; &nbsp;
+ctx |- matchNode(x,v) = (t,_,_)
+</td>
+</tr>
+<tr><td>ctx |- matchValueRef(x, ValueRef(label)) = t</td></tr>
+</tbody></table>
+
+</section>
+
+<section id="MatchArcAny">
+<h3>MatchArcAny</h3>
+<p><i>matchArcAny</i> takes a set of triples and a basic arc and checks if there is some triple
+ in that set that matches with the basic arc.
+ The result is a boolean</p>
+ 
+<p>It has two possibilities. Either it matches the first triple in the set (<i>matchArc_1</i>)
+ or it matches any of the rest of triples in the set (<i>matchArc_2</i>)</p>
+
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">matchArcAny_1</td>
+<td class="up">
+ctx |- matchBasicArc(t,basicArc) = (_,_,_)
+</td>
+</tr>
+<tr><td>ctx |- matchArcAny(t:ts, basicArc)</td></tr>
+</tbody></table>
+ 
+<table class="rule">
+<tbody><tr>
+<td rowspan="2">matchArcAny_2</td>
+<td class="up">
+ctx |- matchArcAny(ts,basicArc)
+</td>
+</tr>
+<tr><td>ctx |- matchArcAny(t:ts, basicArc)</td>
+</tr>
+</tbody>
+</table>
+
+      </section>
       </section>
 
     	<section>
-			<h2>Constraint Vocabulary</h2>
+			<h2>Constraint Vocabulary (normative)</h2>
         <p>
           A <code>property constraint</code> for a triple with the <code>focus node</code> as a subject is attached to the <code>shape</code> via with <span class="type">sh:</span><span class="constant">property</span>;
           a <code>property constraint</code> for a triple with the <code>focus node</code> as a object is attached to the <code>shape</code> via with <span class="type">sh:</span><span class="constant">inverseProperty</span>.
