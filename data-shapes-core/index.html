@@ -182,9 +182,6 @@
     	
     	<section>
         <h2>Matching a Shape (normative)</h2>
-
-        <section>
-			<h2>Typings</h2>
 			<div class="issue">
     			There is no agreement in the WG on how the semantics of SHACL should be defined.
     			Currently discussed options include:
@@ -194,6 +191,9 @@
     			</ol>
     			This section here is reflecting the first option above only.
 			</div>
+
+        <section>
+			<h2>Typings</h2>
 			
 The semantics of SHACL consits of assigning typings to nodes in an RDF graph.
 A typing is a map from RDF nodes (iri's or bNodes) to sets of labels in a Schema.
@@ -536,31 +536,158 @@ ctx |- matchArcAny(ts,basicArc)
       </section>
       </section>
 
-    	<section>
-			<h2>Constraint Vocabulary (normative)</h2>
+    	<section id="violations">
+			<h2>Constraint Violations Vocabulary (normative)</h2>
 			<p>
-				A <code>property constraint</code> for a triple with the <code>focus node</code> as a subject is attached to the <code>shape</code> via with <span class="type">sh:</span><span class="constant">property</span>;
-				a <code>property constraint</code> for a triple with the <code>focus node</code> as a object is attached to the <code>shape</code> via with <span class="type">sh:</span><span class="constant">inverseProperty</span>.
+				The output of a SHACL constraint checking operation is a set of <em>constraint violations</em>.
+				SHACL includes an RDF vocabulary to represent such constraint violations together with
+				structural information that may provide guidance on how to fix the violation, as well as
+				human-readable messages.
 			</p>
 			<p>
-				A <code>constraint</code>'s <code>minimum cardinality</code> and <code>maximum cardinality</code> are identified by <span class="type">sh:</span><span class="constant">minCount</span> and <span class="type">sh:</span><span class="constant">maxCount</span> respectively.
-				The RDF properties for constraining objects are:
+				The following code snippet represents a valid constraint violation that may have been produced
+				by a constraint checking engine:
 			</p>
-			<ul>
-				<li><code>node type</code>: <span class="type">sh:</span><span class="constant">valueType</span>.</li>
-				<li><code>value type</code>: <span class="type">sh:</span><span class="constant">valueShape</span>.</li>
-				<li><code>allowed value</code>: <span class="type">sh:</span><span class="constant">allowedValue</span>.</li>
-				<li><code>value shape</code>: <span class="type">sh:</span><span class="constant">valueShape</span>.</li>
-			</ul>
-			<section>
-				<h3>Types of Constraints (Error, Warning etc)</h3>
+			<pre class="example">
+ex:ExampleConstraintViolation
+	a sh:Error ;
+	sh:root ex:MyCurrentNode ;
+	sh:path ex:someProperty ;
+	sh:value ex:someInvalidValue ;
+	sh:message "Incorrect value: expected something else here." .
+			</pre>
+			<section id="violations-types">
+				<h3>Types of Constraints Violations</h3>
+				<p>
+					A constraint violation is represented by a IRI or blank node that has exactly one
+					asserted <code>rdf:type</code>.
+					The <code>rdf:type</code> arc of a constraint violation must point to one of the subclasses
+					of the ("abstract") base class <code>sh:ConstraintViolation</code>.
+					The SHACL core vocabulary includes the following constraint violation types: 
+				</p>
+				<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+					<tr>
+						<th>Constraint&nbsp;Violation&nbsp;Class</th>
+						<th>Superclass</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>sh:Warning</code></td>
+						<td><code>sh:ConstraintViolation</code></td>
+						<td>A non-critical constraint violation indicating a warning.</td>
+					</tr>
+					<tr>
+						<td><code>sh:Error</code></td>
+						<td><code>sh:ConstraintViolation</code></td>
+						<td>A constraint violation indicating an error.</td>
+					</tr>
+					<tr>
+						<td><code>sh:FatalError</code></td>
+						<td><code>sh:Error</code></td>
+						<td>
+							An error that cannot be recovered and further evaluation may terminate immediately.
+							Engines may decide to perform fatal checks first.
+						</td>
+					</tr>
+				</table>
+				<p>
+					SHACL extensions may define additional violation types, as long as they are rooted in
+					<code>sh:ConstraintViolation</code>.
+					The <code>rdfs:subClassOf</code> relationship between these types indicates specialization,
+					e.g. <code>sh:FatalError</code> is a subclass of <code>sh:Error</code> meaning that every
+					fatal error should also be regarded as an error.
+				</p>
 			</section>
-			<section>
-				<h3>sh:root, sh:path, sh:value</h3>
-				<div>Probably put path vocabulary here: sh:Path, sh:InversePath, sh:SequencePath</div>
+			<section id="violations-structure">
+				<h3>Structural Violation Metadata</h3>
+				<p>
+					SHACL constraint violations may include machine-readable metadata that points at
+					the cause of the violation.
+				</p>
+				<section id="violations-structure-root">
+					<h4>sh:root</h4>
+					<p>
+						Constraint violations may have a single value for the property <code>sh:root</code> to point to an
+						IRI or blank node that has caused the violation.
+					</p>
+				</section>
+				<section id="violations-structure-path">
+					<h4>sh:path</h4>
+					<p>
+						Constraint violations may have one or more values for the property <code>sh:path</code>
+						that describes a <em>path expression</em> that can be walked starting at the <code>sh:root</code>.
+						If value of this property is a IRI, then the path produces all triples that have the root node as
+						subject and the value as its predicate.
+						If the value of <code>sh:path</code> is a blank node, then it must have properties that
+						match either one of the following options: 
+					</p>
+					<ul>
+						<li>
+							<code>sh:inverse</code> describes an inverse path consisting of all paths that start
+							at the current root node and walk the given predicate backwards, i.e. from object to subject.
+							The values of <code>sh:inverse</code> must be the IRIs of properties.
+							Blank nodes with <code>sh:inverse</code> may have the optional type <code>sh:InversePath</code>.
+						</li>
+						<li>
+							<code>sh:path1</code> and <code>sh:path2</code> describe a sequence path consisting of
+							two other paths.  The values of these properties must be property IRIs or blank nodes
+							of the same recursive path structure.  The path produces the concatenation of the two sub-paths.
+							Blank nodes with <code>sh:path1</code> and <code>sh:path2</code> may have the optional type <code>sh:SequencePath</code>.
+						</li>
+					</ul>
+					<p>
+						The following example describes a path equivalent to the SPARQL 1.1 Property Path [[sparql11-query]]
+						<code>ex:firstProperty/((^ex:inverseProperty)/ex:lastProperty)</code>
+					</p>
+					<pre class="example">
+ex:ExampleConstraintViolationWithPath
+	a sh:Error ;
+	sh:root ex:MyCurrentNode ;
+	sh:path [
+		sh:path1 ex:firstProperty ;
+		sh:path2 [
+			ex:path1 [ sh:inverse ex:inverseProperty ] ;
+			ex:path2 ex:lastProperty
+		]
+	] .</pre>
+				</section>
+				<section id="violations-structure-value">
+					<h4>sh:value</h4>
+					<p>
+						Constraint violations may have one or more values of the property <code>sh:value</code> to
+						point at specific nodes that caused the violation.
+						These nodes SHOULD be accessible via at least one <code>sh:path</code> starting at the
+						specific <code>sh:root</code> node.
+					</p>
+				</section>
+				<section id="violations-structure-source">
+					<h4>sh:source</h4>
+					<p>
+						Constraint violations may point at one <code>sh:Constraint</code> that has caused
+						the violation, specified via the property <code>sh:source</code>.
+						SHACL constraint checking engines SHOULD automatically insert the <code>sh:source</code>
+						based on the currently evaluated constraint, unless the constraint violation already has
+						such a value.
+					</p>
+				</section>
+				<section id="violations-structure-detail">
+					<h4>sh:detail</h4>
+					<p>
+						The property <code>sh:detail</code> may link a (parent) constraint violation with one or more other
+						(child) constraint violations that provide further details about the cause of the (parent) violation.
+						Depending on the capabilities of the constraint checking engine, this may include failures of
+						nested constraints that have been evaluated via <code>sh:valueShape</code>.
+					</p>
+				</section>
 			</section>
-			<section>
-				<h3>sh:message</h3>
+			<section id="violations-message">
+				<h3>Human-readable Violation Messages (sh:message)</h3>
+				<p>
+					Constraint violations may have values for the property <code>sh:message</code> to communicate
+					additional textual details to humans.
+					While <code>sh:message</code> may have multiple values, there SHOULD not be two values
+					with the same language tag.
+				</p>
 			</section>
     	</section>
     	
@@ -606,6 +733,20 @@ ctx |- matchArcAny(ts,basicArc)
     	
     	<section>
     		<h2>Constraints on Shapes</h2>
+			<p>
+				A <code>property constraint</code> for a triple with the <code>focus node</code> as a subject is attached to the <code>shape</code> via with <span class="type">sh:</span><span class="constant">property</span>;
+				a <code>property constraint</code> for a triple with the <code>focus node</code> as a object is attached to the <code>shape</code> via with <span class="type">sh:</span><span class="constant">inverseProperty</span>.
+			</p>
+			<p>
+				A <code>constraint</code>'s <code>minimum cardinality</code> and <code>maximum cardinality</code> are identified by <span class="type">sh:</span><span class="constant">minCount</span> and <span class="type">sh:</span><span class="constant">maxCount</span> respectively.
+				The RDF properties for constraining objects are:
+			</p>
+			<ul>
+				<li><code>node type</code>: <span class="type">sh:</span><span class="constant">valueType</span>.</li>
+				<li><code>value type</code>: <span class="type">sh:</span><span class="constant">valueShape</span>.</li>
+				<li><code>allowed value</code>: <span class="type">sh:</span><span class="constant">allowedValue</span>.</li>
+				<li><code>value shape</code>: <span class="type">sh:</span><span class="constant">valueShape</span>.</li>
+			</ul>
 
 	  		<section>
 	  			<h3>General Constraints (sh:constraint)</h3>
