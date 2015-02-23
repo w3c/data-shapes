@@ -29,12 +29,21 @@
 			};
 		</script>
 		<style>
+		
+			.term-table {
+				border-collapse: collapse;
+				border-color: #000000;
+				margin: 16px;
+			}
+		
 			.todo {
 				color: red;
 			}
+
 			pre {
 				tab-size: 4;
 			}
+
 			th {
 				text-align: left;
 			}
@@ -569,7 +578,7 @@ ex:ExampleConstraintViolation
 					of the ("abstract") base class <code>sh:ConstraintViolation</code>.
 					The SHACL core vocabulary includes the following constraint violation types: 
 				</p>
-				<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+				<table class="term-table" border="1" cellpadding="5">
 					<tr>
 						<th>Constraint&nbsp;Violation&nbsp;Class</th>
 						<th>Superclass</th>
@@ -973,8 +982,91 @@ ex:HasValueExampleValidResource
 				<section>
 					<h4>sh:nodeType</h4>
 					<div>
-						Probably put node types vocabulary here (sh:IRI, sh:BlankNode etc)
+						The values of <code>sh:nodeType</code> must be instances of the class <code>sh:NodeType</code>.
+						The SHACL system vocabulary defines that <code>sh:NodeType</code> has exactly the 7 instances
+						listed in the following table.
+						The node types can have a property <code>sh:subNodeType</code> that links a more general
+						node type with its specializations.
+						The conditions to verify whether a given <code>?node</code> fulfills the constraints
+						are summarized in the third column of the following table.
 					</div>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>NodeType</th>
+							<th>Super-NodeTypes</th>
+							<th>SPARQL Expression</th>
+						</tr>
+						<tr>
+							<td><code>sh:Node</code></td>
+							<td></td>
+							<td><code>true</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:BlankNodeOrIRI</code></td>
+							<td><code>sh:Node</code></td>
+							<td><code>isBlank(?node) || isIRI(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:BlankNodeOrLiteral</code></td>
+							<td><code>sh:Node</code></td>
+							<td><code>isBlank(?node) || isLiteral(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:LiteralOrIRI</code></td>
+							<td><code>sh:Node</code></td>
+							<td><code>isLiteral(?node) || isIRI(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:BlankNode</code></td>
+							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
+							<td><code>isBlank(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:IRI</code></td>
+							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:LiteralOrIRI</code></td>
+							<td><code>isIRI(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:Literal</code></td>
+							<td><code>sh:LiteralOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
+							<td><code>isLiteral(?node)</code></td>
+						</tr>
+					</table>
+					<div id="def-nodeType-text" class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							An <code>sh:Error</code> must be reported for each triple that has
+							the <code>focus node</code> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object does not match the node type tests
+							defined in the table above.
+							Each produced <code>sh:Error</code> must have the <code>sh:predicate</code>
+							as its <code>sh:path</code> and the respective violating value as its <code>sh:value</code>.
+						</div>
+					</div>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT (?this AS ?root) (?predicate AS ?path) ?value ?message
+WHERE {
+	?this ?predicate ?value ;
+	FILTER (!sh:hasNodeType(?value, ?nodeType)) .
+	BIND (CONCAT("Value ", sh:label(?value), " does not have the required node type ", sh:label(?nodeType)) AS ?message) .
+}</pre>
+					</div>
+					<pre class="example">
+ex:NodeTypeExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:nodeType ex:IRI ;
+	] .
+
+ex:NodeTypeShapeExampleValidResource
+	ex:someProperty ex:SomeIRI .
+
+ex:NodeTypeShapeExampleInvalidResource
+	ex:someProperty ex:SomeIRI ;
+	ex:someProperty "A literal" .</pre>
 				</section>
 				<section>
 					<h4>sh:valueShape</h4>
@@ -1086,6 +1178,45 @@ ex:HasValueExampleValidResource
 			</section>
 			<section>
 				<h3>SPARQL-based Functions</h3>
+				<section>
+					<h4>sh:hasNodeType</h4>
+					<p>
+						The function <code>sh:hasNodeType</code> can be used to verify whether a given
+						node (<code>?arg1</code>) has the provided <code>sh:NodeType</code> (<code>?arg2</code>).
+						The return type of this function is <code>xsd:boolean</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Value type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?arg1</code></td>
+							<td>Any</td>
+							<td>The node to test</td>
+						</tr>
+						<tr>
+							<td><code>?arg2</code></td>
+							<td><code>sh:NodeType</code></td>
+							<td>The node type that <code>?arg1</code> is expected to have</td>
+						</tr>
+					</table>
+					<div id="def-hasNodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+ASK {
+	FILTER (isIRI(?arg1) && (?arg2 IN (ldom:IRI, ldom:BlankNodeOrIRI, ldom:LiteralOrIRI, ldom:Node)) ||
+		(isLiteral(?arg1) && (?arg2 IN (ldom:Literal, ldom:BlankNodeOrLiteral, ldom:LiteralOrIRI, ldom:Node))) ||
+ 		(isBlank(?arg1) && (?arg2 IN (ldom:BlankNode, ldom:BlankNodeOrLiteral, ldom:BlankNodeOrIRI, ldom:Node))))
+}</pre>
+					</div>
+					<pre class="example">
+sh:hasNodeType(42, sh:IRI)   # false
+sh:hasNodeType(42, sh:Literal)   # true
+sh:hasNodeType(ex:MyInstance, sh:BlankNodeOrIRI)   # true</pre>
+					
+				</section>
 			</section>
 			<section>
 				<h3>Built-in Functions (sh:hasShape etc)</h3>
