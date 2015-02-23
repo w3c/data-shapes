@@ -1104,6 +1104,52 @@ ex:NodeTypeShapeExampleInvalidResource
 				</section>
 				<section>
 					<h4>sh:valueShape</h4>
+					<p>
+						The property <code>sh:valueShape</code> can be used verify that all values of the given property must match a given shape.
+						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>.
+					</p>
+					<div id="def-valueShape-text" class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							An <code>sh:Error</code> must be reported for each triple that has
+							the <code>focus node</code> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object does not match the shape specified by <code>sh:valueShape</code>.
+							Each produced <code>sh:Error</code> must have the <code>sh:predicate</code>
+							as its <code>sh:path</code> and the respective violating value as its <code>sh:value</code>.
+						</div>
+					</div>
+					<div id="def-valueShape-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT (?this AS ?root) (?predicate AS ?path) ?value 
+WHERE {
+	?this ?predicate ?value .
+	FILTER (!sh:hasShape(?value, ?valueShape)) .
+}</pre>
+					</div>
+					<p>
+						In the following example, all values of the property <code>ex:someProperty</code> are supposed to match the	shape
+						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
+						Note that the values of <code>sh:valueShape</code> do not require an <code>rdf:type</code> triple - <code>sh:Shape</code> is implicit.
+					</p>
+					<pre class="example">
+ex:ValueShapeExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:valueShape [
+			a sh:Shape ;   # Optional
+			sh:predicate [
+				sh:predicate ex:nestedProperty ;
+				sh:minCount 1 ;
+			]
+		]
+	] .
+
+ex:ValueShapeExampleValidResource
+	ex:someProperty [
+		ex:nestedProperty 42 ;
+	] .</pre>
 				</section>
 				<section>
 					<h4>sh:valueType</h4>
@@ -1183,12 +1229,29 @@ ex:NodeTypeShapeExampleInvalidResource
 		</section>
 
 		<section>
-			<h2>Profiles (ShEx etc)</h2>
-			<div>
+			<h2>Profiles</h2>
+			<p>
 				A Profile is a set of shape templates.
 				Profiles can be used to define controlled sub-dialects of SHACL, e.g. with desirable complexity.
-				Once you are in a Profile, you cannot use extensions such as SPARQL any more.
-			</div>
+				Tools may decide to only support certain profiles, for example so that they can hard-code and optimize certain algorithms.
+				Since Profiles are entirely based on templates, the native executables such as SPARQL are outside of their expressivity. 
+			</p>
+			<p>
+				The class <code>sh:Profile</code> is used to represent SHACL profiles.
+				The property <code>sh:member</code> links a <code>sh:Profile</code> with the templates that are in the profile.
+				The following example defines a profile consisting of the two built-in templates for min/max cardinality and value shape.
+			</p>
+			<pre class="example">
+ex:MyProfile
+	a sh:Profile ;
+	sh:member sh:AbstractValueShapePropertyConstraint ;
+	sh:member sh:AbstractCountPropertyConstraint .</pre>
+			<p>
+				In the example above, the profile includes all subclasses of the provided abstract template classes.
+				This means that graphs containing <code>sh:PropertyConstraint</code> are still within the given profile.
+				However, sibling template classes such as <code>sh:AbstractAllowedValuesPropertyConstraint</code> are outside of the profile,
+				which means that <code>sh:allowedValues</code> would be out of scope for this profile.
+			</p>
 		</section>
 
 		<section>
@@ -1214,7 +1277,7 @@ ex:NodeTypeShapeExampleInvalidResource
 				<h3>SPARQL-based Functions</h3>
 			</section>
 			<section>
-				<h3>Built-in Functions (sh:hasShape etc)</h3>
+				<h3>Built-in Functions</h3>
 				<section id="function-hasNodeType">
 					<h4>sh:hasNodeType</h4>
 					<p>
