@@ -691,45 +691,207 @@ ex:ExampleConstraintViolationWithPath
 			</section>
     	</section>
     	
-    	<section>
-    		<h2>Global Constraints</h2>
+    	<section id="constraints">
+    		<h2>Constraints</h2>
     		<p>
-				This section is here to introduce how constraints are written in general, e.g. based on a SPARQL query.
+    			The (abstract) root class for representing SHACL constraints is <code>sh:Constraint</code>.
+    			There are two kinds of constraints built into SHACL, represented by the following subclasses of
+    			<code>sh:Constraint</code>:
     		</p>
+    		<ul>
+    			<li>
+    				<code>sh:NativeConstraint</code> represents constraints that are directly backed by a
+    				<em>native executable</em>, e.g. a SPARQL query, that produces constraint violations.
+    			</li>
+    			<li>
+    				<code>sh:TemplateConstraint</code> represents constraints that are backed by a native executable
+    				that is encapsulated into a <em>template</em> (aka <em>macro</em>).
+    			</li>
+    		</ul>
+    		<p>
+    			There is another dimension to constraint definitions that is orthogonal to the distinction between
+    			native and template constraints:
+    		</p>
+    		<ul>
+    			<li>
+    				<code>sh:GlobalConstraint</code> represents constraints that are evaluated on the whole graph.
+    			</li>
+    			<li>
+    				<code>sh:LocalConstraint</code> represents constraints that evaluated on a given focus node.
+    				Local constraints are usually grouped into shapes but may also be declared as stand-alone
+    				entities with their own IRIs so that they can be shared between multiple shapes. 
+    			</li>
+    		</ul>
+    		<p>
+    			Based on those two dimensions, SHACL can represent four kinds of constraints overall:
+    		</p>
+    		<ul>
+    			<li><a href="#constraints-global-native">Global native constraints</a></li>
+    			<li><a href="#constraints-global-template">Global template constraints</a></li>
+    			<li><a href="#constraints-local-native">Local native constraints</a></li>
+    			<li><a href="#constraints-local-template">Local template constraints</a></li>
+    		</ul>
+    		<section id="constraints-global-native">
+    			<h3>Global Native Constraints</h3>
+    			<p>
+    				The following example illustrates the syntax for a global native constraint.
+    				Note that the constraint does not need to have the explicit type <code>sh:NativeConstraint</code>
+    				because it has a <code>sh:sparql</code> query that serves as a native executable.
+    			</p>
+    			<pre class="example">
+ex:ExampleGlobalSPARQLConstraint
+	a sh:GlobalConstraint ;
+	sh:message "There needs to be at least one instance of ex:SomeClass." ;
+	sh:sparql """
+		ASK {
+			FILTER NOT EXISTS { ?any rdf:type ex:SomeClass } .
+		}
+		""" .</pre>
+    		</section>
+    		<section id="constraints-global-template">
+    			<h3>Global Template Constraints</h3>
+    			<p>
+    				The following example illustrates the syntax for a global template constraint and the template
+    				that it instantiates.
+    				Note that the constraint does not need to have the explicit type <code>sh:GlobalConstraint</code>
+    				because it is an instance of the template <code>ex:ExampleGlobalConstraintTemplate</code> which
+    				is declared as a subclass of <code>sh:GlobalConstraint</code>.
+    			</p>
+    			<pre class="example">
+ex:ExampleGlobalTemplateConstraint
+	a ex:ExampleGlobalConstraintTemplate ;
+	ex:exampleArgument ex:SomeClass .
+	
+ex:ExampleGlobalConstraintTemplate
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:GlobalConstraint ;
+	sh:argument [
+		sh:predicate ex:exampleArgument ;
+		sh:valueType rdfs:Class ;
+		rdfs:label "The class that needs to have at least one instance." ;
+	] ;
+	sh:message "There needs to be at least one instance of the given class" ;
+	sh:sparql """
+		ASK {
+			FILTER NOT EXISTS { ?any rdf:type ?exampleArgument }
+		}
+		""" .</pre>
+    		</section>
+    		<section id="constraints-local-native">
+    			<h3>Local Native Constraints</h3>
+    			<p>
+    				The following example illustrates the syntax for a local native constraint.
+    				Note that the constraint does not need to have the explicit type <code>sh:NativeConstraint</code>
+    				because it has a <code>sh:sparql</code> query that serves as a native executable.
+    				In contrast to global constraints, note that the variable <code>?this</code> is used to
+    				refer to the focus node.
+    			</p>
+    			<pre class="example">
+ex:ExampleLocalSPARQLConstraint
+	sh:message "At least one value of ex:someProperty expected." ;
+	sh:sparql """
+		ASK {
+			FILTER NOT EXISTS { ?this ex:someProperty ?anyValue } .
+		}
+		""" .</pre>
+    		</section>
+    		<section id="constraints-local-template">
+    			<h3>Local Template Constraints</h3>
+    			<p>
+					The following example illustrates the syntax for a local template constraint and the
+					template that it instantiates.
+    			</p>
+    			<pre class="example">
+ex:ExampleLocalTemplateConstraint
+	a ex:ExampleLocalConstraintTemplate ;
+	ex:exampleArgument ex:someProperty .
+
+ex:ExampleLocalConstraintTemplate
+	sh:message "At least one value of the given property expected." ;
+	rdfs:subClassOf sh:LocalConstraint ;
+	sh:argument [
+		sh:predicate ex:exampleArgument ;
+		sh:valueType rdf:Property ;
+		rdfs:label "The property for which the focus node needs to have at least one instance." ;
+	] ;
+	sh:sparql """
+		ASK {
+			FILTER NOT EXISTS { ?this ?exampleArgument ?anyValue } .
+		}
+		""" .</pre>
+    		</section>
     	</section>
     	
-    	<section>
+    	<section id="shapes">
     		<h2>General Structure of Shapes</h2>
-    		<p>
-    			Shapes are instances of sh:Shape (and/or rdfs:Class?).
-    		</p>
     		<div class="issue">
-    			There is no agreement in the WG on the relationship of sh:Shape with RDFS classes.
-    			Proposals include:
-    			<ul>
-    				<li>Keep them completely separate, users only instantiate sh:Shape and use sh:extends</li>
-    				<li>Have rdfs:Class rdfs:subClassOf sh:Shape, use either sh:extends or rdfs:subClassOf</li>
-    				<li>Have sh:Shape rdfs:subClassOf rdfs:Class, use rdfs:subClassOf</li>
-    				<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
-    				<li>Allow both and have sh:classShape to point from a class to its shape(s)</li>
-    			</ul>
-    		</div>
-    		<section>
-    			<h3>Shape metadata</h3>
-    			<p>
-    				Labels, comments, sh:abstract, sh:private.
+				There is no agreement in the WG on the relationship of sh:Shape with RDFS classes.
+				Proposals include:
+				<ul>
+					<li>Keep them completely separate, users only instantiate sh:Shape and use sh:extends</li>
+					<li>Have rdfs:Class rdfs:subClassOf sh:Shape, use either sh:extends or rdfs:subClassOf</li>
+					<li>Have sh:Shape rdfs:subClassOf rdfs:Class, use rdfs:subClassOf</li>
+					<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
+					<li>Allow both and have sh:classShape to point from a class to its shape(s)</li>
+				</ul>
+				In the absence of such an agreement, this document uses sh:Shape in all examples.
+			</div>
+			<p>
+				Shapes are instances of the class <code>sh:Shape</code>
+				(or, depending on the outcome of the ISSUE above, <code>rdfs:Class</code>).
+				The <code>rdf:type</code> triple of a shape can be omitted when it can be deduced from
+				the context, e.g. values of <code>sh:valueShape</code> do not require a type triple.
+			</p>
+	 		<section id="shapes-labels">
+				<h3>Shape Labels and Comments</h3>
+				<p>
+					Like many other types of RDF resources, shapes SHOULD have human-readable labels
+					via <code>rdfs:label</code>.
+					The property <code>rdfs:comment</code> is recommended for documentation and definition purposes.
+				</p>
+			</section>
+			<section id="shapes-private">
+				<h3>Private Shapes (sh:private)</h3>
+				<p>
+					A shapes may have its property <code>sh:private</code> set to <code>true</code> to
+					indicate that the shape is not meant to be directly referenced from outside of the
+					graph (or namespace) that it has been defined in.
+					Editing tools SHOULD actively discourage the use of private shapes.
+				</p>
+			</section>
+			<section id="shapes-specialization">
+				<h3>Shape Specialization Mechanism (sh:extends/rdfs:subClassOf)</h3>
+				<p>
+					Shape declarations can specialize other shapes.
+					If a (sub) shape is declared to specialize another (super) shape then all constraints
+					attached to the super-shape must also apply to the sub-shape.
+					In other words, the set of nodes that match a sub-shape is a sub-set of those that
+					match a super-shape.
+				</p>
+				<p>
+					In the currently discussed proposals, the property <code>sh:extends</code> would be used
+    				for instances of <code>sh:Shape</code> if <code>sh:Shape</code> is not declared to be a
+    				subclass of <code>rdfs:Class</code>.
+    				In all other cases, the property <code>rdfs:subClassOf</code> would be used to link
+    				a sub-shape with its super-shape(s).
     			</p>
     		</section>
-    		<section>
-    			<h3>Shape Inheritance/Extension Mechanism</h3>
-    			<p>
-    				sh:extends and/or rdfs:subClassOf.
-    			</p>
-    			<p>
-    				Maybe introduce sh:final to indicate that no subshapes are encouraged.
-    			</p>
-    		</section>
-    	</section>
+			<section id="shapes-abstract">
+				<h3>Abstract Shapes (sh:abstract)</h3>
+				<p>
+					A shape may have its property <code>sh:abstract</code> set to <code>true</code> to
+					indicate that the shape SHOULD only serve as base of further specializations.
+					Abstract shapes SHOULD not be "instantiated" directly.
+				</p>
+			</section>
+			<section id="shapes-final">
+				<h3>Final Shapes (sh:final)</h3>
+				<p>
+					A shape may have its property <code>sh:final</code> set to <code>true</code> to
+					indicate that the shape SHOULD not have further specializations.
+				</p>
+			</section>
+   		</section>
     	
     	<section>
     		<h2>Constraints on Shapes</h2>
