@@ -30,20 +30,6 @@
 			};
 		</script>
 		<style>
-		
-			.term {
-				font-style: italic;
-			}
-		
-			.term-table {
-				border-collapse: collapse;
-				border-color: #000000;
-				margin: 16px;
-			}
-		
-			.todo {
-				color: red;
-			}
 
 			pre {
 				tab-size: 4;
@@ -55,31 +41,7 @@
 			table.rule { background-color: #EBEBE0; }
 			table.rule td { text-align: center; }
 			td.up { border-bottom:1px solid black; }
-			
-      .comment {
-        /* font-lock-comment-face */
-        color: #b22222;
-      }
-      .constant {
-        /* font-lock-constant-face */
-        color: #008b8b;
-      }
-      .function-name {
-        /* font-lock-function-name-face */
-        color: #0000ff;
-      }
-      .keyword {
-        /* font-lock-keyword-face */
-        color: #a020f0;
-      }
-      .string {
-        /* font-lock-string-face */
-        color: #8b2252;
-      }
-      .type {
-        /* font-lock-type-face */
-        color: #228b22;
-      }
+
 			.def {
 				background: #fcfcfc;
 				border-left-style: solid;
@@ -104,7 +66,21 @@
 				font-size: 16px;
 				padding-bottom: 8px;
 			}
-
+		
+			.term {
+				font-style: italic;
+			}
+		
+			.term-table {
+				border-collapse: collapse;
+				border-color: #000000;
+				margin: 16px;
+			}
+		
+			.todo {
+				color: red;
+			}
+			
       .comment {
         /* font-lock-comment-face */
         color: #b22222;
@@ -786,6 +762,10 @@ ex:ExampleConstraintViolationWithPath
 				<li><a href="#constraints-local-native">Local native constraints</a></li>
 				<li><a href="#constraints-local-template">Local template constraints</a></li>
 			</ul>
+			<p>
+				TODO: We need to somewhere explain the meaning of attaching sh:message, sh:path etc to the constraints
+				(they serve as default values for the constructed constraint violations)
+			</p>
 			<section id="constraints-global-native">
 				<h3>Global Native Constraints</h3>
 				<p>
@@ -1380,12 +1360,82 @@ ex:InversePropertyConstraintExampleShape
 		</section>
 		
 		<section>
-			<h2>Functions (general mechanism, SPARQL as one example)</h2>
-			<div>
-				Functions define operations that produce an RDF node based on arguments.
-				Functions can be called within SPARQL queries to encapsulate complex
-				logic of other SPARQL queries or control logic in other execution languages such as JavaScript. 
-			</div>
+			<h2>Functions</h2>
+			<p>
+				SHACL <span class="term">Functions</span> define operations that produce an RDF node based on arguments.
+				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
+			</p>
+			<p>
+				Functions must be declared as instances of the class <code>sh:Function</code>.
+				Well-defined functions MUST provide at least one executable implementation property, such as <code>sh:sparql</code>.
+				The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
+			</p>
+			<pre class="example">
+ex:exampleFunction
+	a sh:Function ;
+	rdfs:comment "Computes the sum of its two arguments ?arg1 and ?arg2."
+	sh:returnType xsd:integer ;
+	sh:argument [
+		sh:predicate sh:arg1 ;
+		sh:valueType xsd:integer ;
+		rdfs:comment "The first operand" ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg2 ;
+		sh:valueType xsd:integer ;
+		rdfs:comment "The second operand" ;
+	] ;
+	sh:sparql """
+		SELECT ?result
+		WHERE {
+			BIND (?arg1 + ?arg2 AS ?result)
+		}
+		""" .</pre>
+			<p>
+				The following sections introduce details of the properties that such functions may have.
+			</p>
+			<section>
+				<h3>Function Arguments</h3>
+				<p>
+					The arguments of a function are attached to its <code>sh:Function</code> via the property <code>sh:argument</code>.
+					Each argument must be an instance of <code>sh:Argument</code>.
+					The <code>rdf:type</code> triple of the argument can be omitted if it is a blank node with an incoming <code>sh:argument</code> triple.
+					Arguments are ordered, corresponding to the notation of function calls in SPARQL such as
+					<code>ex:exampleFunction(?arg1, ?arg2, ?arg3)</code>.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
+					The values of <code>sh:predicate</code> must be <code>sh:arg1</code> for the first argument,
+					<code>sh:arg2</code> for the second argument, etc.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
+					to indicate that the argument is not mandatory.
+					If an argument has been declared optional, then all succeeding arguments must also be declared optional.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code>.
+					This can be used to communicate the expected value type of the argument in function calls.
+					Some implementations MAY use this information to prevent the execution of a function with invalid arguments, and to signal errors.
+				</p>
+			</section>
+			<section>
+				<h3>sh:returnType</h3>
+				<p>
+					A function may declare a single return type via <code>sh:returnType</code>.
+					This information may serve for documentation purposes, only.
+					However, in some execution languages such as JavaScript, the declared <code>sh:returnType</code> may inform
+					the engine how to cast a native value into an RDF value type.
+				</p>
+			</section>
+			<section>
+				<h3>sh:cachable</h3>
+				<p>
+					A <code>sh:Function</code> may have a property <code>sh:cachable</code> set to true.
+					Functions that are marked as cachable MUST always return the same value for the same combination of arguments, regardless of the query graphs.
+					Engines can use this information to cache and reuse previous function calls without repeatedly evaluating their native executable.
+				</p>
+			</section>
 		</section>
 		
 		<section>
