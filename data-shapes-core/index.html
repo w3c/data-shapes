@@ -238,6 +238,11 @@
 					This operation can be called based on any control logic, i.e. applications can pick their own mapping between RDF nodes and their shapes.
 					SHACL also provides mapping mechanisms based on the RDF triples in the graph being checked.
 					Current proposals for these mechanisms include selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples.
+					Based on such in-graph mappings, SHACL supports constraint checking over a complete graph.
+				</p>
+				<p>
+					Constraints and shapes may be grouped into <span class="term">contexts</span>.
+					The constraint checking operations may be parameterized to include or exclude certain contexts.
 				</p>
 			</section>
 		</section>
@@ -1013,6 +1018,7 @@ ex:GeneralConstraintExampleShape
 					of the <code>sh:PropertyConstraint</code> is optional.
 					Note that <code>sh:property</code> may also have values that are sub-classes of <code>sh:PropertyConstraint</code>,
 					but in this case the <code>rdf:type</code> triple is required.
+					It is not valid to use <code>sh:property</code> for constraints that are not instance of <code>sh:PropertyConstraint</code>.
 				</p>
 				<p>
 					Note that the same <code>sh:PropertyConstraint</code> can hold multiple <em>facets</em>, such as <code>sh:minCount</code>
@@ -1366,8 +1372,15 @@ ex:ValueShapeExampleValidResource
 				</section>
 				<section id="AbstractValueTypePropertyConstraint">
 					<h4>sh:valueType</h4>
-					<p>
-						TODO
+					<p class="issue">
+						The details of valueType checking need to be fully worked out.
+						In a nutshell, the goal is to have one or two properties to narrow down the type of values.
+						The user experience may be best if there was just one property, sh:valueType.
+						However, there are substantial differences between datatypes and class-based types.
+						For datatypes, we should exclude reified values such as instances of xsd:integer.
+						For resources, we need to make sure that (transitive) subclasses are accepted too.
+						What about typeless resources - I believe these should be allowed if the valueType is rdfs:Resource or rdf:Property.
+						Another question will be whether multiple valueTypes should be supported, and what their semantics should be.
 					</p>
 				</section>
 			</section>
@@ -1634,13 +1647,164 @@ ex:MyProfile
 		</section>
 
 		<section id="sparql">
-			<h2>sh:sparql</h2>
+			<h2>SPARQL-based Execution (sh:sparql)</h2>
 			<p>
-				SPARQL-specific details
+				The property <code>sh:sparql</code> is used to link constraints, template and functions with an executable body in SPARQL.
+				The values of <code>sh:sparql</code> must be string literals that can be parsed into syntactically valid SPARQL queries.
+				Prior to parsing, a SHACL engine MUST add all prefix declarations from the graph into the beginning of the string.
+				This means that the values of <code>sh:sparql</code> do not have to explicitly state any <code>@prefix</code> declarations for the prefixes used in the SPARQL query.
+			</p>
+			<p>
+				The following sections provide details on how <code>sh:sparql</code> is interpreted for
+				<a href="#sparql-constraints">constraints</a>, <a href="#sparql-templates">templates</a> and <a href="#sparql-functions">functions</a>.
 			</p>
 			<section id="sparql-constraints">
 				<h3>SPARQL-based Constraints</h3>
-				<p>TODO: Including the role of ?this, and how ASK, SELECT, CONSTRUCT map into Constraint Violations</p>
+				<p>
+					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>ASK</code>, <code>CONSTRUCT</code> or <code>SELECT</code>.
+					<a href="#sparql-constraints-construct"><code>CONSTRUCT</code></a> is the most flexible option, so the following section starts with describing how these are executed.
+					The subsequent sections describe how <a href="#sparql-constraints-ask"><code>ASK</code></a> and <a href="#sparql-constraints-select"><code>SELECT</code></a> queries can be transformed into equivalent <code>CONSTRUCT</code> forms.
+				</p>
+				<section id="sparql-constraints-construct">
+					<h4>CONSTRUCT-based Constraints</h4>
+					<p>
+						Constraints backed by a SPARQL <code>CONSTRUCT</code> query are assumed to construct <span class="term">constraint violations</span>.
+						<code>CONSTRUCT</code> queries consist of a <span class="term">graph template</span> and a <code>WHERE</code> clause.
+						The output of a <code>CONSTRUCT</code> query is a new RDF graph, and the triples from those RDF graphs need to be added to the result graph of the constraint checking operation.
+					</p>
+					<p>
+						The following example illustrates how a <code>CONSTRUCT</code> query is used to produce instances of <code>sh:Error</code> for every instance of <code>ex:ExampleClass</code> that has no <code>rdfs:label</code>.
+						Note that <code>_:error</code> is a SPARQL syntax representing a new blank node for each row of the result set (<code>WHERE</code> clause).
+					</p>
+					<pre class="example">
+sh:ExampleGlobalConstructConstraint
+	a sh:GlobalConstraint ;
+	sh:sparql """
+		CONSTRUCT {
+			_:error a sh:Error .
+			_:error sh:root ?instance .
+			_:error sh:path rdfs:label .
+			_:error sh:message "Instances of ex:ExampleClass must have an rdfs:label" .
+		}
+		WHERE {
+			?instance a ex:ExampleClass .
+			FILTER NOT EXISTS { ?instance rdfs:label ?anyLabel } .
+		}
+		""" .
+}</pre>
+					<p>
+						The instances of <code>sh:ConstraintViolation</code> produced by such queries are not modified further,
+						except that the engine SHOULD add <code>sh:source</code> triples that have each constraint violation
+						instance as subject and the surrounding <code>sh:Constraint</code> as its object.
+					</p>
+				</section>
+				<section id="sparql-constraints-ask">
+					<h4>ASK-based Constraints</h4>
+					<p>
+						SPARQL queries of the <code>ASK</code> form that produce <code>true</code> signal a constraint violation.
+						As shown in the following example, the subject node holding the <code>sh:sparql</code> query may also have other properties that define properties of the constraint violation.
+					</p>
+					<pre class="example">
+ex:ExampleGlobalAskConstraint
+	a sh:GlobalConstraint ;
+	sh:level sh:Warning ;
+	sh:message "Properties marked as deprecated should not be used" .
+	sh:sparql """
+		ASK {
+			?subject ?predicate ?object .
+			?predicate ex:deprecated true .
+		}
+		""" .</pre>
+					<p>
+						The <code>ASK</code> query above gets translated into the following <code>CONSTRUCT</code>:
+					</p>
+					<pre class="example">
+CONSTRUCT {
+	_:violation a sh:Warning .
+	_:violation sh:message "Properties marked as deprecated should not be used" .
+}
+WHERE {
+	?subject ?predicate ?object .
+	?predicate ex:deprecated true .
+}</pre>
+					<p>
+						In its most basic form, an <code>ASK</code> query is translated into a <code>CONSTRUCT</code> form with the identical <code>WHERE</code> clause.
+						The <span class="term">graph template</span> of the <code>CONSTRUCT</code> must create exactly one blank node.
+						The <code>rdf:type</code> of that blank node must be the value of the property <code>sh:level</code> at the surrounding subject node.
+						If no <code>sh:level</code> has been specified, <code>sh:Error</code> must be used as default type.
+					</p>
+					<p>
+						If the surrounding subject node defines a <code>sh:message</code> then the constructed blank node needs to have a corresponding triple.
+						Similarly, the values of <code>sh:root</code>, <code>sh:path</code> and <code>sh:value</code> must be inserted (they cannot be blank nodes).
+					</p>
+				</section>
+				<section id="sparql-constraints-select">
+					<h4>SELECT-based Constraints</h4>
+					<p>
+						SPARQL queries of the <code>SELECT</code> form need to produce one constraint violation blank node for each row of the produced result set.
+						The following example illustrates a constraint that flags warnings for all subjects that have a <code>rdfs:label</code> with the language tag <code>"de"</code>.
+					</p>
+					<pre class="example">
+ex:ExampleGlobalSelectConstraint
+	a sh:GlobalConstraint ;
+	sh:level sh:Warning ;
+	sh:message "Deutsch is verboten" ;
+	sh:path rdfs:label ;
+	sh:sparql """
+		SELECT (?subject AS ?root) (?object AS ?value)
+		WHERE {
+			?subject rdfs:label ?object .
+			FILTER (lang(?object) = "de") .
+		}
+		""" .</pre>
+					<p>
+						For execution, the constraint above can be turned into the following <code>CONSTRUCT</code> query.
+					</p>
+					<pre class="example">
+CONSTRUCT {
+	_:violation a sh:Warning .
+	_:violation sh:message "Deutsch is verboten" .
+	_:violation sh:path rdfs:label .
+	_:violation sh:root ?subject .
+	_:violation sh:value ?object .
+}
+WHERE {
+	?subject rdfs:label ?object .
+	FILTER (lang(?object) = "de") .
+}</pre>
+					<p>
+						The following naming conventions are used to map the result variables of a <code>SELECT</code> into corresponding RDF properties: 
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Result&nbsp;Variable</th>
+							<th>Constraint&nbsp;Violation&nbsp;Property</th>
+						</tr>
+						<tr>
+							<td><code>?level</code></td>
+							<td><code>rdf:type</code></td>
+						</tr>
+						<tr>
+							<td><code>?message</code></td>
+							<td><code>sh:message</code></td>
+						</tr>
+						<tr>
+							<td><code>?predicate</code></td>
+							<td><code>sh:predicate</code></td>
+						</tr>
+						<tr>
+							<td><code>?root</code></td>
+							<td><code>sh:root</code></td>
+						</tr>
+						<tr>
+							<td><code>?value</code></td>
+							<td><code>sh:value</code></td>
+						</tr>
+					</table>
+					<p>
+						Similar to <a href="#sparql-constraints-ask">ASK</a> queries, corresponding values attached to the surrounding subject node must be used in the absence of the result variables above.
+					</p>
+				</section>
 			</section>
 			<section id="sparql-templates">
 				<h3>SPARQL-based Templates</h3>
