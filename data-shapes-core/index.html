@@ -207,7 +207,38 @@
 			</section>
 			
 			<section>
-				<h3>How Shapes work (Macros/Templates, SPARQL and other executable languages)</h3>
+				<h3>How SHACL works (HK)</h3>
+				<p>
+					The basic building blocks of SHACL are <span class="term">constraints</span>.
+					Each <span class="term">constraint</span> defines an atomic condition that can be checked against a graph.
+					The output of constraint checking is a set of <span class="term">constraint violations</span>.
+					The checking of each <span class="term">constraint</span> is implemented with one or more <span class="term">execution languages</span>.
+					SPARQL is a built-in <span class="term">execution language</span> in SHACL, but other languages may be supported in the future or by third parties.
+					Each constraint needs to provide at least one <span class="term">executable body</span> in an <span class="term">execution language</span>.
+					Constraints may either directly define such an <span class="term">executable body</span> or point at a <span class="term">template</span>.
+					Constraints that directly include an <span class="term">executable body</span> (e.g. via <code>sp:sparql</code>) are called <span class="term">native constraints</span>.
+					A <span class="term">template</span> serves as a parameterizable macro that wraps an <span class="term">executable body</span>.
+					Constraints that rely on a <span class="term">template</span> are called <span class="term">template constraints</span>.
+					SHACL includes a small library of such <span class="term">templates</span> for common constraint patterns, but third parties can add their own template libraries.
+					Templates can be grouped into <span class="term">profiles</span>.
+					Some SHACL engines may decide to only support certain <span class="term">profiles</span> and implement them differently than the provided (SPARQL) bodies.
+				</p>
+				<p>
+					Constraints are either <span class="term">global</span> or <span class="term">local</span>.
+					<span class="term">Global constraints</span> are executed when constraint checking is invoked on the whole graph, and may verify arbitrary conditions.
+					<span class="term">Local constraints</span> are evaluated against a given <span class="term">focus node</span> (represented by the variable <code>?this</code> in SPARQL).
+					The <span class="term">focus node</span> serves as starting point of property paths and other graph traversal algorithms.
+					A <span class="term">shape</span> describes a group of <span class="term">local constraints</span> with the same <span class="term">focus node</span>.
+					Shapes may be arranged in a <span class="term">specialization</span> hierarchy, allowing some shapes to further narrow down the constraints from other shapes.
+					Current proposals for such specialization mechanisms include <code>sh:extends</code> and <code>rdfs:subClassOf</code> triples.
+					The latter implies that the nodes of (RDFS/OWL) classes may also be interpreted as shapes.
+				</p>
+				<p>
+					One of the <span class="term">operations</span> that SHACL engines support verifies that a given RDF node matches a given shape.
+					This operation can be called based on any control logic, i.e. applications can pick their own mapping between RDF nodes and their shapes.
+					SHACL also provides mapping mechanisms based on the RDF triples in the graph being checked.
+					Current proposals for these mechanisms include selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples.
+				</p>
 			</section>
 		</section>
 
@@ -1395,17 +1426,77 @@ ex:InversePropertyConstraintExampleShape
 			</section>
 		</section>
 		
-		<section>
-			<h2>Macros/Templates (general mechanism, SPARQL as one example)</h2>
+		<section id="templates">
+			<h2>Templates</h2>
 			<p>
-				Templates can be used to encapsulate and parameterize reusable constraints based on arguments.
-				Templates can be instantiated anywhere where a constraint would appear (sh:constraint etc).
-				SHACL includes several templates that were deemed to be of general use, including the property
-				constraint templates.
+				Templates can be used to encapsulate and parameterize <span class="term">executable bodies</span> based on arguments.
+				Templates can be instantiated anywhere where a native constraint may appear (for example, at <code>sh:constraint</code>).
+				SHACL includes several templates that were deemed to be of general use, including the <a href="#shapeconstraints-property">property constraint templates</a>.
+				Such templates form a high-level vocabulary that may be directly interpreted ("hard-coded") without reliance on their executable bodies.
 			</p>
+			<p>
+				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
+				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc) by third parties.
+				Well-defined, non-abstract templates MUST provide at least one executable body property, such as <a href="#sparql-templates"><code>sh:sparql</code></a>.
+				The following example illustrates the definition of a local constraint template based on a SPARQL query.
+			</p>
+			<pre class="example">
+ex:ExampleTemplate
+	a sh:ConstraintTemplate ;
+	rdfs:label "Example Template" ;
+	rdfs:comment "Verifies that the given focus node (?this) has at least one value for the argument property (?argProperty)." ;
+	sh:argument [
+		sh:predicate ex:argProperty ;
+		sh:valueType rdf:Property ;
+	] ;
+	sh:labelTemplate "The property {?argProperty} must have at least one value" ;
+	sh:sparql """
+		SELECT (?this AS ?root) (?argProperty AS ?path) 
+		WHERE {
+			FILTER NOT EXISTS { ?this ?argProperty ?anyValue }
+		}
+		""" .</pre>
+			<p>
+				The following sections introduce details of the properties that such templates may have.
+			</p>
+			<section id="template-arguments">
+				<h3>Template Arguments</h3>
+				<p>
+					The arguments of a template are attached via the property <code>sh:argument</code>.
+					Each argument must be an instance of <code>sh:Argument</code>.
+					The <code>rdf:type</code> triple of the argument can be omitted if it is a blank node with an incoming <code>sh:argument</code> triple.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
+					The values of <code>sh:predicate</code> must be IRIs such that no pair of argument predicates in the scope of the same template have the same local name.
+					(This ensures that there is a unique mapping from arguments into SPARQL variables). [TODO: Check if all local names can become variables, otherwise define translation algorithm.]
+					Arguments are "inherited" from the superclasses of the function.
+				</p>
+				<p>
+					An <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
+					to indicate that the argument is not mandatory.
+				</p>
+				<p>
+					An <code>sh:Argument</code> may declare a default value via <code>sh:defaultValue</code>.
+					For non-optional arguments, the engine must use the declared default value for template instances that do not define a value for this argument.
+				</p>
+				<p>
+					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code>.
+					This can be used to communicate the expected value type of the argument in template instances.
+					Some implementations MAY use this information to prevent the execution of a template with invalid arguments, and to signal errors.
+				</p>
+			</section>
+			<section id="template-labelTemplate">
+				<h3>sh:labelTemplate</h3>
+				<p>
+					The property <code>sh:labelTemplate</code> can be used to suggest how instances of the template shall be rendered to humans.
+					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
+					where <code>?varName</code> is the name of the SPARQL variable that corresponds to the argument.
+				</p>
+			</section>
 		</section>
 		
-		<section>
+		<section id="functions">
 			<h2>Functions</h2>
 			<p>
 				SHACL <span class="term">Functions</span> define operations that produce an RDF node based on arguments.
@@ -1413,7 +1504,7 @@ ex:InversePropertyConstraintExampleShape
 			</p>
 			<p>
 				Functions must be declared as instances of the class <code>sh:Function</code>.
-				Well-defined functions MUST provide at least one executable implementation property, such as <code>sh:sparql</code>.
+				Well-defined, non-abstract functions MUST provide at least one executable body property, such as <a href="#sparql-functions"><code>sh:sparql</code></a>.
 				The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
 			</p>
 			<pre class="example">
@@ -1441,7 +1532,7 @@ ex:exampleFunction
 			<p>
 				The following sections introduce details of the properties that such functions may have.
 			</p>
-			<section>
+			<section id="function-arguments">
 				<h3>Function Arguments</h3>
 				<p>
 					The arguments of a function are attached to its <code>sh:Function</code> via the property <code>sh:argument</code>.
@@ -1454,6 +1545,7 @@ ex:exampleFunction
 					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
 					The values of <code>sh:predicate</code> must be <code>sh:arg1</code> for the first argument,
 					<code>sh:arg2</code> for the second argument, etc.
+					Arguments are "inherited" from the superclasses of the function.
 				</p>
 				<p>
 					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
@@ -1466,7 +1558,7 @@ ex:exampleFunction
 					Some implementations MAY use this information to prevent the execution of a function with invalid arguments, and to signal errors.
 				</p>
 			</section>
-			<section>
+			<section id="function-returnType">
 				<h3>sh:returnType</h3>
 				<p>
 					A function may declare a single return type via <code>sh:returnType</code>.
@@ -1475,7 +1567,7 @@ ex:exampleFunction
 					the engine how to cast a native value into an RDF value type.
 				</p>
 			</section>
-			<section>
+			<section id="function-cachable">
 				<h3>sh:cachable</h3>
 				<p>
 					A <code>sh:Function</code> may have a property <code>sh:cachable</code> set to true.
@@ -1492,7 +1584,7 @@ ex:exampleFunction
 			</p>
 		</section>
 		
-		<section>
+		<section id="contexts">
 			<h2>Contexts</h2>
 			<p>
 				A <span class="term">context</span> is a IRI that can be used to group shapes or constraints together.
@@ -1508,7 +1600,7 @@ ex:exampleFunction
 			</p>
 		</section>
 
-		<section>
+		<section id="profiles">
 			<h2>Profiles</h2>
 			<p>
 				A Profile is a set of shape templates.
@@ -1541,22 +1633,22 @@ ex:MyProfile
 			</p>
 		</section>
 
-		<section>
+		<section id="sparql">
 			<h2>sh:sparql</h2>
 			<p>
 				SPARQL-specific details
 			</p>
-		<section>
+			<section id="sparql-constraints">
 				<h3>SPARQL-based Constraints</h3>
 				<p>TODO: Including the role of ?this, and how ASK, SELECT, CONSTRUCT map into Constraint Violations</p>
 			</section>
-			<section>
+			<section id="sparql-templates">
 				<h3>SPARQL-based Templates</h3>
 				<p>
 					TODO
 				</p>
 			</section>
-			<section>
+			<section id="sparql-functions">
 				<h3>SPARQL-based Functions</h3>
 				<p>
 					If a <code>sh:Function</code> has a value for <code>sh:sparql</code>, then a SPARQL-based execution engine SHOULD
