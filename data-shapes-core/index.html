@@ -615,7 +615,7 @@ ctx |- matchArcAny(ts,basicArc)
 				The following code snippet represents a valid constraint violation that may have been produced
 				by a constraint checking engine:
 			</p>
-			<pre class="example">
+			<pre class="example" title="A constructed constraint violation">
 ex:ExampleConstraintViolation
 	a sh:Error ;
 	sh:root ex:MyCurrentNode ;
@@ -706,7 +706,7 @@ ex:ExampleConstraintViolation
 						The following example describes a path equivalent to the SPARQL 1.1 Property Path [[sparql11-query]]
 						<code>ex:firstProperty/((^ex:inverseProperty)/ex:lastProperty)</code>
 					</p>
-					<pre class="example">
+					<pre class="example" title="Constraint violation with path expression">
 ex:ExampleConstraintViolationWithPath
 	a sh:Error ;
 	sh:root ex:MyCurrentNode ;
@@ -798,7 +798,7 @@ ex:ExampleConstraintViolationWithPath
 				<li><a href="#constraints-local-native">Local native constraints</a></li>
 				<li><a href="#constraints-local-template">Local template constraints</a></li>
 			</ul>
-			<p>
+			<p class="todo">
 				TODO: We need to somewhere explain the meaning of attaching sh:message, sh:path etc to the constraints
 				(they serve as default values for the constructed constraint violations)
 			</p>
@@ -1482,7 +1482,7 @@ ex:ExampleTemplate
 				<p>
 					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
 					The values of <code>sh:predicate</code> must be IRIs such that no pair of argument predicates in the scope of the same template have the same local name.
-					(This ensures that there is a unique mapping from arguments into SPARQL variables). [TODO: Check if all local names can become variables, otherwise define translation algorithm.]
+					(This ensures that there is a unique mapping from arguments into SPARQL variables). <span class="todo">[TODO: Check if all local names can become variables, otherwise define translation algorithm.]</span>
 					Arguments are "inherited" from the superclasses of the function.
 				</p>
 				<p>
@@ -1592,7 +1592,7 @@ ex:exampleFunction
 		
 		<section>
 			<h2>Graph Management</h2>
-			<p>
+			<p class="todo">
 				TODO: Introduce <code>sh:Graph</code>, <code>sh:include</code>, <code>sh:library</code>.
 			</p>
 		</section>
@@ -1608,7 +1608,7 @@ ex:exampleFunction
 				A <span class="term">context</span> is defined as an instance of the class <code>sh:Context</code>.
 				The property <code>sh:context</code> can be attached to individual instances of <code>sh:Constraint</code> and <code>sh:Shape</code> (and possibly <code>rdfs:Class</code>).
 			</p>
-			<p>
+			<p class="todo">
 				TODO: Details need to be worked out, e.g. whether graphs can also serve as contexts.
 			</p>
 		</section>
@@ -1639,11 +1639,172 @@ ex:MyProfile
 			</p>
 		</section>
 
-		<section>
-			<h2>Supported Operations and their Algorithms/Definition</h2>
+		<section id="operations">
+			<h2>Supported Operations</h2>
 			<p>
-				TODO; For now, see <a href="https://www.w3.org/2014/data-shapes/wiki/LDOM_Algorithm">Algorithm wiki page</a>.
+				This section enumerates the basic operations that complete SHACL engines SHOULD support.
+				The specification does not prescribe how these operations are exposed to the user of a SHACL system.
+				The following table provides an overview of the operations and how they depend on each other.
 			</p>
+			<table class="term-table" border="1" cellpadding="5">
+				<tr>
+					<th>Operation</th>
+					<th>Depends&nbsp;On</th>
+					<th>Description</th>
+				</tr>
+				<tr>
+					<td><a href="#operation-checkConstraint"><code>checkConstraint</code></a></td>
+					<td></td>
+					<td>Evaluates a single constraint</td>
+				</tr>
+				<tr>
+					<td><a href="#operation-checkNodeAgainstShape"><code>checkNodeAgainstShape</code></a></td>
+					<td><code>checkConstraint</code></td>
+					<td>Evaluates a given node against a given shape</td>
+				</tr>
+				<tr>
+					<td><a href="#operation-checkNode"><code>checkNode</code></a></td>
+					<td><code>checkNodeAgainstShape</code></td>
+					<td>Evaluates a given node against the shapes derived from the graph</td>
+				</tr>
+				<tr>
+					<td><a href="#operation-checkGraph"><code>checkGraph</code></a></td>
+					<td><code>checkNode</code>, <code>checkConstraint</code></td>
+					<td>Evaluates the whole graph, including global constraints</td>
+				</tr>
+			</table>
+			<p>
+				All operations produce <span class="term">constraint violations</span>.
+				For the sake of this specification, we assume that the constraint violations are represented as instances of
+				<code>sh:ConstraintViolation</code>	that are added to a <span class="term">result graph</span> that is known
+				to each operation for the duration of its execution.
+				Actual implementations may use different data structures and result formats and input and output to these operations.
+			</p>
+			<p class="todo">
+				TODO: See also <a href="https://www.w3.org/2014/data-shapes/wiki/LDOM_Algorithm">Algorithm wiki page</a>.
+			</p>
+			<section id="operation-checkConstraint">
+				<h3>checkConstraint</h3>
+				<p>
+					This operation evaluates a single <span class="term">constraint</span> and produces <span class="term">constraint violations</span>. 
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?constraint</code></td>
+						<td><code>sh:Constraint</code></td>
+						<td>The <span class="term">constraint</span> to evalate</td>
+					</tr>
+					<tr>
+						<td><code>?focusNode</code></td>
+						<td><code>rdfs:Resource</code> (Optional)</td>
+						<td>The <span class="term">focus node</span>, if present.</td>
+					</tr>
+				</table>
+				<p>
+					This operation assumes that the <code>?constraint</code> is either a <span class="term">native constraint</span>
+					or a <span class="term">template constraint</span>.
+				</p>
+				<ul>
+					<li>
+						For <span class="term">native constraints</span>, the operation selects one of the provided <span class="term">executable bodies</span>.
+						For example if the constraint has a <code>sh:sparql</code> query and the engine is capable of executing SPARQL,
+						it should follow the execution rules specified in the <a href="#sparql-constraints">SPARQL-based Constraints</a> section,
+						using the provided <code>?focusNode</code> if present.
+						A warning should be issued if no suitable <span class="term">executable body</span> was found.
+					</li>
+					<li>
+						For <span class="term">template constraints</span>, the operation traverses the associated template as well as all its superclasses.
+						For each of those templates, it selects the best suitable <span class="term">executable body</span>.
+						For example, if the template has a <code>sh:sparql</code> query and the engine is capable of executing SPARQL,
+						it should follow the execution rules specified in the <a href="#sparql-templates">SPARQL-based Templates</a> section,
+						using the provided <code>?focusNode</code> if present.
+						A warning should be issued if no suitable <span class="term">executable body</span> was found.
+					</li>
+				</ul>
+			</section>
+			<section id="operation-checkNodeAgainstShape">
+				<h3>checkNodeAgainstShape</h3>
+				<p>
+					This operation checks a single <span class="term">node</span> against all constraints associated with a given shape.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?focusNode</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The <span class="term">focus node</span> to check</td>
+					</tr>
+					<tr>
+						<td><code>?shape</code></td>
+						<td><code>sh:Shape</code></td>
+						<td>The <span class="term">shape</span> that has the constraints.</td>
+					</tr>
+					<tr>
+						<td><code>?contextFilter</code></td>
+						<td><code class="todo">TBD</code></td>
+						<td>The <span class="term">context filter</span> specifying which constraints to exclude/include.</td>
+					</tr>
+				</table>
+				<p class="todo">
+					TODO: Describe how to walk through the shape and its parent shapes and call <code>checkConstraint</code> for each associated constraint.
+				</p>
+			</section>
+			<section id="operation-checkNode">
+				<h3>checkNode</h3>
+				<p>
+					This operation checks a single <span class="term">node</span> against all shapes associated with it, based on in-graph mappings.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?focusNode</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The <span class="term">focus node</span> to check</td>
+					</tr>
+					<tr>
+						<td><code>?contextFilter</code></td>
+						<td><code class="todo">TBD</code></td>
+						<td>The <span class="term">context filter</span> specifying which shapes and constraints to exclude/include.</td>
+					</tr>
+				</table>
+				<p class="todo">
+					TODO: Describe how to select all applicable shapes and call <code>checkNodeAgainstShape</code> for each.
+				</p>
+			</section>
+			<section id="operation-checkGraph">
+				<h3>checkGraph</h3>
+				<p>
+					This operation checks a whole graph against global constraints and all shapes associated with it, based on in-graph mappings.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?contextFilter</code></td>
+						<td><code class="todo">TBD</code></td>
+						<td>The <span class="term">context filter</span> specifying which shapes and constraints to exclude/include.</td>
+					</tr>
+				</table>
+				<p class="todo">
+					TODO: Describe how to select all applicable focus nodes and call <code>checkNode</code> for each. Also execute all global constraints.
+				</p>
+			</section>
 		</section>
 
 		<section id="sparql">
@@ -1737,6 +1898,9 @@ WHERE {
 						If the surrounding subject node defines a <code>sh:message</code> then the constructed blank node needs to have a corresponding triple.
 						Similarly, the values of <code>sh:root</code>, <code>sh:path</code> and <code>sh:value</code> must be inserted (they cannot be blank nodes).
 					</p>
+					<p class="todo">
+						TODO: Maybe allow special variable names such as <code>?root</code>, <code>?path</code> etc to be projected similar to how this happens with SELECT queries.
+					</p>
 				</section>
 				<section id="sparql-constraints-select">
 					<h4>SELECT-based Constraints</h4>
@@ -1804,12 +1968,27 @@ WHERE {
 					<p>
 						Similar to <a href="#sparql-constraints-ask">ASK</a> queries, corresponding values attached to the surrounding subject node must be used in the absence of the result variables above.
 					</p>
+					<p>
+						In local constraints the variable <code>?this</code> must be projected into <code>?root</code> unless the <code>SELECT</code> clause already projects to <code>?root</code>.
+						This means that the frequently needed statement <code>SELECT (?this AS ?root)</code> is redundant.
+					</p>
+				</section>
+				<section>
+					<h4>Binding the Focus Node in Local SPARQL Constraints (?this)</h4>
+					<p>
+						The SPARQL variable <code>?this</code> has a special meaning in local constraints.
+						When SPARQL constraints are executed then the variable <code>?this</code> needs to be pre-bound to the <span class="term">focus node</span>.
+						(Need a pointer to what "pre-binding" means in this context).
+					</p>
 				</section>
 			</section>
 			<section id="sparql-templates">
 				<h3>SPARQL-based Templates</h3>
 				<p>
-					TODO
+					If a <code>sh:Template</code> has a value for <code>sh:sparql</code>, then the corresponding instances need to follow the same execution rules as outlined for <a href="#sparql-constraints">SPARQN-based Constraints</a>.
+					The only difference is that the SPARQL queries need to be executed with additional <span class="term">pre-bound</span> variables, derived from the arguments of the template.
+					The names of those variables must match the <span class="term">local name</span> of the argument predicates. 
+					For example, if an argument is represented with the predicate <code>ex:myArgument</code> then the variable <code>?myArgument</code> must be <span class="term">pre-bound</span> with the value of the argument in the template instance.
 				</p>
 			</section>
 			<section id="sparql-functions">
@@ -1856,7 +2035,8 @@ WHERE {
 						</tr>
 					</table>
 					<p>
-						This function MUST return the same results as the algorithm specified at XY (in the supported operations section). 
+						This function MUST perform constraint checking equivalent to the <a href="#operation-checkNodeAgainstShape"><code>checkNodeAgainstShape</code></a> operation.
+						The function MUST return <code>true</code> if the operation returns no constraint violations, <code>false</code> if constraint violations exist. 
 					</p>
 				</section>
 				<section id="function-hasNodeType">
