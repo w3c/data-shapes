@@ -253,11 +253,15 @@
     			There is no agreement in the WG on how the semantics of SHACL should be defined.
     			Currently discussed options include:
     			<ol>
-    				<li>Based on <a href="http://labra.github.io/Haws/ldom/index">a ShEx-like Grammar</a></li>
-    				<li>Based on SPARQL (plus an extension mechanism for other languages like JavaScript)</li>
+    				<li>
+    					Based on <a href="http://labra.github.io/Haws/ldom/index">a ShEx-like Grammar</a>.
+    					This section is representing that option only.
+    				</li>
+    				<li>
+    					Based on SPARQL (plus an extension mechanism for other languages like JavaScript).
+    					The other sections (3 onwards) are based on this option, and are self-contained without this section 2.
+    				</li>
     			</ol>
-    			This section here is reflecting the first option above only.
-    			The other sections (3 onwards) are based on the second option.
 			</div>
 
         <section>
@@ -605,7 +609,7 @@ ctx |- matchArcAny(ts,basicArc)
 		</section>
 
 		<section id="violations">
-			<h2>Constraint Violations Vocabulary (normative)</h2>
+			<h2>Constraint Violations Vocabulary</h2>
 			<p>
 				The output of a SHACL constraint checking operation is a set of <em>constraint violations</em>.
 				SHACL includes an RDF vocabulary to represent such constraint violations together with
@@ -1423,10 +1427,11 @@ ex:InversePropertyConstraintExampleShape
 		
 		<section id="shape-selection">
 			<h2>Shape Selection</h2>
-			<p class="todo">
-				TODO: Explain that applications may chose to invoke shape checking for any
-				resource-shape tuple, even if there are no link triples.
-				The rest of the chapter is assuming that the graph itself is used to look up this linkage.
+			<p>
+				Some operations on SHACL graphs, such as <a href="#operation-checkNode"><code>checkNode</code></a> and
+				<a href="#operation-checkGraph"><code>checkGraph</code></a> rely on in-graph information to determine
+				which nodes need to be evaluated against which shapes.
+				This section describes the two currently supported <span class="term">shape selection</span> properties.
 			</p>
 			<div class="issue">
 				There are multiple proposals on how to associate resources with their shapes, in particular
@@ -1434,22 +1439,51 @@ ex:InversePropertyConstraintExampleShape
 				The WG may chose to:
 				<ul>
 					<li>Only support one of these patterns</li>
-					<li>Support both of these patterns</li>
+					<li>Always support both of these patterns</li>
+					<li>Support both of these patterns, allowing them to be switched on or off individually</li>
 					<li>Support a more general mechanism that allows arbitrary selectors</li>
 				</ul>
 				Also we need to agree on terminology, e.g. Shape Selection vs Shape Mapping
 			</div>
 			<section>
-				<h3>Shape selection based on sh:nodeShape</h3>
-				<p class="todo">
-					(To avoid any potential unwanted interactions with existing RDFS/OWL data)
+				<h3>Shape selection based on rdf:type</h3>
+				<p>
+					RDF Schema and OWL provide a well-established framework to model domains in terms of classes and instances.
+					A lot of existing data is already represented using these languages.
+					In this <span class="term">shape selector</span>, the IRIs of classes double as shape definitions, i.e.
+					it is possible to directly attach constraints at the IRI of a class.
+					The property <code>rdf:type</code> is used to determine which shapes a given node needs to fulfill.
+					Specialization between shapes is expressed via <code>rdfs:subClassOf</code>.
+					This pattern is illustrated in the following example.
 				</p>
+				<pre class="example" title="Shape selection based on rdf:type">
+ex:ExampleClass
+	a rdfs:Class ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	rdf:type ex:ExampleClass .</pre>
 			</section>
 			<section>
-				<h3>Shape selection based on rdf:type</h3>
-				<p class="todo">
-					(For easier interaction with existing RDFS/OWL data)
+				<h3>Shape selection based on sh:nodeShape</h3>
+				<p>
+					In some application scenarios, there may be unwanted interactions between existing RDFS models and shapes.
+					For example, an application may want to ensure that there is no interaction between shapes and RDFS/OWL inferencing.
+					In those cases, users can declare shapes as instances of <code>sh:Shape</code> and use <code>sh:nodeShape</code>
+					to point from a node to its shape(s).
+					This pattern is illustrated in the following example. 				
 				</p>
+				<pre class="example" title="Shape selection based on sh:nodeShape">
+ex:ExampleShape
+	a sh:Shape ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	sh:nodeShape ex:ExampleShape .</pre>
 			</section>
 		</section>
 		
@@ -1805,8 +1839,12 @@ forEach ?s := ?shape and its transitive super-shapes
 					Algorithm in pseudo-code:
 				</p>
 				<pre>
-forEach ?shape matching (?focusNode sh:nodeShape|rdf:type ?shape)
+forEach ?shape := (?focusNode sh:nodeShape|rdf:type ?shape)
 	checkNodeAgainstShape(?focusNode, ?shape, ?contextFilter)</pre>
+				<p class="todo">
+					Note that the selection properties sh:nodeShape|rdf:type are not decided yet.
+					Possibly we need a mechanism to switch one or the other off (could become a parameter).
+				</p>
 			</section>
 			<section id="operation-checkGraph">
 				<h3>checkGraph</h3>
