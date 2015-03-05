@@ -1,20 +1,20 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft Version 0.2.1 (2015-02-24)
-# Created by RDF Data Shapes Working Group
+# Draft Version 0.2.2 (2015-03-03)
+# Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
-@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 
 <http://www.w3.org/ns/shacl>
 	a sh:Graph ;
 	rdfs:label "SHACL Vocabulary" ;
-	rdfs:comment "The vocabulary defining the Shapes Constraint Language (SHACL). This vocabulary uses a small subset of RDF, and is otherwise self-describing." ;
+	rdfs:comment "The vocabulary defining the Shapes Constraint Language (SHACL)." ;
 .
 
 
@@ -38,26 +38,16 @@ sh:Shape
 	sh:property [
 		sh:predicate sh:constraint ;
 		sh:valueType sh:Constraint ;
-		sh:defaultValueType sh:SPARQLConstraint ;    # SPARQLConstraints do not require rdf:type
+		sh:defaultValueType sh:NativeConstraint ;    # NativeConstraints do not require rdf:type
 		rdfs:label "constraint" ;
 		rdfs:comment "Defines arbitrary constraints on the matching resources. Use sh:property for structural property declarations." ;
 	] ;
-	# TODO: Maybe split sh:property into sh:attribute and sh:relation?
-	#       This may create a cleaner distinction between datatype and "object" values
-	#       e.g. to specify that only attributes can be primary keys and have XSD facets.
-	#       OTOH this complicates the mapping from other syntaxes and prevents properties
-	#       that can take any node type.
 	sh:property [
 		sh:predicate sh:property ;
 		sh:valueType sh:PropertyConstraint ;
 		sh:defaultValueType sh:PropertyConstraint ;    # PropertyConstraints do not require rdf:type
 		rdfs:label "property" ;
 		rdfs:comment "Declares that a given property is relevant for matching resources." ;
-		# TODO: Decide whether there can be multiple sh:property values for the same
-		#       predicate within the superclass tree.  Currently some algorithms may
-		#       assume that, but many people may expect to be able to overload cardinality and
-		#       value type, so that the correct algorithm would need to use one of the walk functions
-		#       to find the "nearest" matching declaration. 
 	] ;
 	sh:property [
 		sh:predicate sh:inverseProperty ;
@@ -200,6 +190,9 @@ xsd:time a rdfs:Datatype ; rdfs:subClassOf rdfs:Resource ; rdfs:label "time" .  
 
 # Selectors -------------------------------------------------------------------
 
+# TODO: This feature looks unlikely to be approved - sh:nodeShape/sh:extends and rdf:type/rdfs:subClassOf
+#       will probably be the only supported selectors.
+
 sh:ShapeSelector
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
@@ -276,7 +269,6 @@ sh:Graph
 		rdfs:label "include" ;
 		rdfs:comment "Links a graph with other graphs that shall be included into the query graph over which constraints and rules are executed. This is a transitive property, i.e. includes of includes are also added." ;
 	] ;
-	# TODO: clarify whether owl:imports also has a meaning, at least as a SHOULD
 	sh:property [
 		sh:predicate sh:library ;
 		sh:valueType rdfs:Resource ;
@@ -632,25 +624,29 @@ sh:Constraint
 	] ;
 .
 
+sh:LocalConstraint
+	a rdfs:Class ;
+	rdfs:subClassOf sh:Constraint ;
+	rdfs:label "Local constraint" ;
+	rdfs:comment "The type of constraints that are used 'locally' in the context of a shape. This class is usually never instantiated directly, because local shapes need to have another type such as sh:NativeConstraint." ;
+. 
+
 sh:GlobalConstraint
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Global constraint" ;
-	rdfs:comment "The type of constraints that are used 'globally' for the whole graph and not just specific instances. In contrast to other constraints, the variable ?this has no special meaning in global constraints (and should not be used). This class can only be used as a type in conjunction with other types, e.g. it needs to be mixed with sh:SPARQLConstraint. Instances of this constraint type are typically URI resources." ;
+	rdfs:comment "The type of constraints that are used 'globally' for the whole graph and not just specific instances. In contrast to other constraints, the variable ?this has no special meaning in global constraints (and should not be used). This class can only be used as a type in conjunction with other types, e.g. it needs to be mixed with sh:NativeConstraint. Instances of this constraint type are typically URI resources." ;
 . 
 
-# TODO: Maybe this should be called sh:NativeConstraint? Do we plan to support other languages than SPARQL?
-#       If yes then sh:NativeConstraint could be a superclass of this.
-sh:SPARQLConstraint
+sh:NativeConstraint
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Constraint ;
-	rdfs:label "SPARQL constraint" ;
-	rdfs:comment "A constraint that has an executable SPARQL query attached with it, with sh:sparql." ;
+	rdfs:label "Native constraint" ;
+	rdfs:comment "A constraint that has a native executable body attached with it. This version of SHACL only supports SPARQL-based bodies using sh:sparql, but third parties may introduce additional languages." ;
 	sh:property [
 		sh:predicate sh:sparql ;
 		sh:valueType xsd:string ;
 		sh:maxCount 1 ;
-		sh:minCount 1 ;
 		rdfs:label "SPARQL" ;
 		rdfs:comment "The SPARQL ASK, CONSTRUCT or SELECT query to execute. ASK queries must return false if the constraint fails for a given resource ?this. SELECT queries may return the variables ?root, ?level, ?message, ?path and ?value for each constraint violation that shall be reported. CONSTRUCT queries must produce complete instances of sh:Error etc." ;
 	] ;
@@ -699,7 +695,7 @@ sh:ConstraintTemplate
 		sh:valueType xsd:string ;
 		sh:maxCount 1 ;   # minCount is 0 because there may be abstract templates
 		rdfs:label "SPARQL" ;
-		rdfs:comment "The SPARQL CONSTRUCT or ASK queries to execute." ;
+		rdfs:comment "The SPARQL query to execute." ;
 	] ;
 	sh:property [
 		sh:predicate sh:queryLibraryGraph ;
@@ -982,7 +978,7 @@ sh:AbstractValueTypePropertyConstraint
 	sh:constraint [
 		sh:message "The values of sh:valueType cannot be blank nodes." ;
 		sh:sparql """
-			ASK WHERE {
+			ASK {
 				?this sh:valueType ?valueType .
 				FILTER isBlank(?valueType) .
 			}
@@ -1401,7 +1397,7 @@ sh:AbstractValueTypeInversePropertyConstraint
 	sh:constraint [
 		sh:message "The values of sh:valueType cannot be blank nodes." ;
 		sh:sparql """
-			ASK WHERE {
+			ASK {
 				?this sh:valueType ?valueType .
 				FILTER isBlank(?valueType) .
 			}
@@ -1835,6 +1831,7 @@ sh:hasShape
 # we could have a function that returns a (temporary) named graph containing the
 # violation triples.
 
+# TODO: This function is completely unapproved
 sh:walkObjects
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
@@ -1872,6 +1869,7 @@ sh:walkObjects
 	] ;
 .
 
+# TODO: This function is completely unapproved
 sh:walkSubjects
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
@@ -1911,6 +1909,8 @@ sh:walkSubjects
 
 
 # Test case framework ---------------------------------------------------------
+
+# TODO: A variation of this may become a separate vocabulary
 
 sh:TestCase
 	a rdfs:Class ;
@@ -1971,25 +1971,10 @@ sh:ResourceConstraintCheckingTestCase
 
 # System Property declarations (mainly for RDF compliance) --------------------
 
-rdf:type
-	a rdf:Property ;
-	rdfs:label "type" ;
-.
-
-rdfs:comment
-	a rdf:Property ;
-	rdfs:label "comment" ;
-.
-
-rdfs:label
-	a rdf:Property ;
-	rdfs:label "label" ;
-.
-
-rdfs:subClassOf
-	a rdf:Property ;
-	rdfs:label "subClassOf" ;   # Same value as defined in RDF Schema, "sub-class of" may be better
-.
+rdf:type a rdf:Property ; rdfs:label "type" .
+rdfs:comment a rdf:Property ; rdfs:label "comment" .
+rdfs:label a rdf:Property ;	rdfs:label "label" .
+rdfs:subClassOf	a rdf:Property ; rdfs:label "subClassOf" .
 
 sh:abstract a rdf:Property ; rdfs:label "abstract" .
 sh:allowedValues a rdf:Property ; rdfs:label "allowed values" .
