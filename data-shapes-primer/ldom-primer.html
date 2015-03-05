@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html>
+  	<head>
+       	<title>LDOM (Linked Data Object Model) Primer</title>
+    	<meta charset='utf-8'>
+    	<script src='//www.w3.org/Tools/respec/respec-w3c-common' async class='remove'></script>
+	    <script class='remove'>
+	      var respecConfig = {
+	          specStatus: "unofficial",
+	          shortName:  "ldom-primer",
+	          editors: [
+	                {   name:       "Holger Knublauch",
+	                    url:        "http://knublauch.com/",
+	                    company:    "TopQuadrant, Inc.",
+	                    companyURL: "http://topquadrant.com/" }
+	          ],
+	          wg:           "RDF Data Shapes Working Group",
+	          wgURI:        "https://www.w3.org/2014/data-shapes/wiki/Main_Page",
+	          wgPublicList: "public-data-shapes",
+	          wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/424242/status",
+	      };
+	    </script>
+		<style>
+			.todo {
+				color: red;
+			}
+		    pre {
+				tab-size: 4;
+		    }
+			th {
+				text-align: left;
+			}
+		</style>  		
+  	</head>
+  	<body>
+    
+    	<section id="abstract">
+			<p>
+				LDOM (Linked Data Object Model) is an RDF-based modeling language that is compatible with
+				Linked Data principles and leverages some object-oriented concepts to the Web.
+				LDOM makes it possible to define classes together with their associated properties,
+				and to specify additional constraints that valid members of those classes should fulfill.
+				These additional constraints are expressed using SPARQL, yet the structural definitions of
+				associated properties can also be used by tools without a SPARQL processor.
+				In addition to a vocabulary for structural constraints, LDOM includes modularization features
+				that make it possible to define new modeling terms (SPARQL functions and templates) based
+				on executable semantics.
+			</p>
+			<p>
+				LDOM has a wide range of potential use cases.  Its alignment with object-oriented principles
+				means that LDOM can be used to store and share data objects that represent the
+				"model" in applications built with a Model-View-Control architecture.
+				In contrast to most object-oriented systems, RDF adds the value of having a unique identification
+				mechanism for objects (via their URIs), thus also allowing data models to reference
+				each other across the web.
+				Through its foundation on Linked Data principles, LDOM data models are self-describing,
+				which means that applications can dynamically learn about the behavior of objects by
+				resolving URIs.
+				Finally, the structural definitions of classes and properties can be exploited
+				by user interface builders to select suitable display and input widgets.
+			</p>
+			<p>
+				This document introduces LDOM to people familiar with basic concepts of RDF and SPARQL.
+				A simple model about rectangles and squares is used to introduce all major features of LDOM,
+				including class definitions, constraints, rules, functions and templates.
+				This document can serve as the "Hello, World" example of LDOM.
+				This primer is a possible companion to another document (to be written) that serves as a language
+				reference and full specification.
+			</p>
+  	
+	  		<div class="todo">
+	  			<p>For the ongoing discussion about the potential name of this technology,
+	  			see the <a href="https://www.w3.org/2014/data-shapes/wiki/Technology_Name">W3C wiki page</a>.</p>
+	  		</div>
+		</section>
+    
+    	<section id="introduction">
+      		<h2>Introduction</h2>
+      		<p>
+      			LDOM (Linked Data Object Model) is a modeling language for linked data, based
+      			on a minimum sub-set of RDF Schema and object-oriented principles.
+      			Features of LDOM include:
+      		</p>
+      		<ul>
+      			<li>
+	      			An RDF vocabulary to define <a href="#classes">classes</a> together with structural
+	      			declarations of	the <a href="#properties">properties</a> associated with those classes.
+      			</li>
+      			<li>
+      				<a href="#constraints">Complex constraints</a> can be expressed in SPARQL and
+      				associated with classes	to validate instances of those classes.
+      			</li>
+      			<li>
+	      			<a href="#rules">Rules</a> can be used to construct new values from existing values.
+      			</li>
+      			<li>
+	      			Built-in <a href="#templates">extension mechanisms</a>, allowing users to define new high-level
+	      			template languages as well as falling back to SPARQL when needed.
+      			</li>
+      			<li>
+	      			An RDF vocabulary to define new <a href="#functions">SPARQL functions</a> that can be used in
+	      			any SPARQL query.
+      			</li>
+      		</ul>
+      		<p>
+      			LDOM is based on RDF and is compatible with Linked Data principles, making it possible to
+      			mix LDOM declarations with models created in other semantic web languages.
+      			Other sections elaborate on the relationships of LDOM with
+      			<a href="#rdf-schema">RDF Schema</a> and <a href="#owl">OWL</a>.
+      		</p>
+      		<p>
+      			This document uses a running example model illustrated in the following UML diagram.
+      			In a nut shell, there is a class Rectangle which has a subclass Square, both in the
+      			example namespace "ex".
+      			All Rectangles can have a width and a height, both integers greater than 0.
+      			The area of a Rectangle gets computed by multiplying width and height.
+      			Squares must have equal width and height.
+      			Rectangles can have one creator, which must be an instance of the class schema:Person. 
+      		</p>
+      		<p>
+      			LDOM definitions are represented in RDF and can be serialized in multiple RDF formats.
+      			The example snippets in this document use Turtle [[turtle]] notation.
+      			<span class="todo">
+      			TODO: Future versions should have this switchable between Turtle and JDON-LD [[json-ld]].
+      			</span>
+      			You should be familiar with basic RDF concepts [[rdf11-concepts]] such as triples and
+      			(for the advanced concepts of LDOM) with SPARQL [[sparql11-overview]].
+      		</p>
+      		<img style="margin-left: 23px" src="images/square-class-diagram.png"></img>
+      		<p>
+      			The Turtle source code of the complete LDOM file can be found at
+      			<a href="ldomsquare.ldom.ttl">ldomsquare.ldom.ttl</a>.
+      		</p>
+      		<p>
+      			The LDOM system vocabulary is defined in itself, using its own 
+      			<a href="../data-shapes-core/ldom.ldom.ttl">LDOM File</a>.
+      			This file also includes in-line comments for open issues as well
+      			as many technical details that are omitted in this primer for space
+      			considerations.
+      		</p>
+      		<p>
+      			Within this document, the following namespace prefix bindings are used:
+      		</p>
+      		<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+      			<tr>
+      				<th>Prefix</th>
+      				<th>Namespace</th>
+      			</tr>
+      			<tr>
+      				<td>ldom:</td>
+      				<td>http://www.w3.org/ns/ldom/core#</td>
+      			</tr>
+      			<tr>
+      				<td>rdf:</td>
+      				<td>http://www.w3.org/1999/02/22-rdf-syntax-ns#</td>
+      			</tr>
+      			<tr>
+      				<td>rdfs:</td>
+      				<td>http://www.w3.org/2000/01/rdf-schema#</td>
+      			</tr>
+      			<tr>
+      				<td>xsd:</td>
+      				<td>http://www.w3.org/2001/XMLSchema#</td>
+      			</tr>
+      			<tr>
+      				<td>ex:</td>
+      				<td>http://example.com/ns#</td>
+      			</tr>
+      		</table>
+    	</section>
+    	
+    	<section id="classes">
+    		<h2>Class Declarations</h2>
+    		<p>
+    			Basic class definitions are covered by a subset of RDF Schema
+    			(see <a href="#rdf-schema">relationship with RDF Schema</a>),
+    			as illustrated in the following example source code:
+    		</p>
+    		<pre class="example">
+ex:Rectangle
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Rectangle" .
+
+ex:Square
+	a rdfs:Class ;
+	rdfs:subClassOf ex:Rectangle ;
+	rdfs:label "Square" .</pre>
+			<p>
+				The type <code>rdfs:Class</code> (or its subclasses such as <code>owl:Class</code>)
+				are used to declare a class.  <code>rdfs:subClassOf</code> is used to indicate that
+				all instances of a subclass are also instances of its superclass(es).
+				The commonly used properties <code>rdfs:label</code> and <code>rdfs:comment</code>
+				are recommended to declare human-readable labels and documentation.
+			</p>
+			<p>
+				The reuse of the standard RDF Schema terms means that LDOM models can be readily
+				mixed with existing Linked Data models.
+			</p>
+			<p>
+				LDOM introduces a property <code>ldom:abstract</code> that can be set to <code>true</code>
+				for classes that should not be directly instantiated.
+				Furthermore, classes may be marked <code>ldom:private</code> to indicate that they
+				are only meant to be used inside of the graph that they have been defined in.
+				This can be used to discourage instantiation outside of controlled scenarios.
+			</p>
+			<p>
+				Note that in contrast to many object-oriented languages, RDF Schema classes may have
+				multiple superclasses.
+				The root class in RDF Schema is <code>rdfs:Resource</code>, and top-level classes
+				in an LDOM model must state explicitly that they are <code>rdfs:subClassOf rdfs:Resource</code>.
+				In other words, each valid LDOM class needs to have at least one named superclass.
+			</p>
+		</section>
+
+		<section id="properties">
+			<h2>Property Declarations</h2>
+    		<p>
+    			Object-oriented systems have a concept of properties (or fields) that hold
+    			attributes and relationships of a given class.
+    			The following sections explain how such property attachments can be represented in LDOM.
+    		</p>
+    		<section id="basic-properties">
+    			<h3>Basic Property Characteristics</h3>
+	    		<p>
+	    			It is common (in UML etc) to specify the name of a property and its
+	    			cardinality (min/max value count) as well as the value type.
+	    			In LDOM, these declarations can be attached to a class as follows:
+	    		</p>
+	    		<pre class="example">
+ex:Rectangle
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Rectangle" ;
+	ldom:property [
+		a ldom:PropertyConstraint ;     # This type declaration is optional
+		ldom:predicate ex:height ;
+		ldom:minCount 1 ;
+		ldom:maxCount 1 ;
+		ldom:valueType xsd:integer ;
+		rdfs:label "height" ;
+		rdfs:comment "The height of the Rectangle." ;
+	] ;
+	ldom:property [
+		ldom:predicate ex:width ;
+		ldom:minCount 1 ;
+		ldom:maxCount 1 ;
+		ldom:valueType xsd:integer ;
+		rdfs:label "width" ;
+		rdfs:comment "The width of the Rectangle." ;
+	] ;
+	ldom:property [
+		ldom:predicate ex:creator ;
+		ldom:maxCount 1 ;
+		ldom:valueType schema:Person ;
+		rdfs:label "creator" ;
+		rdfs:comment "The creator of the Rectangle." ;
+	] ;</pre>
+				<p>
+					The examples in this document are (currently) all written in Turtle, but here is a snippet
+					previewing how the JSON-LD could look like:
+				</p>
+				<pre class="example">
+{
+	"@context" : [
+	    "http://www.w3.org/ns/ldom/context.jsonld",
+	    {
+	    	"ex" : "http://example.com/ns#"
+	    }
+	],
+	
+	"@graph" : [
+	    {
+	    	"@id" : "http://example.com/ns",
+	    	"@type" : "Graph",
+	    	"library" : "http://www.w3.org/ns/ldom/core",
+	    	"label" : "Test Graph",
+	    	"comment" : "This is a comment."
+	    },
+	    {
+	    	"@id" : "ex:Rectangle",
+	    	"@type" : "Class",
+	    	"subClassOf" : "rdfs:Resource",
+	    	"label" : "Rectangle",
+	    	"property" : [
+	    	    {
+	    	    	"predicate" : "ex:width",
+	    	    	"minCount" : 1,
+	    	    	"maxCount" : 1,
+	    	    	"valueType" : "xsd:integer",
+	    	    	"label" : "width",
+	    	    	"comment" : "The width of the Rectangle."
+	    	    },
+	    	    ...
+	    	]
+	    }
+	]
+}</pre>
+				<p>
+					Tools that understand LDOM can use the information above for many purposes.
+					For example, they can figure out which fields should appear for an input form,
+					and what values those fields can have, as well as labels and comments.
+					Furthermore, they can verify that a given instance of Rectangle has the
+					expected value types and cardinalities for its properties.
+				</p>
+				<p>
+					The system property <code>ldom:property</code> is used to link a class with its
+					property declarations.  Properties get inherited by subclasses.
+					The values of this property are nodes with the following properties:
+				</p>
+				<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>ldom:predicate</code></td>
+						<td>
+							Required. Must point to the URI of an RDF property used to store the
+							values of the property.
+						</td>
+					</tr>
+					<tr>
+						<td><code>ldom:minCount</code></td>
+						<td>Type: integer &gt;= 0, the minimum number of values required. Defaults to 0.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:maxCount</code></td>
+						<td>Type: integer &gt;= 0, the maximum number of values required. Defaults to unlimited.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:valueType</code></td>
+						<td>
+							an instance of <code>rdfs:Class</code>, the type or datatype that all values of the property
+							must have.
+						</td>
+					</tr>
+					<tr>
+						<td><code>ldom:allowedValues</code></td>
+						<td>Type: <code>ldom:Set</code> (with property <code>ldom:member</code>), points to a set enumerating the allowed values.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:hasValue</code></td>
+						<td>points to a specific value that the property must have.</td>
+					</tr>
+					<tr>
+						<td><code>rdfs:label</code></td>
+						<td>
+							A human-readable label of the property in the context of the associated class.
+						</td>
+					</tr>
+					<tr>
+						<td><code>rdfs:comment</code></td>
+						<td>
+							A description of the property's role in the context of the associated class.
+						</td>
+					</tr>
+				</table>
+    		</section>
+    		<section id="datatype-properties">
+    			<h3>Datatype Property Characteristics</h3>
+				<p>
+					In addition to those basic property characteristics, it is possible to use others
+					such as min/max value ranges for properties that have datatype literals as values: 
+				</p>
+				<pre class="example">
+ex:Rectangle
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Rectangle" ;
+	ldom:property [
+		ldom:predicate ex:height ;
+		ldom:maxCount 1 ;
+		ldom:valueType xsd:integer ;
+		<b>ldom:minExclusive 0 ;</b>
+		...
+	] ;</pre>
+				<p>
+					The following built-in constraints are available for datatype values.
+					<span class="todo">(XML schema has additional facets: whiteSpace, fractionDigits, totalDigits. Schema.org also suggests: stepValue).</span>
+				</p>
+				<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>ldom:length</code></td>
+						<td>Type: <code>xsd:integer</code>, number of characters of valid values.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:maxLength</code></td>
+						<td>Type: <code>xsd:integer</code>, maximum number of characters of valid values.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:minLength</code></td>
+						<td>Type: <code>xsd:integer</code>, minimum number of characters of valid values.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:maxExclusive</code></td>
+						<td>Type: the same as the ldom:valueType of the surrounding property.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:maxInclusive</code></td>
+						<td>Type: the same as the ldom:valueType of the surrounding property.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:minExclusive</code></td>
+						<td>Type: the same as the ldom:valueType of the surrounding property.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:minInclusive</code></td>
+						<td>Type: the same as the ldom:valueType of the surrounding property.</td>
+					</tr>
+					<tr>
+						<td><code>ldom:pattern</code></td>
+						<td>Type: <code>xsd:string</code>, a regular expression to match.</td>
+					</tr>
+				</table>
+				<p>
+					The following example illustrates how a valid instance of the rectangle class
+					can look like.  By virtue of the <code>rdf:type</code> triple (abbreviated as
+					<code>a</code> in Turtle), a user interface	tool could select appropriate input
+					widgets or validate the instance.
+				</p>
+				<pre class="example">
+ex:TestRectangle
+	a ex:Rectangle ;
+	ex:creator ex:PersonWithEmail ;
+	ex:height 6 ;
+	ex:width 7 ;
+	rdfs:label "Test rectangle" .</pre>
+			</section>
+			<section id="inverse-properties">
+				<h3>Inverse Property Declarations</h3>
+				<p>
+					Due to the triple-based data model of RDF, it is possible to "walk" a relationship
+					in both directions - from subject to object and from object to subject.
+					LDOM can be used to declare that a property is associated with a class, even
+					if the predicate is actually used in the inverse direction.
+					As shown below, the system property <code>ldom:inverseProperty</code> is used
+					in such cases, and very similar characteristics as previously mentioned can
+					be applied in these inverse property declarations.
+				</p>
+				<pre class="example">
+schema:Person
+	ldom:inverseProperty [
+		ldom:predicate ex:creator ;
+		ldom:valueType ex:Rectangle ;
+		rdfs:label "created rectangle" ;
+		rdfs:comment "Links a Person with all rectangles that he or she created." ;
+	] ...</pre>
+				<p>
+					The above instructs a user interface builder that persons can have a property
+					labeled "created rectangle" and defines a suitable value type.
+					Not shown in the example are <code>ldom:minCount</code> and <code>ldom:maxCount</code>,
+					because there may be 0 to infinitely many values in this direction. 
+				</p>
+				<p>
+					Declaring an inverse property is semantically equivalent to having a normal
+					property starting in the related class.  From the perspective of the full
+					data model, declaring an inverse property is therefore redundant.
+					However, having an inverse property is often useful to provide a more complete
+					picture in the context of a single resource or class.
+					Furthermore it becomes possible to define more suitable human-readable labels
+					and comments for the inverse direction.
+				</p>
+			</section>
+    	</section>
+    	
+    	<section id="constraints">
+    		<h2>Constraints</h2>
+    		<p>
+    			The property declarations shown in the previous chapter define conditions that
+    			all valid instances of a class need to fulfill.
+    			They do this in a declarative language with a limited number of properties
+    			such as <code>ldom:maxCount</code>.
+    			However, in many cases it is necessary to define additional conditions
+    			that are used to verify valid data, or to simply communicate the desired
+    			semantics of a model's elements.
+    		</p>
+    		<section id="sparql-constraints">
+				<h3>SPARQL-based Constraints</h3>
+	    		<p>
+					For example, the width and height of a Square must be equal.
+					These constraints can be attached to class definitions using <code>ldom:constraint</code>
+					as shown in the next example:
+	    		</p>
+	    		<pre class="example">
+ex:Square
+	a rdfs:Class ;
+	rdfs:label "Square" ;
+	rdfs:subClassOf ex:Rectangle ;
+	ldom:constraint [
+		ldom:message "Width and height of a Square must be equal" ;
+		ldom:path ex:width ;
+		ldom:path ex:height ;
+		ldom:sparql """
+			ASK {
+				?this ex:width ?width .
+				?this ex:height ?height .
+				FILTER (?width != ?height) .
+			}
+			""" ;
+	] ;
+.</pre>
+				<p class="todo">
+					Open issue: Many people find it confusing that the expression seems to work
+					"backwards" and only find the counter-examples.  So the term "constraint"
+					might be misleading.  An alternative name "exception" has been proposed
+					(although this term has a different meaning in programming languages).
+					Furthermore, many values of ldom:constraint are in fact template calls,
+					and the user doesn't even see the SPARQL query (e.g. ldon:minCount uses
+					a positive direction even if its internal SPARQL query checks for counter-examples).
+				</p>
+				<p>
+					The example above uses SPARQL to implement an executable test.
+					The SPARQL query must return <code>true</code> if the condition is violated, using the variable
+					<code>?this</code> to refer to the currently tested instance.
+					The property <code>ldom:constraint</code> is linking a class with the additional
+					constraints that it needs to fulfill.
+					Each of the values of <code>ldom:constraint</code> can have a <code>ldom:sparql</code>
+					query (ASK, SELECT or CONSTRUCT), or they can be instances of Templates as shown
+					<a href="#template-constraints">later</a>.
+					In SPARQL-based constraints, the properties <code>ldom:message</code>, <code>ldom:path</code>
+					and	<code>ldom:level</code> (with values <code>ldom:Error</code>,
+					<code>ldom:Warning</code> and <code>ldom:FatalError</code>) can be used to provide
+					additional information on the constraint violation.
+				</p>
+				<p>
+					As alternatives to ASK, you can use SPARQL SELECT or CONSTRUCT queries to take more
+					control over which constraint violations to create.
+					While a little bit more verbose, one advantage of those syntaxes is greater flexibility
+					in how to build error messages etc. 
+					The following example implements the same error condition as shown above, but using
+					a CONSTRUCT query.  An example of SELECT-based constraints can be found
+					<a href="#global-constraints">below</a>.
+				</p>
+	    		<pre class="example">
+ex:Square
+	a rdfs:Class ;
+	rdfs:label "Square" ;
+	rdfs:subClassOf ex:Rectangle ;
+	ldom:constraint [
+		ldom:sparql """
+			CONSTRUCT {
+				_:cv a ldom:Error ;
+					ldom:root ?this ;
+					ldom:message "Width and height of a Square must be equal" ;
+					ldom:path ex:width ;
+					ldom:path ex:height 
+			}
+			WHERE {
+				?this ex:width ?width .
+				?this ex:height ?height .
+				FILTER (?width != ?height) .
+			}
+			""" ;
+	] ;
+.</pre>
+			</section>
+			<section id="template-constraints">
+				<h3>Template-based Constraints</h3>
+				<p class="todo">
+					TODO: This section needs work - templates are used but not introduced yet at this stage.
+					The problem is that we want non-SPARQL experts to still be able to use those templates
+					even if they don't understand how they work internally.
+				</p>
+				<p>
+					In addition to constraints defined in SPARQL, LDOM makes it possible to define constraints
+					using higher-level elements called Templates.
+					(How to define your own Templates is introduced <a href="#templates">later</a>.)
+					The following example demonstrates the use of the Template <code>ldom:ShapeConstraint</code>
+					which links a property with a "shape" that it needs to fulfill:
+				</p>
+			<pre class="example">
+ex:Rectangle
+	ldom:constraint [
+		a ldom:ShapeConstraint ;
+		ldom:predicate ex:creator ;
+		ldom:some [
+			ldom:property [
+				ldom:predicate schema:email ;
+				ldom:minCount 1 ;
+			] ;
+		] ;
+	] ;</pre>
+				<p>
+					The above means that at least one of the values of the property <code>ex:creator</code>
+					must be an object that has at least one <code>schema:email</code> value.
+					This constraint gets evaluated together with the constraints defined by the property
+					declarations, which means that the <code>ex:creator</code> must also be an instance
+					of <code>schema:Person</code>.
+					The property <code>ldom:some</code> means "at least one" - use <code>ldom:all</code>
+					to specify that <em>all</em> values of the property must match the given shape.
+					Note that the matching values do not have to be instances of the given shape,
+					i.e. no <code>rdf:type</code> triple is required.
+					Shapes can be nested, e.g. using additional <code>ldom:constraint</code> values.
+				</p>
+				<p>
+					Templates can also be used as values of <code>ldom:property</code>, as long as
+					the template is a subclass of the system template <code>ldom:PropertyConstraint</code>.
+					The LDOM core includes two such templates:
+					<a href="#derived-properties"><code>ldom:DerivedPropertyConstraint</code></a>
+					and <code>ldom:PrimaryKeyProperty</code>.
+					Here is an example of the latter, declaring that the values of the property
+					<code>ex:isoCode</code> must be unique for each instance of <code>ex:Country</code>.
+				</p>
+				<pre class="example">
+ex:Country
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Country" ;
+  	ldom:property [
+  		a ldom:PrimaryKeyPropertyConstraint ;
+		ldom:predicate ex:isoCode ;
+		ldom:valueType xsd:string ;
+		ldom:uriStart "http://example.org/country-" ;
+		rdfs:label "ISO code" ;
+    ] ...</pre>
+    			<p>
+					This type of constraint also specifies how the URIs of instances need to
+					be constructed, by concatenating the provided <code>ldom:uriStart</code>
+					with the value of the primary key.
+					Tools can use this information to automatically create URIs for newly
+					created instances, and for data imported from external non-RDF sources
+					such as relational databases. 
+    			</p>
+    			<p>
+    				Another built-in template is <code>ldom:OrConstraint</code> which can be
+    				used to combine multiple other constraint templates to express that at least one
+    				of two conditions need to be satisfied.
+    				The following example expresses that a <code>ex:RectangleWithArea</code> must either
+    				have <code>ex:width</code> and <code>ex:height</code>, or a value for
+    				<code>ex:area</code>:
+    			</p>
+    			<pre class="example">
+ex:RectangleWithArea
+	a rdfs:Class ;
+	rdfs:subClassOf ex:Rectangle ;
+	ldom:constraint [
+		a ldom:OrConstraint ;
+		ldom:shape1 [
+			ldom:property [
+				ldom:predicate ex:width ;
+				ldom:minCount 1 ;
+			] ;
+			ldom:property [
+				ldom:predicate ex:height ;
+				ldom:minCount 1 ;
+			]
+		] ;
+		ldom:shape2 [
+			ldom:property [
+				ldom:predicate ex:area ;
+				ldom:minCount 1 ;
+			]
+		]
+	] ;
+.</pre>
+				<p>
+					The SPARQL query behind the <code>ldom:OrConstraint</code> uses a built-in
+					helper function <code>ldom:hasShape</code> to recursively evaluate
+					the nested shapes.  Based on this function, similar templates (such as exclusive-or)
+					could be defined. 
+				</p>
+				<p>
+					Many other kinds of templates can be used from third-party template libraries
+					that provide high-level vocabularies for common design patterns.
+				</p>
+			</section>
+			<section id="global-constraints">
+				<h3>Global Constraints</h3>
+				<p>
+					So far all constraint examples had been attached to classes, in an object-oriented
+					style.  This has the benefit of a natural way of organizing constraints, and makes
+					it easier for an engine to determine which constraints are relevant for a given
+					resource only.  The variable <code>?this</code> is used in those to refer to the
+					currently evaluated instance.
+				</p>
+				<p>
+					In some cases, it is necessary to define constraints that do not have a local
+					object scope, but rather apply globally.
+					These can be expressed by instantiating <code>ldom:GlobalConstraint</code>,
+					as shown in the following example.
+				</p>
+				<pre class="example">
+ex:MyConstraint
+	a ldom:GlobalConstraint ;
+	ldom:message "Deprecated properties should not be used anywhere." ;
+	ldom:level ldom:Warning ;
+	ldom:sparql """
+			SELECT ?root ?predicate ?value
+			WHERE {
+				?root ?predicate ?value .
+				?predicate owl:deprecated ?any .
+			}
+		""" ;
+.</pre>
+				<p>
+					By default, these constraints are assumed to have a SPARQL query, but
+					it is also possible to instantiate templates.
+					Global constraints should be named with a URI (in this example: <code>ex:MyConstraint</code>)
+					so that they are easier to reference and manage.
+				</p>
+			</section>
+    	</section>
+    	
+    	<section id="templates">
+    		<h2>Templates</h2>
+    		<p>
+    			LDOM Templates are "boxed" queries that can be used as values of
+    			<code>ldom:constraint</code> and <code>ldom:property</code>
+    			(as well as <code>ldom:rule</code> if that gets included into the standard).
+    			The role of a template is to encapsulate a reusable piece of SPARQL logic
+    			so that users do not need to reinvent the wheel.
+    			Templates hide the complexity of the underlying SPARQL query and are therefore
+    			suitable for people who are not familiar with SPARQL.
+    			The following example declares a LDOM template that can be used for
+    			constraints to express that the values of a given property shall be
+    			greater than 0. 
+    		</p>
+    		<pre class="example">
+ex:PositivePropertyValueConstraint
+	a ldom:ConstraintTemplate ;
+	rdfs:subClassOf ldom:TemplateConstraint ;
+	rdfs:label "Positive property value constraint" ;
+	ldom:labelTemplate "Values of property {?property} must be &gt; 0" ;
+	rdfs:comment """
+		A template that can be used to define a LDOM constraint on a given property
+		(ex:property) to make sure that the values of that property are &gt; 0.
+		""" ;
+	ldom:argument [
+		ldom:predicate ex:property ;
+		ldom:valueType rdf:Property ;
+		rdfs:comment "The property to constrain (e.g. ex:width or ex:height)." ;
+	] ;
+	ldom:sparql """
+		SELECT (?property AS ?path) ?message
+		WHERE {
+			?this ?property ?value .
+			FILTER (?value &lt;= 0) .
+			BIND (CONCAT("Property ", ldom:label(?property), 
+				" must only have positive values, but found ",
+				xsd:string(?value)) AS ?message) .
+		}
+		""" ;
+.</pre>
+  			<p>
+  				In the example above, the template takes an argument, as specified by the
+  				<code>ldom:argument</code>.  This argument is represented by a value of
+  				the property <code>ex:property</code> which is mapped to the variable
+  				<code>?property</code> when the query executes.
+  				Here is an example that instantiates, or "calls", the template to
+  				define constraints on the properties ex:width and ex:height for all instances
+  				of the class ex:Rectangle.
+  			</p>
+  			<pre class="example">
+ex:Rectangle
+	...
+	ldom:constraint [
+		a ex:PositivePropertyValueConstraint ;
+		ex:property ex:height ;
+	] ;
+	ldom:constraint [
+		a ex:PositivePropertyValueConstraint ;
+		ex:property ex:width ;
+	] .</pre>
+    		<p>
+    			When a LDOM engine encounters such a constraint definition, it will
+    			execute the <code>ldom:sparql</code> body of the template and pre-bind the declared
+    			argument variables with the values specified in the template call.
+    			In the case of <code>ex:height</code>, the template's body basically becomes the following,
+    			where every appearance of the variable <code>?property</code> has been replaced with
+    			the constant ex:height.
+    		</p>
+    		<pre class="example">
+SELECT (ex:height AS ?path) ?message
+WHERE {
+	?this ex:height ?value .
+	FILTER (?value &lt;= 0) .
+	BIND (CONCAT("Property ", ldom:label(ex:height), 
+		" must only have positive values, but found ", xsd:string(?value)) AS ?message) .
+}</pre>
+			<p>
+				LDOM templates make it possible to create libraries of reusable constraints
+				and rules (and other use cases), so that users do not need to learn SPARQL.
+				The LDOM standard comes with several of such reusable constraints including
+				<code>ldom:PropertyConstraint</code> and <code>ldom:Argument</code>
+				which is used by LDOM itself to declare the arguments of templates.
+			</p>
+			<p>
+				The example above highlights that LDOM templates can be used to create higher-level
+				modeling languages that introduce constructs such as the
+				<code>ex:PositivePropertyValueConstraint</code> above together
+				with semantics that are executable by any LDOM-compliant engine.
+				At the same time, high-level elements such as the property declarations can also be used by
+				other engines that do not necessarily rely on SPARQL.
+			</p>
+			
+			<section id="profiles">
+				<h3>Profiles</h3>
+				<p>
+					Some applications may only support certain templates as a controlled
+					vocabulary.  For example, a JavaScript client form engine may only
+					support property definitions with value type and min/max cardinality.
+					The class <code>ldom:Profile</code> can represent such sets of templates,
+					as illustrated in the following example.
+					Here, an application could use the profile <code>ex:SimpleFormProfile</code>
+					to display warnings if an incoming LDOM model uses features outside of
+					its profile.  
+				</p>
+				<pre class="example">
+ex:SimpleFormProfile
+	a ldom:Profile ;
+	ldom:member ldom:AbstractCountPropertyConstraint ; # defines ldom:min/maxCount
+	ldom:member ldom:AbstractValueTypePropertyConstraint . # defines ldom:valueType</pre>
+			</section>
+			
+    	</section>
+    	
+    	<section id="functions">
+    		<h2>Functions</h2>
+    		<p>
+    			LDOM Functions are similar to Templates in their syntax, but they are used to
+    			declare new SPARQL functions based on an encapsulated, reusable query.
+    			The following snippet defines a function <code>ex:computeArea</code> that takes
+    			a Rectangle as its argument and returns an integer that is the result of
+    			multiplying the Rectangle's width with its height.
+    		</p>
+    		<pre class="example">
+ex:computeArea
+	a ldom:Function ;
+	rdfs:subClassOf ldom:Functions ;
+	rdfs:label "compute area" ;
+	rdfs:comment "Computes the area of a given rectangle (?arg1) as the product of its width and height." ;
+	ldom:argument [
+		ldom:predicate ldom:arg1 ;
+		ldom:valueType ex:Rectangle ;
+		rdfs:comment "The rectangle whose area to compute." ;
+	] ;
+	ldom:sparql """
+		SELECT ((?width * ?height) AS ?result)
+		WHERE {
+			?arg1 ex:width ?width .
+			?arg1 ex:height ?height .
+		}
+		""" ;
+	ldom:returnType xsd:integer ;
+.</pre>
+  			<p>
+  				In LDOM-compliant SPARQL processors, this new function can be used such as
+  				in the following example:
+  			</p>
+  			<pre class="example">
+SELECT *
+WHERE {
+    ?rectangle a ex:Rectangle .
+    FILTER (ex:computeArea(?rectangle) &gt;= 100) .
+}</pre>
+  			<p>
+  				LDOM functions have a SELECT query as their body, and this query needs to have one
+  				result variable (here: <code>?result</code>).  The first binding of this variable will be used
+  				as result of the function execution.  The execution mechanism is illustrated in the
+  				following diagram.
+  			</p>
+      		<img style="margin-left: 23px" src="images/computeArea-function.png"></img>
+  			<!-- p>
+  				Since LDOM is based on Semantic Web standards, the principles of Linked Data apply.
+  				For example, SPARQL engines can look up the definition of a new function that it has
+  				not encountered before by following the URI of the function (here: ex:computeArea).
+  				Likewise, when a LDOM constraint engine encounters a resource, it can follow the
+  				declared <b>rdf:type</b> triples of that resource to look up the definition of the
+  				class on the internet, on a company-wide local network or by using a custom URI resolution mechanism.
+  				The definition of the class may involve ldom:property and ldom:constraint triples
+  				that help the LDOM engine make sense of objects in an entirely declarative manner.
+  				As a result of this, LDOM helps to turn Linked Data into <b>Linked Data Objects</b>
+  				&#x2014; self-describing resources that support an extensible and dynamic system architecture.
+  				Such an architecture only requires the hard-coding of a few generic software components,
+  				while much of the runtime behavior is controlled and discovered dynamically.
+  				LDOM can also be used in conjunction with other Semantic Web languages like OWL
+  				and to extend existing ontologies with the rich expressivity of SPARQL.
+  			</p-->
+    	</section>
+    	
+    	<section id="derived-properties">
+    		<h2>Derived Properties</h2>
+    		<p>
+    			LDOM includes a special kind of property constraints for properties that
+    			are computed (or derived or inferred) from other values.
+    			A good example of this is the <code>ex:area</code> property for rectangles: 
+    		</p>
+    		<pre class="example">
+ex:Rectangle
+	...
+	ldom:property [
+		<b>a ldom:DerivedPropertyConstraint ;</b>
+		ldom:predicate ex:area ;
+		ldom:maxCount 1 ;
+		<b>ldom:sparql "ex:computeArea(?this)" ;</b>
+		ldom:valueType xsd:integer ;
+		rdfs:label "area" ;
+		rdfs:comment "The area of the Rectangle, defined as the product of width x height." ;
+	] ;</pre>
+			<p>
+				The <code>ldom:DerivedPropertyConstraint</code> above will flag a constraint
+				violation if the value of <code>ex:area</code> is not equal to the result
+				of the provided SPARQL expression.
+			</p>
+			<p>
+				Some LDOM implementations may also chose to use constraints of this type in a constructive
+				way, to automatically compute missing values (but this is not covered by the standard).
+			</p>
+    	</section>
+    	
+    	<section id="rules">
+    		<h2>Rules</h2>
+    		<p class="todo">
+    			(Unclear whether the WG will include inferencing, so this feature is at risk)
+    		</p>
+    		<p>
+    			LDOM makes it possible to attach executable rules to classes.
+    			Rules are represented as SPARQL CONSTRUCT queries that apply to all instances
+    			of the associated class and its subclasses.
+    			In those rules, the variable <code>?this</code> refers to each instance of those classes.
+    			A LDOM execution engine will make sure that ?this has the correct values.
+    			The triples that are constructed by such a rule become "inferred" and are added
+    			to the RDF graph, so that other rules can "see" the new triples.
+    			In the following example, the value of ex:area gets computed by multiplying
+    			the values of ex:width and ex:height.
+    		</p>
+    		<pre class="example">
+ex:Rectangle
+	ldom:rule [
+		ldom:sparql """
+			CONSTRUCT {
+				?this ex:area ?area .                 # Infer ?area as a value of ex:area
+			}
+			WHERE {
+				?this ex:width ?width .               # Get the width of ?this Rectangle
+				?this ex:height ?height .             # Get the height of ?this Rectangle
+				BIND ((?width * ?height) AS ?area) .  # Compute area := width * height
+			}
+		""" ;
+	] .</pre>
+    		<p>
+    			The property <code>ldom:rule</code> is used to link a class with a rule.
+    			The values of this property must be either CONSTRUCT queries or template calls
+    			that wrap a CONSTRUCT query.
+    		</p>
+    	</section>
+    	
+    	<section id="contexts">
+    		<h2>Contexts</h2>
+    		<p>
+    			LDOM constraints can be grouped into contexts - URIs that have the type
+				<code>ldom:Context</code>.
+				This makes it possible to indicate that certain constraints shall not
+				apply by default, but only for certain applications or user communities.
+				The property <code>ldom:context</code> links an <code>ldom:Constraint</code>
+				with a context:
+    		</p>
+    		<pre class="example">
+ex:Rectangle
+	ldom:property [
+		ldom:predicate dct:publisher ;
+		ldom:minCount 1 ;
+		ldom:context &lt;http://example.org/trackable&gt;
+	] .</pre>
+			<p>
+				In the example above, the class <code>ex:Rectangle</code> has been extended
+				with a minimum cardinality constraint on the property <code>dct:publisher</code>.
+				This constraint is applicable in the provided <code>ldom:context</code> only,
+				which means that it does not apply by default.
+				However, certain applications that process <code>ex:Rectangle</code> instances
+				can trigger the constraint checking in a context that includes all default
+				constraints plus the extra constraints from the <code>http://example.org/trackable</code>
+				context.
+			</p>
+			<p>
+				The operation that triggers the constraint checking can take included and excluded
+				contexts as argument.  Contexts can be organized into hierarchies using
+				<code>ldom:subContextOf</code>, which means that whenever a super-context is requested
+				then all constraints from its sub-contexts also apply.
+				The built-in URI <code>ldom:DefaultContext</code> can be used to specify the default
+				context, and that is also the default value if <code>ldom:context</code> is unspecified.
+			</p>
+    	</section>
+    	
+    	<section id="graphs">
+    		<h2>Graph Management</h2>
+    		<p>
+    			LDOM models are typically organized in RDF graphs (e.g. stored as files or
+    			named graphs on a database).
+    			These graphs usually have a URI that helps a system resolve the graph when
+    			it is requested.
+    			Each LDOM graph may declare an instance of <code>ldom:Graph</code>
+    			that has the graph URI as its URI and contains information about the graph itself,
+    			including a human-readable label and comments. 
+    		</p>
+    		<p>
+    			For constraint checking and rule execution, LDOM definitions often need to reference
+    			other graphs that either contain additional classes, properties and instances,
+    			or that may declare templates, rules and constraints that are needed at run-time.
+    			LDOM graphs may reference each other via two dedicated properties:
+    		</p>
+    		<ul>
+    			<li>
+    				<code>ldom:include</code> links a graph with other graphs that shall be included
+    				into the query graph over which LDOM constraints and rules are executed.
+    				This is a transitive property, i.e. includes of includes are also added.
+    			</li>
+    			<li>
+    				<code>ldom:library</code> links a graph with other (library) graphs that shall be
+    				included into the control graph that includes template definitions as well as the LDOM
+    				metamodel itself.
+    			</li>
+    		</ul>
+    		<p>
+    			The separation between the graph closures via <code>ldom:include</code> and
+    			<code>ldom:library</code> allows LDOM users and implementations to optimize performance
+				because they can exclude certain (library) graphs from the union graph that is used
+				by the SPARQL engine.
+				Furthermore, editing and display tools may chose to hide library graphs as they often
+				contain rather low-level information that is not of interest to average users. 
+    		</p>
+    	</section>
+    	
+    	<section id="test-cases">
+    		<h2>Test Case Vocabulary</h2>
+    		<p>
+    			It is a well-established practice in software development to define test cases that
+    			formalize the expected behavior of a piece of code.  In the same spirit, LDOM includes
+    			a simple vocabulary to represent constraint checking scenarios together with expected
+    			constraint violations.  These can be used by modelers to ensure that the constraint
+    			definitions are correct, and remain correct as the model evolves.
+    		</p>
+    		<p>
+    			Due to space considerations, this Primer only covers a small example test case to
+    			illustrate the syntax.  For details, see the yet-to-be-written formal specification.
+    			The example below instructs the LDOM engine to verify that the given
+    			resource <code>ex:Father</code> from the given <code>ldom:graph</code>
+    			shall be checked for constraints.  The test passes "green" if the outcome is exactly
+    			one constraint violation that is structurally equivalent to the provided
+    			<code>ldom:violation</code>.
+    		</p>
+    		<pre class="example">
+ex:TestCase
+	a ldom:ResourceConstraintCheckingTestCase ;
+	ldom:check ex:Father ;
+	ldom:graph &lt;http://www.w3.org/ns/ldom/test/constraint-inverse-001&gt; ;
+	ldom:ignore ldom:message ;
+	ldom:violation [
+		a ldom:Error ;
+		ldom:root ex:Father ;
+		ldom:path [ ldom:inverse ex:child ] ;
+	] .</pre>
+    	</section>
+    	
+    	<section id="other-languages">
+    		<h2>Relationships with other Languages</h2>
+    		<p>
+    			The design of LDOM was influenced by a number of other languages.
+    		</p>
+    		
+    		<section id="spin">
+	    		<h3>SPIN</h3>
+	    		<p>
+	    			LDOM can be regarded as the next generation of the
+	    			<a href="http://spinrdf.org">SPARQL Inferencing Notation (SPIN)</a>.
+	    			SPIN had introduced the concept of attaching SPARQL-based constraints and rules to classes,
+	    			of Templates, user-defined Functions and template libraries.
+	    			Notable differences from SPIN include:
+	    		</p>
+	    		<ul>
+	    			<li>
+	    				<code>spin:constraint</code> was split into <code>ldom:property</code>,
+	    				<code>ldom:argument</code> and <code>ldom:constraint</code>,
+	    				to clarify that some constraints are rather structural information, and as
+	    				syntactic sugar. 
+	    			</li>
+	    			<li>
+	    				<code>spl:Attribute</code> was promoted into a core feature, as
+	    				<code>ldom:PropertyConstraint</code>.
+	    			</li>
+	    			<li>
+	    				SPARQL constraints can now also be SELECT queries.
+	    			</li>
+	    			<li>
+	    				More elegant ASK and SELECT syntax, less need for geeky CONSTRUCT syntax.
+	    			</li>
+	    			<li>
+	    				Explicit graph management, separating graphs that are needed for control
+	    				purposes from those needed at query time (<code>ldom:Graph</code>, <code>ldom:library</code>,
+	    				<code>ldom:include</code>). 
+	    			</li>
+	    			<li>
+	    				Cleaned up meta-model including a shared superclass for constraints and path expressions.
+	    			</li>
+	    			<li>
+	    				Built-in TestCase framework.
+	    			</li>
+	    			<li>
+	    				No SPIN RDF syntax - LDOM only supports the easier to type in SPARQL strings.
+	    			</li>
+	    			<li>
+	    				<code>sp:text</code> has become <code>ldom:sparql</code>, anticipating that other
+	    				languages may follow in the future.
+	    			</li>
+	    		</ul>
+    		</section>
+
+			<section id="resource-shapes">
+	    		<h3>Resource Shapes</h3>
+	    		<p>
+					<a href="http://www.w3.org/Submission/2014/SUBM-shapes-20140211/">Resource Shapes 2.0</a>
+					looks very similar to the structural constraints defined using ldom:property.
+					Here is a rough mapping between the vocabularies:
+	    		</p>
+	    		<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+	    			<tr>
+	    				<th>Resource Shapes</th>
+	    				<th>LDOM</th>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:property</code></td>
+	    				<td><code>ldom:property</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:Property</code></td>
+	    				<td><code>ldom:PropertyConstraint</code> (implicit)</td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:propertyDefinition</code></td>
+	    				<td><code>ldom:predicate</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:defaultValue</code></td>
+	    				<td><code>ldom:defaultValue</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:occurs</code></td>
+	    				<td><code>ldom:minCount</code>, <code>ldom:maxCount</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:range</code>, <code>oslc:valueType</code></td>
+	    				<td><code>ldom:valueType</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:valueShape</code></td>
+	    				<td><code>ldom:all</code>, <code>ldom:some</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>oslc:allowedValues</code></td>
+	    				<td><code>ldom:allowedValues</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>dcterms:title</code></td>
+	    				<td><code>rdfs:label</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>dcterms:description</code></td>
+	    				<td><code>rdfs:comment</code></td>
+	    			</tr>
+	    		</table>
+	    	</section>
+
+			<section id="shex">
+	    		<h3>ShEx</h3>
+	    		<p>
+	    			<a href="http://www.w3.org/Submission/shex-primer/">ShEx</a> borrows and expands
+	    			on many ideas of Resource Shapes, focusing on nested shape declarations.
+	    			A unique feature of ShEx is the <a href="http://www.w3.org/2001/sw/wiki/ShEx">ShExC</a>
+	    			compact syntax.
+	    			A large subset of this syntax could be mapped onto LDOM templates such as
+	    			<code>ldom:ShapeConstraint</code>.
+	    		</p>
+			</section>    		
+
+			<section id="rdf-schema">
+	    		<h3>RDF Schema</h3>
+	    		<p>
+	    			LDOM directly reuses some of the main concepts of
+	    			RDF Schema [[rdf-schema]] models: <code>rdfs:Resource</code>, <code>rdfs:Class</code>,
+	    			<code>rdfs:subClassOf</code>, <code>rdf:type</code>, <code>rdf:Property</code> and
+	    			<code>rdfs:Literal</code> (and the built-in datatypes).
+	    			LDOM relies on class inheritance via <code>rdfs:subClassOf</code> to figure out which
+	    			constraints	to fire, and which properties to inherit, and on <code>rdf:type</code> to link
+	    			instances with their class definitions.
+	    			RDF's concept of Linked Data applies to LDOM too, e.g. LDOM engines could look up the
+	    			definitions of templates and functions by resolving	their URIs.
+	    		</p>
+	    		<p>
+	    			LDOM does not give any special meaning to all other RDF Schema terms including
+	    			<code>rdfs:subPropertyOf</code>, <code>rdfs:range</code> and <code>rdfs:domain</code>,
+	    			which means that these are ignored by the standard LDOM semantics.
+	    			However, it would be possible to define LDOM constraints that interpret 
+	    			selected RDFS vocabulary with closed-world semantics, if that is desirable within
+	    			certain contexts.
+	    		</p>
+	    		<p>
+	    			In LDOM it is theoretically not necessary to define rdf:Properties as stand-alone
+	    			entities - their declaration is optional because all relevant information about
+	    			the property can be regarded as local to the associated classes only.
+	    		</p>
+	    		<p>
+	    			Overall, it is perfectly fine to mix existing RDF Schemas with LDOM declarations,
+	    			either in the same graph or in multiple graphs that reference each other.
+	    			This way, hybrid models can be created that are interpreted with the traditional
+	    			open-world semantics of RDF Schema in some scenarios, or the closed-world semantics
+	    			of LDOM in other use cases.
+	    			The bulk of instance data can be reused between both worlds.
+	    		</p>
+			</section>    		
+
+			<section id="owl">
+	    		<h3>OWL</h3>
+	    		<p>
+	    			The <a href="http://www.w3.org/2001/sw/wiki/OWL">Web Ontology Language (OWL)</a>
+	    			extends RDF Schema and its original open-world design with a focus on classification
+	    			problems.  The attachment of restrictions to classes is very similar to LDOM.
+	    			Designing complex class definitions by combining restrictions and other class
+	    			constructors resembles the concept of nested shapes in ShEx
+	    			(and ldom:all and ldom:some).
+	    		</p>
+	    		<p>
+	    			Like with RDF Schema, it is possible to build OWL ontologies that also include LDOM
+	    			constructs as an additional feature.  This also means that the basic structure of
+	    			most OWL ontologies and their instances can be reused from a LDOM perspective.
+	    			There are also several implementations of a subset of OWL with closed-world semantics
+	    			in SPIN, which can be converted to LDOM.
+	    			LDOM's foundation on SPARQL means that OWL models can be enriched with frequently
+	    			needed features such as string and mathematical operations, and complex conditions
+	    			that require variables. 
+	    		</p>
+	    		<p>
+	    			Here is a rough comparison between LDOM elements and their OWL equivalents,
+	    			assuming a closed-world interpretation of OWL.
+	    		</p>
+	    		<table style="border-collapse: collapse; border-color: #000000" border="1" cellpadding="5">
+	    			<tr>
+	    				<th>OWL</th>
+	    				<th>LDOM</th>
+	    			</tr>
+	    			<tr>
+	    				<td><code>rdfs:subClassOf</code> an <code>owl:Restriction</code></td>
+	    				<td><code>ldom:property</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:onProperty</code></td>
+	    				<td><code>ldom:predicate</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:minCardinality</code></td>
+	    				<td><code>ldom:minCount</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:maxCardinality</code></td>
+	    				<td><code>ldom:maxCount</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:allValuesFrom</code></td>
+	    				<td><code>ldom:all</code> or <code>ldom:valueType</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:someValuesFrom</code></td>
+	    				<td><code>ldom:some</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:oneOf</code></td>
+	    				<td><code>ldom:allowedValues</code></td>
+	    			</tr>
+	    			<tr>
+	    				<td><code>owl:hasKey</code> (without URI rule)</td>
+	    				<td><code>ldom:PrimaryKeyPropertyConstraint</code></td>
+	    			</tr>
+	    		</table>
+			</section>    		
+
+			<section id="rdfunit">
+	    		<h3>RDFUnit</h3>
+	    		<p>
+	    			The discussions in the Shapes WG led to refinements of the constraint violation
+	    			syntax that also exist in <a href="http://aksw.org/Projects/RDFUnit.html">RDFUnit</a>.
+	    			Also, RDFUnit has a notion of TestCases which inspired the design of the
+	    			<code>ldom:TestCase</code> class. Furthermore, the concept of <code>ldom:Context</code>
+	    			borrows ideas from the RDFUnit properties appliesTo and source. 
+	    		</p>
+			</section>    		
+    		
+    	</section>
+  	</body>
+</html>
