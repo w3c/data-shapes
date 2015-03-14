@@ -148,7 +148,9 @@ function prepareHighlight (highlightables, onClass, offClass, slide) {
 
 <div class="todo">
  <p>This section should be removed from this document and be included in 
-    the document about the high-level language</p> 
+    the document about the high-level language</p>
+  <p>Or better, this section should be synchronized with the language definition
+  constructs that should appear in another document</p> 
 </div>
 
 <p>A schema is a list of Labels associated with shapes
@@ -324,8 +326,11 @@ the consequent is below the line.
 If an antecedent is of the form <i>not(p)</i>, 
 then it is a negative antecedent; 
 otherwise, it is a positive antecedent. </p>
+
+<!-- TODO: Add this as a reference or maybe remove it -->
 <p>The formal semantics presented follows the same formalism as the one used for 
  <a href="http://relaxng.org/spec-20011203.html">RelaxNG</a>
+
 </section>
 
 <section id="Preliminaries">
@@ -842,17 +847,21 @@ hasNoType(x,t)
 		
 <section id="Extension">
 <h2>Extended features</h2>
-<p>The core SHACL language can be extended with the following constructs:
 
-<pre>
-Shape ::= Not Shape                // Matches if the shape does not match
-	    | Close Shape              // Matches if it matches the shape and there are no remaining triples
-		| Xor Shape Shape          // Matches if either the first shape or the second match, but not both
-</pre>
+<p>The core SHACL language can be extended with the following constructs.
+</p>
 
-<p>The axiomatic definition of these constructs are:
+
+<section id="Negation">
+<h2>Negation of shapes</h2>
 
 <p>If the shape is a negation of a shape it matches if the shape does not match</p>
+<p>Abstract Syntax</p>
+
+<pre>
+Shape ::= ...
+       | Not Shape   // Matches if the shape does not match
+</pre>
 
 <table class="rule">
 <tr>
@@ -863,9 +872,17 @@ ctx |- not(matchShape(ts,e))
 </tr>
 <tr><td>ctx |- matchShape(ts, Not(e)) = (t, ts, {})</td></tr>
 </table>
-
+</section>
+<section id="ClosedShapes">
+<h2>Closed shapes</h2>
 <p>A set of triples matches a closed shape if the set of triples matches the shape
  and there are no remaining triples</p>
+
+<p>Abstract syntax</p>
+<pre>
+Shape ::= ... 
+	    | Close Shape              // Matches if it matches the shape and there are no remaining triples
+</pre> 
 
 <table class="rule">
 <tr>
@@ -877,11 +894,134 @@ ctx |- matchShape(ts,e) = (t,cs,{})
 <tr><td>ctx |- matchShape(ts, Closed(e)) = (t, cs, {})</td></tr>
 </table>
 
-<p>The XOr construct is defined in terms of negation as:</p>
+<div class="issue" id="closedShapes">
+ <p>Combining closed and recursive shapes may generate non-intuitive definitions
+ <p>TODO: add example</p>
+ <p>Another related concept is <i>Closed schema</i> which would match a schema only when 
+  there are no remaining triples</p>   
+</div>
+</section>
+
+<section id="Xor">
+<h2>Exclusive-or</h2>
+
+<p>Exclusive-or can be used to define shapes that match either one sub-shape or another, but not both</p>
+
+<p>Example: define a Person shape that has either full name, 
+   or a combination of first name and last name, but no both</p>
+
+<pre>
+Shape ::= ... 
+		| Xor Shape Shape          // Matches if either the first shape or the second match, but not both
+</pre>   
+
+<p>The XOr construct is defined in terms of negation as</p>
 
 <pre>
 Xor(e1,e2) = Or(And(e1,not(e2)),And(e2,not(e2)))
 </pre>
+</section>
+
+<section id="Extension">
+<h2>Extension mechanism</h2>
+<p>The extension mechanism can be used to call external processors which
+  can define more complex constraints. 
+<p>The language of those external processors will be identified by a 
+  URI and can be, for example: SPARQL, Javascript, etc.
+</p>
+<p>The processors will be passed the current node that is being matched</p>
+<p class="todo">TODO: Define what other information is passed to the external processors</p>
+<p>The abstract syntax is</p>
+<pre>
+Shape ::= ...
+      | External Shape Language Code // Call a external processor of type Language passing the code
+
+Language ::= URI   // URI that identifies a external language  
+
+Code ::= String   // String that is being passed to the external language
+</pre>
+
+<p>The semantics of this construct consists of calling the external processor with 
+ the corresponding information and after completion, if the return value is true, 
+ then match the shape, otherwise fail. 
+</section>
+
+<section id="Macros">
+<h2>Macros</h2>
+<p>Define parameterized macros (also called templates) that can extend the language</p>
+
+<p>Abstract Syntax</p>
+<pre>
+Shape ::= ...
+      | Call Macro Argument1 Argument2 ... ArgumentN  // Call a macro
+      
+Macro ::= Macro Name Parameter1 Parameter2 ... ParameterN Shape // Macro definition
+</pre>
+
+<p class="todo">Define the semantics of macros</p> 
+
+</section>
+</section> <!-- Extended features -->
+
+<section id="SPARQL_Mappings">
+<h2>SPARQL Mappings</h2>
+<p>This section contains the mappings from the basic SHACL language to SPARQL</p>
+<pre>
+sparql[[Arc p v {m,unbounded}]] = 
+ SELECT ?x WHERE { 
+  SELECT ?x where {
+   ?x ?p []
+   FILTER (bound(?p))
+   GROUP BY ?x HAVING (count(*)=m)
+ }
+ SELECT ?x WHERE {
+  ?x ?p ?v
+   FILTER (bound(?v) && match[[?v,v]])
+   GROUP BY ?x HAVING (count(*)=m)
+ } 
+}
+
+sparql[[InvArc p v {m,unbounded}]] = 
+ SELECT ?x WHERE { 
+  SELECT ?x where {
+   [] ?p ?x
+   FILTER (bound(?p))
+   GROUP BY ?x HAVING (count(*)=m)
+ }
+ SELECT ?x WHERE {
+  ?v ?p ?x
+   FILTER (bound(?v) && match[[?v,v]])
+   GROUP BY ?x HAVING (count(*)=m)
+ } 
+}
+
+sparql[[And(e1,e2)]] = 
+  SELECT ?x WHERE {
+   sparql[[e1]] 
+   sparql[[e2]]
+  }
+  
+sparql[[Or(e1,e2)]] = 
+  SELECT ?x WHERE {
+   sparql[[e1]] UNION sparql[[e2]]
+  }
+</pre>
+
+<p class="todo">
+Define Bounded Arcs: Arc p v {m,n}
+ The SPARQL queries would need to delimit that there are no more than n arcs that match  
+</p>
+
+<p class="todo">
+Define match of values. Three cases:
+
+<ul>
+<li>ValueSet: This is the easy one...just use <code>IN</code>
+<li>ValueType: Not difficult (but tedious) using buitin SPARQL predicates
+<li>ValueRef: This will be more difficult with recursive definitions.
+</ul>
+
+</p>
 
 </section>
 <section class='appendix'>
