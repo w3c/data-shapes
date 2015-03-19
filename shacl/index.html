@@ -123,6 +123,24 @@
 				SHACL includes macro facilities that encapsulate reusable building blocks based on these executable languages into <span class="term">templates</span> and <span class="term">functions</span>.
 				These advanced topics are covered from section 7 onwards. 
 			</p>
+			<section id="introduction-outline">
+				<h3>Document Outline</h3>
+				<p>
+					Unless otherwise noted in the section heading, all sections and appendices in this document are normative.
+					<span class="todo">TODO: We still need to mark non-normative sections.</span>
+				</p>
+				<p>
+					The remaining sub-sections of the Introduction provide an overview of the complete language and introduces relevant <a href="#introduction-overview">terminology</a>.
+				</p>
+				<p>
+					The sections 2 - 6 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
+					<span class="todo">We could add details on every section here, but I am not sure this is really needed.</span>
+				</p>
+				<p>
+					The sections 7 onwards are about the full SHACL language and its formal definition.
+					The appendix includes SPARQL-related implementation details.
+				</p>
+			</section>
 			<section id="introduction-overview">
 				<h3>Overview and Terminology</h3>
 				<p>
@@ -678,6 +696,9 @@ ex:AllowedValuesExampleSet
 
 ex:AllowedValuesExampleValidResource
 	ex:property ex:Value2 .</pre>
+					<p class="todo">
+						TODO: Some examples should also include the validation results.
+					</p>
 					<p class="issue" title="sh:allowedValue">
 						It is not yet decided whether the language should also support <code>sh:allowedValue</code>
 						that would point directly to the enumerated values instead of having an intermediate sh:Set.
@@ -1632,12 +1653,12 @@ ex:exampleFunction
 			<section id="sparql-constraints">
 				<h3>SPARQL-based Constraints</h3>
 				<p>
-					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>ASK</code>, <code>CONSTRUCT</code> or <code>SELECT</code>.
+					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>CONSTRUCT</code> or <code>SELECT</code>.
 					<a href="#sparql-constraints-construct"><code>CONSTRUCT</code></a> is the most flexible option, so the following section starts with describing how these are executed.
-					The subsequent sections describe how <a href="#sparql-constraints-ask"><code>ASK</code></a> and <a href="#sparql-constraints-select"><code>SELECT</code></a> queries can be transformed into equivalent <code>CONSTRUCT</code> forms.
+					The subsequent section describes how <a href="#sparql-constraints-select"><code>SELECT</code></a> queries can be transformed into equivalent <code>CONSTRUCT</code> forms.
 				</p>
 				<p class="todo">
-					There is ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Feb/0359.html">discussion</a> about whether all options below shall be supported, and whether an approach based on variable names only would be better.
+					There is ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Feb/0359.html">discussion</a> about whether the CONSTRUCT option below shall be supported, and whether an approach based on variable names only would be better.
 				</p>
 				<section id="sparql-constraints-construct">
 					<h4>CONSTRUCT-based Constraints</h4>
@@ -1670,55 +1691,6 @@ sh:ExampleGlobalConstructConstraint
 						The instances of <code>sh:ConstraintViolation</code> produced by such queries are not modified further,
 						except that the engine SHOULD add <code>sh:source</code> triples that have each constraint violation
 						instance as subject and the surrounding <code>sh:Constraint</code> as its object.
-					</p>
-				</section>
-				<section id="sparql-constraints-ask">
-					<h4>ASK-based Constraints</h4>
-					<p class="todo">
-						Issue: It is quite possible that ASK queries will be removed from the language.
-						For many use cases, a corresponding SELECT query is easy to write.
-						Furthermore, ASK often leads to confusion because they need to return false to signal correctness.
-					</p>
-					<p>
-						SPARQL queries of the <code>ASK</code> form that produce <code>true</code> signal a constraint violation.
-						As shown in the following example, the subject node holding the <code>sh:sparql</code> query may also have other properties that define properties of the constraint violation.
-					</p>
-					<pre class="example" title="Global constraint based on SPARQL ASK">
-ex:ExampleGlobalAskConstraint
-	a sh:GlobalConstraint ;
-	sh:level sh:Warning ;
-	sh:message "Properties marked as deprecated should not be used" .
-	sh:sparql """
-		ASK {
-			?subject ?predicate ?object .
-			?predicate ex:deprecated true .
-		}
-		""" .</pre>
-					<p>
-						The <code>ASK</code> query above gets translated into the following <code>CONSTRUCT</code>:
-					</p>
-					<pre class="example">
-CONSTRUCT {
-	_:violation a sh:Warning .
-	_:violation sh:message "Properties marked as deprecated should not be used" .
-}
-WHERE {
-	?subject ?predicate ?object .
-	?predicate ex:deprecated true .
-}</pre>
-					<p>
-						In its most basic form, an <code>ASK</code> query is translated into a <code>CONSTRUCT</code> form with an identical <code>WHERE</code> clause.
-						The <span class="term">graph template</span> of the <code>CONSTRUCT</code> must create exactly one blank node.
-						The <code>rdf:type</code> of that blank node must be the value of the property <code>sh:level</code> at the surrounding subject node.
-						If no <code>sh:level</code> has been specified, <code>sh:Error</code> must be used as default type.
-						<span class="todo">A proposed alternative to sh:level is <code>sh:severity</code>.</span>
-					</p>
-					<p>
-						If the surrounding subject node defines a <code>sh:message</code> then the constructed blank node needs to have a corresponding triple.
-						Similarly, the values of <code>sh:root</code>, <code>sh:path</code> and <code>sh:value</code> must be inserted (they cannot be blank nodes).
-					</p>
-					<p class="todo">
-						TODO: Maybe allow special variable names such as <code>?root</code>, <code>?path</code> etc to be projected similar to how this happens with SELECT queries.
 					</p>
 				</section>
 				<section id="sparql-constraints-select">
@@ -1785,7 +1757,8 @@ WHERE {
 						</tr>
 					</table>
 					<p>
-						Similar to <a href="#sparql-constraints-ask"><code>ASK</code></a> queries, corresponding values attached to the surrounding subject node must be used in the absence of the result variables above.
+						If the surrounding subject node defines a <code>sh:message</code> then the constructed blank nodes needs to have corresponding triples, unless the SELECT has corresponding result variables.
+						Similarly, the values of <code>sh:root</code>, <code>sh:path</code> and <code>sh:value</code> must be inserted (they cannot be blank nodes).
 					</p>
 					<p>
 						In local constraints the variable <code>?this</code> must be projected into <code>?root</code> unless the <code>SELECT</code> clause already projects to <code>?root</code>.
