@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft Version 0.2.3 (2015-03-09)
+# Draft Version 0.2.4 (2015-03-18)
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -27,6 +27,12 @@ rdfs:Resource
 		sh:predicate rdf:type ;
 		sh:valueType rdfs:Class ;
 		rdfs:label "type" ;
+	] ;
+	sh:property [
+		sh:predicate sh:nodeShape ;
+		sh:valueType sh:Shape ;
+		rdfs:label "node shape" ;
+		rdfs:comment "Links a resource with the shapes that it is supposed to have." ;
 	] ;
 .
 
@@ -56,7 +62,7 @@ sh:Shape
 		rdfs:label "inverse property" ;
 		rdfs:comment "Declares that a given incoming reference property is relevant for matching resources." ;
 	] ;
-	sh:constraint [ # Also check constraints on untyped sh:inverseProperty values
+	sh:constraint [ # Also validate constraints on untyped sh:inverseProperty values
 		sh:queryLibraryGraph true ;
 		sh:sparql """
 			CONSTRUCT {
@@ -78,7 +84,7 @@ sh:Shape
 			}
 			""" ;
 	] ;
-	sh:constraint [ # Also check constraints on untyped sh:property values
+	sh:constraint [ # Also validate constraints on untyped sh:property values
 		sh:queryLibraryGraph true ;
 		sh:sparql """
 			CONSTRUCT {
@@ -141,7 +147,8 @@ rdfs:Class
 		sh:message "Each named class should have at least one (other) named superclass" ;
 		sh:path rdfs:subClassOf ;
 		sh:sparql """
-			ASK {
+			SELECT (?this AS ?root) 
+			WHERE {
 				FILTER isIRI(?this) .
 				FILTER (?this != rdfs:Resource && ?this != rdfs:Literal) .
 				FILTER NOT EXISTS {
@@ -195,7 +202,7 @@ xsd:time a rdfs:Datatype ; rdfs:subClassOf rdfs:Resource ; rdfs:label "time" .  
 # - The Library Graph is the Query Graph plus any graphs referenced via sh:library.
 # The Library Graph is used to look up the definitions of templates and also includes
 # the definition of the system vocabulary (such as rdfs:Class itself).
-# Constraint checking can be applied in two modes:
+# Constraint validation can be applied in two modes:
 # - 'filtered' will skip testing any class definitions and other schema-related things
 #   such as making sure that a class or template is well-formed.
 # - 'unfiltered' will test everything including the class definitions.
@@ -205,30 +212,11 @@ xsd:time a rdfs:Datatype ; rdfs:subClassOf rdfs:Resource ; rdfs:label "time" .  
 # The flag sh:queryLibraryGraph can be used to instruct the engine to query the more
 # complete Library Graph instead.  
 
-sh:Context
-	a rdfs:Class ;
-	rdfs:subClassOf rdfs:Resource ;
-	rdfs:label "Context" ;
-	rdfs:comment "A context is a group of constraint declarations that belong together. The property sh:context is used to link constraints with their context." ;
-	sh:property [
-		sh:predicate sh:subContextOf ;
-		sh:valueType sh:Context ;
-		rdfs:label "sub-context of" ;
-		rdfs:comment "All constraints defined in a sub-context also apply when the super-context is selected." ;
-	] ;
-.
-
-sh:DefaultContext
-	a sh:Context ;
-	rdfs:label "Default context" ;
-	rdfs:comment "Can be used to identify the default context. This value is implicit if a constraint has no value for sh:context." ;
-.
-
 sh:Graph
 	a rdfs:Class ;
-	rdfs:subClassOf sh:Context ;
+	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Graph" ;
-	rdfs:comment "A collection of RDF triples identified by a URI. In a Linked Data scenario, a graph should be accessible from its URI via content negotiation in formats such as Turtle and JSON-LD. Graphs can also serve as contexts." ;
+	rdfs:comment "A collection of RDF triples identified by a URI. In a Linked Data scenario, a graph should be accessible from its URI via content negotiation in formats such as Turtle and JSON-LD." ;
 	sh:property [
 		sh:predicate sh:include ;
 		sh:valueType sh:Graph ;
@@ -400,7 +388,7 @@ sh:Module
 			}
 			""" ;
 	] ;
-	sh:constraint [ # Also check constraints on untyped sh:argument values
+	sh:constraint [ # Also validate constraints on untyped sh:argument values
 		sh:message "Malformed sh:argument." ;
 		sh:queryLibraryGraph true ;
 		sh:sparql """
@@ -503,7 +491,7 @@ sh:Profile
 
 # Constraint Violations vocabulary --------------------------------------------
 
-# This vocabulary describes the output of constraint checking, and can either
+# This vocabulary describes the output of constraint validation, and can either
 # be created directly (via CONSTRUCT) or indirectly (via SELECT and ASK).
 
 # TODO: Introduce a mechanism for INFO messages?
@@ -512,7 +500,7 @@ sh:ConstraintViolation
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Constraint violation" ;
-	rdfs:comment "Instances of subclasses of this class can be constructed by constraint checks, to flag a single violation." ;
+	rdfs:comment "Instances of subclasses of this class can be constructed during constraint validation, to flag a single violation." ;
 	sh:abstract true ;
 	sh:property [
 		sh:predicate sh:detail ;
@@ -543,7 +531,7 @@ sh:ConstraintViolation
 		sh:predicate sh:source ;
 		sh:valueType sh:Constraint ;
 		rdfs:label "source" ;
-		rdfs:comment "The Constraint that caused this. This property gets filled in automatically by the constraint checking engine." ;
+		rdfs:comment "The Constraint that caused this. This property gets filled in automatically by the constraint validation engine." ;
 	] ;
 	sh:property [
 		sh:predicate sh:value ;
@@ -570,7 +558,7 @@ sh:FatalError
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Error ;
 	rdfs:label "Fatal Error" ;
-	rdfs:comment "An error that cannot be recovered and further evaluation may terminate immediately. Engines may decide to perform fatal checks first." ;
+	rdfs:comment "An error that cannot be recovered and further evaluation may terminate immediately. Engines may decide to perform the validation of potentially fatal constraints first." ;
 .
 
 
@@ -580,13 +568,13 @@ sh:Constraint
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Constraint" ;
-	rdfs:comment "An abstract superclass of constraints. Constraints are either template calls or \"native\" constraints with an executable query." ;
+	rdfs:comment "An abstract superclass of constraints. Constraints are either template calls or \"native\" constraints with an executable body." ;
 	sh:abstract true ;
 	sh:property [
-		sh:predicate sh:context ;
-		sh:valueType sh:Context ;
-		rdfs:label "context" ;
-		rdfs:comment "Links a constraint with zero or more sh:Contexts that define the scope of validation. Applications can trigger the constraint checking with specific contexts only. Constraints that have no context apply by default (equivalent to sh:DefaultContext)." ;
+		sh:predicate sh:scope ;
+		sh:valueType sh:Shape ;
+		rdfs:label "scope" ;
+		rdfs:comment "Links a constraint with zero or more sh:Shapes that define the scope of validation." ;
 	] ;
 .
 
@@ -662,7 +650,7 @@ sh:ConstraintTemplate
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Template ;
 	rdfs:label "Constraint template" ;
-	rdfs:comment "A template backed by a SPARQL query that is used for constraint checking." ;
+	rdfs:comment "A template backed by a SPARQL query that is used for constraint validation." ;
 	sh:property [
 		sh:predicate sh:sparql ;
 		sh:valueType xsd:string ;
@@ -743,8 +731,10 @@ sh:AbstractArgumentValueTypeConstraint
 	] ;
 	sh:constraint [
 		sh:message "The values of sh:valueType cannot be blank nodes." ;
+		sh:path sh:valueType ;
 		sh:sparql """
-			ASK WHERE {
+			SELECT (?this AS ?root)
+			WHERE {
 				?this sh:valueType ?valueType .
 				FILTER isBlank(?valueType) .
 			}
@@ -939,7 +929,7 @@ sh:AbstractValueTypePropertyConstraint
 		sh:optional true ;
 		sh:valueType rdfs:Class ;
 		rdfs:label "default value type" ;
-		rdfs:comment "If specified then blank nodes that have no rdf:type pass this constraint check. The type of those resources is assumed to be ?defaultValueType." ;
+		rdfs:comment "If specified then blank nodes that have no rdf:type pass this constraint. The type of those resources is assumed to be ?defaultValueType." ;
 	] ;  
 	sh:argument [
 		sh:predicate sh:valueType ;
@@ -950,8 +940,10 @@ sh:AbstractValueTypePropertyConstraint
 	] ;
 	sh:constraint [
 		sh:message "The values of sh:valueType cannot be blank nodes." ;
+		sh:path sh:valueType ;
 		sh:sparql """
-			ASK {
+			SELECT (?this AS ?root)
+			WHERE {
 				?this sh:valueType ?valueType .
 				FILTER isBlank(?valueType) .
 			}
@@ -1369,8 +1361,10 @@ sh:AbstractValueTypeInversePropertyConstraint
 	] ;
 	sh:constraint [
 		sh:message "The values of sh:valueType cannot be blank nodes." ;
+		sh:path sh:valueType ;
 		sh:sparql """
-			ASK {
+			SELECT (?this AS ?root)
+			WHERE {
 				?this sh:valueType ?valueType .
 				FILTER isBlank(?valueType) .
 			}
@@ -1383,7 +1377,7 @@ sh:AbstractValueTypeInversePropertyConstraint
 				sh:root ?this ;
 				sh:value ?value ;
 				sh:path _:path .
-			_:path sh:inverse	?predicate
+			_:path sh:inverse ?predicate
 		}
 		WHERE {
 			?value ?predicate ?this .
@@ -1408,7 +1402,7 @@ sh:OrConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:TemplateConstraint ;
 	rdfs:label "Or constraint" ;
-	rdfs:comment "Enforces a constraint that at least one of the two provided shapes must be valid for the context resource ?this." ;
+	rdfs:comment "Enforces a constraint that at least one of the two provided shapes must be valid for the focus resource ?this." ;
 	sh:queryLibraryGraph true ;
 	sh:argument [
 		sh:predicate sh:shape1 ;
@@ -1780,16 +1774,16 @@ sh:hasShape
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
 	rdfs:label "has shape" ;
-	rdfs:comment "Checks whether a given resource (?arg1) fulfills all constraints defined for a given class (?arg2) or its superclasses. This creates a (possibly recursive) constraint checker." ;
+	rdfs:comment "Validates whether a given resource (?arg1) fulfills all error-level constraints defined for a given shape (?arg2). This creates a (possibly recursive) constraint validator." ;
 	sh:argument [
 		sh:predicate sh:arg1 ;
 		sh:valueType rdfs:Resource ;
-		rdfs:comment "The resource to check." ;
+		rdfs:comment "The resource to validate." ;
 	] ;
 	sh:argument [
 		sh:predicate sh:arg2 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The class (shape) that has the constraints that need to be checked against." ;
+		sh:valueType sh:Shape ;
+		rdfs:comment "The shape containing the constraints that need to be validated." ;
 	] ;
 	sh:returnType xsd:boolean ;
 .
@@ -1965,7 +1959,6 @@ sh:cachable a rdf:Property ; rdfs:label "cachable" .
 sh:check a rdf:Property ; rdfs:label "check" .
 sh:checkAll a rdf:Property ; rdfs:label "check all" .
 sh:constraint a rdf:Property ; rdfs:label "constraint" .
-sh:context a rdf:Property ; rdfs:label "context" .
 sh:defaultValue a rdf:Property ; rdfs:label "default value" .
 sh:defaultValueType a rdf:Property ; rdfs:label "default value type" .
 sh:detail a rdf:Property ; rdfs:label "detail" .
@@ -1990,6 +1983,7 @@ sh:minCount a rdf:Property ; rdfs:label "min count" .
 sh:minLength a rdf:Property ; rdfs:label "min length" .
 sh:minExclusive a rdf:Property ; rdfs:label "min exclusive" .
 sh:minInclusive a rdf:Property ; rdfs:label "min inclusive" .
+sh:nodeShape a rdf:Property ; rdfs:label "node shape" .
 sh:optional a rdf:Property ; rdfs:label "optional" .
 sh:optionalWhenInherited a rdf:Property ; rdfs:label "optional when inherited" .
 sh:path a rdf:Property ; rdfs:label "path" .
@@ -2006,7 +2000,6 @@ sh:rule a rdf:Property ; rdfs:label "rule" .
 sh:scope a rdf:Property ; rdfs:label "scope" .
 sh:sparql	a rdf:Property ; rdfs:label "SPARQL" .
 sh:subNodeType a rdf:Property ; rdfs:label "sub node type" .
-sh:subContextOf a rdf:Property ; rdfs:label "sub-context of" .
 sh:totalDigits a rdf:Property ; rdfs:label "total digits" .
 sh:uriStart a rdf:Property ; rdfs:label "URI start" .
 sh:valueShape a rdf:Property ; rdfs:label "value shape" .
