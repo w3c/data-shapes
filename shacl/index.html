@@ -8,7 +8,7 @@
 			var respecConfig = {
 				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
 				specStatus: "ED",
-				shortName:  "shacl", 
+				shortName:  "shacl",
 				editors: [
 					{
 						name:       "Holger Knublauch",
@@ -218,20 +218,9 @@ ex:ValidExampleIssue
 	ex:assignedTo ex:UserWithoutEmail ;
 	ex:submittedBy ex:UserWithEmail .
 	
-	# Validation produces no constraint violations 
-	
 ex:InvalidExampleIssue
 	a ex:Issue ;
 	ex:submittedBy ex:UserWithoutEmail .
-	
-	# Validation output:
-	# [
-	#     a sh:Error ;
-	#     sh:root ex:InvalidExampleIssue ;
-	#     sh:path ex:submittedBy ;
-	#     sh:value ex:UserWithoutEmail ;
-	#     sh:message "Value does not have the shape ex:SubmitterShape." ;
-	# ]
 
 ex:UserWithoutEmail
 	a schema:Person .
@@ -239,6 +228,17 @@ ex:UserWithoutEmail
 ex:UserWithEmail
 	a schema:Person ;
 	schema:email "someone@example.org" .</pre>
+				<p>
+					When this instance data is validated, a SHACL engine will produce the following constraint violations:
+				</p>
+				<pre class="example" title="Constraint violations for the sample instances">
+[
+	a sh:Error ;
+	sh:root ex:InvalidExampleIssue ;
+	sh:path ex:submittedBy ;
+	sh:value ex:UserWithoutEmail ;
+	sh:message "Value does not have the shape ex:SubmitterShape." ;
+]</pre>
 			</section>
 			<section id="introduction-overview-advanced">
 				<h3>Overview and Terminology of Advanced Features</h3>
@@ -318,6 +318,10 @@ ex:EmailsMustBeUnique
 						<td><code>ex:</code></td>
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
+					<tr>
+						<td><code>schema:</code></td>
+						<td><code>http://schema.org/</code></td>
+					</tr>
 				</table>
 			</section>
 			
@@ -330,181 +334,7 @@ ex:EmailsMustBeUnique
 					<li><a href="https://www.w3.org/2014/data-shapes/wiki/Shacl-sparql">Peter's proposal</a></li>
 				</ul>
 			</div>
-			
-			<p class="todo">
-				TODO: We will probably insert a Quick Start section here, with a quick run through the major features. 
-			</p>
 
-		</section>
-
-		<section id="violations">
-			<h2>Constraint Violations Vocabulary</h2>
-			<p>
-				The output of a SHACL constraint validation operation is a set of <span class="term">constraint violations</span>.
-				SHACL includes an RDF vocabulary to represent such constraint violations together with
-				structural information that may provide guidance on how to fix the violation, as well as
-				human-readable messages.
-			</p>
-			<p>
-				The following code snippet represents a valid constraint violation that may have been produced
-				by a constraint validation engine:
-			</p>
-			<pre class="example" title="A constructed constraint violation">
-ex:ExampleConstraintViolation
-	a sh:Error ;
-	sh:root ex:MyCurrentNode ;
-	sh:path ex:someProperty ;
-	sh:value ex:someInvalidValue ;
-	sh:message "Incorrect value: expected something else here." .</pre>
-			<section id="violations-types">
-				<h3>Types of Constraint Violations</h3>
-				<p>
-					A constraint violation is represented by a IRI or blank node that has exactly one
-					asserted <code>rdf:type</code>.
-					The <code>rdf:type</code> arc of a constraint violation must point to one of the subclasses
-					of the ("abstract") base class <code>sh:ConstraintViolation</code>.
-					The SHACL system vocabulary includes the following constraint violation types: 
-				</p>
-				<table class="term-table" border="1" cellpadding="5">
-					<tr>
-						<th>Constraint&nbsp;Violation&nbsp;Class</th>
-						<th>Superclass</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>sh:Warning</code></td>
-						<td><code>sh:ConstraintViolation</code></td>
-						<td>A non-critical constraint violation indicating a warning.</td>
-					</tr>
-					<tr>
-						<td><code>sh:Error</code></td>
-						<td><code>sh:ConstraintViolation</code></td>
-						<td>A constraint violation indicating an error.</td>
-					</tr>
-					<tr>
-						<td><code>sh:FatalError</code></td>
-						<td><code>sh:Error</code></td>
-						<td>
-							An error that cannot be recovered and further evaluation may terminate immediately.
-							Engines may decide to validate potentially fatal constraints first.
-						</td>
-					</tr>
-				</table>
-				<p class="todo">
-					<code>sh:Info</code> has also been suggested, but this would work best if there was a deterministic mechanism to identify
-					constraints that need to be validated, so that Info constraints can be bypassed.
-					Related to this, Dimitris also suggested we introduce <code>sh:ValidationResult</code> as a superclass of <code>sh:ConstraintViolation</code>.
-				</p>
-				<p>
-					SHACL extensions may define additional violation types, as long as they are rooted in
-					<code>sh:ConstraintViolation</code>.
-					The <code>rdfs:subClassOf</code> relationship between these types indicates specialization,
-					e.g. <code>sh:FatalError</code> is a subclass of <code>sh:Error</code> meaning that every
-					fatal error should also be regarded as an error.
-				</p>
-				<p class="todo">
-					TODO: There is an ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0011.html">proposal</a> to use these severity levels at engine control time.
-				</p>
-			</section>
-			<section id="violations-structure">
-				<h3>Structural Violation Metadata</h3>
-				<p>
-					SHACL constraint violations may include machine-readable metadata that points at
-					the cause of the violation.
-				</p>
-				<section id="violations-structure-root">
-					<h4>sh:root</h4>
-					<p>
-						Constraint violations may have a single value for the property <code>sh:root</code> to point to an
-						IRI or blank node that has caused the violation.
-					</p>
-				</section>
-				<section id="violations-structure-path">
-					<h4>sh:path</h4>
-					<p>
-						Constraint violations may have one or more values for the property <code>sh:path</code>
-						that describes a <em>path expression</em> that can be walked starting at the <code>sh:root</code>.
-						If the value of this property is a IRI, then the path produces all triples that have the root node as
-						subject and the value as its predicate.
-						If the value of <code>sh:path</code> is a blank node, then it must have properties that
-						match either one of the following options: 
-					</p>
-					<ul>
-						<li>
-							<code>sh:inverse</code> describes an inverse path consisting of all paths that start
-							at the current root node and walk the given predicate backwards, i.e. from object to subject.
-							The values of <code>sh:inverse</code> must be the IRIs of properties.
-							Blank nodes with <code>sh:inverse</code> may have the optional type <code>sh:InversePath</code>.
-						</li>
-						<li>
-							<code>sh:path1</code> and <code>sh:path2</code> describe a sequence path consisting of
-							two other paths.  The values of these properties must be property IRIs or blank nodes
-							of the same recursive path structure.  The path produces the concatenation of the two sub-paths.
-							Blank nodes with <code>sh:path1</code> and <code>sh:path2</code> may have the optional type <code>sh:SequencePath</code>.
-						</li>
-					</ul>
-					<p>
-						The following example describes a path equivalent to the SPARQL 1.1 Property Path [[sparql11-query]]
-						<code>ex:firstProperty/((^ex:inverseProperty)/ex:lastProperty)</code>
-					</p>
-					<pre class="example" title="Constraint violation with path expression">
-ex:ExampleConstraintViolationWithPath
-	a sh:Error ;
-	sh:root ex:MyCurrentNode ;
-	sh:path [
-		sh:path1 ex:firstProperty ;
-		sh:path2 [
-			ex:path1 [ sh:inverse ex:inverseProperty ] ;
-			ex:path2 ex:lastProperty
-		]
-	] .</pre>
-					<p class="todo">
-						Open discussion: Dimitris suggested that we may want to allow path expressions as xsd:strings too,
-						and rdf:Lists for sequence paths.
-					</p>
-				</section>
-				<section id="violations-structure-value">
-					<h4>sh:value</h4>
-					<p>
-						Constraint violations may have one or more values of the property <code>sh:value</code> to
-						point at specific nodes that caused the violation.
-						These nodes SHOULD be accessible via at least one <code>sh:path</code> starting at the
-						specific <code>sh:root</code> node.
-					</p>
-				</section>
-				<section id="violations-structure-source">
-					<h4>sh:source</h4>
-					<p>
-						Constraint violations may point at one <code>sh:Constraint</code> that has caused
-						the violation, specified via the property <code>sh:source</code>.
-						SHACL constraint validation engines SHOULD automatically insert the <code>sh:source</code>
-						based on the currently evaluated constraint, unless the constraint violation already has
-						such a value.
-					</p>
-				</section>
-				<section id="violations-structure-detail">
-					<h4>sh:detail</h4>
-					<p>
-						The property <code>sh:detail</code> may link a (parent) constraint violation with one or more other
-						(child) constraint violations that provide further details about the cause of the (parent) violation.
-						Depending on the capabilities of the constraint validation engine, this may include failures of
-						nested constraints that have been evaluated via <code>sh:valueShape</code>.
-					</p>
-				</section>
-			</section>
-			<section id="violations-message">
-				<h3>Human-readable Violation Messages (sh:message)</h3>
-				<p>
-					Constraint violations may have values for the property <code>sh:message</code> to communicate
-					additional textual details to humans.
-					While <code>sh:message</code> may have multiple values, there SHOULD not be two values
-					with the same language tag.
-				</p>
-				<p class="todo">
-					TODO: The standard will likely make it possible to derive the values of <code>sh:message</code> from string templates,
-					as discussed in this thread: <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0249.html"></a>. 
-				</p>
-			</section>
 		</section>
 
 		<section id="shapes">
@@ -661,6 +491,8 @@ ex:StandAloneConstraint
 				</p>
 				<p>
 					The following sections provide details on the facet properties that may be used with <code>sh:PropertyConstraint</code>.
+					Note that the textual definitions of those facets refers to the <a href="#violations">Constraint Violations Vocabulary</a>
+					introduced in a later section.
 				</p>
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
@@ -1121,6 +953,176 @@ ex:ScopedExampleShape
 ex:ScopedShapeValidExampleInstance
 	ex:someProperty ex:someValue ;
 	ex:requiredProperty ex:requiredValue .</pre>
+		</section>
+		
+		<section id="violations">
+			<h2>Constraint Violations Vocabulary</h2>
+			<p>
+				The output of a SHACL constraint validation operation is a set of <span class="term">constraint violations</span>.
+				SHACL includes an RDF vocabulary to represent such constraint violations together with
+				structural information that may provide guidance on how to fix the violation, as well as
+				human-readable messages.
+			</p>
+			<p>
+				The following code snippet represents a valid constraint violation that may have been produced
+				by a constraint validation engine:
+			</p>
+			<pre class="example" title="A constructed constraint violation">
+ex:ExampleConstraintViolation
+	a sh:Error ;
+	sh:root ex:MyCurrentNode ;
+	sh:path ex:someProperty ;
+	sh:value ex:someInvalidValue ;
+	sh:message "Incorrect value: expected something else here." .</pre>
+			<section id="violations-types">
+				<h3>Types of Constraint Violations</h3>
+				<p>
+					A constraint violation is represented by a IRI or blank node that has exactly one
+					asserted <code>rdf:type</code>.
+					The <code>rdf:type</code> arc of a constraint violation must point to one of the subclasses
+					of the ("abstract") base class <code>sh:ConstraintViolation</code>.
+					The SHACL system vocabulary includes the following constraint violation types: 
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Constraint&nbsp;Violation&nbsp;Class</th>
+						<th>Superclass</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>sh:Warning</code></td>
+						<td><code>sh:ConstraintViolation</code></td>
+						<td>A non-critical constraint violation indicating a warning.</td>
+					</tr>
+					<tr>
+						<td><code>sh:Error</code></td>
+						<td><code>sh:ConstraintViolation</code></td>
+						<td>A constraint violation indicating an error.</td>
+					</tr>
+					<tr>
+						<td><code>sh:FatalError</code></td>
+						<td><code>sh:Error</code></td>
+						<td>
+							An error that cannot be recovered and further evaluation may terminate immediately.
+							Engines may decide to validate potentially fatal constraints first.
+						</td>
+					</tr>
+				</table>
+				<p class="todo">
+					<code>sh:Info</code> has also been suggested, but this would work best if there was a deterministic mechanism to identify
+					constraints that need to be validated, so that Info constraints can be bypassed.
+					Related to this, Dimitris also suggested we introduce <code>sh:ValidationResult</code> as a superclass of <code>sh:ConstraintViolation</code>.
+				</p>
+				<p>
+					SHACL extensions may define additional violation types, as long as they are rooted in
+					<code>sh:ConstraintViolation</code>.
+					The <code>rdfs:subClassOf</code> relationship between these types indicates specialization,
+					e.g. <code>sh:FatalError</code> is a subclass of <code>sh:Error</code> meaning that every
+					fatal error should also be regarded as an error.
+				</p>
+				<p class="todo">
+					TODO: There is an ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0011.html">proposal</a> to use these severity levels at engine control time.
+				</p>
+			</section>
+			<section id="violations-structure">
+				<h3>Structural Violation Metadata</h3>
+				<p>
+					SHACL constraint violations may include machine-readable metadata that points at
+					the cause of the violation.
+				</p>
+				<section id="violations-structure-root">
+					<h4>sh:root</h4>
+					<p>
+						Constraint violations may have a single value for the property <code>sh:root</code> to point to an
+						IRI or blank node that has caused the violation.
+					</p>
+				</section>
+				<section id="violations-structure-path">
+					<h4>sh:path</h4>
+					<p>
+						Constraint violations may have one or more values for the property <code>sh:path</code>
+						that describes a <em>path expression</em> that can be walked starting at the <code>sh:root</code>.
+						If the value of this property is a IRI, then the path produces all triples that have the root node as
+						subject and the value as its predicate.
+						If the value of <code>sh:path</code> is a blank node, then it must have properties that
+						match either one of the following options: 
+					</p>
+					<ul>
+						<li>
+							<code>sh:inverse</code> describes an inverse path consisting of all paths that start
+							at the current root node and walk the given predicate backwards, i.e. from object to subject.
+							The values of <code>sh:inverse</code> must be the IRIs of properties.
+							Blank nodes with <code>sh:inverse</code> may have the optional type <code>sh:InversePath</code>.
+						</li>
+						<li>
+							<code>sh:path1</code> and <code>sh:path2</code> describe a sequence path consisting of
+							two other paths.  The values of these properties must be property IRIs or blank nodes
+							of the same recursive path structure.  The path produces the concatenation of the two sub-paths.
+							Blank nodes with <code>sh:path1</code> and <code>sh:path2</code> may have the optional type <code>sh:SequencePath</code>.
+						</li>
+					</ul>
+					<p>
+						The following example describes a path equivalent to the SPARQL 1.1 Property Path [[sparql11-query]]
+						<code>ex:firstProperty/((^ex:inverseProperty)/ex:lastProperty)</code>
+					</p>
+					<pre class="example" title="Constraint violation with path expression">
+ex:ExampleConstraintViolationWithPath
+	a sh:Error ;
+	sh:root ex:MyCurrentNode ;
+	sh:path [
+		sh:path1 ex:firstProperty ;
+		sh:path2 [
+			ex:path1 [ sh:inverse ex:inverseProperty ] ;
+			ex:path2 ex:lastProperty
+		]
+	] .</pre>
+					<p class="todo">
+						Open discussion: Dimitris suggested that we may want to allow path expressions as xsd:strings too,
+						and rdf:Lists for sequence paths.
+					</p>
+				</section>
+				<section id="violations-structure-value">
+					<h4>sh:value</h4>
+					<p>
+						Constraint violations may have one or more values of the property <code>sh:value</code> to
+						point at specific nodes that caused the violation.
+						These nodes SHOULD be accessible via at least one <code>sh:path</code> starting at the
+						specific <code>sh:root</code> node.
+					</p>
+				</section>
+				<section id="violations-structure-source">
+					<h4>sh:source</h4>
+					<p>
+						Constraint violations may point at one <code>sh:Constraint</code> that has caused
+						the violation, specified via the property <code>sh:source</code>.
+						SHACL constraint validation engines SHOULD automatically insert the <code>sh:source</code>
+						based on the currently evaluated constraint, unless the constraint violation already has
+						such a value.
+					</p>
+				</section>
+				<section id="violations-structure-detail">
+					<h4>sh:detail</h4>
+					<p>
+						The property <code>sh:detail</code> may link a (parent) constraint violation with one or more other
+						(child) constraint violations that provide further details about the cause of the (parent) violation.
+						Depending on the capabilities of the constraint validation engine, this may include failures of
+						nested constraints that have been evaluated via <code>sh:valueShape</code>.
+					</p>
+				</section>
+			</section>
+			<section id="violations-message">
+				<h3>Human-readable Violation Messages (sh:message)</h3>
+				<p>
+					Constraint violations may have values for the property <code>sh:message</code> to communicate
+					additional textual details to humans.
+					While <code>sh:message</code> may have multiple values, there SHOULD not be two values
+					with the same language tag.
+				</p>
+				<p class="todo">
+					TODO: The standard will likely make it possible to derive the values of <code>sh:message</code> from string templates,
+					as discussed in this thread: <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0249.html"></a>. 
+				</p>
+			</section>
 		</section>
 		
 		<section id="general-constraints">
