@@ -866,6 +866,9 @@ ex:InversePropertyConstraintExampleShape
 		sh:minCount 1 ;
 		rdfs:label "is someProperty of" ;  # e.g. "parent"
 	] .</pre>
+				<p class="todo">
+					TODO: Possibly use <code>sh:inversePredicate</code> instead of <code>sh:predicate</code>.
+				</p>
 			</section>
 		</section>
 		
@@ -1058,6 +1061,8 @@ ex:ExampleConstraintViolation
 							<code>sh:path1</code> and <code>sh:path2</code> describe a sequence path consisting of
 							two other paths.  The values of these properties must be property IRIs or blank nodes
 							of the same recursive path structure.  The path produces the concatenation of the two sub-paths.
+							The values of <code>sh:path1</code> must either be IRIs or blank nodes with a value for <code>sh:inverse</code>,
+							which means that only the second path segment may be another sequence path. 
 							Blank nodes with <code>sh:path1</code> and <code>sh:path2</code> may have the optional type <code>sh:SequencePath</code>.
 						</li>
 					</ul>
@@ -1703,50 +1708,96 @@ ex:exampleFunction
 			<section id="sparql-constraints">
 				<h3>SPARQL-based Constraints</h3>
 				<p>
-					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>CONSTRUCT</code> or <code>SELECT</code>.
-					<a href="#sparql-constraints-construct"><code>CONSTRUCT</code></a> is the most flexible option, so the following section starts with describing how these are executed.
-					The subsequent section describes how <a href="#sparql-constraints-select"><code>SELECT</code></a> queries can be transformed into equivalent <code>CONSTRUCT</code> forms.
+					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
 				</p>
-				<p class="todo">
-					There is ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Feb/0359.html">discussion</a> about whether the CONSTRUCT option below shall be supported, and whether an approach based on variable names only would be better.
-				</p>
-				<section id="sparql-constraints-construct">
-					<h4>CONSTRUCT-based Constraints</h4>
+				<section id="sparql-constraints-this">
+					<h4>Binding the Focus Node in Local SPARQL Constraints (?this)</h4>
 					<p>
-						Constraints backed by a SPARQL <code>CONSTRUCT</code> query are assumed to construct <span class="term">constraint violations</span>.
-						<code>CONSTRUCT</code> queries consist of a <span class="term">graph template</span> and a <code>WHERE</code> clause.
-						The output of a <code>CONSTRUCT</code> query is a new RDF graph, and the triples from those RDF graphs need to be added to the result graph of the constraint validation operation.
-					</p>
-					<p>
-						The following example illustrates how a <code>CONSTRUCT</code> query is used to produce instances of <code>sh:Error</code> for every instance of <code>ex:ExampleClass</code> that has no <code>rdfs:label</code>.
-						Note that <code>_:error</code> is a SPARQL syntax representing a new blank node for each row of the result set (<code>WHERE</code> clause).
-					</p>
-					<pre class="example" title="Global constraint based on SPARQL CONSTRUCT">
-sh:ExampleGlobalConstructConstraint
-	a sh:GlobalConstraint ;
-	sh:sparql """
-		CONSTRUCT {
-			_:error a sh:Error .
-			_:error sh:root ?instance .
-			_:error sh:path rdfs:label .
-			_:error sh:message "Instances of ex:ExampleClass must have an rdfs:label" .
-		}
-		WHERE {
-			?instance a ex:ExampleClass .
-			FILTER NOT EXISTS { ?instance rdfs:label ?anyLabel } .
-		}
-		""" .
-}</pre>
-					<p>
-						The instances of <code>sh:ConstraintViolation</code> produced by such queries are not modified further,
-						except that the engine SHOULD add <code>sh:source</code> triples that have each constraint violation
-						instance as subject and the surrounding <code>sh:Constraint</code> as its object.
+						The SPARQL variable <code>?this</code> has a special meaning in local constraints.
+						When SPARQL constraints are executed then the variable <code>?this</code> needs to be pre-bound to the <span class="term">focus node</span>.
+						<span class="todo">(Need a pointer to what "pre-binding" means in this context)</span>
 					</p>
 				</section>
-				<section id="sparql-constraints-select">
-					<h4>SELECT-based Constraints</h4>
+				<section id="sparql-constraints-variables">
+					<h4>Mapping of Result Variables to Constraint Violations</h4>
 					<p>
-						SPARQL queries of the <code>SELECT</code> form need to produce one constraint violation blank node for each row of the produced result set.
+						Each row of the result set produced by a SELECT query must be converted into one constraint violation blank node.
+						The properties of those blank nodes are derived by the following rules, through a combination of result variables and by looking at properties attached to the constraint itself.
+						In the following table, the <span class="term">host resource</span> is assumed to be the constraint or template that has the executed <code>sh:sparql</code> query as one of its properties.
+						The production rules are meant to be executed from top to bottom, so that the first bound value will be used.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Production Rules</th>
+						</tr>
+						<tr>
+							<td><code>rdf:type</code></td>
+							<td>
+								<ol>
+									<li>The value of <code>sh:severity</code> of the <span class="term">host resource</span></li>
+									<li><code>sh:Error</code> as default</li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:root</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?root</code></li>
+									<li>The value of the variable <code>?this</code></li>
+									<li>The current <span class="term">focus node</span></li>
+									<li>The value of <code>sh:root</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:path</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?path</code></li>
+									<li>The value of the variable <code>?predicate</code></li>
+									<li>If the variable <code>?inversePredicate</code> is bound, then create a new blank node as <code>[ sh:inverse ?inversePredicate ]</code>.</li>
+									<li>
+										Starting with <code>N=1</code>, if the variables <code>?predicateN|?inversePredicateN</code> are bound,
+										build a new blank node <code>[ sh:path1 ?first ; sh:path2 ?rest ]</code> where
+										<code>?first</code> is a the value of <code>?predicateN</code> if it exists,
+										or a new blank node <code>[ sh:inverse ?inversePredicateN ]</code>,
+										and <code>?rest</code> is recursively built using this same rule for <code>?predicate(N+1)|?inversePredicate(N+1)</code>
+										until it reaches an <code>N</code> where both <code>?predicateN</code> and <code>?inversePredicateN</code> are unbound.
+									</li>
+									<li>The value of <code>sh:path</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:value</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?value</code></li>
+									<li>The value of <code>sh:value</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:message</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?message</code></li>
+									<li>The values of <code>sh:message</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:source</code></td>
+							<td>
+								<ol>
+									<li>The <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+					</table>
+					<p>
 						The following example illustrates a constraint that flags warnings for all subjects that have a <code>rdfs:label</code> with the language tag <code>"de"</code>.
 					</p>
 					<pre class="example" title="Global constraint based on SPARQL SELECT">
@@ -1756,72 +1807,79 @@ ex:ExampleGlobalSelectConstraint
 	sh:path rdfs:label ;
 	sh:severity sh:Warning ;
 	sh:sparql """
-		SELECT (?subject AS ?root) (?object AS ?value)
+		SELECT (?subject AS ?root) ?value
 		WHERE {
-			?subject rdfs:label ?object .
-			FILTER (lang(?object) = "de") .
+			?subject rdfs:label ?value .
+			FILTER (lang(?value) = "de") .
 		}
-		""" .</pre>
+		""" .
+
+ex:Resource1
+	rdfs:label "Eins"@de ;
+	rdfs:label "Zwei"@de ;
+	rdfs:label "Trois"@fr .</pre>
 					<p>
-						For execution, the constraint above can be turned into the following <code>CONSTRUCT</code> query.
+						Output created by the example above would be:
 					</p>
-					<pre class="example">
-CONSTRUCT {
-	_:violation a sh:Warning .
-	_:violation sh:message "Deutsch is verboten" .
-	_:violation sh:path rdfs:label .
-	_:violation sh:root ?subject .
-	_:violation sh:value ?object .
-}
-WHERE {
-	?subject rdfs:label ?object .
-	FILTER (lang(?object) = "de") .
-}</pre>
+					<pre class="example" title="Global constraint example violation output">
+[
+	a sh:Warning ;
+	sh:root ex:Resource1 ;
+	sh:path rdfs:label ;
+	sh:value "Eins"@de ;
+	sh:message "Deutsch is verboten" ;
+	sh:source ex:ExampleGlobalSelectConstraint ;
+] .
+[
+	a sh:Warning ;
+	sh:root ex:Resource1 ;
+	sh:path rdfs:label ;
+	sh:value "Zwei"@de ;
+	sh:message "Deutsch is verboten" ;
+	sh:source ex:ExampleGlobalSelectConstraint ;
+] .</pre>
 					<p>
-						The following naming conventions are used to map the result variables of a <code>SELECT</code> into corresponding RDF properties: 
+						Here is a more complex example, producing a path expression <code>ex:property1/^ex:property2</code>.
 					</p>
-					<table class="term-table" border="1" cellpadding="5">
-						<tr>
-							<th>Result&nbsp;Variable</th>
-							<th>Constraint&nbsp;Violation&nbsp;Property</th>
-						</tr>
-						<tr>
-							<td><code>?severity</code></td>
-							<td><code>rdf:type</code></td>
-						</tr>
-						<tr>
-							<td><code>?message</code></td>
-							<td><code>sh:message</code></td>
-						</tr>
-						<tr>
-							<td><code>?predicate</code></td>
-							<td><code>sh:predicate</code></td>
-						</tr>
-						<tr>
-							<td><code>?root</code></td>
-							<td><code>sh:root</code></td>
-						</tr>
-						<tr>
-							<td><code>?value</code></td>
-							<td><code>sh:value</code></td>
-						</tr>
-					</table>
+					<pre class="example" title="Local constraint with path expression in the violation">
+ex:LocalShapeWithPathViolationExample
+	a sh:Shape ;
+	sh:constraint [
+		sh:sparql """
+				SELECT ?value (ex:property1 AS ?predicate1) (ex:property2 AS ?inversePredicate2) ?message
+				WHERE {
+					?this ex:property1 ?first .
+					?value ex:property2 ?first .
+					FILTER isBlank(?value) .
+					BIND (CONCAT("The ", "message.") AS ?message) .
+				}
+			""" ;
+	] .
+	
+ex:ExampleRootResource
+	sh:nodeShape ex:LocalShapeWithPathViolationExample ;
+	ex:property1 ex:ExampleIntermediateResource .
+
+ex:ExampleValueResource
+	ex:property2 ex:ExampleIntermediateResource .
+</pre>
 					<p>
-						If the surrounding subject node defines a <code>sh:message</code> then the constructed blank nodes needs to have corresponding triples, unless the SELECT has corresponding result variables.
-						Similarly, the values of <code>sh:root</code>, <code>sh:path</code> and <code>sh:value</code> must be inserted (they cannot be blank nodes).
+						Which produces the following error:
 					</p>
-					<p>
-						In local constraints the variable <code>?this</code> must be projected into <code>?root</code> unless the <code>SELECT</code> clause already projects to <code>?root</code>.
-						This means that the frequently needed pattern <code>SELECT (?this AS ?root)</code> is redundant.
-					</p>
-				</section>
-				<section>
-					<h4>Binding the Focus Node in Local SPARQL Constraints (?this)</h4>
-					<p>
-						The SPARQL variable <code>?this</code> has a special meaning in local constraints.
-						When SPARQL constraints are executed then the variable <code>?this</code> needs to be pre-bound to the <span class="term">focus node</span>.
-						<span class="todo">(Need a pointer to what "pre-binding" means in this context)</span>
-					</p>
+					<pre class="example" title="Local constraint example violation output">
+[
+	a sh:Error ;
+	sh:root ex:ExampleRootResource ;
+	sh:path [
+		sh:path1 ex:property1 ;
+		sh:path2 [
+			sh:inverse ex:property2
+		]
+	] ;
+	sh:value ex:ExampleValueResource ;
+	sh:message "The message." ;
+	sh:source [ the blank node of the sh:constraint above ] ;
+] .</pre>
 				</section>
 			</section>
 			<section id="sparql-templates">
