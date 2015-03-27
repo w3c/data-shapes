@@ -1584,18 +1584,6 @@ forEach ?shape := (?focusNode sh:nodeShape|rdf:type ?shape)
 				<p>
 					This operation validates a whole graph against global constraints and all shapes associated with it, based on in-graph mappings.
 				</p>
-				<!-- table class="term-table" border="1" cellpadding="5">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>?contextFilter</code></td>
-						<td><code class="todo">TBD</code></td>
-						<td>The <span class="term">context filter</span> specifying which shapes and constraints to exclude/include.</td>
-					</tr>
-				</table-->
 				<p>
 					Algorithm in pseudo-code:
 				</p>
@@ -1838,20 +1826,65 @@ ex:Resource1
 	sh:message "Deutsch is verboten" ;
 	sh:source ex:ExampleGlobalSelectConstraint ;
 ] .</pre>
+				</section>
+				<section id="sparql-constraints-annotations">
+					<h4>Injecting Annotation Properties into Constraint Violations</h4>
 					<p>
-						Here is a more complex example, producing a path expression <code>ex:property1/^ex:property2</code>.
+						It is possible to inject additional <span class="term">annotation properties</span> into the blank nodes created for each row of the SELECT result sets.
+						Any such property needs to be declared via a value of <code>sh:resultAnnotation</code> at the host node.
+						The values of <code>sh:resultAnnotation</code> must be IRIs or blank nodes with the following properties:
 					</p>
-					<pre class="example" title="Local constraint with path expression in the violation">
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Value type</th>
+							<th>Count</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>sh:annotationProperty</code></td>
+							<td><code>rdf:Property</code></td>
+							<td><code>1 (mandatory)</code></td>
+							<td>The annotation property that shall be set</td>
+						</tr>
+						<tr>
+							<td><code>sh:annotationVarName</code></td>
+							<td><code>xsd:string</code></td>
+							<td><code>0..1</code></td>
+							<td>The name of the SPARQL variable to take the values from</td>
+						</tr>
+						<tr>
+							<td><code>sh:annotationValue</code></td>
+							<td></td>
+							<td><code>0..unlimited</code></td>
+							<td>Constant nodes that shall be used as values</td>
+						</tr>
+					</table>
+					<p>
+						If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the engine must copy the bindings for the given variable into the constructed constraint violations for the same row.
+					</p>
+					<p>
+						The values of <code>sh:annotationProperty</code> MUST NOT be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
+					</p>
+					<p>
+						Here is a slightly complex example, producing constraint violations with the path expression <code>ex:property1/^ex:property2</code> and also illustrating the use of result annotations.
+					</p>
+					<pre class="example" title="Local constraint with path expression and annotation">
 ex:LocalShapeWithPathViolationExample
 	a sh:Shape ;
 	sh:constraint [
+		sh:resultAnnotation [
+			sh:annotationProperty ex:time ;
+			sh:annotationVarName "time"
+		] ;
 		sh:sparql """
-				SELECT ?value (ex:property1 AS ?predicate1) (ex:property2 AS ?inversePredicate2) ?message
+				SELECT ?value (ex:property1 AS ?predicate1) (ex:property2 AS ?inversePredicate2) ?message ?time
 				WHERE {
 					?this ex:property1 ?first .
 					?value ex:property2 ?first .
 					FILTER isBlank(?value) .
 					BIND (CONCAT("The ", "message.") AS ?message) .
+					BIND (NOW() AS ?time) .
 				}
 			""" ;
 	] .
@@ -1864,7 +1897,7 @@ ex:ExampleValueResource
 	ex:property2 ex:ExampleIntermediateResource .
 </pre>
 					<p>
-						Which produces the following error:
+						Which produces the following error resource:
 					</p>
 					<pre class="example" title="Local constraint example violation output">
 [
@@ -1879,6 +1912,7 @@ ex:ExampleValueResource
 	sh:value ex:ExampleValueResource ;
 	sh:message "The message." ;
 	sh:source [ the blank node of the sh:constraint above ] ;
+	ex:time "2015-03-27T10:58:00"^^xsd:dateTime ;  # Example
 ] .</pre>
 				</section>
 			</section>
