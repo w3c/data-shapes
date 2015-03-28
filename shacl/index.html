@@ -8,7 +8,7 @@
 			var respecConfig = {
 				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
 				specStatus: "ED",
-				shortName:  "shacl", 
+				shortName:  "shacl",
 				editors: [
 					{
 						name:       "Holger Knublauch",
@@ -26,7 +26,7 @@
 				wg:           "RDF Data Shapes Working Group",
 				wgURI:        "https://www.w3.org/2014/data-shapes/wiki/Main_Page",
 				wgPublicList: "public-data-shapes",
-				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/424242/status",
+				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
 			};
 		</script>
 		<style>
@@ -103,6 +103,9 @@
 		</section>
 
 		<section id="sotd">
+			<p>
+				Proposal to RDF Data Shapes WG.
+			</p>
 		</section>
 	
 		<section id="introduction">
@@ -120,45 +123,164 @@
 				SHACL includes macro facilities that encapsulate reusable building blocks based on these executable languages into <span class="term">templates</span> and <span class="term">functions</span>.
 				These advanced topics are covered from section 7 onwards. 
 			</p>
+			<p>
+				SHACL definitions are represented in RDF and can be serialized in multiple RDF formats.
+				The example snippets in this document use Turtle [[turtle]] and <span class="todo">(not written yet:)</span> JSON-LD [[json-ld]] notation.
+				The reader should be familiar with basic RDF concepts [[rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[sparql11-overview]].
+			</p>
+			<section id="introduction-outline">
+				<h3>Document Outline</h3>
+				<p>
+					Unless otherwise noted in the section heading, all sections and appendices in this document are normative.
+					<span class="todo">TODO: We still need to mark non-normative sections.</span>
+				</p>
+				<p>
+					The remaining sub-sections of the Introduction provide an overview of the complete language and introduces relevant terminology.
+				</p>
+				<p>
+					The sections 2 - 6 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
+					<span class="todo">We could add details on every section here, but I am not sure this is really needed.</span>
+				</p>
+				<p>
+					The sections 7 onwards are about the full SHACL language and its formal definition.
+					The appendix includes SPARQL-related implementation details.
+				</p>
+			</section>
 			<section id="introduction-overview">
-				<h3>Overview and Terminology</h3>
+				<h3>Overview and Terminology of Core Features</h3>
+				<p>
+					The following example illustrates the use of SHACL to define constraints on issues in a hypothetical bug tracking system.
+					In the example scenario, the RDFS class <code>ex:Issue</code> is used to represent issues, and the class <code>schema:Person</code> represents users.
+					Each <code>ex:Issue</code> must point to exactly one user via the property <code>ex:submittedBy</code> and may have one value for <code>ex:assignedTo</code>.
+					Users that have submitted an issue must also have a <code>schema:email</code> address, so that they can be notified when the issue has been updated. 
+				</p>
+				<pre class="example" title="Definition of ex:Issue and ex:SubmitterShape">
+ex:Issue
+	a rdfs:Class ;
+	sh:property [
+		sh:predicate ex:assignedTo ;
+		rdfs:label "assigned to" ;
+		rdfs:comment "The assignee of an issue must be a person." ;
+		sh:maxCount 1 ;
+		sh:valueType schema:Person ;
+	] ;
+	sh:property [
+		sh:predicate ex:submittedBy ;
+		rdfs:label "submitted by" ;
+		rdfs:comment "The submitter of an issue must be a person who also has an email address." ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		sh:valueType schema:Person ;
+		sh:valueShape ex:SubmitterShape ;
+	] .
+
+ex:SubmitterShape
+	a sh:Shape ;
+	rdfs:comment "A submitter must have at least one email address." ;
+	sh:property [
+		sh:predicate schema:email ;
+		sh:minCount 1 ;
+	] .</pre>
 				<p>
 					The basic building blocks of SHACL are <span class="term">constraints</span>.
 					Each <span class="term">constraint</span> defines a condition that can be validated against a graph.
-					The output of constraint validation is a set of <span class="term">constraint violations</span>.
-					The validation of each <span class="term">constraint</span> is formalized with one or more <span class="term">execution languages</span>.
-					This version of SHACL supports SPARQL as an <span class="term">execution language</span>, but other languages may be supported in future versions or by other communities.
-					Each constraint needs to be backed by at least one <span class="term">executable body</span> in SPARQL, and any alternative bodies need to follow the same semantics as the SPARQL queries.
-					Constraints may either directly define such an <span class="term">executable body</span> or point to a <span class="term">template</span>.
-					Constraints that directly include an <span class="term">executable body</span> are called <span class="term">native constraints</span>.
-					A <span class="term">template</span> serves as a parameterizable macro that wraps an <span class="term">executable body</span>.
-					Constraints that rely on a <span class="term">template</span> are called <span class="term">template constraints</span>.
-					The SHACL vocabulary includes a small library of such <span class="term">templates</span> for common constraint patterns, but anyone can add their own template libraries.
-					Templates can be grouped into so-called <span class="term">profiles</span>.
-					Some SHACL engines may decide to only support certain <span class="term">profiles</span> and implement them differently than the provided (SPARQL) bodies.
-				</p>
-				<p>
-					Constraints are either <span class="term">global</span> or <span class="term">local</span>.
-					<span class="term">Global constraints</span> are executed when constraint validation is invoked on the whole graph, and may verify arbitrary conditions.
-					<span class="term">Local constraints</span> are evaluated against a given <span class="term">focus node</span>.
-					The <span class="term">focus node</span> serves as starting point of property paths and other graph traversal algorithms.
-					A <span class="term">shape</span> describes a group of <span class="term">local constraints</span> with the same <span class="term">focus node</span>.
+					A <a href="#shapes"><span class="term">shape</span></a> describes a group of <span class="term">local constraints</span> with the same <span class="term">focus node</span>.
+					Many of these constraints are about a certain property only, and these are called <a href="#property-constraints"><span class="term">property constraints</span></a>.
+					<span class="term">Local constraints</span> are evaluated against a given <span class="term">focus node</span>, which serves as starting point of property paths and other graph traversal algorithms.
+					In the current draft, the IRIs of classes (such as <code>ex:Issue</code> above) may also be used as shapes.
 					Shapes may be arranged in a <span class="term">specialization</span> hierarchy, allowing some shapes to further narrow down the constraints from other shapes.
-					Current proposals for such specialization mechanisms include <code>sh:extends</code> and <code>rdfs:subClassOf</code> triples.
-					The latter implies that the nodes of RDFS classes may also be interpreted as shapes.
 				</p>
 				<p>
-					One of the <span class="term">operations</span> that SHACL engines should support verifies that a given RDF node matches a given shape.
+					In the Issue example above, the shape <code>ex:Issue</code> includes two local constraints.
+					These constraints are here represented as blank nodes via <code>sh:property</code>.
+					Each of these constraints specifies the restricted property via <code>sh:predicate</code>, and one or more constraint facets such as <code>sh:minCount</code> and <code>sh:valueType</code>.
+					The facet <code>sh:valueShape</code> points to another <code>sh:Shape</code> that defines additional constraints that the values of
+					the <code>ex:submittedBy</code> property must fulfill, in addition to being instances of <code>schema:User</code>.
+				</p>
+				<p>
+					One of the <a href="#operations"><span class="term">operations</span></a> that SHACL engines should support validates that a given RDF node matches a given shape.
 					This operation can be invoked based on any control logic, i.e. applications can pick their own mapping between RDF nodes and their shapes.
 					SHACL also provides two mapping mechanisms based on the RDF triples in the graph being validated.
 					Current proposals for these mechanisms include selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples.
 					Based on such in-graph mappings, SHACL supports constraint validation over a complete graph.
+					The output of constraint validation is a set of <a href="#violations"><span class="term">constraint violations</span></a>.
 				</p>
 				<p>
-					SHACL definitions are represented in RDF and can be serialized in multiple RDF formats.
-					The example snippets in this document use Turtle [[turtle]] and <span class="todo">(not written yet:)</span> JSON-LD [[json-ld]] notation.
-					The reader should be familiar with basic RDF concepts [[rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[sparql11-overview]].
+					The following example code defines two instances of the class <code>ex:Issue</code>.
+					When constraint validation is started, a SHACL engine may follow the <code>rdf:type</code> link of these instances to determine which shapes need to be used.
+					(If <code>ex:Issue</code> were not a class but a <code>sh:Shape</code>, then the property <code>sh:nodeShape</code> would have been used instead).
+					The first instance passes validation without producing any violations.
+					The second instance produces an <code>sh:Error</code>, because its value for <code>ex:submittedBy</code> does not have an <code>schema:email</code>. 
 				</p>
+				<pre class="example" title="Sample Issue instances with resulting constraint violations">
+ex:ValidExampleIssue
+	a ex:Issue ;
+	ex:assignedTo ex:UserWithoutEmail ;
+	ex:submittedBy ex:UserWithEmail .
+	
+ex:InvalidExampleIssue
+	a ex:Issue ;
+	ex:submittedBy ex:UserWithoutEmail .
+
+ex:UserWithoutEmail
+	a schema:Person .
+	
+ex:UserWithEmail
+	a schema:Person ;
+	schema:email "someone@example.org" .</pre>
+				<p>
+					When this instance data is validated, a SHACL engine will produce the following constraint violations:
+				</p>
+				<pre class="example" title="Constraint violations for the sample instances">
+[
+	a sh:Error ;
+	sh:root ex:InvalidExampleIssue ;
+	sh:path ex:submittedBy ;
+	sh:value ex:UserWithoutEmail ;
+	sh:message "Value does not have the shape ex:SubmitterShape." ;
+]</pre>
+			</section>
+			<section id="introduction-overview-advanced">
+				<h3>Overview and Terminology of Advanced Features</h3>
+				<p>
+					The following paragraphs give an overview of the advanced features of SHACL.
+					Readers only interested in the Core Profile may skip this section.
+				</p>
+				<p>
+					In addition to <span class="term">local constraints</span> (attached to shapes), SHACL also supports <a href="#global-constraints"><span class="term">global constraints</span></a>.
+					<span class="term">Global constraints</span> are executed when constraint validation is invoked on the whole graph, and may verify arbitrary conditions.
+				</p>
+				<p>
+					The validation of each <span class="term">constraint</span> is formalized with one or more <span class="term">execution languages</span>.
+					This version of SHACL supports <a href="#sparql">SPARQL</a> as an <span class="term">execution language</span>, but other languages may be supported in future versions or by other communities.
+					Each constraint needs to be backed by at least one <span class="term">executable body</span> in SPARQL, and any alternative bodies need to follow the same semantics as the SPARQL queries.
+					Constraints may either directly define such an <span class="term">executable body</span> or point to a <a href="#templates"><span class="term">template</span></a>.
+					Constraints that directly include an <span class="term">executable body</span> are called <span class="term">native constraints</span>.
+					A <span class="term">template</span> serves as a parameterizable macro that wraps an <span class="term">executable body</span>.
+					Constraints that rely on a <span class="term">template</span> are called <span class="term">template constraints</span>.
+					The SHACL vocabulary includes a small library of such <span class="term">templates</span> for common constraint patterns, but anyone can add their own template libraries.
+					Templates can be grouped into so-called <a href="#profiles"><span class="term">profiles</span></a>.
+					Some SHACL engines may decide to only support certain <span class="term">profiles</span> and implement them differently than the provided (SPARQL) bodies.
+				</p>
+				<p>
+					The following example illustrates the use of a <span class="term">global native SPARQL constraint</span> to specify that there cannot be two instances of <code>schema:Person</code> with the same <code>schema:email</code>.
+					Note that each result set row produced by the SELECT clauses of the SPARQL query creates one constraint violation.
+				</p>
+				<pre class="example" title="A global SPARQL-based constraint">
+ex:EmailsMustBeUnique
+	a sh:GlobalConstraint ;
+	sh:message "There cannot be two persons with the same email address." ;
+	sh:path schema:email ;
+	sh:sparql """
+		SELECT (?person1 AS ?root) ?value
+		WHERE {
+			?person1 schema:email ?email .
+			?person2 schema:email ?email .
+			?person1 a schema:Person .
+			?person2 a schema:Person .
+			FILTER (?person1 != ?person2) .
+		}
+		""" .</pre>
 			</section>
 			
 			<section id="namespaces">
@@ -196,6 +318,10 @@
 						<td><code>ex:</code></td>
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
+					<tr>
+						<td><code>schema:</code></td>
+						<td><code>http://schema.org/</code></td>
+					</tr>
 				</table>
 			</section>
 			
@@ -211,172 +337,6 @@
 
 		</section>
 
-		<section id="violations">
-			<h2>Constraint Violations Vocabulary</h2>
-			<p>
-				The output of a SHACL constraint validation operation is a set of <span class="term">constraint violations</span>.
-				SHACL includes an RDF vocabulary to represent such constraint violations together with
-				structural information that may provide guidance on how to fix the violation, as well as
-				human-readable messages.
-			</p>
-			<p>
-				The following code snippet represents a valid constraint violation that may have been produced
-				by a constraint validation engine:
-			</p>
-			<pre class="example" title="A constructed constraint violation">
-ex:ExampleConstraintViolation
-	a sh:Error ;
-	sh:root ex:MyCurrentNode ;
-	sh:path ex:someProperty ;
-	sh:value ex:someInvalidValue ;
-	sh:message "Incorrect value: expected something else here." .</pre>
-			<section id="violations-types">
-				<h3>Types of Constraint Violations</h3>
-				<p>
-					A constraint violation is represented by a IRI or blank node that has exactly one
-					asserted <code>rdf:type</code>.
-					The <code>rdf:type</code> arc of a constraint violation must point to one of the subclasses
-					of the ("abstract") base class <code>sh:ConstraintViolation</code>.
-					The SHACL system vocabulary includes the following constraint violation types: 
-				</p>
-				<table class="term-table" border="1" cellpadding="5">
-					<tr>
-						<th>Constraint&nbsp;Violation&nbsp;Class</th>
-						<th>Superclass</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>sh:Warning</code></td>
-						<td><code>sh:ConstraintViolation</code></td>
-						<td>A non-critical constraint violation indicating a warning.</td>
-					</tr>
-					<tr>
-						<td><code>sh:Error</code></td>
-						<td><code>sh:ConstraintViolation</code></td>
-						<td>A constraint violation indicating an error.</td>
-					</tr>
-					<tr>
-						<td><code>sh:FatalError</code></td>
-						<td><code>sh:Error</code></td>
-						<td>
-							An error that cannot be recovered and further evaluation may terminate immediately.
-							Engines may decide to validate potentially fatal constraints first.
-						</td>
-					</tr>
-				</table>
-				<p class="todo">
-					<code>sh:Info</code> has also been suggested, but this would work best if there was a deterministic mechanism to identify
-					constraints that need to be validated, so that Info constraints can be bypassed.
-					Related to this, Dimitris also suggested we introduce <code>sh:ValidationResult</code> as a superclass of <code>sh:ConstraintViolation</code>.
-				</p>
-				<p>
-					SHACL extensions may define additional violation types, as long as they are rooted in
-					<code>sh:ConstraintViolation</code>.
-					The <code>rdfs:subClassOf</code> relationship between these types indicates specialization,
-					e.g. <code>sh:FatalError</code> is a subclass of <code>sh:Error</code> meaning that every
-					fatal error should also be regarded as an error.
-				</p>
-				<p class="todo">
-					TODO: There is an ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0011.html">proposal</a> to use these violation levels at engine control time.
-				</p>
-			</section>
-			<section id="violations-structure">
-				<h3>Structural Violation Metadata</h3>
-				<p>
-					SHACL constraint violations may include machine-readable metadata that points at
-					the cause of the violation.
-				</p>
-				<section id="violations-structure-root">
-					<h4>sh:root</h4>
-					<p>
-						Constraint violations may have a single value for the property <code>sh:root</code> to point to an
-						IRI or blank node that has caused the violation.
-					</p>
-				</section>
-				<section id="violations-structure-path">
-					<h4>sh:path</h4>
-					<p>
-						Constraint violations may have one or more values for the property <code>sh:path</code>
-						that describes a <em>path expression</em> that can be walked starting at the <code>sh:root</code>.
-						If the value of this property is a IRI, then the path produces all triples that have the root node as
-						subject and the value as its predicate.
-						If the value of <code>sh:path</code> is a blank node, then it must have properties that
-						match either one of the following options: 
-					</p>
-					<ul>
-						<li>
-							<code>sh:inverse</code> describes an inverse path consisting of all paths that start
-							at the current root node and walk the given predicate backwards, i.e. from object to subject.
-							The values of <code>sh:inverse</code> must be the IRIs of properties.
-							Blank nodes with <code>sh:inverse</code> may have the optional type <code>sh:InversePath</code>.
-						</li>
-						<li>
-							<code>sh:path1</code> and <code>sh:path2</code> describe a sequence path consisting of
-							two other paths.  The values of these properties must be property IRIs or blank nodes
-							of the same recursive path structure.  The path produces the concatenation of the two sub-paths.
-							Blank nodes with <code>sh:path1</code> and <code>sh:path2</code> may have the optional type <code>sh:SequencePath</code>.
-						</li>
-					</ul>
-					<p>
-						The following example describes a path equivalent to the SPARQL 1.1 Property Path [[sparql11-query]]
-						<code>ex:firstProperty/((^ex:inverseProperty)/ex:lastProperty)</code>
-					</p>
-					<pre class="example" title="Constraint violation with path expression">
-ex:ExampleConstraintViolationWithPath
-	a sh:Error ;
-	sh:root ex:MyCurrentNode ;
-	sh:path [
-		sh:path1 ex:firstProperty ;
-		sh:path2 [
-			ex:path1 [ sh:inverse ex:inverseProperty ] ;
-			ex:path2 ex:lastProperty
-		]
-	] .</pre>
-					<p class="todo">
-						Open discussion: Dimitris suggested that we may want to allow path expressions as xsd:strings too,
-						and rdf:Lists for sequence paths.
-					</p>
-				</section>
-				<section id="violations-structure-value">
-					<h4>sh:value</h4>
-					<p>
-						Constraint violations may have one or more values of the property <code>sh:value</code> to
-						point at specific nodes that caused the violation.
-						These nodes SHOULD be accessible via at least one <code>sh:path</code> starting at the
-						specific <code>sh:root</code> node.
-					</p>
-				</section>
-				<section id="violations-structure-source">
-					<h4>sh:source</h4>
-					<p>
-						Constraint violations may point at one <code>sh:Constraint</code> that has caused
-						the violation, specified via the property <code>sh:source</code>.
-						SHACL constraint validation engines SHOULD automatically insert the <code>sh:source</code>
-						based on the currently evaluated constraint, unless the constraint violation already has
-						such a value.
-					</p>
-				</section>
-				<section id="violations-structure-detail">
-					<h4>sh:detail</h4>
-					<p>
-						The property <code>sh:detail</code> may link a (parent) constraint violation with one or more other
-						(child) constraint violations that provide further details about the cause of the (parent) violation.
-						Depending on the capabilities of the constraint validation engine, this may include failures of
-						nested constraints that have been evaluated via <code>sh:valueShape</code>.
-					</p>
-				</section>
-			</section>
-			<section id="violations-message">
-				<h3>Human-readable Violation Messages (sh:message)</h3>
-				<p>
-					Constraint violations may have values for the property <code>sh:message</code> to communicate
-					additional textual details to humans.
-					While <code>sh:message</code> may have multiple values, there SHOULD not be two values
-					with the same language tag.
-				</p>
-			</section>
-		</section>
-
 		<section id="shapes">
 			<h2>Shapes</h2>
 			<div class="issue" title="Classes and/or Shapes">
@@ -389,7 +349,7 @@ ex:ExampleConstraintViolationWithPath
 					<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
 					<li>Allow both and have sh:classShape to point from a class to its shape(s)</li>
 				</ul>
-				In the absence of such an agreement, this document uses sh:Shape in all examples.
+				In the absence of such an agreement, this document uses sh:Shape in most examples.
 				Note that depending on the resolution, all examples could also use rdfs:Class instead of sh:Shape.
 			</div>
 			<p>
@@ -447,6 +407,7 @@ ex:ExampleConstraintViolationWithPath
 						<a href="#or">Disjunctive Constraints</a> can be used to define two or more alternative restrictions.
 					</li>
 					<li>
+						For complex use cases that cannot be handled by the SHACL Core Profile,
 						<a href="#general-constraints">General Constraints</a> may define constraints that are not related to only a single property.
 						The property <code>sh:constraint</code> is used to link a Shape with its general constraints.
 					</li>
@@ -489,11 +450,6 @@ ex:ExampleConstraintViolationWithPath
 					but in this case the <code>rdf:type</code> triple is required.
 					It is not valid to use <code>sh:property</code> for constraints that are not instance of <code>sh:PropertyConstraint</code>.
 				</p>
-				<p>
-					Technically, <code>sh:PropertyConstraint</code> is also a <span class="term">Template</span> (introduced in a later <a href="#templates">section</a>).
-					However, for the purpose of this section, it suffices to understand that each property constraint can have one or more
-					<span class="term">facet properties</span> such as <code>sh:minCount</code> that have a pre-defined meaning to a SHACL processor.
-				</p>
 				<p> 
 					The following examples illustrate two ways of using property constraints.
 					The first example uses a blank node:
@@ -535,42 +491,36 @@ ex:StandAloneConstraint
 				</p>
 				<p>
 					The following sections provide details on the facet properties that may be used with <code>sh:PropertyConstraint</code>.
-					The facet properties are defined by templates that serve as abstract superclasses of <code>sh:PropertyConstraint</code>.
+					Note that the textual definitions of those facets refers to the <a href="#violations">Constraint Violations Vocabulary</a>
+					introduced in a later section.
 				</p>
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
 						<th>Facet&nbsp;Properties</th>
-						<th>Template</th>
 						<th>Summary</th>
 					</tr>
 					<tr>
 						<td><a href="#AbstractAllowedValuesPropertyConstraint"><code>sh:allowedValues</code></a></td>
-						<td><code>sh:AbstractAllowedValuesPropertyConstraint</code></td>
 						<td>Enumeration of allowed values</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractHasValuePropertyConstraint"><code>sh:hasValue</code></a></td>
-						<td><code>sh:AbstractHasValuePropertyConstraint</code></td>
 						<td>A specific required value</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractCountPropertyConstraint"><code>sh:minCount</code>, <code>sh:maxCount</code></a></td>
-						<td><code>sh:AbstractCountPropertyConstraint</code></td>
 						<td>Minimum and maximum cardinality</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractNodeTypePropertyConstraint"><code>sh:nodeType</code></a></td>
-						<td><code>sh:AbstractNodeTypePropertyConstraint</code></td>
 						<td>Node type (IRI, blank node, or literal) of all values</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractValueShapePropertyConstraint"><code>sh:valueShape</code></a></td>
-						<td><code>sh:AbstractValueShapePropertyConstraint</code></td>
 						<td>Nested shape of all values</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractValueTypePropertyConstraint"><code>sh:valueType</code></a></td>
-						<td><code>sh:AbstractValueTypePropertyConstraint</code></td>
 						<td>Type and datatype of all values</td>
 					</tr>
 				</table>
@@ -580,47 +530,38 @@ ex:StandAloneConstraint
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
 						<th>Facet&nbsp;Properties</th>
-						<th>Template</th>
 						<th>Summary</th>
 					</tr>
 					<tr>
 						<td><a href="#AbstractMaxExclusivePropertyConstraint"><code>sh:maxExclusive</code></a></td>
-						<td><code>sh:AbstractMaxExclusivePropertyConstraint</code></td>
 						<td>Maximum exclusive value (&lt;)</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractMaxInclusivePropertyConstraint"><code>sh:maxInclusive</code></a></td>
-						<td><code>sh:AbstractMaxInclusivePropertyConstraint</code></td>
 						<td>Maximum inclusive value (&lt;=)</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractMinExclusivePropertyConstraint"><code>sh:minExclusive</code></a></td>
-						<td><code>sh:AbstractMinExclusivePropertyConstraint</code></td>
 						<td>Minimum exclusive value (&gt;)</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractMinInclusivePropertyConstraint"><code>sh:minInclusive</code></a></td>
-						<td><code>sh:AbstractMinInclusivePropertyConstraint</code></td>
 						<td>Minimum inclusive value (&gt;=)</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractLengthPropertyConstraint"><code>sh:length</code></a></td>
-						<td><code>sh:AbstractLengthPropertyConstraint</code></td>
 						<td>Exact string length</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractMaxLengthPropertyConstraint"><code>sh:maxLength</code></a></td>
-						<td><code>sh:AbstractMaxLengthPropertyConstraint</code></td>
 						<td>Maximum string length</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractMinLengthPropertyConstraint"><code>sh:minLength</code></a></td>
-						<td><code>sh:AbstractMinLengthPropertyConstraint</code></td>
 						<td>Minimum string length</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractPatternPropertyConstraint"><code>sh:pattern</code></a></td>
-						<td><code>sh:AbstractPatternPropertyConstraint</code></td>
 						<td>Regular expression string matching</td>
 					</tr>
 				</table>
@@ -675,6 +616,9 @@ ex:AllowedValuesExampleSet
 
 ex:AllowedValuesExampleValidResource
 	ex:property ex:Value2 .</pre>
+					<p class="todo">
+						TODO: Some examples should also include the validation results.
+					</p>
 					<p class="issue" title="sh:allowedValue">
 						It is not yet decided whether the language should also support <code>sh:allowedValue</code>
 						that would point directly to the enumerated values instead of having an intermediate sh:Set.
@@ -791,55 +735,9 @@ ex:CountExampleValidResource
 					</table>
 					<p>
 						The values of <code>sh:nodeType</code> must be instances of the class <code>sh:NodeType</code>.
-						The SHACL system vocabulary defines that <code>sh:NodeType</code> has exactly the 7 instances
-						listed in the following table.
-						The node types can have a property <code>sh:subNodeType</code> that links a more general
-						node type with its specializations.
-						The conditions to verify whether a given <code>?node</code> fulfills the constraints
-						are summarized in the third column of the following table.
+						The SHACL system vocabulary defines that <code>sh:NodeType</code> has exactly 7 instances,
+						as defined in the <a href="#function-hasNodeType">Appendix</a>.
 					</p>
-					<table class="term-table" border="1" cellpadding="5">
-						<tr>
-							<th>NodeType</th>
-							<th>Super-NodeTypes</th>
-							<th>SPARQL Expression</th>
-						</tr>
-						<tr>
-							<td><code>sh:Node</code></td>
-							<td></td>
-							<td><code>true</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:BlankNodeOrIRI</code></td>
-							<td><code>sh:Node</code></td>
-							<td><code>isBlank(?node) || isIRI(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:BlankNodeOrLiteral</code></td>
-							<td><code>sh:Node</code></td>
-							<td><code>isBlank(?node) || isLiteral(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:LiteralOrIRI</code></td>
-							<td><code>sh:Node</code></td>
-							<td><code>isLiteral(?node) || isIRI(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:BlankNode</code></td>
-							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
-							<td><code>isBlank(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:IRI</code></td>
-							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:LiteralOrIRI</code></td>
-							<td><code>isIRI(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:Literal</code></td>
-							<td><code>sh:LiteralOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
-							<td><code>isLiteral(?node)</code></td>
-						</tr>
-					</table>
 					<p class="todo">
 						Dimitris suggests we only support sh:IRI, sh:Literal and sh:BlankNode and use some generic OR mechanism to combine them.
 					</p>
@@ -900,6 +798,9 @@ ex:NodeTypeShapeExampleInvalidResource
 						</div>
 					</div>
 					<p>See also: <a href="#sparql-AbstractValueShapePropertyConstraint">Definition in SPARQL</a>.</p>
+					<p class="issue" title="Recursion of sh:valueShape">
+						It is not yet decided how to handle recursive shape definitions in sh:valueShape.
+					</p>
 					<p>
 						In the following example, all values of the property <code>ex:someProperty</code> are supposed to match the	shape
 						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
@@ -965,11 +866,17 @@ ex:InversePropertyConstraintExampleShape
 		sh:minCount 1 ;
 		rdfs:label "is someProperty of" ;  # e.g. "parent"
 	] .</pre>
+				<p class="todo">
+					TODO: Possibly use <code>sh:inversePredicate</code> instead of <code>sh:predicate</code>.
+				</p>
 			</section>
 		</section>
 		
 		<section id="or">
 			<h2>Disjunctive Constraints (sh:OrConstraint)</h2>
+			<p class="issue">
+				The WG has not decided whether Or (and similar operands such as Not) will be part of the high-level vocabulary, or whether they will be limited to executable languages such as SPARQL.
+			</p>
 			<p class="todo">
 				TODO: The proposal here is just one possible syntax, based on a template.
 				Other alternatives include to hard-code it into a new kind of Shape with its own syntax
@@ -1049,6 +956,178 @@ ex:ScopedExampleShape
 ex:ScopedShapeValidExampleInstance
 	ex:someProperty ex:someValue ;
 	ex:requiredProperty ex:requiredValue .</pre>
+		</section>
+		
+		<section id="violations">
+			<h2>Constraint Violations Vocabulary</h2>
+			<p>
+				The output of a SHACL constraint validation operation is a set of <span class="term">constraint violations</span>.
+				SHACL includes an RDF vocabulary to represent such constraint violations together with
+				structural information that may provide guidance on how to fix the violation, as well as
+				human-readable messages.
+			</p>
+			<p>
+				The following code snippet represents a valid constraint violation that may have been produced
+				by a constraint validation engine:
+			</p>
+			<pre class="example" title="A constructed constraint violation">
+ex:ExampleConstraintViolation
+	a sh:Error ;
+	sh:root ex:MyCurrentNode ;
+	sh:path ex:someProperty ;
+	sh:value ex:someInvalidValue ;
+	sh:message "Incorrect value: expected something else here." .</pre>
+			<section id="violations-types">
+				<h3>Types of Constraint Violations</h3>
+				<p>
+					A constraint violation is represented by a IRI or blank node that has exactly one
+					asserted <code>rdf:type</code>.
+					The <code>rdf:type</code> arc of a constraint violation must point to one of the subclasses
+					of the ("abstract") base class <code>sh:ConstraintViolation</code>.
+					The SHACL system vocabulary includes the following constraint violation types: 
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Constraint&nbsp;Violation&nbsp;Class</th>
+						<th>Superclass</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>sh:Warning</code></td>
+						<td><code>sh:ConstraintViolation</code></td>
+						<td>A non-critical constraint violation indicating a warning.</td>
+					</tr>
+					<tr>
+						<td><code>sh:Error</code></td>
+						<td><code>sh:ConstraintViolation</code></td>
+						<td>A constraint violation indicating an error.</td>
+					</tr>
+					<tr>
+						<td><code>sh:FatalError</code></td>
+						<td><code>sh:Error</code></td>
+						<td>
+							An error that cannot be recovered and further evaluation may terminate immediately.
+							Engines may decide to validate potentially fatal constraints first.
+						</td>
+					</tr>
+				</table>
+				<p class="todo">
+					<code>sh:Info</code> has also been suggested, but this would work best if there was a deterministic mechanism to identify
+					constraints that need to be validated, so that Info constraints can be bypassed.
+					Related to this, Dimitris also suggested we introduce <code>sh:ValidationResult</code> as a superclass of <code>sh:ConstraintViolation</code>.
+				</p>
+				<p>
+					SHACL extensions may define additional violation types, as long as they are rooted in
+					<code>sh:ConstraintViolation</code>.
+					The <code>rdfs:subClassOf</code> relationship between these types indicates specialization,
+					e.g. <code>sh:FatalError</code> is a subclass of <code>sh:Error</code> meaning that every
+					fatal error should also be regarded as an error.
+				</p>
+				<p class="todo">
+					TODO: There is an ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0011.html">proposal</a> to use these severity levels at engine control time.
+				</p>
+			</section>
+			<section id="violations-structure">
+				<h3>Structural Violation Metadata</h3>
+				<p>
+					SHACL constraint violations may include machine-readable metadata that points at
+					the cause of the violation.
+				</p>
+				<section id="violations-structure-root">
+					<h4>sh:root</h4>
+					<p>
+						Constraint violations may have a single value for the property <code>sh:root</code> to point to an
+						IRI or blank node that has caused the violation.
+					</p>
+				</section>
+				<section id="violations-structure-path">
+					<h4>sh:path</h4>
+					<p>
+						Constraint violations may have one or more values for the property <code>sh:path</code>
+						that describes a <em>path expression</em> that can be walked starting at the <code>sh:root</code>.
+						If the value of this property is a IRI, then the path produces all triples that have the root node as
+						subject and the value as its predicate.
+						If the value of <code>sh:path</code> is a blank node, then it must have properties that
+						match either one of the following options: 
+					</p>
+					<ul>
+						<li>
+							<code>sh:inverse</code> describes an inverse path consisting of all paths that start
+							at the current root node and walk the given predicate backwards, i.e. from object to subject.
+							The values of <code>sh:inverse</code> must be the IRIs of properties.
+							Blank nodes with <code>sh:inverse</code> may have the optional type <code>sh:InversePath</code>.
+						</li>
+						<li>
+							<code>sh:path1</code> and <code>sh:path2</code> describe a sequence path consisting of
+							two other paths.  The values of these properties must be property IRIs or blank nodes
+							of the same recursive path structure.  The path produces the concatenation of the two sub-paths.
+							The values of <code>sh:path1</code> must either be IRIs or blank nodes with a value for <code>sh:inverse</code>,
+							which means that only the second path segment may be another sequence path. 
+							Blank nodes with <code>sh:path1</code> and <code>sh:path2</code> may have the optional type <code>sh:SequencePath</code>.
+						</li>
+					</ul>
+					<p>
+						The following example describes a path equivalent to the SPARQL 1.1 Property Path [[sparql11-query]]
+						<code>ex:firstProperty/((^ex:inverseProperty)/ex:lastProperty)</code>
+					</p>
+					<pre class="example" title="Constraint violation with path expression">
+ex:ExampleConstraintViolationWithPath
+	a sh:Error ;
+	sh:root ex:MyCurrentNode ;
+	sh:path [
+		sh:path1 ex:firstProperty ;
+		sh:path2 [
+			ex:path1 [ sh:inverse ex:inverseProperty ] ;
+			ex:path2 ex:lastProperty
+		]
+	] .</pre>
+					<p class="todo">
+						Open discussion: Dimitris suggested that we may want to allow path expressions as xsd:strings too,
+						and rdf:Lists for sequence paths.
+					</p>
+				</section>
+				<section id="violations-structure-value">
+					<h4>sh:value</h4>
+					<p>
+						Constraint violations may have one or more values of the property <code>sh:value</code> to
+						point at specific nodes that caused the violation.
+						These nodes SHOULD be accessible via at least one <code>sh:path</code> starting at the
+						specific <code>sh:root</code> node.
+					</p>
+				</section>
+				<section id="violations-structure-source">
+					<h4>sh:source</h4>
+					<p>
+						Constraint violations may point at one <code>sh:Constraint</code> that has caused
+						the violation, specified via the property <code>sh:source</code>.
+						SHACL constraint validation engines SHOULD automatically insert the <code>sh:source</code>
+						based on the currently evaluated constraint, unless the constraint violation already has
+						such a value.
+					</p>
+				</section>
+				<section id="violations-structure-detail">
+					<h4>sh:detail</h4>
+					<p>
+						The property <code>sh:detail</code> may link a (parent) constraint violation with one or more other
+						(child) constraint violations that provide further details about the cause of the (parent) violation.
+						Depending on the capabilities of the constraint validation engine, this may include failures of
+						nested constraints that have been evaluated via <code>sh:valueShape</code>.
+					</p>
+				</section>
+			</section>
+			<section id="violations-message">
+				<h3>Human-readable Violation Messages (sh:message)</h3>
+				<p>
+					Constraint violations may have values for the property <code>sh:message</code> to communicate
+					additional textual details to humans.
+					While <code>sh:message</code> may have multiple values, there SHOULD not be two values
+					with the same language tag.
+				</p>
+				<p class="todo">
+					TODO: The standard will likely make it possible to derive the values of <code>sh:message</code> from string templates,
+					as discussed in this thread: <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0249.html"></a>. 
+				</p>
+			</section>
 		</section>
 		
 		<section id="general-constraints">
@@ -1159,7 +1238,7 @@ ex:ExampleTemplate
 				</p>
 				<ul>
 					<li>The <span class="term">local name</span> must be a valid <a href="http://www.w3.org/TR/sparql11-query/#rVARNAME">SPARQL VARNAME</a></li>
-					<li>There must not be any other declared <code>sh:Argument</code> for the same template (and its transitive super-templates) that has a <code>sh:predicate</code> with the same <span class="term">local name</span></li>
+					<li>There must not be any other declared <code>sh:Argument</code> for the same template (and its transitive superclasses) that has a <code>sh:predicate</code> with the same <span class="term">local name</span></li>
 				</ul>
 				<p>
 					An <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
@@ -1505,18 +1584,6 @@ forEach ?shape := (?focusNode sh:nodeShape|rdf:type ?shape)
 				<p>
 					This operation validates a whole graph against global constraints and all shapes associated with it, based on in-graph mappings.
 				</p>
-				<!-- table class="term-table" border="1" cellpadding="5">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>?contextFilter</code></td>
-						<td><code class="todo">TBD</code></td>
-						<td>The <span class="term">context filter</span> specifying which shapes and constraints to exclude/include.</td>
-					</tr>
-				</table-->
 				<p>
 					Algorithm in pseudo-code:
 				</p>
@@ -1629,167 +1696,9 @@ ex:exampleFunction
 			<section id="sparql-constraints">
 				<h3>SPARQL-based Constraints</h3>
 				<p>
-					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>ASK</code>, <code>CONSTRUCT</code> or <code>SELECT</code>.
-					<a href="#sparql-constraints-construct"><code>CONSTRUCT</code></a> is the most flexible option, so the following section starts with describing how these are executed.
-					The subsequent sections describe how <a href="#sparql-constraints-ask"><code>ASK</code></a> and <a href="#sparql-constraints-select"><code>SELECT</code></a> queries can be transformed into equivalent <code>CONSTRUCT</code> forms.
+					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
 				</p>
-				<p class="todo">
-					There is ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Feb/0359.html">discussion</a> about whether all options below shall be supported, and whether an approach based on variable names only would be better.
-				</p>
-				<section id="sparql-constraints-construct">
-					<h4>CONSTRUCT-based Constraints</h4>
-					<p>
-						Constraints backed by a SPARQL <code>CONSTRUCT</code> query are assumed to construct <span class="term">constraint violations</span>.
-						<code>CONSTRUCT</code> queries consist of a <span class="term">graph template</span> and a <code>WHERE</code> clause.
-						The output of a <code>CONSTRUCT</code> query is a new RDF graph, and the triples from those RDF graphs need to be added to the result graph of the constraint validation operation.
-					</p>
-					<p>
-						The following example illustrates how a <code>CONSTRUCT</code> query is used to produce instances of <code>sh:Error</code> for every instance of <code>ex:ExampleClass</code> that has no <code>rdfs:label</code>.
-						Note that <code>_:error</code> is a SPARQL syntax representing a new blank node for each row of the result set (<code>WHERE</code> clause).
-					</p>
-					<pre class="example" title="Global constraint based on SPARQL CONSTRUCT">
-sh:ExampleGlobalConstructConstraint
-	a sh:GlobalConstraint ;
-	sh:sparql """
-		CONSTRUCT {
-			_:error a sh:Error .
-			_:error sh:root ?instance .
-			_:error sh:path rdfs:label .
-			_:error sh:message "Instances of ex:ExampleClass must have an rdfs:label" .
-		}
-		WHERE {
-			?instance a ex:ExampleClass .
-			FILTER NOT EXISTS { ?instance rdfs:label ?anyLabel } .
-		}
-		""" .
-}</pre>
-					<p>
-						The instances of <code>sh:ConstraintViolation</code> produced by such queries are not modified further,
-						except that the engine SHOULD add <code>sh:source</code> triples that have each constraint violation
-						instance as subject and the surrounding <code>sh:Constraint</code> as its object.
-					</p>
-				</section>
-				<section id="sparql-constraints-ask">
-					<h4>ASK-based Constraints</h4>
-					<p class="todo">
-						Issue: It is quite possible that ASK queries will be removed from the language.
-						For many use cases, a corresponding SELECT query is easy to write.
-						Furthermore, ASK often leads to confusion because they need to return false to signal correctness.
-					</p>
-					<p>
-						SPARQL queries of the <code>ASK</code> form that produce <code>true</code> signal a constraint violation.
-						As shown in the following example, the subject node holding the <code>sh:sparql</code> query may also have other properties that define properties of the constraint violation.
-					</p>
-					<pre class="example" title="Global constraint based on SPARQL ASK">
-ex:ExampleGlobalAskConstraint
-	a sh:GlobalConstraint ;
-	sh:level sh:Warning ;
-	sh:message "Properties marked as deprecated should not be used" .
-	sh:sparql """
-		ASK {
-			?subject ?predicate ?object .
-			?predicate ex:deprecated true .
-		}
-		""" .</pre>
-					<p>
-						The <code>ASK</code> query above gets translated into the following <code>CONSTRUCT</code>:
-					</p>
-					<pre class="example">
-CONSTRUCT {
-	_:violation a sh:Warning .
-	_:violation sh:message "Properties marked as deprecated should not be used" .
-}
-WHERE {
-	?subject ?predicate ?object .
-	?predicate ex:deprecated true .
-}</pre>
-					<p>
-						In its most basic form, an <code>ASK</code> query is translated into a <code>CONSTRUCT</code> form with an identical <code>WHERE</code> clause.
-						The <span class="term">graph template</span> of the <code>CONSTRUCT</code> must create exactly one blank node.
-						The <code>rdf:type</code> of that blank node must be the value of the property <code>sh:level</code> at the surrounding subject node.
-						If no <code>sh:level</code> has been specified, <code>sh:Error</code> must be used as default type.
-						<span class="todo">A proposed alternative to sh:level is <code>sh:severity</code>.</span>
-					</p>
-					<p>
-						If the surrounding subject node defines a <code>sh:message</code> then the constructed blank node needs to have a corresponding triple.
-						Similarly, the values of <code>sh:root</code>, <code>sh:path</code> and <code>sh:value</code> must be inserted (they cannot be blank nodes).
-					</p>
-					<p class="todo">
-						TODO: Maybe allow special variable names such as <code>?root</code>, <code>?path</code> etc to be projected similar to how this happens with SELECT queries.
-					</p>
-				</section>
-				<section id="sparql-constraints-select">
-					<h4>SELECT-based Constraints</h4>
-					<p>
-						SPARQL queries of the <code>SELECT</code> form need to produce one constraint violation blank node for each row of the produced result set.
-						The following example illustrates a constraint that flags warnings for all subjects that have a <code>rdfs:label</code> with the language tag <code>"de"</code>.
-					</p>
-					<pre class="example" title="Global constraint based on SPARQL SELECT">
-ex:ExampleGlobalSelectConstraint
-	a sh:GlobalConstraint ;
-	sh:level sh:Warning ;
-	sh:message "Deutsch is verboten" ;
-	sh:path rdfs:label ;
-	sh:sparql """
-		SELECT (?subject AS ?root) (?object AS ?value)
-		WHERE {
-			?subject rdfs:label ?object .
-			FILTER (lang(?object) = "de") .
-		}
-		""" .</pre>
-					<p>
-						For execution, the constraint above can be turned into the following <code>CONSTRUCT</code> query.
-					</p>
-					<pre class="example">
-CONSTRUCT {
-	_:violation a sh:Warning .
-	_:violation sh:message "Deutsch is verboten" .
-	_:violation sh:path rdfs:label .
-	_:violation sh:root ?subject .
-	_:violation sh:value ?object .
-}
-WHERE {
-	?subject rdfs:label ?object .
-	FILTER (lang(?object) = "de") .
-}</pre>
-					<p>
-						The following naming conventions are used to map the result variables of a <code>SELECT</code> into corresponding RDF properties: 
-					</p>
-					<table class="term-table" border="1" cellpadding="5">
-						<tr>
-							<th>Result&nbsp;Variable</th>
-							<th>Constraint&nbsp;Violation&nbsp;Property</th>
-						</tr>
-						<tr>
-							<td><code>?level</code></td>
-							<td><code>rdf:type</code></td>
-						</tr>
-						<tr>
-							<td><code>?message</code></td>
-							<td><code>sh:message</code></td>
-						</tr>
-						<tr>
-							<td><code>?predicate</code></td>
-							<td><code>sh:predicate</code></td>
-						</tr>
-						<tr>
-							<td><code>?root</code></td>
-							<td><code>sh:root</code></td>
-						</tr>
-						<tr>
-							<td><code>?value</code></td>
-							<td><code>sh:value</code></td>
-						</tr>
-					</table>
-					<p>
-						Similar to <a href="#sparql-constraints-ask"><code>ASK</code></a> queries, corresponding values attached to the surrounding subject node must be used in the absence of the result variables above.
-					</p>
-					<p>
-						In local constraints the variable <code>?this</code> must be projected into <code>?root</code> unless the <code>SELECT</code> clause already projects to <code>?root</code>.
-						This means that the frequently needed pattern <code>SELECT (?this AS ?root)</code> is redundant.
-					</p>
-				</section>
-				<section>
+				<section id="sparql-constraints-this">
 					<h4>Binding the Focus Node in Local SPARQL Constraints (?this)</h4>
 					<p>
 						The SPARQL variable <code>?this</code> has a special meaning in local constraints.
@@ -1797,13 +1706,222 @@ WHERE {
 						<span class="todo">(Need a pointer to what "pre-binding" means in this context)</span>
 					</p>
 				</section>
+				<section id="sparql-constraints-variables">
+					<h4>Mapping of Result Variables to Constraint Violations</h4>
+					<p>
+						Each row of the result set produced by a SELECT query must be converted into one constraint violation blank node.
+						The properties of those blank nodes are derived by the following rules, through a combination of result variables and by looking at properties attached to the constraint itself.
+						In the following table, the <span class="term">host resource</span> is assumed to be the constraint or template that has the executed <code>sh:sparql</code> query as one of its properties.
+						The production rules are meant to be executed from top to bottom, so that the first bound value will be used.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Production Rules</th>
+						</tr>
+						<tr>
+							<td><code>rdf:type</code></td>
+							<td>
+								<ol>
+									<li>The value of <code>sh:severity</code> of the <span class="term">host resource</span></li>
+									<li><code>sh:Error</code> as default</li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:root</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?root</code></li>
+									<li>The value of the variable <code>?this</code></li>
+									<li>The current <span class="term">focus node</span></li>
+									<li>The value of <code>sh:root</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:path</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?path</code></li>
+									<li>The value of the variable <code>?predicate</code></li>
+									<li>If the variable <code>?inversePredicate</code> is bound, then create a new blank node as <code>[ sh:inverse ?inversePredicate ]</code>.</li>
+									<li>
+										Starting with <code>N=1</code>, if the variables <code>?predicateN|?inversePredicateN</code> are bound,
+										build a new blank node <code>[ sh:path1 ?first ; sh:path2 ?rest ]</code> where
+										<code>?first</code> is a the value of <code>?predicateN</code> if it exists,
+										or a new blank node <code>[ sh:inverse ?inversePredicateN ]</code>,
+										and <code>?rest</code> is recursively built using this same rule for <code>?predicate(N+1)|?inversePredicate(N+1)</code>
+										until it reaches an <code>N</code> where both <code>?predicateN</code> and <code>?inversePredicateN</code> are unbound.
+									</li>
+									<li>The value of <code>sh:path</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:value</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?value</code></li>
+									<li>The value of <code>sh:value</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:message</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?message</code></li>
+									<li>The values of <code>sh:message</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:source</code></td>
+							<td>
+								<ol>
+									<li>The <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+					</table>
+					<p>
+						The following example illustrates a constraint that flags warnings for all subjects that have a <code>rdfs:label</code> with the language tag <code>"de"</code>.
+					</p>
+					<pre class="example" title="Global constraint based on SPARQL SELECT">
+ex:ExampleGlobalSelectConstraint
+	a sh:GlobalConstraint ;
+	sh:message "Deutsch is verboten" ;
+	sh:path rdfs:label ;
+	sh:severity sh:Warning ;
+	sh:sparql """
+		SELECT (?subject AS ?root) ?value
+		WHERE {
+			?subject rdfs:label ?value .
+			FILTER (lang(?value) = "de") .
+		}
+		""" .
+
+ex:Resource1
+	rdfs:label "Eins"@de ;
+	rdfs:label "Zwei"@de ;
+	rdfs:label "Trois"@fr .</pre>
+					<p>
+						Output created by the example above would be:
+					</p>
+					<pre class="example" title="Global constraint example violation output">
+[
+	a sh:Warning ;
+	sh:root ex:Resource1 ;
+	sh:path rdfs:label ;
+	sh:value "Eins"@de ;
+	sh:message "Deutsch is verboten" ;
+	sh:source ex:ExampleGlobalSelectConstraint ;
+] .
+[
+	a sh:Warning ;
+	sh:root ex:Resource1 ;
+	sh:path rdfs:label ;
+	sh:value "Zwei"@de ;
+	sh:message "Deutsch is verboten" ;
+	sh:source ex:ExampleGlobalSelectConstraint ;
+] .</pre>
+				</section>
+				<section id="sparql-constraints-annotations">
+					<h4>Injecting Annotation Properties into Constraint Violations</h4>
+					<p>
+						It is possible to inject additional <span class="term">annotation properties</span> into the blank nodes created for each row of the SELECT result sets.
+						Any such property needs to be declared via a value of <code>sh:resultAnnotation</code> at the host node.
+						The values of <code>sh:resultAnnotation</code> must be IRIs or blank nodes with the following properties:
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Value type</th>
+							<th>Count</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>sh:annotationProperty</code></td>
+							<td><code>rdf:Property</code></td>
+							<td><code>1 (mandatory)</code></td>
+							<td>The annotation property that shall be set</td>
+						</tr>
+						<tr>
+							<td><code>sh:annotationVarName</code></td>
+							<td><code>xsd:string</code></td>
+							<td><code>0..1</code></td>
+							<td>The name of the SPARQL variable to take the values from</td>
+						</tr>
+						<tr>
+							<td><code>sh:annotationValue</code></td>
+							<td></td>
+							<td><code>0..unlimited</code></td>
+							<td>Constant nodes that shall be used as values</td>
+						</tr>
+					</table>
+					<p>
+						If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the engine must copy the bindings for the given variable into the constructed constraint violations for the same row.
+					</p>
+					<p>
+						The values of <code>sh:annotationProperty</code> MUST NOT be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
+					</p>
+					<p>
+						Here is a slightly complex example, producing constraint violations with the path expression <code>ex:property1/^ex:property2</code> and also illustrating the use of result annotations.
+					</p>
+					<pre class="example" title="Local constraint with path expression and annotation">
+ex:LocalShapeWithPathViolationExample
+	a sh:Shape ;
+	sh:constraint [
+		sh:resultAnnotation [
+			sh:annotationProperty ex:time ;
+			sh:annotationVarName "time"
+		] ;
+		sh:sparql """
+				SELECT ?value (ex:property1 AS ?predicate1) (ex:property2 AS ?inversePredicate2) ?message ?time
+				WHERE {
+					?this ex:property1 ?first .
+					?value ex:property2 ?first .
+					FILTER isBlank(?value) .
+					BIND (CONCAT("The ", "message.") AS ?message) .
+					BIND (NOW() AS ?time) .
+				}
+			""" ;
+	] .
+	
+ex:ExampleRootResource
+	sh:nodeShape ex:LocalShapeWithPathViolationExample ;
+	ex:property1 ex:ExampleIntermediateResource .
+
+ex:ExampleValueResource
+	ex:property2 ex:ExampleIntermediateResource .
+</pre>
+					<p>
+						Which produces the following error resource:
+					</p>
+					<pre class="example" title="Local constraint example violation output">
+[
+	a sh:Error ;
+	sh:root ex:ExampleRootResource ;
+	sh:path [
+		sh:path1 ex:property1 ;
+		sh:path2 [
+			sh:inverse ex:property2
+		]
+	] ;
+	sh:value ex:ExampleValueResource ;
+	sh:message "The message." ;
+	sh:source [ the blank node of the sh:constraint above ] ;
+	ex:time "2015-03-27T10:58:00"^^xsd:dateTime ;  # Example
+] .</pre>
+				</section>
 			</section>
 			<section id="sparql-templates">
 				<h3>SPARQL-based Templates</h3>
 				<p>
 					If a <code>sh:Template</code> has a value for <code>sh:sparql</code>, then the corresponding instances need to follow the same execution rules as outlined for <a href="#sparql-constraints">SPARQL-based Constraints</a>.
 					The only difference is that the SPARQL queries need to be executed with additional <span class="term">pre-bound</span> variables, derived from the arguments of the template.
-					The names of those variables must match the <a href="#def-local-name"><span class="term">local name</span></a> of the argument predicates.
+					The names of those variables must match the <a href="#def-local-name"><span class="term">local name</span></a> of the argument predicates, including the arguments defined by any (transitive) superclasses of the template.
 					For example, if an argument is represented with the predicate <code>ex:myArgument</code> then the variable <code>?myArgument</code> must be <span class="term">pre-bound</span> with the value of the argument in the template instance.
 				</p>
 			</section>
@@ -1884,6 +2002,51 @@ WHERE {
 						<td>The node type that <code>?arg1</code> is expected to have</td>
 					</tr>
 				</table>
+				<p>
+					The following table summarizes the values of the class <code>sh:NodeType</code> together with their SPARQL definition.
+				</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>NodeType</th>
+							<th>Super-NodeTypes</th>
+							<th>SPARQL Expression</th>
+						</tr>
+						<tr>
+							<td><code>sh:Node</code></td>
+							<td></td>
+							<td><code>true</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:BlankNodeOrIRI</code></td>
+							<td><code>sh:Node</code></td>
+							<td><code>isBlank(?node) || isIRI(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:BlankNodeOrLiteral</code></td>
+							<td><code>sh:Node</code></td>
+							<td><code>isBlank(?node) || isLiteral(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:LiteralOrIRI</code></td>
+							<td><code>sh:Node</code></td>
+							<td><code>isLiteral(?node) || isIRI(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:BlankNode</code></td>
+							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
+							<td><code>isBlank(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:IRI</code></td>
+							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:LiteralOrIRI</code></td>
+							<td><code>isIRI(?node)</code></td>
+						</tr>
+						<tr>
+							<td><code>sh:Literal</code></td>
+							<td><code>sh:LiteralOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
+							<td><code>isLiteral(?node)</code></td>
+						</tr>
+					</table>
 				<div id="def-hasNodeType-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
@@ -2005,6 +2168,9 @@ WHERE {
 				<h3>Property Constraints</h3>
 				<section id="sparql-AbstractAllowedValuesPropertyConstraint">
 					<h4>sh:allowedValues</h4>
+					<p>
+						The property facet <code>sh:allowedValues</code> is defined in the SHACL template <code>sh:AbstractAllowedValuesPropertyConstraint</code>.
+					</p>
 					<div id="def-allowedValues-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
@@ -2019,6 +2185,9 @@ WHERE {
 				</section>
 				<section id="sparql-AbstractHasValuePropertyConstraint">
 					<h4>sh:hasValue</h4>
+					<p>
+						The property facet <code>sh:hasValue</code> is defined in the SHACL template <code>sh:AbstractHasValuePropertyConstraint</code>.
+					</p>
 					<div id="def-hasValue-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
@@ -2032,6 +2201,9 @@ WHERE {
 				</section>
 				<section id="sparql-AbstractCountPropertyConstraint">
 					<h4>sh:minCount, sh:maxCount</h4>
+					<p>
+						The property facets <code>sh:minCount</code> and <code>sh:maxCount</code> are defined in the SHACL template <code>sh:AbstractCountPropertyConstraint</code>.
+					</p>
 					<div id="def-count-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
@@ -2044,6 +2216,9 @@ WHERE {
 				</section>
 				<section id="sparql-AbstractNodeTypePropertyConstraint">
 					<h4>sh:nodeType</h4>
+					<p>
+						The property facet <code>sh:nodeType</code> is defined in the SHACL template <code>sh:AbstractNodeTypePropertyConstraint</code>.
+					</p>
 					<div id="def-nodeType-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
@@ -2056,6 +2231,9 @@ WHERE {
 				</section>
 				<section id="sparql-AbstractValueShapePropertyConstraint">
 					<h4>sh:valueShape</h4>
+					<p>
+						The property facet <code>sh:valueShape</code> is defined in the SHACL template <code>sh:AbstractValueShapePropertyConstraint</code>.
+					</p>
 					<div id="def-valueShape-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
