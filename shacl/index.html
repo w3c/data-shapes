@@ -388,7 +388,7 @@ ex:EmailsMustBeUnique
 				</p>
 				<p class="issue" title="RDFS Entailment">
 					There is no agreement in the WG about the role of RDFS entailment.
-					RDFS entailment would potentially serve as an alternative to rdfs:subClassOf.
+					RDFS entailment would potentially serve as an alternative to walking the rdfs:subClassOf relationship during the validation.
 					However, making RDFS entailment mandatory may exclude too many systems and have other drawbacks.
 				</p>
 			</section>
@@ -487,7 +487,7 @@ ex:StandAloneConstraint
 				<p id="defaultValue">
 					Property constraints may have a single value for <code>sh:defaultValue</code>.
 					The default value does not have fixed semantics in SHACL, but may be used by user interface tools to pre-populate input widgets.
-					The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:valueType</code> of the same constraint.
+					The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code> or <code>sh:valueType</code> of the same constraint.
 				</p>
 				<p>
 					The following sections provide details on the facet properties that may be used with <code>sh:PropertyConstraint</code>.
@@ -502,6 +502,10 @@ ex:StandAloneConstraint
 					<tr>
 						<td><a href="#AbstractAllowedValuesPropertyConstraint"><code>sh:allowedValues</code></a></td>
 						<td>Enumeration of allowed values</td>
+					</tr>
+					<tr>
+						<td><a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a></td>
+						<td>Datatype of all values</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractHasValuePropertyConstraint"><code>sh:hasValue</code></a></td>
@@ -521,7 +525,7 @@ ex:StandAloneConstraint
 					</tr>
 					<tr>
 						<td><a href="#AbstractValueTypePropertyConstraint"><code>sh:valueType</code></a></td>
-						<td>Type and datatype of all values</td>
+						<td>Type of all values</td>
 					</tr>
 				</table>
 				<p class="todo">
@@ -626,6 +630,52 @@ ex:AllowedValuesExampleValidResource
 						and that it is not yet clear how the execution of template arguments with multiple values should work.
 						If we allowed rdf:List, then the Turtle/JSON-LD syntax may look good yet a sh:Set is more extensible. 
 					</p>
+				</section>
+				<section id="AbstractDatatypePropertyConstraint">
+					<h4>sh:datatype</h4>
+					<p>
+						The property <code>sh:datatype</code> can be used to restrict the datatype of all values of the given property.
+						The values of <code>sh:datatype</code> must be instances of the class <code>rdfs:Datatype</code>, such as <code>xsd:string</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Facet&nbsp;Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:datatype</code></td>
+							<td><code>rdfs:Datatype</code></td>
+							<td>Datatype of all values (e.g., <code>xsd:integer</code>)</td>
+						</tr>
+					</table>
+					<div id="def-nodeType-text" class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							An <code>sh:Error</code> must be reported for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
+							A literal matches a datatype if the literal's datatype has the same IRI,
+							or if its datatype is <code>rdf:langLiteral</code> and the expected datatype is <code>xsd:string</code>.
+							Each produced <code>sh:Error</code> must have the <code>sh:predicate</code>
+							as its <code>sh:path</code> and the respective violating value as its <code>sh:value</code>.
+						</div>
+					</div>
+					<p>See also: <a href="#sparql-AbstractDatatypePropertyConstraint">Definition in SPARQL</a>.</p>
+					<pre class="example" title="Shape with sh:datatype constraint">
+ex:DatatypeExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:datatype xsd:string ;
+	] .
+
+ex:DatatypeShapeExampleValidResource
+	ex:someProperty "Some value" ;
+	ex:someProperty "Value with language tag"@en .
+
+ex:DatatypeShapeExampleInvalidResource
+	ex:someProperty 42 .</pre>
 				</section>
 				<section id="AbstractHasValuePropertyConstraint">
 					<h4>sh:hasValue</h4>
@@ -827,17 +877,17 @@ ex:ValueShapeExampleValidResource
 				</section>
 				<section id="AbstractValueTypePropertyConstraint">
 					<h4>sh:valueType</h4>
-					<p class="issue" title="sh:valueType">
-						The details of valueType validation need to be fully worked out.
-						In a nutshell, the goal is to have one or two properties to narrow down the type of values.
-						The user experience may be best if there was just one property, sh:valueType.
-						However, there are substantial differences between datatypes and class-based types.
-						For datatypes, we should exclude reified values such as instances of xsd:integer.
-						For resources, we need to make sure that (transitive) subclasses are accepted too.
-						What about typeless resources - I believe these should be allowed if the valueType is rdfs:Resource or rdf:Property.
-						Another question will be whether multiple valueTypes should be supported, and what their semantics should be.
-						For now we only include an example of sh:valueType, to illustrate a possible design.
-					</p>
+					<div class="issue" title="sh:valueType">
+						The name of this property is undecided yet. Candidates include:
+						<ul>
+							<li>sh:class</li>
+							<li>sh:objectType</li>
+							<li>sh:resourceType</li>
+							<li>sh:type</li>
+							<li>sh:valueClass</li>
+							<li>sh:valueType</li>
+						</ul>
+					</div>
 				</section>
 				<pre class="example" title="Shape with sh:valueType constraint">
 ex:ValueTypeExampleShape
@@ -1950,6 +2000,48 @@ ex:ExampleValueResource
 			<p>
 				SPARQL-based SHACL engines MUST implement the following SPARQL functions.
 			</p>
+			<section id="function-hasDatatype">
+				<h3>sh:hasDatatype</h3>
+				<p>
+					The function <code>sh:hasDatatype</code> returns <code>true</code> if a given node (<code>?arg1</code>) is a literal that has a datatype that matches a given datatype (<code>?arg2</code>).
+					The return type of this function is <code>xsd:boolean</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any node</td>
+						<td>The node to validate</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>rdfs:Datatype</code></td>
+						<td>The datatype to match against</td>
+					</tr>
+				</table>
+				<div id="def-hasDatatype-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+ASK {
+	{
+		FILTER isLiteral(?arg1) .
+	} .
+	BIND (datatype(?arg1) AS ?datatype) .
+	FILTER ((?datatype = ?arg2) || (rdf:langString = ?datatype &amp;&amp; ?arg2 = xsd:string)) .
+}</pre>
+				</div>
+				<pre class="example">
+sh:hasDatatype(42, xsd:decimal)             # false
+sh:hasDatatype(42, rdfs:Literal)            # false
+sh:hasDatatype(42, xsd:integer)             # true
+sh:hasDatatype("string"@en, rdf:langString) # true
+sh:hasDatatype("string"@en, xsd:string)     # true
+sh:hasDatatype("string", xsd:string)        # true</pre>
+			</section>
 			<section id="function-hasShape">
 				<h3>sh:hasShape</h3>
 				<p>
@@ -2005,48 +2097,48 @@ ex:ExampleValueResource
 				<p>
 					The following table summarizes the values of the class <code>sh:NodeType</code> together with their SPARQL definition.
 				</p>
-					<table class="term-table" border="1" cellpadding="5">
-						<tr>
-							<th>NodeType</th>
-							<th>Super-NodeTypes</th>
-							<th>SPARQL Expression</th>
-						</tr>
-						<tr>
-							<td><code>sh:Node</code></td>
-							<td></td>
-							<td><code>true</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:BlankNodeOrIRI</code></td>
-							<td><code>sh:Node</code></td>
-							<td><code>isBlank(?node) || isIRI(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:BlankNodeOrLiteral</code></td>
-							<td><code>sh:Node</code></td>
-							<td><code>isBlank(?node) || isLiteral(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:LiteralOrIRI</code></td>
-							<td><code>sh:Node</code></td>
-							<td><code>isLiteral(?node) || isIRI(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:BlankNode</code></td>
-							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
-							<td><code>isBlank(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:IRI</code></td>
-							<td><code>sh:BlankNodeOrIRI</code>, <code>sh:LiteralOrIRI</code></td>
-							<td><code>isIRI(?node)</code></td>
-						</tr>
-						<tr>
-							<td><code>sh:Literal</code></td>
-							<td><code>sh:LiteralOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
-							<td><code>isLiteral(?node)</code></td>
-						</tr>
-					</table>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>NodeType</th>
+						<th>Super-NodeTypes</th>
+						<th>SPARQL Expression</th>
+					</tr>
+					<tr>
+						<td><code>sh:Node</code></td>
+						<td></td>
+						<td><code>true</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:BlankNodeOrIRI</code></td>
+						<td><code>sh:Node</code></td>
+						<td><code>isBlank(?node) || isIRI(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:BlankNodeOrLiteral</code></td>
+						<td><code>sh:Node</code></td>
+						<td><code>isBlank(?node) || isLiteral(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:LiteralOrIRI</code></td>
+						<td><code>sh:Node</code></td>
+						<td><code>isLiteral(?node) || isIRI(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:BlankNode</code></td>
+						<td><code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
+						<td><code>isBlank(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:IRI</code></td>
+						<td><code>sh:BlankNodeOrIRI</code>, <code>sh:LiteralOrIRI</code></td>
+						<td><code>isIRI(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:Literal</code></td>
+						<td><code>sh:LiteralOrIRI</code>, <code>sh:BlankNodeOrLiteral</code></td>
+						<td><code>isLiteral(?node)</code></td>
+					</tr>
+				</table>
 				<div id="def-hasNodeType-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
@@ -2180,6 +2272,21 @@ WHERE {
 	FILTER NOT EXISTS {
 		<span class="arg">?allowedValues</span> sh:member ?value
 	}
+}</pre>
+					</div>
+				</section>
+				<section id="sparql-AbstractDatatypePropertyConstraint">
+					<h4>sh:datatype</h4>
+					<p>
+						The property facet <code>sh:datatype</code> is defined in the SHACL template <code>sh:AbstractDatatypePropertyConstraint</code>.
+					</p>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path) ?value
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?value ;
+	FILTER (!sh:hasDatatype(?value, <span class="arg">?datatype</span>)) .
 }</pre>
 					</div>
 				</section>
