@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft Version 0.2.5 (2015-04-01)
+# Draft Version 0.2.6 (2015-04-02)
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -72,7 +72,6 @@ sh:Shape
 				{
 					?this sh:inverseProperty ?prop .
 					FILTER (isBlank(?prop) && NOT EXISTS { ?prop a ?any }) .
-					BIND (BNODE() AS ?cv) .
 				}
 				FILTER (!sh:hasShape(?prop, sh:InversePropertyConstraint)) .
 			}
@@ -210,12 +209,12 @@ sh:Graph
 .
 
 
-# Node type vocabulary --------------------------------------------------------
+# Node kind vocabulary --------------------------------------------------------
 
 sh:NodeKind
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
-	rdfs:label "Node type" ;
+	rdfs:label "Node kind" ;
 	rdfs:comment "The class of RDF node kinds such as literals, blank nodes and IRIs. Note that this class only consists of the enumerated 7 instances." ;
 	sh:property [
 		sh:predicate sh:subNodeKind ;
@@ -332,23 +331,23 @@ sh:SequencePath
 .
 
 
-# Modules meta-model ----------------------------------------------------------
+# Macros meta-model -----------------------------------------------------------
 
 # This is the meta model for Templates and Functions - encapsulated reusable
 # queries that can take arguments. 
 
-sh:Module
+sh:Macro
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Class ;
-	rdfs:label "Module" ;
-	rdfs:comment "Abstract superclass of components of a SHACL library, especially Functions and Templates. Modules can take arguments, which are constraints that are different from PropertyConstraints in that they can only have at most one value and can have a default value. Modules may not declare the same predicate in multiple Arguments, to simplify the structural analysis of arguments by a client." ;
+	rdfs:label "Macro" ;
+	rdfs:comment "Abstract superclass of macro components of a SHACL library, especially Functions and Templates. Macros can take arguments, which are constraints that are different from PropertyConstraints in that they can only have at most one value." ;
 	sh:abstract true;
 	sh:property [
 		sh:predicate sh:argument ;
 		sh:valueType sh:Argument ;
 		sh:defaultValueType sh:Argument ;    # Arguments do not require rdf:type
 		rdfs:label "argument" ;
-		rdfs:comment "Declares the argument(s) of this module." ;
+		rdfs:comment "Declares the argument(s) of this macro." ;
 	] ;
 	sh:constraint [
 		rdfs:comment "The same predicate can only be used once at all Arguments." ;
@@ -386,9 +385,9 @@ sh:Module
 
 sh:Function
 	a rdfs:Class ;
-	rdfs:subClassOf sh:Module ;
+	rdfs:subClassOf sh:Macro ;
 	rdfs:label "Function" ;
-	rdfs:comment "A module implementing a SPARQL function, backed by a SPARQL ASK or SELECT query." ;
+	rdfs:comment "A macro implementing a SPARQL function, backed by a SPARQL ASK or SELECT query." ;
 	sh:property [
 		sh:predicate sh:cachable ;
 		sh:datatype xsd:boolean ;
@@ -426,17 +425,15 @@ sh:Functions
 
 sh:Template
 	a rdfs:Class ;
-	rdfs:subClassOf sh:Module ;
+	rdfs:subClassOf sh:Macro ;
 	rdfs:label "Template" ;
-	rdfs:comment "A module that acts as an abstraction of a (reusable) SPARQL query. The query can be parameterized by the supplied arguments." ;
+	rdfs:comment "A macro that acts as an abstraction of a (reusable) SPARQL query. The query can be parameterized by the supplied arguments." ;
 	sh:abstract true ;
 	sh:property [
 		sh:predicate sh:labelTemplate ;
 		sh:datatype xsd:string ;
 		rdfs:label "label template" ;
 		rdfs:comment "Outlines how human-readable labels of instances of this template class shall be produced. The values must be strings that can contain {?argName} as placeholders for the actual values of the given argument. There may be multiple values, for different languages." ;
-		# TODO: Is the syntax of {?varName} sufficient? Often we have conditionals, where some text should appear if a value is present
-		#       Could be generalized to a SPARQL expression like SWP does it, e.g. {= IF(...) }
 	] ;
 .
 
@@ -689,8 +686,6 @@ sh:TemplateConstraint
 # These templates are part of the core standard so that engines may decide to
 # hard-code them without requiring a full SPARQL implementation.
 
-# Note that all of these templates are recommended to be used via sh:property.
-
 sh:AbstractPropertyConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:TemplateConstraint ;
@@ -810,6 +805,7 @@ sh:Argument
 	rdfs:subClassOf sh:AbstractOptionalArgumentConstraint ;
 	rdfs:subClassOf sh:AbstractArgumentDatatypeConstraint ;
 	rdfs:subClassOf sh:AbstractArgumentValueTypeConstraint ;
+	# TODO: Should we support node kinds here too?
 	rdfs:label "Argument" ;
 	rdfs:comment "Declares an argument that gets mapped to a variable in the parameterized SPARQL query." ;
 	sh:labelTemplate "Argument {?predicate} : {?datatype}{?valueType}" ;
@@ -1408,26 +1404,23 @@ sh:OrConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:TemplateConstraint ;
 	rdfs:label "Or constraint" ;
-	rdfs:comment "Enforces a constraint that at least one of the two provided shapes must be valid for the focus resource ?this." ;
+	rdfs:comment "Enforces a constraint that at least one of several provided shapes must be valid for the focus resource." ;
 	sh:queryLibraryGraph true ;
 	sh:argument [
-		sh:predicate sh:shape1 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:label "shape 1" ;
-		rdfs:comment "The class defining the first of the two 'shapes' that must be valid." ; 
+		sh:predicate sh:shapes ;
+		sh:valueType rdf:List ;
+		rdfs:label "shapes" ;
+		rdfs:comment "A list of shapes that will be validated." ; 
 	] ;
-	sh:argument [
-		sh:predicate sh:shape2 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:label "shape 2" ;
-		rdfs:comment "The class defining the second of the two 'shapes' that must be valid." ; 
-	] ;
-	sh:labelTemplate "Or constraint: {?shape1} or {?shape2}" ;
+	sh:labelTemplate "Or constraint: {?shapes}" ;
 	sh:message "Violation of OR constraint" ;
 	sh:sparql """
 			SELECT *
 			WHERE {
-				FILTER (!sh:hasShape(?this, ?shape1) && !sh:hasShape(?this, ?shape2)) .
+				FILTER NOT EXISTS {
+					?shapes rdf:rest*/rdf:first ?shape .
+					FILTER sh:hasShape(?this, ?shape) .
+				}
 			}
 		""" ;
 .
@@ -1550,6 +1543,11 @@ sh:hasType
 			{
 				# Allow untyped resources for rdfs:Resource and rdf:Property
 				FILTER ((isIRI(?arg1) || isBlank(?arg1)) && (?arg2 = rdfs:Resource || ?arg2 = rdf:Property) && NOT EXISTS { ?arg1 a ?any }) .
+			}
+			UNION
+			{
+				# Allow untyped blank nodes with rdf:first if expected type is rdf:List
+				FILTER (?arg2 = rdf:List && isBlank(?arg1) && EXISTS { ?arg1 rdf:first ?any }) .
 			}
 		}
 		""" ;
