@@ -1055,6 +1055,7 @@ ex:ScopedShapeValidExampleInstance
 ex:ExampleConstraintViolation
 	a sh:Error ;
 	sh:root ex:MyCurrentNode ;
+	sh:subject ex:MyCurrentNode ;
 	sh:predicate ex:someProperty ;
 	sh:object ex:someInvalidValue ;
 	sh:message "Incorrect value: expected something else here." .</pre>
@@ -1102,9 +1103,6 @@ ex:ExampleConstraintViolation
 					The <code>rdfs:subClassOf</code> relationship between these types indicates specialization,
 					e.g. <code>sh:FatalError</code> is a subclass of <code>sh:Error</code> meaning that every
 					fatal error should also be regarded as an error.
-				</p>
-				<p class="todo">
-					TODO: There is an ongoing <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0011.html">proposal</a> to use these severity levels at engine control time.
 				</p>
 				<p class="issue" title="Vocabulary or name-value pairs?">
 					There is a <a href="https://lists.w3.org/Archives/Public/public-data-shapes-wg/2015Mar/0534.html">discussion</a> about replacing this vocabulary with a more general specification using name-value pairs only.
@@ -1206,8 +1204,9 @@ ex:GeneralSPARQLConstraintExampleShape
 	a sh:Shape ;
 	sh:constraint [
 		sh:message "The value of property2 cannot be smaller than the value of property1." ;
+		sh:predicate ex:property2 ;
 		sh:sparql """
-			SELECT (?this AS ?root)
+			SELECT ?this (?this AS ?subject) (?value2 AS ?object)
 			WHERE {
 				?this ex:property1 ?value1 .
 				?this ex:property2 ?value2 .
@@ -1246,7 +1245,7 @@ ex:ExampleTemplate
 	] ;
 	sh:labelTemplate "The property {?argProperty} must have at least one value" ;
 	sh:sparql """
-		SELECT (?this AS ?root) (?argProperty AS ?path) 
+		SELECT ?this (?this AS ?subject) (?argProperty AS ?predicate) 
 		WHERE {
 			FILTER NOT EXISTS { ?this ?argProperty ?anyValue }
 		}
@@ -1565,19 +1564,20 @@ ex:ExampleInstance
 						<td><code>sh:Shape</code></td>
 						<td>The <span class="term">shape</span> that has the constraints.</td>
 					</tr>
-					<!-- tr>
-						<td><code>?contextFilter</code></td>
-						<td><code class="todo">TBD</code></td>
-						<td>The <span class="term">context filter</span> specifying which constraints to exclude/include.</td>
-					</tr-->
+					<tr>
+						<td><code>?minSeverity</code></td>
+						<td><code>rdfs:Class</code></td>
+						<td>The minimum severity class, e.g. <code>sh:Error</code> specifying which constraints to exclude/include.</td>
+					</tr>
 				</table>
 				<p>
 					Algorithm in pseudo-code:
 				</p>
 				<pre>
 forEach ?s := ?shape and its transitive super-shapes
-	forEach ?constraint := (?s sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint) 
-		validateConstraint(?constraint, ?focusNode)</pre>
+	forEach ?constraint := (?s sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
+		if (declared sh:severity of ?constraint is at least ?minSeverity)
+			validateConstraint(?constraint, ?focusNode)</pre>
 			</section>
 			<section id="operation-validateNode">
 				<h3>validateNode</h3>
@@ -1595,37 +1595,41 @@ forEach ?s := ?shape and its transitive super-shapes
 						<td><code>rdfs:Resource</code></td>
 						<td>The <span class="term">focus node</span> to validate</td>
 					</tr>
-					<!-- tr>
-						<td><code>?contextFilter</code></td>
-						<td><code class="todo">TBD</code></td>
-						<td>The <span class="term">context filter</span> specifying which shapes and constraints to exclude/include.</td>
-					</tr-->
+					<tr>
+						<td><code>?minSeverity</code></td>
+						<td><code>rdfs:Class</code></td>
+						<td>The minimum severity class, e.g. <code>sh:Error</code> specifying which constraints to exclude/include.</td>
+					</tr>
 				</table>
 				<p>
 					Algorithm in pseudo-code:
 				</p>
 				<pre>
 forEach ?shape := (?focusNode sh:nodeShape|rdf:type ?shape)
-	validateNodeAgainstShape(?focusNode, ?shape)</pre>
-				<p class="todo">
-					Note that the selection properties sh:nodeShape|rdf:type are not decided yet.
-					Possibly we need a mechanism to switch one or the other off (could become a parameter).
-				</p>
+	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
 			</section>
 			<section id="operation-validateGraph">
 				<h3>validateGraph</h3>
 				<p>
 					This operation validates a whole graph against global constraints and all shapes associated with it, based on in-graph mappings.
 				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<td><code>?minSeverity</code></td>
+						<td><code>rdfs:Class</code></td>
+						<td>The minimum severity class, e.g. <code>sh:Error</code> specifying which constraints to exclude/include.</td>
+					</tr>
+				</table>
 				<p>
 					Algorithm in pseudo-code:
 				</p>
 				<pre>
 forEach ?focusNode := (?focusNode sh:nodeShape|rdf:type ?anyShape)
-	validateNode(?focusNode)
+	validateNode(?focusNode, ?minSeverity)
 
 forEach ?constraint := instance of sh:GlobalConstraint
-	validateConstraint(?constraint)</pre>
+	if (declared sh:severity of ?constraint is at least ?minSeverity)
+		validateConstraint(?constraint)</pre>
    			</section>
 		</section>
 		
@@ -1831,7 +1835,7 @@ ex:ExampleGlobalSelectConstraint
 		SELECT (?subject AS ?root) ?subject ?object
 		WHERE {
 			?subject rdfs:label ?object .
-			FILTER (lang(?value) = "de") .
+			FILTER (lang(?object) = "de") .
 		}
 		""" .
 
@@ -2246,11 +2250,11 @@ WHERE {
 					<div id="def-allowedValues-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path) ?value
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
-	<span class="arg">?this</span> ?predicate ?value .
+	<span class="arg">?this</span> ?predicate ?object .
 	FILTER NOT EXISTS {
-		<span class="arg">?allowedValues</span> sh:member ?value
+		<span class="arg">?allowedValues</span> sh:member ?object
 	}
 }</pre>
 					</div>
@@ -2263,10 +2267,10 @@ WHERE {
 					<div id="def-nodeType-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path) ?value
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
-	<span class="arg">?this</span> <span class="arg">?predicate</span> ?value .
-	FILTER (!sh:hasDatatype(?value, <span class="arg">?datatype</span>)) .
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER (!sh:hasDatatype(?object, <span class="arg">?datatype</span>)) .
 }</pre>
 					</div>
 				</section>
@@ -2278,7 +2282,7 @@ WHERE {
 					<div id="def-hasValue-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path)
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span>
 WHERE {
 	FILTER NOT EXISTS {
 		<span class="arg">?this</span> <span class="arg">?predicate</span> <span class="arg">?hasValue</span>
@@ -2294,7 +2298,7 @@ WHERE {
 					<div id="def-count-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path)
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span>
 WHERE {
 	BIND (sh:valueCount(<span class="arg">?this</span>, <span class="arg">?predicate</span>) AS ?count) .
 	FILTER ((?count &lt; <span class="arg">?minCount</span>) || (bound(<span class="arg">?maxCount</span>) &amp;&amp; (?count &gt; <span class="arg">?maxCount</span>))) .
@@ -2309,10 +2313,10 @@ WHERE {
 					<div id="def-nodeType-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path) ?value
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
-	<span class="arg">?this</span> <span class="arg">?predicate</span> ?value .
-	FILTER (!sh:hasNodeKind(?value, <span class="arg">?nodeType</span>)) .
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER (!sh:hasNodeKind(?object, <span class="arg">?nodeType</span>)) .
 }</pre>
 					</div>
 				</section>
@@ -2324,10 +2328,10 @@ WHERE {
 					<div id="def-valueShape-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path) ?value 
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object 
 WHERE {
-	<span class="arg">?this</span> <span class="arg">?predicate</span> ?value .
-	FILTER (!sh:hasShape(?value, <span class="arg">?valueShape</span>)) .
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>)) .
 }</pre>
 					</div>
 					<p class="todo">
@@ -2345,12 +2349,12 @@ WHERE {
 					<div id="def-nodeType-sparql" class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT (<span class="arg">?this</span> AS ?root) (<span class="arg">?predicate</span> AS ?path) ?value
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
-	<span class="arg">?this</span> <span class="arg">?predicate</span> ?value .
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
 	FILTER NOT EXISTS {
 		?class rdfs:subClassOf* <span class="arg">?valueType</span> .
-		?value a ?class .
+		?object a ?class .
 	}
 }</pre>
 					</div>
