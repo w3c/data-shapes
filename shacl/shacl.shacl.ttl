@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft Version 0.2.7 (2015-04-03)
+# Draft last edited on 2015-04-10
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -65,7 +65,6 @@ sh:Shape
 	sh:constraint [ # Also validate constraints on untyped sh:inverseProperty values
 		sh:message "Malformed sh:inverseProperty." ;
 		sh:predicate sh:inverseProperty ;
-		sh:queryLibraryGraph true ;
 		sh:sparql """
 			SELECT ?this (?this AS ?subject) (?prop AS ?object)
 			WHERE {
@@ -80,7 +79,6 @@ sh:Shape
 	sh:constraint [ # Also validate constraints on untyped sh:property values
 		sh:message "Malformed sh:property." ;
 		sh:predicate sh:property ;
-		sh:queryLibraryGraph true ;
 		sh:sparql """
 			SELECT ?this (?this AS ?subject) (?prop AS ?object)
 			WHERE {
@@ -174,21 +172,6 @@ xsd:time a rdfs:Datatype ; rdfs:subClassOf rdfs:Literal ; rdfs:label "time" .
 
 # Graph management ------------------------------------------------------------
 
-# There are two dedicated types of graph in SHACL:
-# - The Query Graph consists of a domain model plus its sh:includes (or owl:imports)
-# - The Library Graph is the Query Graph plus any graphs referenced via sh:library.
-# The Library Graph is used to look up the definitions of templates and also includes
-# the definition of the system vocabulary (such as rdfs:Class itself).
-# Constraint validation can be applied in two modes:
-# - 'filtered' will skip testing any class definitions and other schema-related things
-#   such as making sure that a class or template is well-formed.
-# - 'unfiltered' will test everything including the class definitions.
-# In unfiltered mode, the full Library graph will be queried at run-time.
-# In filtered mode the actual sh:sparql queries usually only get executed over the
-# Query Graphs (to make use of performance optimizations of a SPARQL database.
-# The flag sh:queryLibraryGraph can be used to instruct the engine to query the more
-# complete Library Graph instead.  
-
 sh:Graph
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
@@ -201,10 +184,11 @@ sh:Graph
 		rdfs:comment "Links a graph with other graphs that shall be included into the query graph over which constraints are validated. This is a transitive property, i.e. includes of includes are also added." ;
 	] ;
 	sh:property [
+		# TODO: shall this be called sh:shapesGraph instead?
 		sh:predicate sh:library ;
 		sh:valueType rdfs:Resource ;
 		rdfs:label "library" ;
-		rdfs:comment "Links a graph with other (library) graphs that shall be included into the library graph that includes template definitions as well as the metamodel." ;
+		rdfs:comment "Links a graph with other graphs that shall be included into the shapes graph that includes shape and template definitions as well as the SHACL metamodel." ;
 	] ;
 .
 
@@ -313,7 +297,6 @@ sh:Macro
 	sh:constraint [ # Also validate constraints on untyped sh:argument values
 		sh:message "Malformed sh:argument." ;
 		sh:predicate sh:argument ;
-		sh:queryLibraryGraph true ;
 		sh:sparql """
 			SELECT ?this (?this AS ?root) (?arg AS ?object)
 			WHERE {
@@ -581,13 +564,6 @@ sh:NativeConstraint
 		rdfs:comment "Specifies the default sh:predicate to produce for any constraint violation." ;
 	] ;
 	sh:property [
-		sh:predicate sh:queryLibraryGraph ;
-		sh:maxCount 1 ;
-		sh:datatype xsd:boolean ;
-		rdfs:label "query library graph" ;
-		rdfs:comment "If true then the query needs to be executed over the library graph, i.e. the triples of the constraint definitions and sh:library need to be visible." ;
-	] ;
-	sh:property [
 		sh:predicate rdfs:comment ;
 		sh:datatype xsd:string ;
 		rdfs:label "comment" ;
@@ -612,13 +588,6 @@ sh:ConstraintTemplate
 		sh:maxCount 1 ;   # minCount is 0 because there may be abstract templates
 		rdfs:label "SPARQL" ;
 		rdfs:comment "The SPARQL query to execute." ;
-	] ;
-	sh:property [
-		sh:predicate sh:queryLibraryGraph ;
-		sh:maxCount 1 ;
-		sh:datatype xsd:boolean ;
-		rdfs:label "query library graph" ;
-		rdfs:comment "If true then the associated query needs to be executed over the library graph, i.e. the triples of the constraint definitions and sh:library need to be visible." ;
 	] ;
 .
 
@@ -797,22 +766,26 @@ sh:AbstractAllowedValuesPropertyConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:AbstractPropertyConstraint ;
 	rdfs:label "Abstract allowed values property constraint" ;
-	rdfs:comment "Specifies the allowed values for a property by pointing to a Set of nodes." ;
+	rdfs:comment "Specifies the allowed values for a property by pointing to a List of nodes." ;
 	sh:abstract true ;
 	sh:private true ;
 	sh:argument [
 		sh:predicate sh:allowedValues ;
 		sh:optionalWhenInherited true ;
-		sh:valueType sh:Set ;
+		sh:valueType rdf:List ;
 		rdfs:label "allowed values" ;
-		rdfs:comment "The sh:Set containing the allowed values of the property." ;
+		rdfs:comment "The rdf:List containing the allowed values of the property." ;
 	] ;
 	sh:message "Value is not one of the allowed values" ;
 	sh:sparql """
 		SELECT ?this (?this AS ?subject) ?predicate ?object
 		WHERE {
-			?this ?predicate ?object ;
-			FILTER NOT EXISTS { ?allowedValues sh:member ?object }
+			?this ?predicate ?object .
+			FILTER NOT EXISTS {
+				GRAPH sh:ShapesGraph {
+					?allowedValues (rdf:rest*)/rdf:first ?object .
+				}
+			}
 		}
 		""" ;
 .
@@ -920,27 +893,26 @@ sh:AbstractNodeKindPropertyConstraint
 		""" ;
 .
 
-sh:AbstractValueShapePropertyConstraint
+sh:AbstractShapePropertyConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:AbstractPropertyConstraint ;
-	rdfs:label "Abstract value shape property constraint" ;
-	rdfs:comment "Enforces a constraint that all values of the property must have a certain shape, whereby a shape is a collection of constraints." ;
+	rdfs:label "Abstract shape property constraint" ;
+	rdfs:comment "Enforces a constraint that all values of the property must have a certain shape." ;
 	sh:abstract true ;
 	sh:private true ;
 	sh:argument [
-		sh:predicate sh:valueShape ;
+		sh:predicate sh:shape ;
 		sh:optionalWhenInherited true ;
 		sh:valueType rdfs:Resource ;
-		rdfs:label "value shape" ;
+		rdfs:label "shape" ;
 		rdfs:comment "The shape that the values must have." ;
 	] ;  
-	sh:queryLibraryGraph true ;
-	sh:message "Value does not fulfill the constraints of shape {?valueShape}" ;
+	sh:message "Value does not fulfill the constraints of shape {?shape}" ;
 	sh:sparql """
-		SELECT ?this (?this AS ?subject) ?predicate ?object ?valueShape
+		SELECT ?this (?this AS ?subject) ?predicate ?object ?shape
 		WHERE {
 			?this ?predicate ?object .
-			FILTER (!sh:hasShape(?object, ?valueShape)) .
+			FILTER (!sh:hasShape(?object, ?shape)) .
 		}
 		""" ;
 .
@@ -1035,7 +1007,7 @@ sh:PropertyConstraint
 	rdfs:subClassOf sh:AbstractMinInclusivePropertyConstraint ;
 	rdfs:subClassOf sh:AbstractNodeKindPropertyConstraint ;
 	rdfs:subClassOf sh:AbstractPatternPropertyConstraint ;
-	rdfs:subClassOf sh:AbstractValueShapePropertyConstraint ;
+	rdfs:subClassOf sh:AbstractShapePropertyConstraint ;
 	rdfs:subClassOf sh:AbstractValueTypePropertyConstraint ;
 	rdfs:label "Property constraint" ;
 	rdfs:comment "Declares the structural constraints for a property at the associated class. The supported arguments are inherited from the superclasses." ;
@@ -1359,7 +1331,6 @@ sh:OrConstraint
 	rdfs:subClassOf sh:TemplateConstraint ;
 	rdfs:label "Or constraint" ;
 	rdfs:comment "Enforces a constraint that at least one of several provided shapes must be valid for the focus resource." ;
-	sh:queryLibraryGraph true ;
 	sh:argument [
 		sh:predicate sh:shapes ;
 		sh:valueType rdf:List ;
@@ -1372,7 +1343,9 @@ sh:OrConstraint
 			SELECT *
 			WHERE {
 				FILTER NOT EXISTS {
-					?shapes rdf:rest*/rdf:first ?shape .
+					GRAPH sh:ShapesGraph {
+						?shapes rdf:rest*/rdf:first ?shape .
+					}
 					FILTER sh:hasShape(?this, ?shape) .
 				}
 			}
@@ -1913,7 +1886,6 @@ sh:pattern a rdf:Property ; rdfs:label "pattern" .
 sh:predicate a rdf:Property ; rdfs:label "predicate" .
 sh:private a rdf:Property ; rdfs:label "private" .
 sh:property a rdf:Property ; rdfs:label "property" .
-sh:queryLibraryGraph a rdf:Property ; rdfs:label "query library graph" .
 sh:resultAnnotation a rdf:Property ; rdfs:label "result annotation" .
 sh:returnType a rdf:Property ; rdfs:label "return type" .
 sh:root a rdf:Property ; rdfs:label "root" .
@@ -1924,7 +1896,7 @@ sh:subject a rdf:Property ; rdfs:label "subject" .
 sh:subNodeKind a rdf:Property ; rdfs:label "sub node kind" .
 sh:totalDigits a rdf:Property ; rdfs:label "total digits" .
 sh:uriStart a rdf:Property ; rdfs:label "URI start" .
-sh:valueShape a rdf:Property ; rdfs:label "value shape" .
+sh:shape a rdf:Property ; rdfs:label "shape" .
 sh:valueType a rdf:Property ; rdfs:label "value type" .
 sh:value a rdf:Property ; rdfs:label "value" .
 sh:violation a rdf:Property ;	rdfs:label "violation" .
