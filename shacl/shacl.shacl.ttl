@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft last edited on 2015-04-10
+# Draft last edited on 2015-04-14
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -1032,7 +1032,7 @@ sh:Set
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Set" ;
-	rdfs:comment "Defines a set of nodes, for example to enumerate the allowed values of a property." ;
+	rdfs:comment "Defines a set of nodes. Subclasses may further restrict the type of the members." ;
 	sh:property [
 		sh:predicate sh:member ;
 		rdfs:label "member" ;
@@ -1352,45 +1352,8 @@ sh:OrConstraint
 		""" ;
 .
 
-sh:DerivedPropertyConstraint
-	a sh:ConstraintTemplate ;
-	rdfs:subClassOf sh:PropertyConstraint ;
-	rdfs:label "Derived property constraint" ;
-	rdfs:comment "Declares the structural constraints for a derived property that has its values computed from a SPARQL expression." ;
-	sh:labelTemplate "Derived property {?predicate} : {?valueType} [{?minCount}..{?maxCount}]" ;
-	sh:argument [
-		sh:predicate sh:sparql ;
-		sh:datatype xsd:string ;
-		rdfs:label "SPARQL" ;
-		rdfs:comment "A SPARQL expression, ASK or SELECT query that derives the value that the property must have." ;
-		# TODO: Can this produce multiple values (would require a derived property for sh:eval)?
-	] ;
-	sh:sparql """
-		SELECT ?this (?this AS ?subject) ?predicate ?object ?message
-		WHERE {
-			BIND (sh:eval(?sparql, "this", ?this) AS ?expected) .
-			?this ?predicate ?object .
-			FILTER (!bound(?expected) || ?object != ?expected) .
-			BIND (CONCAT("Value ", sh:label(?object), " of property ", sh:propertyLabel(?predicate, ?this),
-					" does not match expected value ", COALESCE(sh:label(?expected), '(none)')) AS ?message) . 
-		}
-		""" ;
-.
-
 
 # Built-in Functions ----------------------------------------------------------
-
-sh:eval
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "eval" ;
-	rdfs:comment "Evaluates a given SPARQL expression, or SPARQL ASK or SELECT query, and returns its result. The first argument is the SPARQL expression string. All other arguments must come in pairs: a variable name and a node. These pairs become pre-bound variables in the evaluated expression." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:datatype xsd:string ;
-		rdfs:comment "The SPARQL string." ;
-	] ;
-.
 
 sh:hasDatatype
 	a sh:Function ;
@@ -1537,39 +1500,6 @@ sh:inverseValueCount
 		""" ;
 .
 
-# TODO: Is this really needed? (Not right now, and we have sh:eval).
-sh:invoke
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "invoke" ;
-	rdfs:comment "Invokes a given SPARQL function (?arg1) with additional parameters (?arg2, ?arg3, ...)." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType sh:Function ;
-		rdfs:comment "The function to invoke." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:optional true ;
-		rdfs:comment "The first argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg3 ;
-		sh:optional true ;
-		rdfs:comment "The second argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg4 ;
-		sh:optional true ;
-		rdfs:comment "The third argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg5 ;
-		sh:optional true ;
-		rdfs:comment "The forth argument to pass into the function." ;
-	] ;
-.
-
 sh:label
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
@@ -1678,92 +1608,6 @@ sh:hasShape
 		rdfs:comment "The shape containing the constraints that need to be validated." ;
 	] ;
 	sh:returnType xsd:boolean ;
-.
-
-# TODO:
-# SHACL engines may also want to implement a magic property (aka property function)
-# 	(?resource ?shape) sh:constraintViolations (?s ?p ?o) 
-# which takes a resource (instance) and a shape (class) as arguments and
-# binds any constraint violation triples with the unbound variables on the right.
-# SPARQL 1.1 does not have an official mechanism for such magic properties,
-# so this would either need to be added to SPARQL, or instead of a magic property
-# we could have a function that returns a (temporary) named graph containing the
-# violation triples.
-
-# TODO: This function is completely unapproved
-sh:walkObjects
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "walk objects" ;
-	rdfs:comment "Performs a depth-first tree traversal starting at a given node (?arg1) and then following the objects using a given predicate (?arg2). For each node it applies a given function (?arg3) that must take the current node as its first argument. All other arguments of the walkObjects function call will be passed into that function. The traversal stops on the first non-null result of the nested function calls. A use case of this function is to walk up superclasses, e.g. to find the \"nearest\" owl:Restriction of a certain kind." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The resource to start traversal at." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:valueType rdf:Property ;
-		rdfs:comment "The property to traverse (e.g. rdfs:subClassOf to walk up the superclasses)." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg3 ;
-		sh:valueType sh:Function ;
-		rdfs:comment "The function to call for each resource." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg4 ;
-		sh:optional true ;
-		rdfs:comment "The second argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg5 ;
-		sh:optional true ;
-		rdfs:comment "The third argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg6 ;
-		sh:optional true ;
-		rdfs:comment "The forth argument to pass into the function." ;
-	] ;
-.
-
-# TODO: This function is completely unapproved
-sh:walkSubjects
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "walk subjects" ;
-	rdfs:comment "Performs a depth-first tree traversal starting at a given node (?arg1) and then following the subjects using a given predicate (?arg2). For each node it applies a given function (?arg3) that must take the current node as its first argument. All other arguments of the walkSubjects function call will be passed into that function. The traversal stops on the first non-null result of the nested function calls. A use case of this function is to walk down into a SKOS hierarchy." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The resource to start traversal at." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:valueType rdf:Property ;
-		rdfs:comment "The property to traverse (e.g. rdfs:subClassOf to walk down into the subclasses)." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg3 ;
-		sh:valueType sh:Function ;
-		rdfs:comment "The function to call for each resource." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg4 ;
-		sh:optional true ;
-		rdfs:comment "The second argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg5 ;
-		sh:optional true ;
-		rdfs:comment "The third argument to pass into the function." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg6 ;
-		sh:optional true ;
-		rdfs:comment "The forth argument to pass into the function." ;
-	] ;
 .
 
 
