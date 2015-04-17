@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft last edited on 2015-04-14
+# Draft last edited on 2015-04-17
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -72,7 +72,7 @@ sh:Shape
 					?this sh:inverseProperty ?prop .
 					FILTER (isBlank(?prop) && NOT EXISTS { ?prop a ?any }) .
 				}
-				FILTER (!sh:hasShape(?prop, sh:InversePropertyConstraint)) .
+				FILTER (!sh:hasShape(?prop, sh:InversePropertyConstraint, ?shapesGraph)) .
 			}
 			""" ;
 	] ;
@@ -86,7 +86,7 @@ sh:Shape
 					?this sh:property ?prop .
 					FILTER (isBlank(?prop) && NOT EXISTS { ?prop a ?any }) .
 				}
-				FILTER (!sh:hasShape(?prop, sh:PropertyConstraint)) .
+				FILTER (!sh:hasShape(?prop, sh:PropertyConstraint, ?shapesGraph)) .
 			}
 			""" ;
 	] ;
@@ -199,46 +199,7 @@ sh:NodeKind
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Node kind" ;
-	rdfs:comment "The class of RDF node kinds such as literals, blank nodes and IRIs. Note that this class only consists of the enumerated 7 instances." ;
-	sh:property [
-		sh:predicate sh:subNodeKind ;
-		sh:valueType sh:NodeKind ;
-		rdfs:label "sub node kind" ;
-		rdfs:comment "Links this NodeKind with other NodeKinds that include this. For example, sh:BlankNodeOrIRI has sh:subNodeKind sh:IRI." ;  
-	] ;
-.
-
-sh:Node
-	a sh:NodeKind ;
-	rdfs:label "Node" ;
-	rdfs:comment "The node kind of all RDF nodes, including literals, IRIs and blank nodes.";
-	sh:subNodeKind sh:BlankNodeOrIRI ;
-	sh:subNodeKind sh:BlankNodeOrLiteral ;
-	sh:subNodeKind sh:LiteralOrIRI ;
-.
-
-sh:BlankNodeOrIRI
-	a sh:NodeKind ;
-	rdfs:label "Blank node or IRI" ;
-	rdfs:comment "The node kind of all blank nodes and IRIs.";
-	sh:subNodeKind sh:BlankNode ;
-	sh:subNodeKind sh:IRI ;
-.
-
-sh:BlankNodeOrLiteral
-	a sh:NodeKind ;
-	rdfs:label "Blank node or literal" ;
-	rdfs:comment "The node kind of all blank nodes and literals.";
-	sh:subNodeKind sh:BlankNode ;
-	sh:subNodeKind sh:Literal ;
-.
-
-sh:LiteralOrIRI
-	a sh:NodeKind ;
-	rdfs:label "Literal or IRI" ;
-	rdfs:comment "The node kind of all literals and IRIs.";
-	sh:subNodeKind sh:Literal ;
-	sh:subNodeKind sh:IRI ;
+	rdfs:comment "The class of RDF node kinds: literals, blank nodes and IRIs." ;
 .
 
 sh:BlankNode
@@ -305,7 +266,7 @@ sh:Macro
 					FILTER (isBlank(?arg) && NOT EXISTS { ?arg a ?any }) .
 					BIND (BNODE() AS ?cv) .
 				}
-				FILTER (!sh:hasShape(?arg, sh:Argument)) .
+				FILTER (!sh:hasShape(?arg, sh:Argument, ?shapesGraph)) .
 			}
 			""" ;
 	] ;
@@ -505,6 +466,7 @@ sh:Constraint
 		sh:predicate sh:scope ;
 		sh:maxCount 1 ;
 		sh:valueType sh:Shape ;
+		sh:defaultValueType sh:Shape ;
 		rdfs:label "scope" ;
 		rdfs:comment "Links a constraint with zero or one sh:Shapes that define the scope of validation." ;
 	] ;
@@ -518,6 +480,7 @@ sh:LocalConstraint
 	sh:property [
 		sh:predicate sh:scope ;
 		sh:valueType sh:Shape ;
+		sh:defaultValueType sh:Shape ;
 		rdfs:label "scope" ;
 		rdfs:comment "Links a local constraint to a Shape that the tested nodes need to fulfill before the constraint is evaluated." ;
 		sh:maxCount 1 ;
@@ -782,7 +745,7 @@ sh:AbstractAllowedValuesPropertyConstraint
 		WHERE {
 			?this ?predicate ?object .
 			FILTER NOT EXISTS {
-				GRAPH sh:ShapesGraph {
+				GRAPH ?shapesGraph {
 					?allowedValues (rdf:rest*)/rdf:first ?object .
 				}
 			}
@@ -912,7 +875,7 @@ sh:AbstractShapePropertyConstraint
 		SELECT ?this (?this AS ?subject) ?predicate ?object ?shape
 		WHERE {
 			?this ?predicate ?object .
-			FILTER (!sh:hasShape(?object, ?shape)) .
+			FILTER (!sh:hasShape(?object, ?shape, ?shapesGraph)) .
 		}
 		""" ;
 .
@@ -1343,10 +1306,10 @@ sh:OrConstraint
 			SELECT *
 			WHERE {
 				FILTER NOT EXISTS {
-					GRAPH sh:ShapesGraph {
+					GRAPH ?shapesGraph {
 						?shapes rdf:rest*/rdf:first ?shape .
 					}
-					FILTER sh:hasShape(?this, ?shape) .
+					FILTER sh:hasShape(?this, ?shape, ?shapesGraph) .
 				}
 			}
 		""" ;
@@ -1385,7 +1348,7 @@ sh:hasNodeKind
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
 	rdfs:label "has node kind" ;
-	rdfs:comment "Checks whether a given node (?arg1) has a given sh:NodeKind (?arg2). For example, sh:hasNodeKind(42, sh:BlankNodeOrLiteral) = true." ;
+	rdfs:comment "Checks whether a given node (?arg1) has a given sh:NodeKind (?arg2). For example, sh:hasNodeKind(42, sh:Literal) = true." ;
 	sh:argument [
 		sh:predicate sh:arg1 ;
 		rdfs:comment "The node to check the node kind of." ;
@@ -1398,9 +1361,9 @@ sh:hasNodeKind
 	sh:returnType xsd:boolean ;
 	sh:sparql """
 		ASK {
-			FILTER (isIRI(?arg1) && (?arg2 IN (sh:IRI, sh:BlankNodeOrIRI, sh:LiteralOrIRI, sh:Node)) ||
-				(isLiteral(?arg1) && (?arg2 IN (sh:Literal, sh:BlankNodeOrLiteral, sh:LiteralOrIRI, sh:Node))) ||
-		 		(isBlank(?arg1) && (?arg2 IN (sh:BlankNode, sh:BlankNodeOrLiteral, sh:BlankNodeOrIRI, sh:Node))))
+			FILTER ((isIRI(?arg1) && ?arg2 = sh:IRI) ||
+				(isLiteral(?arg1) && ?arg2 = sh:Literal) ||
+				(isBlank(?arg1) && ?arg2 = sh:BlankNode))
 		}
 		""" ;
 .
@@ -1607,6 +1570,11 @@ sh:hasShape
 		sh:valueType sh:Shape ;
 		rdfs:comment "The shape containing the constraints that need to be validated." ;
 	] ;
+	sh:argument [
+		sh:predicate sh:arg3 ;
+		sh:valueType sh:Graph ;
+		rdfs:comment "The graph containing the shape definitions." ;
+	] ;
 	sh:returnType xsd:boolean ;
 .
 
@@ -1737,7 +1705,6 @@ sh:scope a rdf:Property ; rdfs:label "scope" .
 sh:severity a rdf:Property ; rdfs:label "severity" .
 sh:sparql	a rdf:Property ; rdfs:label "SPARQL" .
 sh:subject a rdf:Property ; rdfs:label "subject" .
-sh:subNodeKind a rdf:Property ; rdfs:label "sub node kind" .
 sh:totalDigits a rdf:Property ; rdfs:label "total digits" .
 sh:uriStart a rdf:Property ; rdfs:label "URI start" .
 sh:shape a rdf:Property ; rdfs:label "shape" .
