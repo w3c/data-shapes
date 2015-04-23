@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft last edited on 2015-04-22
+# Draft last edited on 2015-04-23
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -325,6 +325,13 @@ sh:Template
 		rdfs:label "label template" ;
 		rdfs:comment "Outlines how human-readable labels of instances of this template class shall be produced. The values must be strings that can contain {?argName} as placeholders for the actual values of the given argument. There may be multiple values, for different languages." ;
 	] ;
+	sh:property [
+		sh:predicate sh:sparql ;
+		sh:datatype xsd:string ;
+		sh:maxCount 1 ;   # minCount is 0 because there may be abstract templates
+		rdfs:label "SPARQL" ;
+		rdfs:comment "The SPARQL query to execute." ;
+	] ;
 .
 
 sh:Templates
@@ -462,21 +469,14 @@ sh:Constraint
 	rdfs:label "Constraint" ;
 	rdfs:comment "An abstract superclass of constraints. Constraints are either template calls or \"native\" constraints with an executable body." ;
 	sh:abstract true ;
-	sh:property [
-		sh:predicate sh:scope ;
-		sh:maxCount 1 ;
-		sh:valueType sh:Shape ;
-		sh:defaultValueType sh:Shape ;
-		rdfs:label "scope" ;
-		rdfs:comment "Links a constraint with zero or one sh:Shapes that define the scope of validation." ;
-	] ;
 .
 
 sh:LocalConstraint
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Local constraint" ;
-	rdfs:comment "The type of constraints that are used 'locally' in the context of a shape. This class is usually never instantiated directly, because local shapes need to have another type such as sh:NativeConstraint." ;
+	rdfs:comment "The type of constraints that are used 'locally' in the context of a shape. This class is never instantiated directly, because local shapes need to have another type such as sh:NativeConstraint." ;
+	sh:abstract true ;
 	sh:property [
 		sh:predicate sh:scope ;
 		sh:valueType sh:Shape ;
@@ -491,14 +491,16 @@ sh:GlobalConstraint
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Global constraint" ;
-	rdfs:comment "The type of constraints that are used 'globally' for the whole graph and not just specific instances. In contrast to other constraints, the variable ?this has no special meaning in global constraints (and should not be used). This class can only be used as a type in conjunction with other types, e.g. it needs to be mixed with sh:NativeConstraint. Instances of this constraint type are typically URI resources." ;
+	rdfs:comment "The type of constraints that are used 'globally' for the whole graph and not just specific instances." ;
+	sh:abstract true ;
 . 
 
 sh:NativeConstraint
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Native constraint" ;
-	rdfs:comment "A constraint that has a native executable body attached with it. This version of SHACL only supports SPARQL-based bodies using sh:sparql, but third parties may introduce additional languages." ;
+	rdfs:comment "A constraint that has a native executable body attached with it." ;
+	sh:abstract true ;
 	sh:property [
 		sh:predicate sh:sparql ;
 		sh:datatype xsd:string ;
@@ -562,11 +564,30 @@ sh:ConstraintTemplate
 	rdfs:label "Constraint template" ;
 	rdfs:comment "A template backed by a SPARQL query that is used for constraint validation." ;
 	sh:property [
-		sh:predicate sh:sparql ;
+		sh:predicate sh:severity ;
+		sh:maxCount 1 ;
+		sh:valueType rdfs:Class ;
+		rdfs:label "severity" ;
+		rdfs:comment "Specifies the default rdf:type to produce for any constraint violation." ;
+	] ;
+	sh:property [
+		sh:predicate sh:message ;
 		sh:datatype xsd:string ;
-		sh:maxCount 1 ;   # minCount is 0 because there may be abstract templates
-		rdfs:label "SPARQL" ;
-		rdfs:comment "The SPARQL query to execute." ;
+		rdfs:label "message" ;
+		rdfs:comment "Specifies the default sh:message(s) to produce for any constraint violation. May have multiple values for different languages." ;
+	] ;
+	sh:property [
+		sh:predicate sh:predicate ;
+		sh:maxCount 1 ;
+		sh:valueType rdf:Property ;
+		rdfs:label "predicate" ;
+		rdfs:comment "Specifies the default sh:predicate to produce for any constraint violation." ;
+	] ;
+	sh:property [
+		sh:predicate sh:resultAnnotation ;
+		sh:valueType sh:ResultAnnotation ;
+		rdfs:label "result annotation" ;
+		rdfs:comment "Result annotations provide information about additional properties that the constructed constraint violations shall have." ;
 	] ;
 .
 
@@ -974,6 +995,19 @@ sh:PropertyConstraint
 		rdfs:label "default value" ;
 		rdfs:comment "A default value that could be used to pre-populate input forms etc. This has no formal meaning otherwise." ;
 	] ;
+	sh:constraint [
+		sh:message "Property constraints cannot have both datatype and valueType." ;
+		sh:predicate sh:datatype ;
+		sh:sparql """
+			SELECT ?this
+			WHERE {
+				FILTER EXISTS {
+					?this sh:datatype ?datatype .
+					?this sh:valueType ?valueType .
+				}
+			}
+			"""
+	] ;
 	
 	# TODO: Maybe enforce constraint that only one of ?datatype and ?valueType can be present
 	
@@ -1282,6 +1316,36 @@ sh:InversePropertyConstraint
 	sh:labelTemplate "Inverse property {?predicate} : {?valueType} [{?minCount}..{?maxCount}]" ;
 .
 
+
+# Other Local Constraint Templates --------------------------------------------
+
+sh:ClosedShapeConstraint
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:LocalTemplateConstraint ;
+	rdfs:label "Closed shape constraint" ;
+	rdfs:comment "Triggers an error for each triple of the focus node that has a predicate that is not explicitly enumerated using sh:property in the surrounding shape." ;
+	sh:labelTemplate "Closed shape" ;
+	sh:message "Invalid triple for closed shape" ;
+	sh:sparql """
+		SELECT ?this (?this AS ?subject) ?predicate ?object
+		WHERE {
+			?this ?predicate ?object .
+			FILTER (?predicate != rdf:type && ?predicate != sh:nodeShape) .
+			FILTER NOT EXISTS {
+				GRAPH ?shapesGraph {
+					?currentShape sh:property/sh:predicate ?predicate .
+				}
+			}
+		}	
+		""" ;
+.
+
+sh:ClosedShape
+	a sh:ClosedShapeConstraint ;
+	rdfs:label "Closed shape" ;
+	rdfs:comment "A singleton instance of sh:ClosedShapeConstraint that can be shared between multiple shape definitions." ; 
+.
+
 sh:OrConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:LocalTemplateConstraint ;
@@ -1296,15 +1360,15 @@ sh:OrConstraint
 	sh:labelTemplate "Or constraint: {?shapes}" ;
 	sh:message "Violation of OR constraint" ;
 	sh:sparql """
-			SELECT *
-			WHERE {
-				FILTER NOT EXISTS {
-					GRAPH ?shapesGraph {
-						?shapes rdf:rest*/rdf:first ?shape .
-					}
-					FILTER sh:hasShape(?this, ?shape, ?shapesGraph) .
+		SELECT *
+		WHERE {
+			FILTER NOT EXISTS {
+				GRAPH ?shapesGraph {
+					?shapes rdf:rest*/rdf:first ?shape .
 				}
+				FILTER sh:hasShape(?this, ?shape, ?shapesGraph) .
 			}
+		}
 		""" ;
 .
 
