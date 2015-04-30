@@ -1,0 +1,48 @@
+PREFIX sh:<http://www.w3.org/ns/shacl#>
+PREFIX xsd:<http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?entry 
+       ?isShape 
+       ?choice 
+       ?propertyGroup 
+(IF(Bound(?property),
+    CONCAT("ShapeExpr(TripleConstraint(",
+      "IRI(", STR(?predicate), "), ",
+      IF(Bound(?allowedValue), CONCAT("ValueSet(",GROUP_CONCAT(CONCAT(IF(IsLiteral(?allowedValue), "Literal(", "IRI("), STR(?allowedValue), ")")),")"),
+        IF(Bound(?valueType), CONCAT("ValueType(IRI(",STR(?valueType),"))"),
+          IF(Bound(?nodeKind), CONCAT("NodeKind(IRI(",STR(?nodeKind),"))"),
+            CONCAT("ShapeLabel(IRI(",STR(?refShape),"))")))),
+     "))[",if(Bound(?min1), STR(?min1), "1"),",",if(Bound(?max1), STR(?max1), "INF"),"]"),
+    "") AS ?TripleConstraint)
+where { 
+  {
+    ?entry sh:property ?property .
+    ?property sh:predicate ?predicate ;
+    OPTIONAL { ?property sh:minCount ?min1 }
+    OPTIONAL { ?property sh:maxCount ?max1 }
+    OPTIONAL { ?property sh:valueType ?valueType }
+    OPTIONAL { ?property sh:nodeKind ?nodeKind }
+    OPTIONAL { ?property sh:valueShape ?refShape }
+    OPTIONAL { ?property sh:allowedValue ?allowedValue
+               FILTER (IsIRI(?allowedValue) || IsLiteral(?allowedValue))
+             }
+  } UNION {
+    ?entry sh:choice ?choice
+  } UNION {
+    ?entry sh:propertyGroup ?propertyGroup
+  }
+  OPTIONAL { ?entry a sh:Shape
+    BIND(true AS ?isShape)
+  }
+} GROUP BY
+       ?entry 
+       ?property 
+       ?predicate 
+       ?choice 
+       ?propertyGroup 
+       ?min 
+       ?max 
+       ?valueType 
+       ?nodeKind 
+       ?refShape 
