@@ -156,7 +156,7 @@
 				</p>
 				<pre class="example" title="Definition of ex:Issue and ex:SubmitterShape">
 ex:Issue
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	sh:property [
 		sh:predicate ex:assignedTo ;
 		rdfs:label "assigned to" ;
@@ -348,10 +348,9 @@ ex:EmailsMustBeUnique
 					<li>Have rdfs:Class rdfs:subClassOf sh:Shape, use rdfs:subClassOf</li>
 					<li>Have sh:Shape rdfs:subClassOf rdfs:Class, use rdfs:subClassOf</li>
 					<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
-					<li>Allow both and have sh:classShape to point from a class to its shape(s)</li>
+					<li>Allow both and have sh:classShape or sh:classScope or sh:scopeClass to point from a class to its shapes (or vice versa)</li>
 				</ul>
 				In the absence of such an agreement, this document uses sh:Shape in most examples.
-				Note that depending on the resolution, all examples could also use rdfs:Class instead of sh:Shape.
 			</div>
 			<p>
 				A <span class="term">Constraint</span> defines restrictions on the structure of an RDF graph.
@@ -361,8 +360,7 @@ ex:EmailsMustBeUnique
 				In that example, the instances of the class are the focus nodes, and the restriction on property values is expressed via a constraint.
 			</p>
 			<p>
-				In the SHACL RDF vocabulary, Shapes are instances of the class <code>sh:Shape</code>
-				<span class="todo">(or, depending on the outcome of the ISSUE above, <code>rdfs:Class</code>)</span>.
+				In the SHACL RDF vocabulary, Shapes are instances of the class <code>sh:Shape</code>.
 			</p>
 			<section id="shape-labels">
 				<h3>Shape Labels and Comments</h3>
@@ -371,21 +369,18 @@ ex:EmailsMustBeUnique
 					The property <code>rdfs:comment</code> is recommended for documentation and definition purposes.
 				</p>
 			</section>
-			<section id="shape-specialization">
-				<h3>Shape Specialization Mechanism</h3>
+			<section id="shape-classes">
+				<h3>Shapes and Classes</h3>
 				<p>
-					Shape declarations can specialize other shapes.
-					If a (sub) shape is declared to specialize another (super) shape then all constraints
-					attached to the super-shape must also apply to the sub-shape.
-					In other words, the set of nodes that match a sub-shape is a sub-set of those that
-					match a super-shape.
+					Shapes can be linked to RDFS classes via the property <code>sh:scopeClass</code>.
+					The interpretation of this is that the <code>sh:Shape</code> is expected to apply to all instances of these linked classes.
 				</p>
-				<p class="todo">
-					In the currently discussed proposals, the property <code>sh:extends</code> would be used
-					for instances of <code>sh:Shape</code> assuming <code>sh:Shape</code> is not declared to be a
-					subclass or superclass of <code>rdfs:Class</code>.
-					In all other cases, the property <code>rdfs:subClassOf</code> would be used to link
-					a sub-shape with its super-shape(s).
+				<p>
+					If a <code>sh:Shape</code> is also an instance of <code>rdfs:Class</code> then the interpretation is that all instances of the class are expected to have the shape.
+					There is a built-in subclass of <code>sh:Shape</code> called <code>sh:ShapeClass</code> that is also a subclass of <code>rdfs:Class</code> to simplify the declaration of shapes that are also classes.
+				</p>
+				<p>
+					A consequence of these links between shapes and classes is that shape declarations can specialize the shapes associated with the superclasses, declared via <code>rdfs:subClassOf</code>.
 				</p>
 				<p class="issue" title="RDFS Entailment">
 					There is no agreement in the WG about the role of RDFS entailment.
@@ -1501,41 +1496,8 @@ ex:ExampleGlobalConstraintTemplate
 					Some operations on SHACL graphs, such as <a href="#operation-validateNode"><code>validateNode</code></a> and
 					<a href="#operation-validateGraph"><code>validateGraph</code></a> rely on in-graph information to determine
 					which nodes need to be evaluated against which shapes.
-					This section describes the two currently supported <span class="term">shape selection</span> properties.
+					This section describes the three currently supported <span class="term">shape selection</span> mechanisms.
 				</p>
-				<div class="issue" title="Shape selection">
-					There are multiple proposals on how to associate resources with their shapes, in particular
-					based on rdf:type or sh:nodeShape.
-					The WG may chose to:
-					<ul>
-						<li>Only support one of these patterns</li>
-						<li>Always support both of these patterns</li>
-						<li>Support both of these patterns, allowing them to be switched on or off individually</li>
-						<li>Support a more general mechanism that allows arbitrary selectors</li>
-					</ul>
-					Also we need to agree on terminology, e.g. Shape Selection vs Shape Mapping
-				</div>
-				<section>
-					<h4>Shape Selection based on rdf:type</h4>
-					<p>
-						RDF Schema and OWL provide a well-established framework to model domains in terms of classes and instances.
-						A lot of existing data is already represented using these languages.
-						In this <span class="term">shape selector</span>, the IRIs of classes double as shape definitions, i.e.
-						it is possible to directly attach constraints at the IRI of a class.
-						The property <code>rdf:type</code> is used to determine which shapes a given node needs to fulfill.
-						Specialization between shapes is expressed via <code>rdfs:subClassOf</code>.
-						This pattern is illustrated in the following example.
-					</p>
-					<pre class="example" title="Shape selection based on rdf:type">
-ex:ExampleClass
-	a rdfs:Class ;
-	sh:constraint [
-		...
-	] .
-
-ex:ExampleInstance
-	rdf:type ex:ExampleClass .</pre>
-				</section>
 				<section>
 					<h4>Shape Selection based on sh:nodeShape</h4>
 					<p>
@@ -1554,6 +1516,48 @@ ex:ExampleShape
 
 ex:ExampleInstance
 	sh:nodeShape ex:ExampleShape .</pre>
+				</section>
+				<section>
+					<h4>Shape Selection based on rdf:type and sh:scopeClass</h4>
+					<p>
+						RDF Schema and OWL provide a well-established framework to model domains in terms of classes and instances.
+						A lot of existing data is already represented using these languages.
+						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with a <code>rdfs:Class</code>.
+						The property <code>rdf:type</code> is used to determine which shapes a given node needs to fulfill.
+						This pattern is illustrated in the following example.
+					</p>
+					<pre class="example" title="Shape selection based on rdf:type">
+ex:ExampleClass
+	a rdfs:Class .
+
+ex:ExampleShape
+	a sh:Shape ;
+	sh:scopeClass ex:ExampleClass ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	rdf:type ex:ExampleClass .</pre>
+				</section>
+				<section>
+					<h4>Shape Selection based on rdf:type only</h4>
+					<p>
+						Similar to the previous section, <code>rdf:type</code> may link a resource with its shapes, if the type class is also an instance of <code>sh:Shape</code>.
+						In this <span class="term">shape selector</span>, the IRIs of classes double as shape definitions, i.e.	it is possible to directly attach constraints at the IRI of a class.
+						Note that <code>sh:ShapeClass</code> can be used as a combination of <code>rdfs:Class</code> and <code>sh:Shape</code>.
+						This pattern is illustrated in the following example.
+					</p>
+					<pre class="example" title="Shape selection based on rdf:type only">
+ex:ExampleClassAndShape
+	a rdfs:Class ;    # These two triples can be simplified via sh:ShapeClass
+	a sh:Shape ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	rdf:type ex:ExampleClass .</pre>
 				</section>
 			</section>
 			<section id="operation-validateConstraint">
@@ -1631,10 +1635,9 @@ ex:ExampleInstance
 					Algorithm in pseudo-code:
 				</p>
 				<pre>
-forEach ?s := ?shape and its transitive super-shapes
-	forEach ?constraint := (?s sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
-		if (declared sh:severity of ?constraint is at least ?minSeverity)
-			validateConstraint(?constraint, ?focusNode)</pre>
+forEach ?constraint := (?shape sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
+	if (declared sh:severity of ?constraint is at least ?minSeverity)
+		validateConstraint(?constraint, ?focusNode)</pre>
 			</section>
 			<section id="operation-validateNode">
 				<h3>validateNode</h3>
@@ -1662,8 +1665,14 @@ forEach ?s := ?shape and its transitive super-shapes
 					Algorithm in pseudo-code:
 				</p>
 				<pre>
-forEach ?shape := (?focusNode sh:nodeShape|rdf:type ?shape)
-	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
+forEach ?shape := (?focusNode sh:nodeShape ?shape)
+	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)
+
+forEach ?type := (?focusNode rdf:type ?type)
+	if (?type instanceof sh:Shape)
+		validateNodeAgainstShape(?focusNode, ?type, ?minSeverity)
+	forEach ?shape := (?shape sh:scopeClass ?type)
+		validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
 			</section>
 			<section id="operation-validateGraph">
 				<h3>validateGraph</h3>
