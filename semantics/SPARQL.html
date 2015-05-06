@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-US">
+  <head>
+    <title>Core SHACL Semantics</title>
+    <meta charset='utf-8'></meta>
+    <script src='//www.w3.org/Tools/respec/respec-w3c-common'
+            async class='remove'></script>
+    <script src="http://www.w3.org/2013/ShEx/demobits/jquery.min.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="local.css" />
+    <script class='remove'>
+      var respecConfig = {
+          specStatus: "ED",
+          edDraftURI:  "http://w3c.github.io/data-shapes/semantics/SPARQL",
+          shortName:  "shacl-semantics",
+          editors: [
+                    {   name:       "Eric Prud'hommeaux",
+                    url:        "http://www.w3.org/People/Eric/",
+                    company:    "W3C/MIT",
+                    companyURL: "http://www.w3.org/" }
+          ],
+          wg:           "RDF Data Shapes Working Group",
+          wgURI:        "https://www.w3.org/2014/data-shapes",
+          wgPublicList: "public-rdf-shapes",
+          wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
+		  localBiblio:  {
+			"xyz": {
+				title:    "Sample Custom Reference",
+				href:     "http://example.org/",
+				"authors": [
+					"S. Steyskal"
+				],
+				publisher: "xyz"
+		    }
+		  }
+      };
+    </script>
+		<style>
+
+			pre {
+				tab-size: 4;
+			}
+
+			th {
+				text-align: left;
+			}
+			table.rule { background-color: #EBEBE0; }
+			table.rule td { text-align: center; }
+			td.up { border-bottom:1px solid black; }
+			
+			.arg {
+				font-weight: bold;
+				color: #000080;
+			}
+
+			.def {
+				background: #fcfcfc;
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #c0c0c0;
+				margin-bottom: 16px;
+				padding: 8px;
+			}
+			
+			.def-sparql {
+			}
+			
+			.def-text {
+			}
+			
+			.def-text-body {
+				margin-left: 2em;
+			}
+			
+			.def-header {
+				color: #a0a0a0;
+				font-size: 16px;
+				padding-bottom: 8px;
+			}
+		
+			.term {
+				font-style: italic;
+			}
+		
+			.term-table {
+				border-collapse: collapse;
+				border-color: #000000;
+				margin: 16px;
+			}
+		
+			.todo {
+				color: red;
+			}
+
+		</style>
+  </head>
+  <body>
+		<section id="abstract">
+			<p>
+				SHACL (Shapes Constraint Language) is an RDF vocabulary for describing RDF graph structures.
+        The accompanying <a href="../data-shapes-primer/">primer</a> introduces shapes.
+        This document describes an implementation of SHACL using SPARQL functional properties and SPIN rules, including extensions defined in SPARQL to be applied to <a href="../data-shapes-primer/#rules">focus nodes</a>.
+      </p>
+
+      <p>
+        This document also describes a standard RDF structure for reporting constraint violations.
+        This can be triggred by failures encountered while matching a shape against a focus node, or by <code>global constraints</code> which are additional SPARQL queries invoked at validation time.
+			</p>	
+		</section>
+
+    <section id='sotd'>
+
+      <p>
+        Proposal to RDF Data Shapes WG
+      </p>
+    </section>
+
+    <!-- taken from http://www.w3.org/2014/data-shapes/charter -->
+    <section id="intro" class='informative'>
+      <p>
+        <a href="http://www.w3.org/Submission/2011/SUBM-spin-sparql-20110222/#sp-Construct">SPIN templates</a> provide a functional language in the form of labeled RDF rules.
+        It allows one to:
+      </p>
+      <ul>
+        <li>associate a SPARQL CONSTRUCT with a label,</li>
+        <li>invoke that function from a SPARQL FILTER or BINDing, potentially in another SPIN function,</li>
+        <li>pass parameters in the invocation,</li>
+        <li>return a one-solution, one-binding result set as the invocation result.</li>
+      </ul>
+
+      <p>
+        Additionally, this specification leverages functional properties (AKA property functions, magic properties), such as those <a href="http://jena.apache.org/documentation/javadoc/arq/com/hp/hpl/jena/sparql/pfunction/library/listMember.html">implemented in Jena</a>, to provide functionality such as recursion not defined in SPARQL.
+      </p>
+
+    </section>
+
+    <section id="glue">
+			<h2>Extension to SHACL Core</h2>
+      <p>
+        A <a href="./#as-Rule">SHACL shape</a> includes an optional set of <a href="./#ExtensionCondition">extension conditions</a>.
+        The SPARQL extension to SHACL defines one such extension, with the <a href="./#ExtLangName">extension language name</a> <code>sh:sparql</code>.
+      </p>
+
+      <ul>
+        <li>A <code>sh:sparql</code> predicate attaches an RDF Literal SPARQL query <code>Q</code> to a <a href="./#as-Rule">SHACL shape</a> <code>S</code>.</li>
+        <li><code>Q</code> is an <a href="http://www.w3.org/TR/sparql11-query/#ask">ASK</a>, <a href="http://www.w3.org/TR/sparql11-query/#select">SELECT</a> or <a href="http://www.w3.org/TR/sparql11-query/#construct">CONSTRUCT</a> query.</li>
+        <li>Any variables named <code>?this</code> or <code>$this</code> in <code>Q</code> are subtituted with the <code>focus node</code>.</li>
+        <li>For an ASK query, a result of <code>true</code> asserts that the <code>focus node</code> does not meet the constraints for <code>S</code>.</li>
+        <li>For an SELECT query, a result with one or more solutions asserts that the <code>focus node</code> does not meet the constraints for <code>S</code>.</li>
+        <li>For an CONSTRUCT query, a resulting graph  with one or more triples asserts that the <code>focus node</code> does not meet the constraints for <code>S</code>.</li>
+      </ul>
+
+    </section>
+
+		<section id="general-constraints">
+			<h2>General Shape Constraints (sh:constraint)</h2>
+			<p>
+				The property <code>sh:constraint</code> provides the most general mechanism to associate a constraint with a shape.
+				The values of this property must be <span class="term">local constraints</span>, i.e. they MUST reference a
+				<span class="term">focus node</span>.
+				Note that the property <code>sh:property</code> SHOULD be used instead of <code>sh:constraint</code> if the constraint is a <code>sh:PropertyConstraint</code>.
+				The property <code>sh:inverseProperty</code> SHOULD be used instead of <code>sh:constraint</code> if the constraint is a <code>sh:InversePropertyConstraint</code>.
+			</p>
+			<p>
+				SHACL supports two types of general shape constraints:
+			</p>
+			<ul>
+				<li>General shape constraints based on a high-level vocabulary (template)</li>
+				<li>General shape constraints based on a native executable (such as a SPARQL query)</li>
+			</ul>
+			<p>
+				The following example assumes that there is a high-level template called <code>myt:DisjointPropertiesConstraint</code> that takes two arguments
+				<code>myt:property1</code> and <code>myt:property2</code>.
+				The intent of that example is to state that the values of the properties <code>ex:father</code> and <code>ex:mother</code> must be disjoint.
+			</p>
+			<pre class="example">
+@prefix myt: &lt;http://example.org/myTemplates#&gt; .
+
+ex:GeneralTemplateConstraintExampleShape
+	a sh:Shape ;
+	sh:constraint [
+		a myt:DisjointPropertiesConstraint ;
+		myt:property1 ex:father ;
+		myt:property2 ex:mother ;
+	] .</pre>
+			<p>
+				The following example illustrates the definition of a <span class="term">local constraint</span> based on a SPARQL query.
+				The property <code>sh:sparql</code> is used to point at a SELECT query as explained in a later <a href="#sparql-constraints">section</a>.
+				Note that the variable <code>?this</code> is used to reference the <span class="term">focus node</span>.
+			</p>
+			<pre class="example">
+ex:GeneralSPARQLConstraintExampleShape
+	a sh:Shape ;
+	sh:constraint [
+		sh:message "The value of property2 cannot be smaller than the value of property1." ;
+		sh:predicate ex:property2 ;
+		sh:sparql """
+			SELECT ?this (?this AS ?subject) (?value2 AS ?object)
+			WHERE {
+				?this ex:property1 ?value1 .
+				?this ex:property2 ?value2 .
+				FILTER (?value2 &lt; ?value1) .
+			}
+			""" ;
+	] .</pre>
+			<p>
+				In the example above, SPARQL is provided as the only native executable.
+				However, additional executables such as JavaScript may be provided based on other sets of properties like <code>ex:javaScript</code>.
+			</p>
+		</section>
+		
+		<section id="templates">
+			<h2>Templates</h2>
+			<p>
+				Templates can be used to encapsulate and parameterize <span class="term">executable bodies</span> based on arguments.
+				Templates can be instantiated anywhere where a native constraint may appear (for example, at <code>sh:constraint</code>).
+				SHACL includes several templates that were deemed to be of general use, including the <a href="#shapeconstraints-property">property constraint templates</a>.
+				Such templates form a high-level vocabulary that may be directly interpreted ("hard-coded") without reliance on their executable bodies.
+			</p>
+			<p>
+				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
+				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc).
+				Well-defined, non-abstract templates MUST provide at least one executable body property using <a href="#sparql-templates"><code>sh:sparql</code></a>.
+				The following example illustrates the definition of a local constraint template based on a SPARQL query.
+			</p>
+			<pre class="example" title="Constraint template based on SPARQL">
+ex:ExampleTemplate
+	a sh:ConstraintTemplate ;
+	rdfs:label "Example Template" ;
+	rdfs:comment "Verifies that the given focus node (?this) has at least one value for the argument property (?argProperty)." ;
+	sh:argument [
+		sh:predicate ex:argProperty ;
+		sh:valueType rdf:Property ;
+	] ;
+	sh:labelTemplate "The property {?argProperty} must have at least one value" ;
+	sh:sparql """
+		SELECT ?this (?this AS ?subject) (?argProperty AS ?predicate) 
+		WHERE {
+			FILTER NOT EXISTS { ?this ?argProperty ?anyValue }
+		}
+		""" .</pre>
+			<p>
+				The following sections introduce details of the properties that such templates may have.
+			</p>
+			<section id="template-arguments">
+				<h3>Template Arguments</h3>
+				<p>
+					The arguments of a template are attached via the property <code>sh:argument</code>.
+					Each argument must be an instance of <code>sh:Argument</code>.
+					The <code>rdf:type</code> triple of the argument can be omitted if it is a blank node with an incoming <code>sh:argument</code> triple.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
+					The values of <code>sh:predicate</code> must be IRIs.
+					<span id="def-local-name">The <span class="term">local name</span> of a IRI is defined as the longest <a href="http://www.w3.org/TR/REC-xml-names/#NT-NCName">NCNAME</a>
+					at the end of the IRI, not immediately preceeded by the first colon in the IRI.</span>
+					The local names of the values of <code>sh:predicate</code> must match the following conditions (to ensure a correct mapping from arguments into SPARQL variables is possible):
+				</p>
+				<ul>
+					<li>The <span class="term">local name</span> must be a valid <a href="http://www.w3.org/TR/sparql11-query/#rVARNAME">SPARQL VARNAME</a></li>
+					<li>There must not be any other declared <code>sh:Argument</code> for the same template (and its transitive superclasses) that has a <code>sh:predicate</code> with the same <span class="term">local name</span></li>
+				</ul>
+				<p>
+					An <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
+					to indicate that the argument is not mandatory.
+				</p>
+				<p>
+					An <code>sh:Argument</code> may declare a default value via <code>sh:defaultValue</code>.
+					For non-optional arguments, the engine must use the declared default value for template instances that do not define a value for this argument.
+				</p>
+				<p>
+					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code>.
+					This can be used to communicate the expected value type of the argument in template instances.
+					Some implementations MAY use this information to prevent the execution of a template with invalid arguments, and to signal errors.
+				</p>
+			</section>
+			<section id="template-labelTemplate">
+				<h3>sh:labelTemplate</h3>
+				<p>
+					The property <code>sh:labelTemplate</code> can be used to suggest how instances of the template shall be rendered to humans.
+					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
+					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
+					These <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
+					In SPARQL-based systems, the function <a href="#function-label"><code>sh:label</code></a> may be used to expand those label templates into consumable strings.
+				</p>
+			</section>
+		</section>
+
+		<section id="profiles">
+			<h2>Profiles</h2>
+			<p>
+				A Profile is a set of shape templates.
+				Profiles can be used to define controlled sub-dialects of SHACL, e.g. with desirable complexity.
+				Tools may decide to only support certain profiles, for example so that they can hard-code and optimize certain algorithms.
+				Since Profiles are entirely based on templates, <span class="term">native constraints</span> such as those in SPARQL are outside of their expressivity.
+			</p>
+			<p>
+				The class <code>sh:Profile</code> is used to represent SHACL profiles.
+				The property <code>sh:member</code> links a <code>sh:Profile</code> with the templates that are in the profile.
+				The following example defines a profile consisting of the two SHACL templates for min/max cardinality and value shape,
+				as well as their shared superclass (which defines the <code>sh:predicate</code> property) and their shared subclass
+				<code>sh:PropertyConstraint</code> that is directly instantiated.
+			</p>
+			<pre class="example" title="Simple SHACL Profile">
+ex:MyProfile
+	a sh:Profile ;
+	sh:member sh:AbstractPropertyConstraint ;
+	sh:member sh:AbstractCountPropertyConstraint ;
+	sh:member sh:AbstractValueShapePropertyConstraint ;
+	sh:member sh:PropertyConstraint .</pre>
+			<p>
+				In the example above, the profile includes only the properties from the enumerated template classes.
+				Sibling template classes such as <code>sh:AbstractAllowedValuesPropertyConstraint</code> are outside of the profile,
+				which means that <code>sh:allowedValues</code> would be out of scope for this profile.
+			</p>
+			<p>
+				SHACL includes a profile called <code>sh:CoreProfile</code> that includes all <a href="#property-constraints">property constraint templates</a>
+				as well as <a href="#or">disjunctive constraints</a>. 
+			</p>
+		</section>
+		
+		<section id="global-constraints">
+			<h2>Global Constraints</h2>
+			<p>
+				While Shapes define constraints centered around <span class="term">focus nodes</span>, global constraints may define arbitrary graph-level restrictions.
+				SHACL can represent two kinds of global constraints:
+			</p>
+			<ul>
+				<li><a href="#global-constraints-native">Global native constraints</a></li>
+				<li><a href="#global-constraints-template">Global template constraints</a></li>
+			</ul>
+			<section id="global-constraints-native">
+				<h3>Global Native Constraints</h3>
+				<p>
+					Similar to <a href="#general-constraints">native general shape constraints</a>, native global constraints must have at least
+					one <span class="term">executable body</span> that instructs execution engines how to compute constraint violations.
+					The current version of SHACL only includes one such language, SPARQL, identified by the property <code>sh:sparql</code>.
+					Details of the evaluation rules for SPARQL are defined in its corresponding <a href="#sparql-constraints">section</a>. 
+				</p>
+				<p>
+					The following example illustrates the syntax for a global native constraint based on SPARQL.
+				</p>
+				<pre class="example" title="Global native constraint">
+ex:ExampleGlobalSPARQLConstraint
+	a sh:GlobalNativeConstraint ;
+	sh:message "There needs to be at least one instance of ex:SomeClass." ;
+	sh:sparql """
+		SELECT (ex:SomeClass AS ?root)
+		WHERE {
+			FILTER NOT EXISTS { ?any rdf:type ex:SomeClass } .
+		}
+		""" .</pre>
+			</section>
+			<section id="global-constraints-template">
+				<h3>Global Template Constraints</h3>
+				<p>
+					Global constraints can be expressed as instances of the class <code>sh:ConstraintTemplate</code> that are also subclass of <code>sh:GlobalConstraint</code>.
+					While this version of the SHACL vocabulary does not include any pre-defined global constraint templates, anyone can define and publish such templates with a given IRI.
+				</p>
+				<p>
+					The following example illustrates the syntax for a global template constraint and the template that it instantiates.
+					Note that the constraint does not need to have the explicit type <code>sh:GlobalConstraint</code>
+					because it is an instance of the template <code>ex:ExampleGlobalConstraintTemplate</code> which
+					is declared as a subclass of <code>sh:GlobalTemplateConstraint</code>.
+				</p>
+				<pre class="example" title="Global template constraint">
+ex:ExampleGlobalTemplateConstraint
+	a ex:ExampleGlobalConstraintTemplate ;
+	ex:exampleArgument ex:SomeClass .
+	
+ex:ExampleGlobalConstraintTemplate
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:GlobalTemplateConstraint ;
+	sh:argument [
+		sh:predicate ex:exampleArgument ;
+		sh:valueType rdfs:Class ;
+		rdfs:label "The class that needs to have at least one instance." ;
+	] ;
+	sh:message "There needs to be at least one instance of the given class" ;
+	...</pre>
+			</section>
+		</section>
+
+		<section id="operations">
+			<h2>Supported Operations</h2>
+			<p>
+				This section enumerates the basic operations that complete SHACL engines SHOULD support.
+				The specification does not prescribe how these operations are exposed to the user of a SHACL system.
+				The following table provides an overview of the operations and how they depend on each other.
+			</p>
+			<table class="term-table" border="1" cellpadding="5">
+				<tr>
+					<th>Operation</th>
+					<th>Depends&nbsp;On</th>
+					<th>Description</th>
+				</tr>
+				<tr>
+					<td><a href="#operation-validateConstraint"><code>validateConstraint</code></a></td>
+					<td></td>
+					<td>Validates a single constraint</td>
+				</tr>
+				<tr>
+					<td><a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code></a></td>
+					<td><code>validateConstraint</code></td>
+					<td>Validates a given node against a given shape</td>
+				</tr>
+				<tr>
+					<td><a href="#operation-validateNode"><code>validateNode</code></a></td>
+					<td><code>validateNodeAgainstShape</code></td>
+					<td>Validates a given node against the shapes derived from the graph</td>
+				</tr>
+				<tr>
+					<td><a href="#operation-validateGraph"><code>validateGraph</code></a></td>
+					<td><code>validateNode</code>, <code>validateConstraint</code></td>
+					<td>Validates all nodes in a graph, including global constraints</td>
+				</tr>
+			</table>
+			<p>
+				All operations produce <span class="term">constraint violations</span>.
+				For the sake of this specification, we assume that the constraint violations are represented as instances of
+				<code>sh:ConstraintViolation</code>	that are added to a <span class="term">result graph</span> that is known
+				to each operation for the duration of its execution.
+				Actual implementations may use different data structures and result formats and input and output to these operations.
+			</p>
+			<p class="todo">
+				All operations have an implicit argument, which is a data set with a default named graph.
+				Details of this need to be fleshed out, pending design decisions on general graph management.
+			</p>
+		
+			<section id="shape-selection">
+				<h3>Shape Selection</h3>
+				<p>
+					Some operations on SHACL graphs, such as <a href="#operation-validateNode"><code>validateNode</code></a> and
+					<a href="#operation-validateGraph"><code>validateGraph</code></a> rely on in-graph information to determine
+					which nodes need to be evaluated against which shapes.
+					This section describes the two currently supported <span class="term">shape selection</span> properties.
+				</p>
+				<div class="issue" title="Shape selection">
+					There are multiple proposals on how to associate resources with their shapes, in particular
+					based on rdf:type or sh:nodeShape.
+					The WG may chose to:
+					<ul>
+						<li>Only support one of these patterns</li>
+						<li>Always support both of these patterns</li>
+						<li>Support both of these patterns, allowing them to be switched on or off individually</li>
+						<li>Support a more general mechanism that allows arbitrary selectors</li>
+					</ul>
+					Also we need to agree on terminology, e.g. Shape Selection vs Shape Mapping
+				</div>
+				<section>
+					<h4>Shape Selection based on rdf:type</h4>
+					<p>
+						RDF Schema and OWL provide a well-established framework to model domains in terms of classes and instances.
+						A lot of existing data is already represented using these languages.
+						In this <span class="term">shape selector</span>, the IRIs of classes double as shape definitions, i.e.
+						it is possible to directly attach constraints at the IRI of a class.
+						The property <code>rdf:type</code> is used to determine which shapes a given node needs to fulfill.
+						Specialization between shapes is expressed via <code>rdfs:subClassOf</code>.
+						This pattern is illustrated in the following example.
+					</p>
+					<pre class="example" title="Shape selection based on rdf:type">
+ex:ExampleClass
+	a rdfs:Class ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	rdf:type ex:ExampleClass .</pre>
+				</section>
+				<section>
+					<h4>Shape Selection based on sh:nodeShape</h4>
+					<p>
+						In some application scenarios, there may be unwanted interactions between existing RDFS models and shapes.
+						For example, an application may want to ensure that there is no interaction between shapes and RDFS/OWL inferencing.
+						In those cases, users can declare shapes as instances of <code>sh:Shape</code> and use <code>sh:nodeShape</code>
+						to point from a node to its shape(s).
+						This pattern is illustrated in the following example. 				
+					</p>
+					<pre class="example" title="Shape selection based on sh:nodeShape">
+ex:ExampleShape
+	a sh:Shape ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	sh:nodeShape ex:ExampleShape .</pre>
+				</section>
+			</section>
+			<section id="operation-validateConstraint">
+				<h3>validateConstraint</h3>
+				<p>
+					This operation evaluates a single <span class="term">constraint</span> and produces <span class="term">constraint violations</span>. 
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?constraint</code></td>
+						<td><code>sh:Constraint</code></td>
+						<td>The <span class="term">constraint</span> to evalate</td>
+					</tr>
+					<tr>
+						<td><code>?focusNode</code></td>
+						<td><code>rdfs:Resource</code> (Optional)</td>
+						<td>The <span class="term">focus node</span>, if present.</td>
+					</tr>
+				</table>
+				<p>
+					This operation assumes that the <code>?constraint</code> is either a <span class="term">native constraint</span>
+					or a <span class="term">template constraint</span>.
+				</p>
+				<ul>
+					<li>
+						For <span class="term">native constraints</span>, the operation selects one of the provided <span class="term">executable bodies</span>.
+						For example if the constraint has a <code>sh:sparql</code> query and the engine is capable of executing SPARQL,
+						it should follow the execution rules specified in the <a href="#sparql-constraints">SPARQL-based Constraints</a> section,
+						using the provided <code>?focusNode</code> if present.
+						A <code>sh:Warning</code> should be produced if no suitable <span class="term">executable body</span> was found.
+					</li>
+					<li>
+						For <span class="term">template constraints</span>, the operation traverses the associated template as well as all its superclasses.
+						For each of those templates, it selects the best suitable <span class="term">executable body</span>.
+						For example, if the engine is capable of executing SPARQL,
+						it should follow the execution rules specified in the <a href="#sparql-templates">SPARQL-based Templates</a> section,
+						using the provided <code>?focusNode</code> if present.
+						A <code>sh:Warning</code> should be produced if no suitable <span class="term">executable body</span> was found.
+					</li>
+				</ul>
+			</section>
+			<section id="operation-validateNodeAgainstShape">
+				<h3>validateNodeAgainstShape</h3>
+				<p>
+					This operation validates a single <span class="term">node</span> against all constraints associated with a given shape.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?focusNode</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The <span class="term">focus node</span> to validate</td>
+					</tr>
+					<tr>
+						<td><code>?shape</code></td>
+						<td><code>sh:Shape</code></td>
+						<td>The <span class="term">shape</span> that has the constraints.</td>
+					</tr>
+					<tr>
+						<td><code>?minSeverity</code></td>
+						<td><code>rdfs:Class</code></td>
+						<td>The minimum severity class, e.g. <code>sh:Error</code> specifying which constraints to exclude/include.</td>
+					</tr>
+				</table>
+				<p>
+					Algorithm in pseudo-code:
+				</p>
+				<pre>
+forEach ?s := ?shape and its transitive super-shapes
+	forEach ?constraint := (?s sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
+		if (declared sh:severity of ?constraint is at least ?minSeverity)
+			validateConstraint(?constraint, ?focusNode)</pre>
+			</section>
+			<section id="operation-validateNode">
+				<h3>validateNode</h3>
+				<p>
+					This operation validates a single <span class="term">node</span> against all shapes associated with it, based on in-graph mappings.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?focusNode</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The <span class="term">focus node</span> to validate</td>
+					</tr>
+					<tr>
+						<td><code>?minSeverity</code></td>
+						<td><code>rdfs:Class</code></td>
+						<td>The minimum severity class, e.g. <code>sh:Error</code> specifying which constraints to exclude/include.</td>
+					</tr>
+				</table>
+				<p>
+					Algorithm in pseudo-code:
+				</p>
+				<pre>
+forEach ?shape := (?focusNode sh:nodeShape|rdf:type ?shape)
+	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
+			</section>
+			<section id="operation-validateGraph">
+				<h3>validateGraph</h3>
+				<p>
+					This operation validates a whole graph against global constraints and all shapes associated with it, based on in-graph mappings.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<td><code>?minSeverity</code></td>
+						<td><code>rdfs:Class</code></td>
+						<td>The minimum severity class, e.g. <code>sh:Error</code> specifying which constraints to exclude/include.</td>
+					</tr>
+				</table>
+				<p>
+					Algorithm in pseudo-code:
+				</p>
+				<pre>
+forEach ?focusNode := (?focusNode sh:nodeShape|rdf:type ?anyShape)
+	validateNode(?focusNode, ?minSeverity)
+
+forEach ?constraint := instance of sh:GlobalConstraint
+	if (declared sh:severity of ?constraint is at least ?minSeverity)
+		validateConstraint(?constraint)</pre>
+   			</section>
+		</section>
+		
+		<section id="functions">
+			<h2>Functions</h2>
+			<p>
+				SHACL <span class="term">functions</span> define operations that produce an RDF node based on arguments.
+				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
+				However, the general declaration mechanism for SHACL functions is independent from SPARQL.
+			</p>
+			<p>
+				Functions must be declared as instances of the class <code>sh:Function</code>.
+				Well-defined, non-abstract functions MUST provide at least one executable body property using <a href="#sparql-functions"><code>sh:sparql</code></a>.
+				The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
+			</p>
+			<pre class="example" title="SHACL function with a SPARQL body">
+# Example call: ex:exampleFunction(4, 3) returns 7
+ex:exampleFunction
+	a sh:Function ;
+	rdfs:comment "Computes the sum of its two arguments ?arg1 and ?arg2." ;
+	sh:returnType xsd:integer ;
+	sh:argument [
+		sh:predicate sh:arg1 ;
+		sh:datatype xsd:integer ;
+		rdfs:comment "The first operand" ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg2 ;
+		sh:datatype xsd:integer ;
+		rdfs:comment "The second operand" ;
+	] ;
+	sh:sparql """
+		SELECT (?arg1 + ?arg2 AS ?result)
+		WHERE {
+		}
+		""" .</pre>
+			<p>
+				The following sections introduce details of the properties that such functions may have.
+			</p>
+			<section id="function-arguments">
+				<h3>Function Arguments</h3>
+				<p>
+					The arguments of a function are attached to its <code>sh:Function</code> via the property <code>sh:argument</code>.
+					Each argument must be an instance of <code>sh:Argument</code>.
+					The <code>rdf:type</code> triple of the argument can be omitted if it is a blank node with an incoming <code>sh:argument</code> triple.
+					Arguments are ordered, corresponding to the notation of function calls in SPARQL such as
+					<code>ex:exampleFunction(?arg1, ?arg2)</code>.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
+					The values of <code>sh:predicate</code> must be <code>sh:arg1</code> for the first argument,
+					<code>sh:arg2</code> for the second argument, etc.
+					Arguments are "inherited" from the superclasses of the function.
+					For example if a superclass already declares <code>sh:arg1</code> then subclasses may only define <code>sh:arg2</code> etc.
+				</p>
+				<p>
+					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
+					to indicate that the argument is not mandatory.
+					If an argument has been declared optional, then all succeeding arguments must also be declared optional.
+				</p>
+				<p>
+					Similar to <a href="#property-constraints">Property Constraints</a>, each <code>sh:Argument</code> may declare one value for the property <code>sh:datatype</code> or one value for the property <code>sh:valueType</code>.
+					This can be used to communicate the expected value type of the argument in function calls.
+					Some implementations MAY use this information to prevent the execution of a function with invalid arguments, and to signal errors.
+				</p>
+			</section>
+			<section id="function-returnType">
+				<h3>sh:returnType</h3>
+				<p>
+					A function may declare a single return type via <code>sh:returnType</code>.
+					This information may serve for documentation purposes, only.
+					However, in some execution languages such as JavaScript, the declared <code>sh:returnType</code> may inform
+					the engine how to cast a native value into an RDF value type.
+				</p>
+			</section>
+			<section id="function-cachable">
+				<h3>sh:cachable</h3>
+				<p>
+					A <code>sh:Function</code> may have a property <code>sh:cachable</code> set to <code>true</code>.
+					Functions that are marked as cachable MUST always return the same value for the same combination of arguments, regardless of the query graphs.
+					Engines can use this information to cache and reuse previous function calls without repeatedly evaluating their executable body.
+				</p>
+			</section>
+		</section>
+
+		<section id="sparql">
+			<h2>SPARQL-based Execution (sh:sparql)</h2>
+			<p>
+				The property <code>sh:sparql</code> is used to link constraints, templates and functions with an executable body in SPARQL.
+				The values of <code>sh:sparql</code> must be string literals that can be parsed into syntactically valid SPARQL queries.
+				Prior to parsing, a SHACL engine MUST add all prefix declarations from the defining graph into the beginning of the string.
+				This means that the values of <code>sh:sparql</code> do not have to explicitly state any <code>@prefix</code> declarations for the prefixes used in the SPARQL query.
+			</p>
+			<p>
+				The following sections provide details on how <code>sh:sparql</code> is interpreted for
+				<a href="#sparql-constraints">constraints</a>, <a href="#sparql-templates">templates</a> and <a href="#sparql-functions">functions</a>.
+			</p>
+			<section id="sparql-constraints">
+				<h3>SPARQL-based Constraints</h3>
+				<p>
+					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
+				</p>
+				<section id="sparql-constraints-this">
+					<h4>Binding the Focus Node in Local SPARQL Constraints (?this)</h4>
+					<p>
+						The SPARQL variable <code>?this</code> has a special meaning in local constraints.
+						When SPARQL constraints are executed then the variable <code>?this</code> needs to be pre-bound to the <span class="term">focus node</span>.
+						<span class="todo">(Need a pointer to what "pre-binding" means in this context)</span>
+					</p>
+				</section>
+				<section id="sparql-constraints-variables">
+					<h4>Mapping of Result Variables to Constraint Violations</h4>
+					<p>
+						Each row of the result set produced by a SELECT query must be converted into one constraint violation blank node.
+						The properties of those blank nodes are derived by the following rules, through a combination of result variables and by looking at properties attached to the constraint itself.
+						In the following table, the <span class="term">host resource</span> is assumed to be the constraint or template that has the executed <code>sh:sparql</code> query as one of its properties.
+						The production rules are meant to be executed from top to bottom, so that the first bound value will be used.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Production Rules</th>
+						</tr>
+						<tr>
+							<td><code>rdf:type</code></td>
+							<td>
+								<ol>
+									<li>The value of <code>sh:severity</code> of the <span class="term">host resource</span></li>
+									<li><code>sh:Error</code> as default</li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:root</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?root</code></li>
+									<li>The value of the variable <code>?this</code></li>
+									<li>The value of <code>sh:root</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:subject</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?subject</code></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:predicate</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?predicate</code></li>
+									<li>The value of <code>sh:predicate</code> of the <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:object</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?object</code></li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:message</code></td>
+							<td>
+								<ol>
+									<li>The value of the variable <code>?message</code></li>
+									<li>
+										The values of <code>sh:message</code> of the <span class="term">host resource</span>.
+										These values may reference any variable from the SELECT result variables via <code>{?varName}</code>.
+										The <code>{?varName}</code> blocks SHOULD be substituted with suitable string representations of the values of said variables.
+									</li>
+								</ol>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:source</code></td>
+							<td>
+								<ol>
+									<li>The <span class="term">host resource</span></li>
+								</ol>
+							</td>
+						</tr>
+					</table>
+					<p>
+						The following example illustrates a constraint that flags warnings for all subjects that have a <code>rdfs:label</code> with the language tag <code>"de"</code>.
+					</p>
+					<pre class="example" title="Global constraint based on SPARQL SELECT">
+ex:ExampleGlobalSelectConstraint
+	a sh:GlobalNativeConstraint ;
+	sh:message "Deutsch is verboten" ;
+	sh:predicate rdfs:label ;
+	sh:severity sh:Warning ;
+	sh:sparql """
+		SELECT (?subject AS ?root) ?subject ?object
+		WHERE {
+			?subject rdfs:label ?object .
+			FILTER (lang(?object) = "de") .
+		}
+		""" .
+
+ex:Resource1
+	rdfs:label "Eins"@de ;
+	rdfs:label "Zwei"@de ;
+	rdfs:label "Trois"@fr .</pre>
+					<p>
+						Output created by the example above would be:
+					</p>
+					<pre class="example" title="Global constraint example violation output">
+[
+	a sh:Warning ;
+	sh:subject ex:Resource1 ;
+	sh:predicate rdfs:label ;
+	sh:object "Eins"@de ;
+	sh:message "Deutsch is verboten" ;
+	sh:source ex:ExampleGlobalSelectConstraint ;
+] .
+[
+	a sh:Warning ;
+	sh:subject ex:Resource1 ;
+	sh:predicate rdfs:label ;
+	sh:object "Zwei"@de ;
+	sh:message "Deutsch is verboten" ;
+	sh:source ex:ExampleGlobalSelectConstraint ;
+] .</pre>
+				</section>
+				<section id="sparql-constraints-annotations">
+					<h4>Injecting Annotation Properties into Constraint Violations</h4>
+					<p>
+						It is possible to inject additional <span class="term">annotation properties</span> into the blank nodes created for each row of the SELECT result sets.
+						Any such property needs to be declared via a value of <code>sh:resultAnnotation</code> at the host node.
+						The values of <code>sh:resultAnnotation</code> must be IRIs or blank nodes with the following properties:
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Value type</th>
+							<th>Count</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>sh:annotationProperty</code></td>
+							<td><code>rdf:Property</code></td>
+							<td><code>1 (mandatory)</code></td>
+							<td>The annotation property that shall be set</td>
+						</tr>
+						<tr>
+							<td><code>sh:annotationVarName</code></td>
+							<td><code>xsd:string</code></td>
+							<td><code>0..1</code></td>
+							<td>The name of the SPARQL variable to take the values from</td>
+						</tr>
+						<tr>
+							<td><code>sh:annotationValue</code></td>
+							<td></td>
+							<td><code>0..unlimited</code></td>
+							<td>Constant nodes that shall be used as values</td>
+						</tr>
+					</table>
+					<p>
+						If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the engine must copy the bindings for the given variable into the constructed constraint violations for the same row.
+					</p>
+					<p>
+						The values of <code>sh:annotationProperty</code> MUST NOT be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
+					</p>
+					<p>
+						Here is a slightly complex example, illustrating the use of result annotations.
+					</p>
+					<pre class="example" title="Local constraint with an annotation">
+ex:LocalShapeWithPathViolationExample
+	a sh:Shape ;
+	sh:constraint [
+		sh:resultAnnotation [
+			sh:annotationProperty ex:time ;
+			sh:annotationVarName "time"
+		] ;
+		sh:predicate ex:property2 ;
+		sh:sparql """
+				SELECT ?subject (?first AS ?object) ?message ?time
+				WHERE {
+					?this ex:property1 ?first .
+					?subject ex:property2 ?first .
+					FILTER isBlank(?value) .
+					BIND (CONCAT("The ", "message.") AS ?message) .
+					BIND (NOW() AS ?time) .
+				}
+			""" ;
+	] .
+	
+ex:ExampleRootResource
+	sh:nodeShape ex:LocalShapeWithPathViolationExample ;
+	ex:property1 ex:ExampleIntermediateResource .
+
+ex:ExampleValueResource
+	ex:property2 ex:ExampleIntermediateResource .
+</pre>
+					<p>
+						Which produces the following error resource:
+					</p>
+					<pre class="example" title="Local constraint example violation output">
+[
+	a sh:Error ;
+	sh:root ex:ExampleRootResource ;
+	sh:subject ex:ExampleValueResource ;
+	sh:predicate ex:property2 ;
+	sh:object ex:ExampleIntermediateResource ;
+	sh:message "The message." ;
+	sh:source [ the blank node of the sh:constraint above ] ;
+	ex:time "2015-03-27T10:58:00"^^xsd:dateTime ;  # Example
+] .</pre>
+				</section>
+			</section>
+			<section id="sparql-templates">
+				<h3>SPARQL-based Templates</h3>
+				<p>
+					If a <code>sh:Template</code> has a value for <code>sh:sparql</code>, then the corresponding instances need to follow the same execution rules as outlined for <a href="#sparql-constraints">SPARQL-based Constraints</a>.
+					The only difference is that the SPARQL queries need to be executed with additional <span class="term">pre-bound</span> variables, derived from the arguments of the template.
+					The names of those variables must match the <a href="#def-local-name"><span class="term">local name</span></a> of the argument predicates, including the arguments defined by any (transitive) superclasses of the template.
+					For example, if an argument is represented with the predicate <code>ex:myArgument</code> then the variable <code>?myArgument</code> must be <span class="term">pre-bound</span> with the value of the argument in the template instance.
+				</p>
+			</section>
+			<section id="sparql-functions">
+				<h3>SPARQL-based Functions</h3>
+				<p>
+					If a <code>sh:Function</code> has a value for <code>sh:sparql</code>, then a SPARQL-based execution engine SHOULD
+					execute the provided SPARQL query on the current data set.
+					In this SPARQL query, the engine needs to <span class="term">pre-bind</span> the variables <code>?arg1</code>, <code>?arg2</code> etc
+					based on the provided arguments of the function call.
+					The SPARQL query must be of type ASK or SELECT.
+					For ASK queries, the function's return value is the result of the ASK query execution.
+					For SELECT queries, the function's return value is the first binding of the first result variable in the result set.
+				</p>
+				<p>
+					Some execution engines may ignore the specified <code>sh:sparql</code> query and rely on an alternative (possibly native) implementation instead,
+					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
+					This can be used to optimize frequently needed functions.
+					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
+				</p>
+			</section>
+		</section>
+		
+		<section class="appendix">
+			<h2>SPARQL Functions in the SHACL Namespace</h2>
+			<p>
+				SPARQL-based SHACL engines MUST implement the following SPARQL functions.
+			</p>
+			<section id="function-hasDatatype">
+				<h3>sh:hasDatatype</h3>
+				<p>
+					The function <code>sh:hasDatatype</code> returns <code>true</code> if a given node (<code>?arg1</code>) is a literal that has a datatype that matches a given datatype (<code>?arg2</code>).
+					The return type of this function is <code>xsd:boolean</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any node</td>
+						<td>The node to validate</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>rdfs:Datatype</code></td>
+						<td>The datatype to match against</td>
+					</tr>
+				</table>
+				<div id="def-hasDatatype-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+ASK {
+	{
+		FILTER isLiteral(?arg1) .
+	} .
+	BIND (datatype(?arg1) AS ?datatype) .
+	FILTER ((?datatype = ?arg2) || (rdf:langString = ?datatype &amp;&amp; ?arg2 = xsd:string)) .
+}</pre>
+				</div>
+				<pre class="example">
+sh:hasDatatype(42, xsd:decimal)             # false
+sh:hasDatatype(42, rdfs:Literal)            # false
+sh:hasDatatype(42, xsd:integer)             # true
+sh:hasDatatype("string"@en, rdf:langString) # true
+sh:hasDatatype("string"@en, xsd:string)     # true
+sh:hasDatatype("string", xsd:string)        # true</pre>
+			</section>
+			<section id="function-hasShape">
+				<h3>sh:hasShape</h3>
+				<p>
+					The function <code>sh:hasShape</code> returns <code>true</code> if	a given node (<code>?arg1</code>) matches a given shape (<code>?arg2</code>).
+					The return type of this function is <code>xsd:boolean</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any IRI or blank node</td>
+						<td>The node to validate</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>sh:Shape</code> or <code>rdfs:Class</code></td>
+						<td>The shape to match against</td>
+					</tr>
+				</table>
+				<p>
+					This function MUST perform constraint validation equivalent to the <a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code></a> operation.
+					The function MUST return <code>true</code> if the operation returns no error-level constraint violations, <code>false</code> if any error-level constraint violations exist. 
+				</p>
+			</section>
+			<section id="function-hasNodeKind">
+				<h3>sh:hasNodeKind</h3>
+				<p>
+					The function <code>sh:hasNodeKind</code> can be used to verify whether a given
+					node (<code>?arg1</code>) has the provided <code>sh:NodeKind</code> (<code>?arg2</code>).
+					The return type of this function is <code>xsd:boolean</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any</td>
+						<td>The node to test</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>sh:NodeKind</code></td>
+						<td>The node kind that <code>?arg1</code> is expected to have</td>
+					</tr>
+				</table>
+				<p>
+					The following table summarizes the values of the class <code>sh:NodeKind</code> together with their SPARQL definition.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>NodeKind</th>
+						<th>SPARQL Expression</th>
+					</tr>
+					<tr>
+						<td><code>sh:BlankNode</code></td>
+						<td><code>isBlank(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:IRI</code></td>
+						<td><code>isIRI(?node)</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:Literal</code></td>
+						<td><code>isLiteral(?node)</code></td>
+					</tr>
+				</table>
+				<div id="def-hasNodeKind-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+ASK {
+	FILTER ((isIRI(?arg1) &amp;&amp; ?arg2 = sh:IRI) ||
+		(isLiteral(?arg1) &amp;&amp; ?arg2 = sh:Literal) ||
+		(isBlank(?arg1) &amp;&amp; ?arg2 = sh:BlankNode))
+}</pre>
+				</div>
+				<pre class="example">
+sh:hasNodeKind(42, sh:IRI)                         # false
+sh:hasNodeKind(42, sh:Literal)                     # true
+sh:hasNodeKind(ex:MyInstance, sh:BlankNode)        # false</pre>
+			</section>
+			<section id="function-inverseValueCount">
+				<h3>sh:inverseValueCount</h3>
+				<p>
+					The function <code>sh:inverseValueCount</code> returns the number of triples that have
+					a given object (<code>?arg1</code>) and a given predicate (<code>?arg2</code>).
+					The return type of this function is <code>xsd:integer</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any node</td>
+						<td>The object node</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>rdf:Property</code></td>
+						<td>The predicate node</td>
+					</tr>
+				</table>
+				<div id="def-inverseValueCount-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT (COUNT(?subject) AS ?result)
+WHERE {
+	?subject ?arg2 ?arg1 .
+}</pre>
+				</div>
+			</section>
+			<section id="function-label">
+				<h3>sh:label</h3>
+				<p>
+					The function <code>sh:label</code> returns a string representation of a given node <code>?arg1</code>.
+					This function is the recommended entry point whenever a node shall be displayed to end users, e.g. as part of a constructed <code>sh:message</code>.
+					The output of this function must be an <code>xsd:string</code> literal.
+					Unbound is not a valid result.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any node</td>
+						<td>The node to render</td>
+					</tr>
+				</table>
+				<p>
+					The implementation details of this function are left unspecified.
+					As a guideline, the function MAY use the values of <code>rdfs:label</code> and similar properties for resources.
+					As a fall-back, it may return the qname or full IRI of a resource.
+					For literal values, the function may use the lexical form, but may also render date and time literals in locale-specific strings.
+				</p>
+			</section>
+			<section id="function-valueCount">
+				<h3>sh:valueCount</h3>
+				<p>
+					The function <code>sh:valueCount</code> returns the number of triples that have
+					a given subject (<code>?arg1</code>) and a given predicate (<code>?arg2</code>).
+					The return type of this function is <code>xsd:integer</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any IRI or blank node</td>
+						<td>The subject node</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>rdf:Property</code></td>
+						<td>The predicate node</td>
+					</tr>
+				</table>
+				<div id="def-valueCount-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT (COUNT(?object) AS ?result)
+WHERE {
+	?arg1 ?arg2 ?object .
+}</pre>
+				</div>
+			</section>
+		</section>
+		
+		<section id="sparql-template-defs" class="appendix">
+			<h2>SPARQL Definitions of the SHACL Templates</h2>
+			<p>
+				The following subsections define the semantics of the high-level constraint vocabulary built into SHACL using SPARQL.
+				The SPARQL Definitions use the variable <code>?this</code> to refer to the <span class="term">focus node</span>.
+				The variable <code>?shapesGraph</code> is expected to point at the <span class="term">Shapes graph</span>.
+				The variable <code>?currentShape</code> is expected to point at the currently evaluated shape.
+				Pre-bound variables such are printed such as <code class="arg">?this</code>.
+				SPARQL-based implementations of SHACL may use variations of the provided SPARQL queries, as long as they expose compatible behavior.
+			</p>
+			<section>
+				<h3>Property Constraints</h3>
+				<section id="sparql-AbstractAllowedValuesPropertyConstraint">
+					<h4>sh:allowedValues</h4>
+					<p>
+						The property <code>sh:allowedValues</code> is defined in the SHACL template <code>sh:AbstractAllowedValuesPropertyConstraint</code>.
+					</p>
+					<div id="def-allowedValues-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
+WHERE {
+	<span class="arg">?this</span> ?predicate ?object .
+	FILTER NOT EXISTS {
+		<span class="arg">?allowedValues</span> (rdf:rest*)/rdf:first ?object
+	}
+}</pre>
+					</div>
+				</section>
+				<section id="sparql-AbstractDatatypePropertyConstraint">
+					<h4>sh:datatype</h4>
+					<p>
+						The property <code>sh:datatype</code> is defined in the SHACL template <code>sh:AbstractDatatypePropertyConstraint</code>.
+					</p>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER (!sh:hasDatatype(?object, <span class="arg">?datatype</span>)) .
+}</pre>
+					</div>
+				</section>
+				<section id="sparql-AbstractHasValuePropertyConstraint">
+					<h4>sh:hasValue</h4>
+					<p>
+						The property <code>sh:hasValue</code> is defined in the SHACL template <code>sh:AbstractHasValuePropertyConstraint</code>.
+					</p>
+					<div id="def-hasValue-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span>
+WHERE {
+	FILTER NOT EXISTS {
+		<span class="arg">?this</span> <span class="arg">?predicate</span> <span class="arg">?hasValue</span>
+	}
+}</pre>
+					</div>
+				</section>
+				<section id="sparql-AbstractCountPropertyConstraint">
+					<h4>sh:minCount, sh:maxCount</h4>
+					<p>
+						The properties <code>sh:minCount</code> and <code>sh:maxCount</code> are defined in the SHACL template <code>sh:AbstractCountPropertyConstraint</code>.
+					</p>
+					<div id="def-count-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span>
+WHERE {
+	BIND (sh:valueCount(<span class="arg">?this</span>, <span class="arg">?predicate</span>) AS ?count) .
+	FILTER ((?count &lt; <span class="arg">?minCount</span>) || (bound(<span class="arg">?maxCount</span>) &amp;&amp; (?count &gt; <span class="arg">?maxCount</span>))) .
+}</pre>
+					</div>
+				</section>
+				<section id="sparql-AbstractNodeKindPropertyConstraint">
+					<h4>sh:nodeKind</h4>
+					<p>
+						The property <code>sh:nodeKind</code> is defined in the SHACL template <code>sh:AbstractNodeKindPropertyConstraint</code>.
+					</p>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER (!sh:hasNodeKind(?object, <span class="arg">?nodeType</span>)) .
+}</pre>
+					</div>
+				</section>
+				<section id="sparql-AbstractValueShapePropertyConstraint">
+					<h4>sh:valueShape</h4>
+					<p>
+						The property <code>sh:valueShape</code> is defined in the SHACL template <code>sh:AbstractValueShapePropertyConstraint</code>.
+					</p>
+					<div id="def-valueShape-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object 
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>)) .
+}</pre>
+					</div>
+					<p class="todo">
+						Some WG members have voiced concerns that the definition above requires the sh:hasShape function that may
+						be expensive to implement for SPARQL vendors.
+						An alternative design would be to hard-code the <code>sh:valueShape</code> property into the engine,
+						and do the recursion in the outer layer, outside of SPARQL.
+					</p>
+				</section>
+				<section id="sparql-AbstractValueTypePropertyConstraint">
+					<h4>sh:valueType</h4>
+					<p>
+						The property <code>sh:valueType</code> is defined in the SHACL template <code>sh:AbstractValueTypePropertyConstraint</code>.
+					</p>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER NOT EXISTS {
+		?class rdfs:subClassOf* <span class="arg">?valueType</span> .
+		?object a ?class .
+	}
+}</pre>
+					</div>
+				</section>
+			</section>
+			<section>
+				<h3>Inverse Property Constraints</h3>
+				<p class="todo">
+					TODO
+				</p>
+			</section>
+			<section id="sparql-or">
+				<h3>sh:OrConstraint</h3>
+				<div id="def-orConstraint-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+					<pre class="def-sparql-body">
+SELECT *
+WHERE {
+	FILTER NOT EXISTS {
+		<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
+		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape) .
+	}
+}</pre>
+				</div>
+			</section>
+			<section id="sparql-ClosedShape">
+				<h3>sh:ClosedShapeConstraint</h3>
+				<p>
+					The following SPARQL query implements the SHACL template <code>sh:ClosedShapeConstraint</code>.
+					The SHACL system vocabulary includes a resource <code>sh:ClosedShape</code> that is an instance of <code>sh:ClosedShapeConstraint</code> which can be shared among any number of shapes.
+					Only one instance is needed because the template does not take any arguments.
+				</p>
+				<div id="def-ClosedShape-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+					<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) ?predicate ?object
+WHERE {
+	<span class="arg">?this</span> ?predicate ?object .
+	FILTER (?predicate != rdf:type &amp;&amp; ?predicate != sh:nodeShape) .
+	FILTER NOT EXISTS {
+		GRAPH <span class="arg">?shapesGraph</span> {
+			<span class="arg">?currentShape</span> sh:property/sh:predicate ?predicate .
+		}
+	}
+}</pre>
+				</div>
+			</section>
+		</section>
+
+  </body>
+</html>
