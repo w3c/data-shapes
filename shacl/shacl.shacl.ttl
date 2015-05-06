@@ -21,7 +21,7 @@
 # Declaration of the required RDFS terms --------------------------------------
 
 rdfs:Resource
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:label "Resource" ;
 	sh:property [
 		sh:predicate rdf:type ;
@@ -37,7 +37,7 @@ rdfs:Resource
 .
 
 sh:Shape
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Shape" ;
 	rdfs:comment "The class of shapes." ;
@@ -63,45 +63,31 @@ sh:Shape
 		rdfs:comment "Declares that a given incoming reference property is relevant for matching resources." ;
 	] ;
 	sh:property [
-		sh:predicate sh:scope ;
+		sh:predicate sh:scopeShape ;
 		sh:valueType sh:Shape ;
 		sh:defaultValueType sh:Shape ;
 		rdfs:label "scope" ;
 		rdfs:comment "Links a Shape to other Shapes that the tested nodes need to fulfill before the constraints of the shape are evaluated." ;
 	] ;
-	sh:constraint [ # Also validate constraints on untyped sh:inverseProperty values
-		sh:message "Malformed sh:inverseProperty." ;
-		sh:predicate sh:inverseProperty ;
-		sh:sparql """
-			SELECT ?this (?this AS ?subject) (?prop AS ?object)
-			WHERE {
-				{
-					?this sh:inverseProperty ?prop .
-					FILTER (isBlank(?prop) && NOT EXISTS { ?prop a ?any }) .
-				}
-				FILTER (!sh:hasShape(?prop, sh:InversePropertyConstraint, ?shapesGraph)) .
-			}
-			""" ;
+	sh:property [
+		sh:predicate sh:scopeClass ;
+		sh:valueType rdfs:Class ;
+		rdfs:label "scope class" ;
+		rdfs:comment "Links a Shape to a class, establishing that all instances of that class are expected to have this shape." ;
 	] ;
-	sh:constraint [ # Also validate constraints on untyped sh:property values
-		sh:message "Malformed sh:property." ;
-		sh:predicate sh:property ;
-		sh:sparql """
-			SELECT ?this (?this AS ?subject) (?prop AS ?object)
-			WHERE {
-				{
-					?this sh:property ?prop .
-					FILTER (isBlank(?prop) && NOT EXISTS { ?prop a ?any }) .
-				}
-				FILTER (!sh:hasShape(?prop, sh:PropertyConstraint, ?shapesGraph)) .
-			}
-			""" ;
-	] ;
-.	
+.
+
+sh:ShapeClass
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Class ;
+	rdfs:subClassOf sh:Shape ;
+	rdfs:label "Shape class" ;
+	rdfs:comment "The metaclass for classes that are also shapes." ;
+.
 
 rdfs:Class
-	a rdfs:Class ;
-	rdfs:subClassOf sh:Shape ;
+	a sh:ShapeClass ;
+	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Class" ;
 	rdfs:comment "The class of classes." ;
 	sh:property [
@@ -180,7 +166,7 @@ xsd:time a rdfs:Datatype ; rdfs:subClassOf rdfs:Literal ; rdfs:label "time" .
 # Graph management ------------------------------------------------------------
 
 sh:Graph
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Graph" ;
 	rdfs:comment "A collection of RDF triples identified by a URI. In a Linked Data scenario, a graph should be accessible from its URI via content negotiation in formats such as Turtle and JSON-LD." ;
@@ -234,7 +220,7 @@ sh:Literal
 # queries that can take arguments. 
 
 sh:Macro
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Class ;
 	rdfs:label "Macro" ;
 	rdfs:comment "Abstract superclass of macro components of a SHACL library, especially Functions and Templates. Macros can take arguments, which are constraints that are different from PropertyConstraints in that they can only have at most one value." ;
@@ -262,25 +248,10 @@ sh:Macro
 			}
 			""" ;
 	] ;
-	sh:constraint [ # Also validate constraints on untyped sh:argument values
-		sh:message "Malformed sh:argument." ;
-		sh:predicate sh:argument ;
-		sh:sparql """
-			SELECT ?this (?this AS ?root) (?arg AS ?object)
-			WHERE {
-				{
-					?this sh:argument ?arg .
-					FILTER (isBlank(?arg) && NOT EXISTS { ?arg a ?any }) .
-					BIND (BNODE() AS ?cv) .
-				}
-				FILTER (!sh:hasShape(?arg, sh:Argument, ?shapesGraph)) .
-			}
-			""" ;
-	] ;
 .
 
 sh:Function
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Macro ;
 	rdfs:label "Function" ;
 	rdfs:comment "A macro implementing a SPARQL function, backed by a SPARQL ASK or SELECT query." ;
@@ -321,7 +292,7 @@ sh:Functions
 .
 
 sh:Template
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Macro ;
 	rdfs:label "Template" ;
 	rdfs:comment "A macro that acts as an abstraction of a (reusable) SPARQL query. The query can be parameterized by the supplied arguments." ;
@@ -350,7 +321,7 @@ sh:Templates
 .
 
 sh:Profile
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Set ;
 	rdfs:label "Profile" ;
 	rdfs:comment "A profile is a collection of templates. Profiles can be used to group together templates with similar complexity. Tools can indicate that they support specific profiles only." ;
@@ -365,8 +336,15 @@ sh:Profile
 
 # This vocabulary describes the output of constraint validation
 
-sh:ConstraintViolation
+sh:ConstraintViolationClass
 	a rdfs:Class ;
+	rdfs:subClassOf sh:ShapeClass ;
+	rdfs:label "Constraint violation class" ;
+	rdfs:comment "The metaclass of constraint violation types." ;
+.
+
+sh:ConstraintViolation
+	a sh:ConstraintViolationClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Constraint violation" ;
 	rdfs:comment "Instances of subclasses of this class can be constructed during constraint validation, to flag a single violation." ;
@@ -418,28 +396,28 @@ sh:ConstraintViolation
 .
 
 sh:Warning
-	a rdfs:Class ;
+	a sh:ConstraintViolationClass ;
 	rdfs:subClassOf sh:ConstraintViolation ;
 	rdfs:label "Warning" ;
 	rdfs:comment "A non-critical constraint violation indicating a warning." ; 
 .
 
 sh:Error
-	a rdfs:Class ;
+	a sh:ConstraintViolationClass ;
 	rdfs:subClassOf sh:ConstraintViolation ;
 	rdfs:label "Error" ;
 	rdfs:comment "A constraint violation indicating an error." ; 
 .
 
 sh:FatalError
-	a rdfs:Class ;
+	a sh:ConstraintViolationClass ;
 	rdfs:subClassOf sh:Error ;
 	rdfs:label "Fatal Error" ;
 	rdfs:comment "An error that cannot be recovered and further evaluation may terminate immediately. Engines may decide to perform the validation of potentially fatal constraints first." ;
 .
 
 sh:ResultAnnotation
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Result annotation" ;
 	rdfs:comment "Defines the rules to derive the values of a given annotation property as extra values for a constraint violation." ;
@@ -471,7 +449,7 @@ sh:ResultAnnotation
 # Constraint vocabulary -------------------------------------------------------
 
 sh:Constraint
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Constraint" ;
 	rdfs:comment "An abstract superclass of constraints. Constraints are either template calls or \"native\" constraints with an executable body." ;
@@ -479,13 +457,13 @@ sh:Constraint
 .
 
 sh:LocalConstraint
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Local constraint" ;
 	rdfs:comment "The type of constraints that are used 'locally' in the context of a shape. This class is never instantiated directly, because local shapes need to have another type such as sh:NativeConstraint." ;
 	sh:abstract true ;
 	sh:property [
-		sh:predicate sh:scope ;
+		sh:predicate sh:scopeShape ;
 		sh:valueType sh:Shape ;
 		sh:defaultValueType sh:Shape ;
 		rdfs:label "scope" ;
@@ -494,7 +472,7 @@ sh:LocalConstraint
 . 
 
 sh:GlobalConstraint
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Global constraint" ;
 	rdfs:comment "The type of constraints that are used 'globally' for the whole graph and not just specific instances." ;
@@ -502,7 +480,7 @@ sh:GlobalConstraint
 . 
 
 sh:NativeConstraint
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Constraint ;
 	rdfs:label "Native constraint" ;
 	rdfs:comment "A constraint that has a native executable body attached with it." ;
@@ -517,7 +495,7 @@ sh:NativeConstraint
 	sh:property [
 		sh:predicate sh:severity ;
 		sh:maxCount 1 ;
-		sh:valueType rdfs:Class ;
+		sh:valueType sh:ConstraintViolationClass ;
 		rdfs:label "severity" ;
 		rdfs:comment "Specifies the default rdf:type to produce for any constraint violation." ;
 	] ;
@@ -549,7 +527,7 @@ sh:NativeConstraint
 .
 
 sh:GlobalNativeConstraint
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:GlobalConstraint ;
 	rdfs:subClassOf sh:NativeConstraint ;
 	rdfs:label "Global native constraint" ;
@@ -557,7 +535,7 @@ sh:GlobalNativeConstraint
 .
 
 sh:LocalNativeConstraint
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:LocalConstraint ;
 	rdfs:subClassOf sh:NativeConstraint ;
 	rdfs:label "Local native constraint" ;
@@ -565,14 +543,14 @@ sh:LocalNativeConstraint
 .
 
 sh:ConstraintTemplate
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:Template ;
 	rdfs:label "Constraint template" ;
 	rdfs:comment "A template backed by a SPARQL query that is used for constraint validation." ;
 	sh:property [
 		sh:predicate sh:severity ;
 		sh:maxCount 1 ;
-		sh:valueType rdfs:Class ;
+		sh:valueType sh:ConstraintViolationClass ;
 		rdfs:label "severity" ;
 		rdfs:comment "Specifies the default rdf:type to produce for any constraint violation." ;
 	] ;
@@ -672,7 +650,7 @@ sh:AbstractArgumentDatatypeConstraint
 		sh:predicate sh:datatype ;
 		sh:optionalWhenInherited true ;
 		sh:nodeKind sh:IRI ;
-		sh:valueType rdfs:Class ;
+		sh:valueType rdfs:Datatype ;
 		rdfs:label "datatype" ;
 		rdfs:comment "The datatype that all values of the property must have." ;
 	] ;
@@ -1030,7 +1008,7 @@ sh:PropertyConstraint
 .
 
 sh:Set
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	rdfs:label "Set" ;
 	rdfs:comment "Defines a set of nodes. Subclasses may further restrict the type of the members." ;
@@ -1652,7 +1630,7 @@ sh:hasShape
 # TODO: A variation of this may become a separate vocabulary
 
 sh:TestCase
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
 	sh:abstract true ;
 	rdfs:label "Test case" ;
@@ -1668,7 +1646,7 @@ sh:TestCase
 .
 
 sh:ConstraintCheckingTestCase
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:TestCase ;
 	rdfs:label "Constraint checking test case" ;
 	rdfs:comment "Superclass for test cases that perform constraint checking." ;
@@ -1688,14 +1666,14 @@ sh:ConstraintCheckingTestCase
 .
 
 sh:GraphConstraintCheckingTestCase
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:ConstraintCheckingTestCase ;
 	rdfs:label "Graph test case" ;
 	rdfs:comment "Represents a test case that performs constraint checking on a complete graph and asserts that certain constraint violations have been reported." ; 
 .
 
 sh:ResourceConstraintCheckingTestCase
-	a rdfs:Class ;
+	a sh:ShapeClass ;
 	rdfs:subClassOf sh:ConstraintCheckingTestCase ;
 	rdfs:label "Resource test case" ;
 	rdfs:comment "Represents a test case that performs constraint checking on one or more resources and asserts that certain constraint violations have been reported." ; 
@@ -1769,7 +1747,7 @@ sh:property a rdf:Property ; rdfs:label "property" .
 sh:resultAnnotation a rdf:Property ; rdfs:label "result annotation" .
 sh:returnType a rdf:Property ; rdfs:label "return type" .
 sh:root a rdf:Property ; rdfs:label "root" .
-sh:scope a rdf:Property ; rdfs:label "scope" .
+sh:scopeShape a rdf:Property ; rdfs:label "scope shape" .
 sh:severity a rdf:Property ; rdfs:label "severity" .
 sh:sparql	a rdf:Property ; rdfs:label "SPARQL" .
 sh:subject a rdf:Property ; rdfs:label "subject" .
