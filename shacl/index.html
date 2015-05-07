@@ -15,12 +15,6 @@
 						url:        "http://knublauch.com/",
 						company:    "TopQuadrant, Inc.",
 						companyURL: "http://topquadrant.com/"
-					},
-					{
-						name:       "Eric Prud'hommeaux",
-						url:        "http://www.w3.org/People/Eric/",
-						company:    "W3C/MIT",
-						companyURL: "http://www.w3.org/"
 					}
 				],
 				wg:           "RDF Data Shapes Working Group",
@@ -29,6 +23,30 @@
 				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
 			};
 		</script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script> 
+		<script>
+		
+			// Have injectPartsIntoTOC called when ReSpec is done (hack using a timer)
+			var inti = setInterval(function() {
+				if(window.respecEvents) {
+					window.respecEvents.sub("end-all", function() {
+						injectPartsIntoTOC();
+					});
+					clearInterval(inti);
+				}
+			}, 100);
+
+			// Inject sub-headers for Part 1 and Part 2 into TOC
+			injectPartsIntoTOC = function() {
+				var ul = $("#respecContents");
+				var first = $(ul.children()[1]);
+				var middle = $(ul.children()[6]);
+				first.before("<p class='part-header'>Part 1: Core Features</p>");
+				middle.before("<p class='part-header'>Part 2: Advanced Features</p>");
+			};
+		
+		</script>
+		
 		<style>
 
 			pre {
@@ -70,6 +88,10 @@
 				color: #a0a0a0;
 				font-size: 16px;
 				padding-bottom: 8px;
+			}
+			
+			.part-header {
+				font-weight: bold;
 			}
 		
 			.term {
@@ -188,7 +210,7 @@ ex:SubmitterShape
 					Many of these constraints are about a certain property only, and these are called <a href="#property-constraints"><span class="term">property constraints</span></a>.
 					<span class="term">Local constraints</span> are evaluated against a given <span class="term">focus node</span>, which serves as starting point of property paths and other graph traversal algorithms.
 					In the current draft, the IRIs of classes (such as <code>ex:Issue</code> above) may also be used as shapes.
-					Shapes may be arranged in a <span class="term">specialization</span> hierarchy, allowing some shapes to further narrow down the constraints from other shapes.
+					Such shape classes may be arranged in a <span class="term">specialization</span> hierarchy, allowing some shapes to further narrow down the constraints from other shapes.
 				</p>
 				<p>
 					In the Issue example above, the shape <code>ex:Issue</code> includes two local constraints.
@@ -325,23 +347,14 @@ ex:EmailsMustBeUnique
 					</tr>
 				</table>
 			</section>
-			
-			<div class="issue" title="Alternative Specifications">
-				This document defines the semantics of the high-level vocabulary in textual form and using SPARQL queries, consistent with the SHACL template mechanism.
-				Several individual working group members have also proposed alternative language definitions:
-				<ul>
-					<li><a href="http://w3c.github.io/data-shapes/semantics/">Eric's proposal</a></li>
-					<li><a href="http://w3c.github.io/data-shapes/semantics/Axiomatic">Jose's proposal</a></li>
-					<li><a href="https://www.w3.org/2014/data-shapes/wiki/Shacl-sparql">Peter's proposal</a></li>
-				</ul>
-			</div>
-
+	
 		</section>
 
 		<section id="shapes">
 			<h2>Shapes</h2>
 			<div class="issue" title="Classes and/or Shapes">
-				There is no agreement in the WG on the relationship of sh:Shape with RDFS classes.
+				There is no agreement in the WG on the relationship of sh:Shape with RDFS classes, see
+				<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>.
 				Proposals include:
 				<ul>
 					<li>Keep them completely separate, users only instantiate sh:Shape and use sh:extends</li>
@@ -350,7 +363,8 @@ ex:EmailsMustBeUnique
 					<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
 					<li>Allow both and have sh:classShape or sh:classScope or sh:scopeClass to point from a class to its shapes (or vice versa)</li>
 				</ul>
-				In the absence of such an agreement, this document uses sh:Shape in most examples.
+				In the absence of such an agreement, this document uses sh:Shape in most examples but allows
+				classes to be also shapes, with the class sh:ShapeClass as syntactic sugar.
 			</div>
 			<p>
 				A <span class="term">Constraint</span> defines restrictions on the structure of an RDF graph.
@@ -387,6 +401,14 @@ ex:EmailsMustBeUnique
 					RDFS entailment would potentially serve as an alternative to walking the rdfs:subClassOf relationship during the validation.
 					However, making RDFS entailment mandatory may exclude too many systems and have other drawbacks.
 				</p>
+				<p>
+					The following figure illustrates some relationships between core classes of SHACL and RDF Schema.
+					Note that the use of a UML-like notation does not imply that these RDF concepts are classes in an object-oriented sense.
+				</p>
+ 				<figure>
+					<img src='images/shacl-class-metamodel.png'>
+					<figcaption>Illustration of some relationships between classes of SHACL and RDF Schema</figcaption>
+				</figure>
 			</section>
 			<section id="shape-constraints">
 				<h3>Shape Constraints</h3>
@@ -414,6 +436,10 @@ ex:EmailsMustBeUnique
 					Orthogonal to these constraint types, SHACL has a notion of <a href="#scope">Scopes</a> that can be used to define pre-conditions
 					that must hold before a constraint is applied to a given <span class="term">focus node</span>.
 				</p>
+ 				<figure>
+					<img src='images/shacl-constraint-metamodel.png'>
+					<figcaption>Illustration of some core SHACL constraint classes</figcaption>
+				</figure>
 			</section>
 		</section>
 		
@@ -806,7 +832,7 @@ ex:NodeKindShapeExampleInvalidResource
 					<h4>sh:valueShape</h4>
 					<p>
 						The property <code>sh:valueShape</code> can be used verify that all values of the given property must match a given shape.
-						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code><span class="todo"> (and/or <code>rdfs:Class</code>)</span>.
+						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>.
 						If the value shapes are blank nodes, then their <code>rdf:type</code> triple can be omitted.
 					</p>
 					<table class="term-table" border="1" cellpadding="5">
@@ -838,7 +864,6 @@ ex:NodeKindShapeExampleInvalidResource
 					<p>
 						In the following example, all values of the property <code>ex:someProperty</code> are supposed to match the	shape
 						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
-						Note that the values of <code>sh:valueShape</code> do not require an <code>rdf:type</code> triple - <code>sh:Shape</code> is implicit.
 					</p>
 					<pre class="example" title="Shape with sh:valueShape constraint">
 ex:ValueShapeExampleShape
@@ -861,17 +886,6 @@ ex:ValueShapeExampleValidResource
 				</section>
 				<section id="AbstractValueTypePropertyConstraint">
 					<h4>sh:valueType</h4>
-					<div class="issue" title="sh:valueType">
-						The name of this property is undecided yet. Candidates include:
-						<ul>
-							<li>sh:class</li>
-							<li>sh:objectType</li>
-							<li>sh:resourceType</li>
-							<li>sh:type</li>
-							<li>sh:valueClass</li>
-							<li>sh:valueType</li>
-						</ul>
-					</div>
 					<p>
 						The property <code>sh:valueType</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
 						The values of <code>sh:valueType</code> must be RDFS classes (instances of <code>rdfs:Class</code>).
@@ -953,7 +967,7 @@ ex:InversePropertyConstraintExampleShape
 					<div class="def-header">TEXTUAL DEFINITION</div>
 					<div class="def-text-body">
 						An <code>sh:Error</code> must be reported if the <span class="term">focus node</span> produces error-level
-						constraint violations against all of the shapes in the <code>rdf:List</code> <code>sh:valueShapes</code>. 
+						constraint violations against all of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
 						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
 					</div>
 				</div>
@@ -1332,7 +1346,8 @@ ex:ExampleTemplate
 					For non-optional arguments, the engine must use the declared default value for template instances that do not define a value for this argument.
 				</p>
 				<p>
-					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code>.
+					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code> or one value for
+					<code>sh:datatype</code>, similar to their counterparts in property constraints.
 					This can be used to communicate the expected value type of the argument in template instances.
 					Some implementations MAY use this information to prevent the execution of a template with invalid arguments, and to signal errors.
 				</p>
@@ -1378,7 +1393,7 @@ ex:MyProfile
 			</p>
 			<p>
 				SHACL includes a profile called <code>sh:CoreProfile</code> that includes all <a href="#property-constraints">property constraint templates</a>
-				as well as <a href="#or">disjunctive constraints</a>. 
+				as well as <a href="#or">disjunctive constraints</a> and <a href="#ClosedShape">closed shapes</a>. 
 			</p>
 		</section>
 		
