@@ -1764,13 +1764,39 @@ ex:exampleFunction
 				<p>
 					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
 				</p>
-				<section id="sparql-constraints-this">
-					<h4>Binding the Focus Node in SPARQL Constraints (?this)</h4>
+				<section id="sparql-constraints-prebound">
+					<h4>Pre-bound Variables in SPARQL Constraints (?this, ?shapesGraph, ?currentShape)</h4>
 					<p>
-						The SPARQL variable <code>?this</code> has a special meaning in constraints.
-						When SPARQL constraints are executed then the variable <code>?this</code> needs to be pre-bound to the <span class="term">focus node</span>.
+						When SPARQL constraints are executed then the engine will pre-assign values for the following variables
+						with special meaning:
 						<span class="todo">(Need a pointer to what "pre-binding" means in this context)</span>
 					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Variable</th>
+							<th>Interpretation</th>
+						</tr>
+						<tr>
+							<td><code>?this</code></td>
+							<td>
+								The <span class="term">focus node</span>.
+							</td>
+						</tr>
+						<tr>
+							<td><code>?shapesGraph</code></td>
+							<td>
+								The named graph containing the Shape definitions (and possibly other data).
+								Can be used as in <code>GRAPH ?shapesGraph { ... }</code> to query shapes, constraints
+								and complex arguments such as <code>rdf:Lists</code>.
+							</td>
+						</tr>
+						<tr>
+							<td><code>?currentShape</code></td>
+							<td>
+								The currently evaluated shape.  Typically used in conjunction with <code>?shapesGraph</code>.
+							</td>
+						</tr>
+					</table>
 				</section>
 				<section id="sparql-constraints-variables">
 					<h4>Mapping of Result Variables to Constraint Violations</h4>
@@ -2081,6 +2107,11 @@ sh:hasDatatype("string", xsd:string)        # true</pre>
 						<td><code>sh:Shape</code> or <code>rdfs:Class</code></td>
 						<td>The shape to match against</td>
 					</tr>
+					<tr>
+						<td><code>?arg3</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The URI of the current <span class="term">shapes graph</span> (variable <code>?shapesGraph</code> in constraints)</td>
+					</tr>
 				</table>
 				<p>
 					This function MUST perform constraint validation equivalent to the <a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code></a> operation.
@@ -2265,7 +2296,9 @@ SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subjec
 WHERE {
 	<span class="arg">?this</span> ?predicate ?object .
 	FILTER NOT EXISTS {
-		<span class="arg">?allowedValues</span> (rdf:rest*)/rdf:first ?object
+		GRAPH ?shapesGraph {
+			<span class="arg">?allowedValues</span> (rdf:rest*)/rdf:first ?object
+		}
 	}
 }</pre>
 					</div>
@@ -2342,7 +2375,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object 
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>)) .
+	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>, ?shapesGraph)) .
 }</pre>
 					</div>
 					<p class="todo">
@@ -2385,8 +2418,10 @@ WHERE {
 SELECT *
 WHERE {
 	FILTER NOT EXISTS {
-		<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
-		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape) .
+		GRAPH ?shapesGraph {
+			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
+		}
+		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape, ?shapesGraph) .
 	}
 }</pre>
 				</div>
