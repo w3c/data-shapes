@@ -3,9 +3,10 @@
 	<head>
 		<title>Shapes Constraint Language (SHACL)</title>
 		<meta charset='utf-8'>
+		<script src='//www.w3.org/Tools/respec/respec-w3c-common' async class='remove'></script>
 		<script class='remove'>
 			var respecConfig = {
-				edDraftURI: "//w3c.github.io/data-shapes/shacl/",
+				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
 				specStatus: "ED",
 				shortName:  "shacl",
 				editors: [
@@ -22,7 +23,6 @@
 				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
 			};
 		</script>
-		<script src='http://www.w3.org/Tools/respec/respec-w3c-common' async class='remove'></script>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script> 
 		<script>
 		
@@ -39,7 +39,7 @@
 			// Inject sub-headers for Part 1 and Part 2 into TOC
 			injectPartsIntoTOC = function() {
 				var ul = $("#respecContents");
-				var first = ul.children().first();
+				var first = $(ul.children()[1]);
 				var middle = $(ul.children()[6]);
 				first.before("<p class='part-header'>Part 1: Core Features</p>");
 				middle.before("<p class='part-header'>Part 2: Advanced Features</p>");
@@ -117,7 +117,7 @@
 				SHACL (Shapes Constraint Language) is an RDF vocabulary for describing RDF graph structures.
 				Some of these graph structures are captured as "shapes", which group together constraints about the same RDF nodes.
 				Shapes provide a high-level vocabulary to identify predicates and their associated cardinalities, datatypes and other constraints.
-				Additional constraints can either be stated globally or be associated with shapes using SPARQL and similar executable languages.
+				Additional constraints can be associated with shapes using SPARQL and similar executable languages.
 				These executable languages can also be used to define new high-level vocabulary terms.
 				SHACL shapes can be used to communicate data structures associated with some process or interface, generate or validate data, or drive user interfaces.
 				This document defines the SHACL RDF vocabulary together with its underlying semantics.
@@ -206,14 +206,14 @@ ex:SubmitterShape
 				<p>
 					The basic building blocks of SHACL are <span class="term">constraints</span>.
 					Each <span class="term">constraint</span> defines a condition that can be validated against a graph.
-					A <a href="#shapes"><span class="term">shape</span></a> describes a group of <span class="term">local constraints</span> with the same <span class="term">focus node</span>.
+					A <a href="#shapes"><span class="term">shape</span></a> describes a group of <span class="term">constraints</span> with the same <span class="term">focus node</span>.
 					Many of these constraints are about a certain property only, and these are called <a href="#property-constraints"><span class="term">property constraints</span></a>.
-					<span class="term">Local constraints</span> are evaluated against a given <span class="term">focus node</span>, which serves as starting point of property paths and other graph traversal algorithms.
+					<span class="term">Constraints</span> are evaluated against a given <span class="term">focus node</span>, which serves as starting point of property paths and other graph traversal algorithms.
 					In the current draft, the IRIs of classes (such as <code>ex:Issue</code> above) may also be used as shapes.
-					Shapes may be arranged in a <span class="term">specialization</span> hierarchy, allowing some shapes to further narrow down the constraints from other shapes.
+					Such shape classes may be arranged in a <span class="term">specialization</span> hierarchy, allowing some shapes to further narrow down the constraints from other shapes.
 				</p>
 				<p>
-					In the Issue example above, the shape <code>ex:Issue</code> includes two local constraints.
+					In the Issue example above, the shape <code>ex:Issue</code> includes two constraints.
 					These constraints are here represented as blank nodes via <code>sh:property</code>.
 					Each of these constraints specifies the restricted property via <code>sh:predicate</code>, and one or more constraint properties such as <code>sh:minCount</code> and <code>sh:valueType</code>.
 					The property <code>sh:valueShape</code> points to another <code>sh:Shape</code> that defines additional constraints that the values of
@@ -270,10 +270,6 @@ ex:UserWithEmail
 					Readers only interested in the Core Profile may skip this section.
 				</p>
 				<p>
-					In addition to <span class="term">local constraints</span> (attached to shapes), SHACL also supports <a href="#global-constraints"><span class="term">global constraints</span></a>.
-					<span class="term">Global constraints</span> are executed when constraint validation is invoked on the whole graph, and may verify arbitrary conditions.
-				</p>
-				<p>
 					The validation of each <span class="term">constraint</span> is formalized with one or more <span class="term">execution languages</span>.
 					This version of SHACL supports <a href="#sparql">SPARQL</a> as an <span class="term">execution language</span>, but other languages may be supported in future versions or by other communities.
 					Each constraint needs to be backed by at least one <span class="term">executable body</span> in SPARQL, and any alternative bodies need to follow the same semantics as the SPARQL queries.
@@ -286,24 +282,25 @@ ex:UserWithEmail
 					Some SHACL engines may decide to only support certain <span class="term">profiles</span> and implement them differently than the provided (SPARQL) bodies.
 				</p>
 				<p>
-					The following example illustrates the use of a <span class="term">global native SPARQL constraint</span> to specify that there cannot be two instances of <code>schema:Person</code> with the same <code>schema:email</code>.
-					Note that each result set row produced by the SELECT clauses of the SPARQL query creates one constraint violation.
+					The following example illustrates the use of a <span class="term">native SPARQL constraint</span>,
+					to specify that there cannot be two resources with the same <code>schema:email</code>.
+					Note that each result set row produced by the SELECT clause of the SPARQL query creates one constraint violation.
 				</p>
-				<pre class="example" title="A global SPARQL-based constraint">
-ex:EmailsMustBeUnique
-	a sh:GlobalNativeConstraint ;
-	sh:message "There cannot be two persons with the same email address." ;
-	sh:predicate schema:email ;
-	sh:sparql """
-		SELECT (?person1 AS ?subject) (?email AS ?object)
-		WHERE {
-			?person1 schema:email ?email .
-			?person2 schema:email ?email .
-			?person1 a schema:Person .
-			?person2 a schema:Person .
-			FILTER (?person1 != ?person2) .
-		}
-		""" .</pre>
+				<pre class="example" title="A SPARQL-based constraint">
+ex:UniqueEmailShape
+	a sh:Shape ;
+	sh:constraint [
+		sh:message "There cannot be two resources with the same email address." ;
+		sh:predicate schema:email ;
+		sh:sparql """
+			SELECT ?this (?this AS ?subject) (?email AS ?object)
+			WHERE {
+				?this schema:email ?email .
+				?other schema:email ?email .
+				FILTER (?this != ?other) .
+			}
+			"""
+	] .</pre>
 			</section>
 			
 			<section id="namespaces">
@@ -347,23 +344,14 @@ ex:EmailsMustBeUnique
 					</tr>
 				</table>
 			</section>
-			
-			<div class="issue" title="Alternative Specifications">
-				This document defines the semantics of the high-level vocabulary in textual form and using SPARQL queries, consistent with the SHACL template mechanism.
-				Several individual working group members have also proposed alternative language definitions:
-				<ul>
-					<li><a href="http://w3c.github.io/data-shapes/semantics/">Eric's proposal</a></li>
-					<li><a href="http://w3c.github.io/data-shapes/semantics/Axiomatic">Jose's proposal</a></li>
-					<li><a href="https://www.w3.org/2014/data-shapes/wiki/Shacl-sparql">Peter's proposal</a></li>
-				</ul>
-			</div>
-
+	
 		</section>
 
 		<section id="shapes">
 			<h2>Shapes</h2>
 			<div class="issue" title="Classes and/or Shapes">
-				There is no agreement in the WG on the relationship of sh:Shape with RDFS classes.
+				There is no agreement in the WG on the relationship of sh:Shape with RDFS classes, see
+				<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>.
 				Proposals include:
 				<ul>
 					<li>Keep them completely separate, users only instantiate sh:Shape and use sh:extends</li>
@@ -372,11 +360,11 @@ ex:EmailsMustBeUnique
 					<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
 					<li>Allow both and have sh:classShape or sh:classScope or sh:scopeClass to point from a class to its shapes (or vice versa)</li>
 				</ul>
-				In the absence of such an agreement, this document uses sh:Shape in most examples.
+				In the absence of such an agreement, this document uses sh:Shape in most examples but allows
+				classes to be also shapes, with the class sh:ShapeClass as syntactic sugar.
 			</div>
 			<p>
 				A <span class="term">Constraint</span> defines restrictions on the structure of an RDF graph.
-				Some constraints, called <span class="term">local constraints</span>, can be regarded as radiating out from a <span class="term">focus node</span>.  
 				A <span class="term">Shape</span> is a group of constraints that have the same focus nodes.
 				For example, a shape can be used to state that all instances of a class must have a certain number of values for a given property.
 				In that example, the instances of the class are the focus nodes, and the restriction on property values is expressed via a constraint.
@@ -411,6 +399,7 @@ ex:EmailsMustBeUnique
 				</p>
 				<p>
 					The following figure illustrates some relationships between core classes of SHACL and RDF Schema.
+					Note that the use of a UML-like notation does not imply that these RDF concepts are classes in an object-oriented sense.
 				</p>
  				<figure>
 					<img src='images/shacl-class-metamodel.png'>
@@ -420,7 +409,7 @@ ex:EmailsMustBeUnique
 			<section id="shape-constraints">
 				<h3>Shape Constraints</h3>
 				<p>
-					A shape can be regarded as a collection of local constraints on a <span class="term">focus node</span>.
+					A shape can be regarded as a collection of constraints on the same <span class="term">focus node</span>.
 					These constraints can be grouped into three categories that are covered by subsequent sections.
 				</p>
 				<ul>
@@ -839,7 +828,7 @@ ex:NodeKindShapeExampleInvalidResource
 					<h4>sh:valueShape</h4>
 					<p>
 						The property <code>sh:valueShape</code> can be used verify that all values of the given property must match a given shape.
-						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code><span class="todo"> (and/or <code>rdfs:Class</code>)</span>.
+						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>.
 						If the value shapes are blank nodes, then their <code>rdf:type</code> triple can be omitted.
 					</p>
 					<table class="term-table" border="1" cellpadding="5">
@@ -871,7 +860,6 @@ ex:NodeKindShapeExampleInvalidResource
 					<p>
 						In the following example, all values of the property <code>ex:someProperty</code> are supposed to match the	shape
 						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
-						Note that the values of <code>sh:valueShape</code> do not require an <code>rdf:type</code> triple - <code>sh:Shape</code> is implicit.
 					</p>
 					<pre class="example" title="Shape with sh:valueShape constraint">
 ex:ValueShapeExampleShape
@@ -894,17 +882,6 @@ ex:ValueShapeExampleValidResource
 				</section>
 				<section id="AbstractValueTypePropertyConstraint">
 					<h4>sh:valueType</h4>
-					<div class="issue" title="sh:valueType">
-						The name of this property is undecided yet. Candidates include:
-						<ul>
-							<li>sh:class</li>
-							<li>sh:objectType</li>
-							<li>sh:resourceType</li>
-							<li>sh:type</li>
-							<li>sh:valueClass</li>
-							<li>sh:valueType</li>
-						</ul>
-					</div>
 					<p>
 						The property <code>sh:valueType</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
 						The values of <code>sh:valueType</code> must be RDFS classes (instances of <code>rdfs:Class</code>).
@@ -979,14 +956,14 @@ ex:InversePropertyConstraintExampleShape
 			<section id="or">
 				<h3>Disjunctive Constraints (sh:OrConstraint)</h3>
 				<p>
-					SHACL supports a high-level syntax for disjunctive local constraints that can be used to test whether the <span class="term">focus node</span> matches at least one out of several shapes.
+					SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether the <span class="term">focus node</span> matches at least one out of several shapes.
 					This is comparable to a logical "or" operator.
 				</p>
 				<div id="def-orConstraint-text" class="def def-text">
 					<div class="def-header">TEXTUAL DEFINITION</div>
 					<div class="def-text-body">
 						An <code>sh:Error</code> must be reported if the <span class="term">focus node</span> produces error-level
-						constraint violations against all of the shapes in the <code>rdf:List</code> <code>sh:valueShapes</code>. 
+						constraint violations against all of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
 						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
 					</div>
 				</div>
@@ -1074,7 +1051,7 @@ ex:ClosedShapeExampleInvalidResource
 				A related tracker item is <a href="http://www.w3.org/2014/data-shapes/track/issues/48">ISSUE-48</a>.
 			</p>
 			<p>
-				Shapes or local constraints may have a property <code>sh:scopeShape</code> to declare a <span class="term">scope</span> that serves as a <span class="term">pre-condition</span>
+				Shapes or constraints may have a property <code>sh:scopeShape</code> to declare a <span class="term">scope</span> that serves as a <span class="term">pre-condition</span>
 				to narrow down when the constraint(s) applies.	The values of <code>sh:scopeShape</code> must be shape definitions.
 				These shapes must be evaluated before the constraint is evaluated.
 				If the scope shape returns an error-level constraint violation, then the constraint will be ignored.
@@ -1178,6 +1155,10 @@ ex:ExampleConstraintViolation
 						</td>
 					</tr>
 				</table>
+				<figure>
+					<img src='images/shacl-results-metamodel.png'>
+					<figcaption>Illustration of the SHACL constraint violations metamodel</figcaption>
+				</figure>
 				<p class="todo">
 					<code>sh:Info</code> has also been suggested.
 					Related to this, Dimitris also suggested we introduce <code>sh:ValidationResult</code> as a superclass of <code>sh:ConstraintViolation</code>.
@@ -1252,8 +1233,7 @@ ex:ExampleConstraintViolation
 			</p>
 			<p>
 				The property <code>sh:constraint</code> provides the most general mechanism to associate a constraint with a shape.
-				The values of this property must be <span class="term">local constraints</span>, i.e. they MUST reference a
-				<span class="term">focus node</span>.
+				The values of this property must be <span class="term">constraints</span>, i.e. they MAY reference a <span class="term">focus node</span>.
 				Note that the property <code>sh:property</code> SHOULD be used instead of <code>sh:constraint</code> if the constraint is a <code>sh:PropertyConstraint</code>.
 				The property <code>sh:inverseProperty</code> SHOULD be used instead of <code>sh:constraint</code> if the constraint is a <code>sh:InversePropertyConstraint</code>.
 			</p>
@@ -1280,7 +1260,7 @@ ex:GeneralTemplateConstraintExampleShape
 		myt:property2 ex:mother ;
 	] .</pre>
 			<p>
-				The following example illustrates the definition of a <span class="term">local constraint</span> based on a SPARQL query.
+				The following example illustrates the definition of a <span class="term">constraint</span> based on a SPARQL query.
 				The property <code>sh:sparql</code> is used to point at a SELECT query as explained in a later <a href="#sparql-constraints">section</a>.
 				Note that the variable <code>?this</code> is used to reference the <span class="term">focus node</span>.
 			</p>
@@ -1303,6 +1283,28 @@ ex:GeneralSPARQLConstraintExampleShape
 				In the example above, SPARQL is provided as the only native executable.
 				However, additional executables such as JavaScript may be provided based on other sets of properties like <code>ex:javaScript</code>.
 			</p>
+			<section id="graph-constraints">
+				<h3>Graph-level ("global") Constraints</h3>
+				<p>
+					In some cases, constraints are not naturally associated with individual focus nodes, but need to be enforced upon a whole graph.
+					The following example illustrates one way of representing such conditions, by associating a shape with the graph resource itself, via <code>sh:nodeShape</code>.
+					The constraint expresses that the graph must contain at least one instance of a given class.
+					Note that the constraint itself does not reference the <span class="term">focus node</span> <code>?this</code> at all.
+				</p>
+				<pre class="example" title="Graph-level Constraint">
+&lt;http://example.org/exampleGraph&gt;
+	a rdfs:Resource ;       # TODO: better would be sh:Graph if that's approved
+	sh:nodeShape [
+		sh:constraint [
+			sh:message "There needs to be at least one instance of ex:SomeClass." ;
+			sh:sparql """
+				SELECT (ex:SomeClass AS ?root)
+				WHERE {
+					FILTER NOT EXISTS { ?any rdf:type ex:SomeClass } .
+				} """
+		]
+	] .</pre>
+			</section>
 		</section>
 		
 		<section id="templates">
@@ -1317,7 +1319,7 @@ ex:GeneralSPARQLConstraintExampleShape
 				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
 				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc).
 				Well-defined, non-abstract templates MUST provide at least one executable body property using <a href="#sparql-templates"><code>sh:sparql</code></a>.
-				The following example illustrates the definition of a local constraint template based on a SPARQL query.
+				The following example illustrates the definition of a constraint template based on a SPARQL query.
 			</p>
 			<pre class="example" title="Constraint template based on SPARQL">
 ex:ExampleTemplate
@@ -1365,7 +1367,8 @@ ex:ExampleTemplate
 					For non-optional arguments, the engine must use the declared default value for template instances that do not define a value for this argument.
 				</p>
 				<p>
-					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code>.
+					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code> or one value for
+					<code>sh:datatype</code>, similar to their counterparts in property constraints.
 					This can be used to communicate the expected value type of the argument in template instances.
 					Some implementations MAY use this information to prevent the execution of a template with invalid arguments, and to signal errors.
 				</p>
@@ -1377,7 +1380,6 @@ ex:ExampleTemplate
 					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
 					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
 					These <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
-					In SPARQL-based systems, the function <a href="#function-label"><code>sh:label</code></a> may be used to expand those label templates into consumable strings.
 				</p>
 			</section>
 		</section>
@@ -1411,70 +1413,8 @@ ex:MyProfile
 			</p>
 			<p>
 				SHACL includes a profile called <code>sh:CoreProfile</code> that includes all <a href="#property-constraints">property constraint templates</a>
-				as well as <a href="#or">disjunctive constraints</a>. 
+				as well as <a href="#or">disjunctive constraints</a> and <a href="#ClosedShape">closed shapes</a>. 
 			</p>
-		</section>
-		
-		<section id="global-constraints">
-			<h2>Global Constraints</h2>
-			<p>
-				While Shapes define constraints centered around <span class="term">focus nodes</span>, global constraints may define arbitrary graph-level restrictions.
-				SHACL can represent two kinds of global constraints:
-			</p>
-			<ul>
-				<li><a href="#global-constraints-native">Global native constraints</a></li>
-				<li><a href="#global-constraints-template">Global template constraints</a></li>
-			</ul>
-			<section id="global-constraints-native">
-				<h3>Global Native Constraints</h3>
-				<p>
-					Similar to <a href="#general-constraints">native general shape constraints</a>, native global constraints must have at least
-					one <span class="term">executable body</span> that instructs execution engines how to compute constraint violations.
-					The current version of SHACL only includes one such language, SPARQL, identified by the property <code>sh:sparql</code>.
-					Details of the evaluation rules for SPARQL are defined in its corresponding <a href="#sparql-constraints">section</a>. 
-				</p>
-				<p>
-					The following example illustrates the syntax for a global native constraint based on SPARQL.
-				</p>
-				<pre class="example" title="Global native constraint">
-ex:ExampleGlobalSPARQLConstraint
-	a sh:GlobalNativeConstraint ;
-	sh:message "There needs to be at least one instance of ex:SomeClass." ;
-	sh:sparql """
-		SELECT (ex:SomeClass AS ?root)
-		WHERE {
-			FILTER NOT EXISTS { ?any rdf:type ex:SomeClass } .
-		}
-		""" .</pre>
-			</section>
-			<section id="global-constraints-template">
-				<h3>Global Template Constraints</h3>
-				<p>
-					Global constraints can be expressed as instances of the class <code>sh:ConstraintTemplate</code> that are also subclass of <code>sh:GlobalConstraint</code>.
-					While this version of the SHACL vocabulary does not include any pre-defined global constraint templates, anyone can define and publish such templates with a given IRI.
-				</p>
-				<p>
-					The following example illustrates the syntax for a global template constraint and the template that it instantiates.
-					Note that the constraint does not need to have the explicit type <code>sh:GlobalConstraint</code>
-					because it is an instance of the template <code>ex:ExampleGlobalConstraintTemplate</code> which
-					is declared as a subclass of <code>sh:GlobalTemplateConstraint</code>.
-				</p>
-				<pre class="example" title="Global template constraint">
-ex:ExampleGlobalTemplateConstraint
-	a ex:ExampleGlobalConstraintTemplate ;
-	ex:exampleArgument ex:SomeClass .
-	
-ex:ExampleGlobalConstraintTemplate
-	a sh:ConstraintTemplate ;
-	rdfs:subClassOf sh:GlobalTemplateConstraint ;
-	sh:argument [
-		sh:predicate ex:exampleArgument ;
-		sh:valueType rdfs:Class ;
-		rdfs:label "The class that needs to have at least one instance." ;
-	] ;
-	sh:message "There needs to be at least one instance of the given class" ;
-	...</pre>
-			</section>
 		</section>
 
 		<section id="operations">
@@ -1508,7 +1448,7 @@ ex:ExampleGlobalConstraintTemplate
 				<tr>
 					<td><a href="#operation-validateGraph"><code>validateGraph</code></a></td>
 					<td><code>validateNode</code>, <code>validateConstraint</code></td>
-					<td>Validates all nodes in a graph, including global constraints</td>
+					<td>Validates all nodes in a graph</td>
 				</tr>
 			</table>
 			<p>
@@ -1710,7 +1650,7 @@ forEach ?type := (?focusNode rdf:type ?type)
 			<section id="operation-validateGraph">
 				<h3>validateGraph</h3>
 				<p>
-					This operation validates a whole graph against global constraints and all shapes associated with it, based on in-graph mappings.
+					This operation validates a whole graph against all shapes associated with its resources, based on in-graph mappings.
 				</p>
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
@@ -1724,11 +1664,7 @@ forEach ?type := (?focusNode rdf:type ?type)
 				</p>
 				<pre>
 forEach ?focusNode := (?focusNode sh:nodeShape|rdf:type ?anyShape)
-	validateNode(?focusNode, ?minSeverity)
-
-forEach ?constraint := instance of sh:GlobalConstraint
-	if (declared sh:severity of ?constraint is at least ?minSeverity)
-		validateConstraint(?constraint)</pre>
+	validateNode(?focusNode, ?minSeverity)</pre>
    			</section>
 		</section>
 		
@@ -1831,13 +1767,39 @@ ex:exampleFunction
 				<p>
 					The SPARQL queries attached to a <span class="term">constraint</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
 				</p>
-				<section id="sparql-constraints-this">
-					<h4>Binding the Focus Node in Local SPARQL Constraints (?this)</h4>
+				<section id="sparql-constraints-prebound">
+					<h4>Pre-bound Variables in SPARQL Constraints (?this, ?shapesGraph, ?currentShape)</h4>
 					<p>
-						The SPARQL variable <code>?this</code> has a special meaning in local constraints.
-						When SPARQL constraints are executed then the variable <code>?this</code> needs to be pre-bound to the <span class="term">focus node</span>.
+						When SPARQL constraints are executed then the engine will pre-assign values for the following variables
+						with special meaning:
 						<span class="todo">(Need a pointer to what "pre-binding" means in this context)</span>
 					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Variable</th>
+							<th>Interpretation</th>
+						</tr>
+						<tr>
+							<td><code>?this</code></td>
+							<td>
+								The <span class="term">focus node</span>.
+							</td>
+						</tr>
+						<tr>
+							<td><code style="white-space: nowrap">?shapesGraph</code></td>
+							<td>
+								The named graph containing the Shape definitions (and possibly other data).
+								Can be used as in <code>GRAPH ?shapesGraph { ... }</code> to query shapes, constraints
+								and complex arguments such as <code>rdf:Lists</code>.
+							</td>
+						</tr>
+						<tr>
+							<td><code style="white-space: nowrap">?currentShape</code></td>
+							<td>
+								The currently evaluated shape.  Typically used in conjunction with <code>?shapesGraph</code>.
+							</td>
+						</tr>
+					</table>
 				</section>
 				<section id="sparql-constraints-variables">
 					<h4>Mapping of Result Variables to Constraint Violations</h4>
@@ -1921,16 +1883,20 @@ ex:exampleFunction
 					<p>
 						The following example illustrates a constraint that flags warnings for all subjects that have a <code>rdfs:label</code> with the language tag <code>"de"</code>.
 					</p>
-					<pre class="example" title="Global constraint based on SPARQL SELECT">
-ex:ExampleGlobalSelectConstraint
-	a sh:GlobalNativeConstraint ;
+					<pre class="example" title="Label constraint based on SPARQL SELECT">
+ex:ExampleLabelShape
+	a sh:Shape ;
+	sh:constraint ex:ExampleLabelConstraint .
+
+ex:ExampleLabelConstraint
+	a sh:NativeConstraint ;
 	sh:message "Deutsch is verboten" ;
 	sh:predicate rdfs:label ;
 	sh:severity sh:Warning ;
 	sh:sparql """
-		SELECT (?subject AS ?root) ?subject ?object
+		SELECT (?this AS ?root) ?this ?object
 		WHERE {
-			?subject rdfs:label ?object .
+			?this rdfs:label ?object .
 			FILTER (lang(?object) = "de") .
 		}
 		""" .
@@ -1940,16 +1906,16 @@ ex:Resource1
 	rdfs:label "Zwei"@de ;
 	rdfs:label "Trois"@fr .</pre>
 					<p>
-						Output created by the example above would be:
+						Output created by the example shape above validated against <code>ex:Resource1</code> would be:
 					</p>
-					<pre class="example" title="Global constraint example violation output">
+					<pre class="example" title="Label constraint example violation output">
 [
 	a sh:Warning ;
 	sh:subject ex:Resource1 ;
 	sh:predicate rdfs:label ;
 	sh:object "Eins"@de ;
 	sh:message "Deutsch is verboten" ;
-	sh:source ex:ExampleGlobalSelectConstraint ;
+	sh:source ex:ExampleLabelConstraint ;
 ] .
 [
 	a sh:Warning ;
@@ -1957,7 +1923,7 @@ ex:Resource1
 	sh:predicate rdfs:label ;
 	sh:object "Zwei"@de ;
 	sh:message "Deutsch is verboten" ;
-	sh:source ex:ExampleGlobalSelectConstraint ;
+	sh:source ex:ExampleLabelConstraint ;
 ] .</pre>
 				</section>
 				<section id="sparql-constraints-annotations">
@@ -2002,8 +1968,8 @@ ex:Resource1
 					<p>
 						Here is a slightly complex example, illustrating the use of result annotations.
 					</p>
-					<pre class="example" title="Local constraint with an annotation">
-ex:LocalShapeWithPathViolationExample
+					<pre class="example" title="Constraint with an annotation">
+ex:ShapeWithPathViolationExample
 	a sh:Shape ;
 	sh:constraint [
 		sh:resultAnnotation [
@@ -2024,7 +1990,7 @@ ex:LocalShapeWithPathViolationExample
 	] .
 	
 ex:ExampleRootResource
-	sh:nodeShape ex:LocalShapeWithPathViolationExample ;
+	sh:nodeShape ex:ShapeWithPathViolationExample ;
 	ex:property1 ex:ExampleIntermediateResource .
 
 ex:ExampleValueResource
@@ -2033,7 +1999,7 @@ ex:ExampleValueResource
 					<p>
 						Which produces the following error resource:
 					</p>
-					<pre class="example" title="Local constraint example violation output">
+					<pre class="example" title="Constraint example violation output">
 [
 	a sh:Error ;
 	sh:root ex:ExampleRootResource ;
@@ -2144,6 +2110,11 @@ sh:hasDatatype("string", xsd:string)        # true</pre>
 						<td><code>sh:Shape</code> or <code>rdfs:Class</code></td>
 						<td>The shape to match against</td>
 					</tr>
+					<tr>
+						<td><code>?arg3</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The URI of the current <span class="term">shapes graph</span> (variable <code>?shapesGraph</code> in constraints)</td>
+					</tr>
 				</table>
 				<p>
 					This function MUST perform constraint validation equivalent to the <a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code></a> operation.
@@ -2242,33 +2213,6 @@ WHERE {
 }</pre>
 				</div>
 			</section>
-			<section id="function-label">
-				<h3>sh:label</h3>
-				<p>
-					The function <code>sh:label</code> returns a string representation of a given node <code>?arg1</code>.
-					This function is the recommended entry point whenever a node shall be displayed to end users, e.g. as part of a constructed <code>sh:message</code>.
-					The output of this function must be an <code>xsd:string</code> literal.
-					Unbound is not a valid result.
-				</p>
-				<table class="term-table" border="1" cellpadding="5">
-					<tr>
-						<th>Argument</th>
-						<th>Value type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>?arg1</code></td>
-						<td>Any node</td>
-						<td>The node to render</td>
-					</tr>
-				</table>
-				<p>
-					The implementation details of this function are left unspecified.
-					As a guideline, the function MAY use the values of <code>rdfs:label</code> and similar properties for resources.
-					As a fall-back, it may return the qname or full IRI of a resource.
-					For literal values, the function may use the lexical form, but may also render date and time literals in locale-specific strings.
-				</p>
-			</section>
 			<section id="function-valueCount">
 				<h3>sh:valueCount</h3>
 				<p>
@@ -2328,7 +2272,9 @@ SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subjec
 WHERE {
 	<span class="arg">?this</span> ?predicate ?object .
 	FILTER NOT EXISTS {
-		<span class="arg">?allowedValues</span> (rdf:rest*)/rdf:first ?object
+		GRAPH ?shapesGraph {
+			<span class="arg">?allowedValues</span> (rdf:rest*)/rdf:first ?object
+		}
 	}
 }</pre>
 					</div>
@@ -2405,7 +2351,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object 
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>)) .
+	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>, ?shapesGraph)) .
 }</pre>
 					</div>
 					<p class="todo">
@@ -2448,8 +2394,10 @@ WHERE {
 SELECT *
 WHERE {
 	FILTER NOT EXISTS {
-		<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
-		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape) .
+		GRAPH ?shapesGraph {
+			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
+		}
+		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape, ?shapesGraph) .
 	}
 }</pre>
 				</div>
