@@ -142,7 +142,7 @@ rdfs:Datatype
 rdfs:Literal
 	a rdfs:Class ;
 	rdfs:subClassOf rdfs:Resource ;
-	rdfs:Label "Literal" ;
+	rdfs:label "Literal" ;
 	rdfs:comment "The class of literal values, eg. textual strings and integers." ;
 .
 
@@ -234,8 +234,10 @@ sh:Macro
 	] ;
 	sh:constraint [
 		rdfs:comment "The same predicate can only be used once at all Arguments." ;
+		sh:message "Duplicate Argument for the same predicate {?argPredicate}" ;
+		sh:predicate sh:argument ;
 		sh:sparql """
-			SELECT ?message
+			SELECT ?this (?this AS ?subject) (?predicate AS ?argPredicate) (?argument1 AS ?object)
 			WHERE {
 				?this rdfs:subClassOf* ?class1 .
 				?class1 sh:argument ?argument1 .
@@ -244,7 +246,6 @@ sh:Macro
 				?class2 sh:argument ?argument2 .
 				FILTER (?argument1 != ?argument2) .
 				?argument2 sh:predicate ?predicate .
-				BIND (CONCAT("Duplicate Argument for the same predicate ", sh:propertyLabel(?predicate, ?this)) AS ?message) .
 			}
 			""" ;
 	] ;
@@ -1393,39 +1394,6 @@ sh:hasType
 		""" ;
 .
 
-sh:inversePropertyLabel
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "inverse property label" ;
-	rdfs:comment "Gets a human-readable label for a given inverse property (?arg1) in the context of a given resource/instance (?arg2). Attempts to use any rdfs:label locally defined at the types of ?arg2 via sh:inverseProperty. Falls back to the global sh:label of the property itself if no local label was found." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType rdf:Property ;
-		rdfs:comment "The (inverse) property to render. For example for ex:child this may produce 'parent'." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The resource/instance providing the context." ;
-	] ;
-	sh:returnType xsd:string ;
-	sh:sparql """
-		SELECT ?label
-		WHERE {
-			{
-				?arg2 a ?type .
-				?type rdfs:subClassOf* ?class .
-				?class sh:inverseProperty ?p .
-				?p sh:predicate ?arg1 .
-				?p rdfs:label ?label .
-			}
-			UNION {
-				BIND (CONCAT("(inverse of) ", sh:label(?arg1)) AS ?label) .
-			}	
-		}
-		""" ;
-.
-
 sh:inverseValueCount
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
@@ -1446,51 +1414,6 @@ sh:inverseValueCount
 		SELECT ((COUNT(?subject)) AS ?result)
 		WHERE {
 			?subject ?arg2 ?arg1 .
-		}
-		""" ;
-.
-
-sh:label
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "label" ;
-	rdfs:comment "Gets a human-readable label for a given node, if possible. The exact behavior of this function is left to the engine's implementation, but it typically tries to find an rdfs:label or similar property. If no such label is found, it may fall back to the local name or qname, and finally the URI. If the argument is a literal then this may simply return the lexical form. For blank nodes it should find a suitable rendering, depending on its type." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		rdfs:comment "The node to render." ;
-	] ;
-	sh:returnType xsd:string ;
-.
-
-sh:propertyLabel
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "property label" ;
-	rdfs:comment "Gets a human-readable label for a given property (?arg1) in the context of a given resource/instance (?arg2). Attempts to use any rdfs:label locally defined at the types of ?arg2 via sh:property. Falls back to the global sh:label of the property itself if no local label was found." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType rdf:Property ;
-		rdfs:comment "The property to render." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The resource/instance providing the context." ;
-	] ;
-	sh:returnType xsd:string ;
-	sh:sparql """
-		SELECT ?label
-		WHERE {
-			{
-				?arg2 a ?type .
-				?type rdfs:subClassOf* ?class .
-				?class sh:property|sh:argument ?p .
-				?p sh:predicate ?arg1 .
-				?p rdfs:label ?label .
-			}
-			UNION {
-				BIND (sh:label(?arg1) AS ?label) .
-			}	
 		}
 		""" ;
 .
