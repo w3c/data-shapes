@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft last edited on 2015-05-18
+# Draft last edited on 2015-05-21
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -1277,6 +1277,54 @@ sh:ClosedShape
 	rdfs:comment "A singleton instance of sh:ClosedShapeConstraint that can be shared between multiple shape definitions." ; 
 .
 
+sh:NotConstraint
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:TemplateConstraint ;
+	rdfs:label "Not constraint" ;
+	rdfs:comment "Enforces a constraint that the focus node must not have a given shape, essentially negating the conditions represented by the shape." ;
+	sh:argument [
+		sh:predicate sh:shape ;
+		sh:valueType sh:Shape ;
+		sh:defaultValueType sh:Shape ;
+		rdfs:label "shape" ;
+		rdfs:comment "The shape to negate." ; 
+	] ;
+	sh:labelTemplate "Not constraint: {?shapes}" ;
+	sh:message "Violation of NOT constraint" ;
+	sh:sparql """
+		SELECT *
+		WHERE {
+			FILTER (sh:hasShape(?this, ?shape, ?shapesGraph)) .
+		}
+		""" ;
+.
+
+sh:AndConstraint
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:TemplateConstraint ;
+	rdfs:label "And constraint" ;
+	rdfs:comment "Enforces a constraint that all of the provided shapes must be valid for the focus resource." ;
+	sh:argument [
+		sh:predicate sh:shapes ;
+		sh:valueType rdf:List ;
+		rdfs:label "shapes" ;
+		rdfs:comment "A list of shapes that will be validated." ; 
+	] ;
+	sh:labelTemplate "And constraint: {?shapes}" ;
+	sh:message "Violation of AND constraint" ;
+	sh:sparql """
+		SELECT *
+		WHERE {
+			FILTER EXISTS {
+				GRAPH ?shapesGraph {
+					?shapes rdf:rest*/rdf:first ?shape .
+				}
+				FILTER (!sh:hasShape(?this, ?shape, ?shapesGraph)) .
+			}
+		}
+		""" ;
+.
+
 sh:OrConstraint
 	a sh:ConstraintTemplate ;
 	rdfs:subClassOf sh:TemplateConstraint ;
@@ -1299,6 +1347,27 @@ sh:OrConstraint
 				}
 				FILTER sh:hasShape(?this, ?shape, ?shapesGraph) .
 			}
+		}
+		""" ;
+.
+
+sh:XorConstraint
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:TemplateConstraint ;
+	rdfs:label "Xor constraint" ;
+	rdfs:comment "Enforces a constraint that exactly one of multiple provided shapes must be valid for the focus resource." ;
+	sh:argument [
+		sh:predicate sh:shapes ;
+		sh:valueType rdf:List ;
+		rdfs:label "shapes" ;
+		rdfs:comment "A list of shapes that will be validated." ; 
+	] ;
+	sh:labelTemplate "Xor constraint: {?shapes}" ;
+	sh:message "Violation of XOR constraint" ;
+	sh:sparql """
+		SELECT *
+		WHERE {
+			FILTER (sh:validShapeCount(?this, ?shapes, ?shapesGraph) != 1) .
 		}
 		""" ;
 .
@@ -1486,6 +1555,38 @@ sh:hasShape
 		rdfs:comment "The graph containing the shape definitions." ;
 	] ;
 	sh:returnType xsd:boolean ;
+.
+
+sh:validShapeCount
+	a sh:Function ;
+	rdfs:subClassOf sh:Functions ;
+	rdfs:label "valid shape count" ;
+	rdfs:comment "Counts the number of shapes from a given rdf:List (?arg2) defined in a given shapes graph (?arg3) where a given focus node (?arg1) returns no error-level constraint violations." ;
+	sh:argument [
+		sh:predicate sh:arg1 ;
+		sh:valueType rdfs:Resource ;
+		rdfs:comment "The focus node." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg2 ;
+		sh:valueType rdf:List ;
+		rdfs:comment "The list of shapes to walk through." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg3 ;
+		sh:valueType rdfs:Resource ;
+		rdfs:comment "The current shapes graph." ;
+	] ;
+	sh:returnType xsd:integer ;
+	sh:sparql """
+		SELECT (COUNT(*) AS ?result)
+		WHERE {
+			GRAPH ?arg3 {
+				?arg2 rdf:rest*/rdf:first ?shape .
+			}
+			FILTER (sh:hasShape(?arg1, ?shape, ?arg3)) .
+		}
+		""" ;
 .
 
 
