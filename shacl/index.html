@@ -419,8 +419,8 @@ ex:UniqueEmailShape
 					</li>
 					<li>
 						The SHACL Core Profile includes <a href="#other">other shape-based constraints</a>:
-						<a href="#or">Disjunctive Constraints</a> can be used to define two or more alternative restrictions, and
-						<a href="#ClosedShape">Closed Shapes</a> cannot have any other property than those explicitly enumerated for a shape.
+						Logical operations including <a href="#not">not</a>, <a href="#and">and</a>, <a href="#or">or</a> and <a href="#xor">xor</a>,
+						and	<a href="#ClosedShape">Closed Shapes</a> that cannot have any other property than those explicitly enumerated for a shape.
 					</li>
 					<li>
 						For complex use cases that cannot be handled by the SHACL Core Profile,
@@ -953,12 +953,138 @@ ex:InversePropertyConstraintExampleShape
 				While the previous sections have introduced constraints that focused on a single property within a shape,
 				this section introduces other constraint types that can be used with shapes.
 			</p>
+			<section id="not">
+				<h3>sh:NotConstraint</h3>
+				<p>
+					SHACL supports a high-level negation constraint that can be used to verify that the <span class="term">focus node</span> does not match a given shape.
+					This is comparable to a logical "not" operator.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Property</th>
+						<th>Value Type</th>
+						<th>Summary</th>
+					</tr>
+					<tr>
+						<td><code>sh:shape</code></td>
+						<td><code>sh:Shape</code></td>
+						<td>The shape to negate</td>
+					</tr>
+				</table>
+				<div id="def-andConstraint-text" class="def def-text">
+					<div class="def-header">TEXTUAL DEFINITION</div>
+					<div class="def-text-body">
+						An <code>sh:Error</code> must be reported if the <span class="term">focus node</span> produces no error-level
+						constraint violations for the shape given via <code>sh:shape</code>. 
+						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
+					</div>
+				</div>
+				<p>See also: <a href="#sparql-not">Definition in SPARQL</a>.</p>
+				<p>
+					The following example illustrates the use of <code>sh:NotConstraint</code> in a shape to verify
+					that matching nodes cannot have any value of <code>ex:property</code>.
+				</p>
+				<pre class="example" title="Shape with a negation">
+ex:NotExampleShape
+	a sh:Shape ;
+	sh:constraint [
+		a sh:NotConstraint ;
+		sh:shape [
+			a sh:Shape ;
+			sh:property [
+				sh:predicate ex:property ;
+				sh:minCount 1 ;
+			] ;
+		]
+	] .
+
+ex:InvalidInstance1
+  	ex:property "Some value" .</pre>
+			</section>
+			<section id="and">
+				<h3>sh:AndConstraint</h3>
+				<p>
+					SHACL supports a high-level syntax for conjunctive constraints that can be used to test whether the <span class="term">focus node</span> matches all out of several shapes.
+					This is comparable to a logical "and" operator.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Property</th>
+						<th>Value Type</th>
+						<th>Summary</th>
+					</tr>
+					<tr>
+						<td><code>sh:shapes</code></td>
+						<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
+						<td>List of shapes to validate</td>
+					</tr>
+				</table>
+				<div id="def-andConstraint-text" class="def def-text">
+					<div class="def-header">TEXTUAL DEFINITION</div>
+					<div class="def-text-body">
+						An <code>sh:Error</code> must be reported if the <span class="term">focus node</span> produces error-level
+						constraint violations for at least one of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
+						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
+					</div>
+				</div>
+				<p>See also: <a href="#sparql-and">Definition in SPARQL</a>.</p>
+				<p>
+					The following example illustrates the use of <code>sh:AndConstraint</code> in a shape to verify
+					that matching nodes have exactly one value of <code>ex:property</code>.
+					This is achieved via the conjunction of a separate named shape (<code>ex:SuperShape</code>) which defines
+					the minimum count, and a blank node shape that further constrains the maximum count.
+					As shown here, <code>sh:AndConstraint</code> can be used to implement a specialization mechanism between shapes. 
+				</p>
+				<pre class="example" title="Shape with a conjunction">
+ex:SuperShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:property ;
+		sh:minCount 1 ;
+	] .
+
+ex:ExampleAndShape
+	a sh:Shape ;
+	sh:constraint [
+		a sh:AndConstraint ;
+		sh:shapes (
+			ex:SuperShape
+			[
+				sh:property [
+					sh:predicate ex:property ;
+					sh:maxCount 1 ;
+				]
+			]
+		)
+	] .
+
+
+ex:ValidInstance1
+	ex:property "One" .
+
+# Invalid: more than one property
+ex:InvalidInstance2
+	ex:property "One" ;
+	ex:property "Two" .</pre>
+			</section>
 			<section id="or">
-				<h3>Disjunctive Constraints (sh:OrConstraint)</h3>
+				<h3>sh:OrConstraint</h3>
 				<p>
 					SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether the <span class="term">focus node</span> matches at least one out of several shapes.
 					This is comparable to a logical "or" operator.
 				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Property</th>
+						<th>Value Type</th>
+						<th>Summary</th>
+					</tr>
+					<tr>
+						<td><code>sh:shapes</code></td>
+						<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
+						<td>List of shapes to validate</td>
+					</tr>
+				</table>
 				<div id="def-orConstraint-text" class="def def-text">
 					<div class="def-header">TEXTUAL DEFINITION</div>
 					<div class="def-text-body">
@@ -996,6 +1122,83 @@ ex:OrConstraintExampleShape
 	
 ex:OrConstraintExampleValidResource
 	ex:exampleProperty1 ex:someValue .</pre>
+			</section>
+			<section id="xor">
+				<h3>sh:XorConstraint</h3>
+				<p>
+					SHACL supports a high-level syntax for exclusive-or constraints that can be used to test whether the <span class="term">focus node</span> matches exactly one out of several shapes.
+					This is comparable to a logical "xor" operator.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Property</th>
+						<th>Value Type</th>
+						<th>Summary</th>
+					</tr>
+					<tr>
+						<td><code>sh:shapes</code></td>
+						<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
+						<td>List of shapes to validate</td>
+					</tr>
+				</table>
+				<div id="def-orConstraint-text" class="def def-text">
+					<div class="def-header">TEXTUAL DEFINITION</div>
+					<div class="def-text-body">
+						Using all shapes in the <code>rdf:List</code> <code>sh:shapes</code>, an <code>sh:Error</code> must be reported if the number of   
+						shapes where the <span class="term">focus node</span> produces error-level constraint violations is not equal to 1. 
+						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
+					</div>
+				</div>
+				<p>See also: <a href="#sparql-xor">Definition in SPARQL</a>.</p>
+				<p>
+					The following example illustrates the use of <code>sh:XorConstraint</code> in a shape to verify
+					that matching nodes have either a value for <code>ex:fullName</code> or a combination of
+					<code>ex:givenName</code> and <code>ex:familyName</code>.
+				</p>
+				<pre class="example" title="Shape with an Xor constraint">
+ex:GivenAndFamilyNameXorFullNameShape
+	a sh:Shape ;
+	sh:constraint [
+		a sh:XorConstraint ;
+		sh:shapes (
+		[
+			sh:property [
+				sh:predicate ex:givenName ;
+				sh:minCount 1 ;
+			] ;
+			sh:property [
+				sh:predicate ex:familyName ;
+				sh:minCount 1 ;
+			]
+		]
+		[
+			sh:property [
+				sh:predicate ex:fullName ;
+				sh:minCount 1 ;
+			]
+		] )
+	] .
+	
+ex:ValidInstance1
+  	ex:givenName "John" ;
+  	ex:familyName "Doe" .
+
+ex:ValidInstance2
+  	ex:fullName "John Doe" .
+
+ex:ValidInstance3
+	ex:givenName "John" ;
+  	ex:fullName "John Doe" .
+
+# Invalid: neither
+ex:InvalidInstance1
+	rdfs:label "This fulfills neither condition." .
+
+# Invalid: both
+ex:InvalidInstance2
+	ex:givenName "John" ;
+  	ex:familyName "Doe" ;
+  	ex:fullName "John Doe" .</pre>
 			</section>
 			<section id="ClosedShape">
 				<h3>Closed Shapes (sh:ClosedShape)</h3>
@@ -1413,7 +1616,7 @@ ex:MyProfile
 			</p>
 			<p>
 				SHACL includes a profile called <code>sh:CoreProfile</code> that includes all <a href="#property-constraints">property constraint templates</a>
-				as well as <a href="#or">disjunctive constraints</a> and <a href="#ClosedShape">closed shapes</a>. 
+				as well as the logical operators such as <a href="#or">or</a> and <a href="#ClosedShape">closed shapes</a>. 
 			</p>
 		</section>
 
@@ -2246,6 +2449,47 @@ WHERE {
 }</pre>
 				</div>
 			</section>
+			<section id="function-validShapeCount">
+				<h3>sh:validShapeCount</h3>
+				<p>
+					The function <code>sh:validShapeCount</code> returns the number of shapes from a given list (<code>?arg2</code>)
+					defined in a given shapes graph (<code>?arg3</code>) where a given focus node (<code>?arg1</code>) returns no error-level constraint violations.
+					The return type of this function is <code>xsd:integer</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td>Any IRI or blank node</td>
+						<td>The focus node</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>rdf:List</code></td>
+						<td>A list of <code>sh:Shape</code> instances</td>
+					</tr>
+					<tr>
+						<td><code>?arg3</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The IRI of the (shapes) graph containing the members of <code>?arg2</code></td>
+					</tr>
+				</table>
+				<div id="def-validShapeCount-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT (COUNT(*) AS ?result)
+WHERE {
+	GRAPH ?arg3 {
+		?arg2 rdf:rest*/rdf:first ?shape .
+	}
+	FILTER (sh:hasShape(?arg1, ?shape, ?arg3)) .
+}</pre>
+				</div>
+			</section>
 		</section>
 		
 		<section id="sparql-template-defs" class="appendix">
@@ -2270,9 +2514,9 @@ WHERE {
 <pre class="def-sparql-body">
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
-	<span class="arg">?this</span> ?predicate ?object .
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
 	FILTER NOT EXISTS {
-		GRAPH ?shapesGraph {
+		GRAPH <span class="arg">?shapesGraph</span> {
 			<span class="arg">?allowedValues</span> (rdf:rest*)/rdf:first ?object
 		}
 	}
@@ -2336,7 +2580,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasNodeKind(?object, <span class="arg">?nodeType</span>)) .
+	FILTER (!sh:hasNodeKind(?object, <span class="arg">?nodeKind</span>)) .
 }</pre>
 					</div>
 				</section>
@@ -2351,7 +2595,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object 
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>, ?shapesGraph)) .
+	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>, <span class="arg">?shapesGraph</span>)) .
 }</pre>
 					</div>
 					<p class="todo">
@@ -2386,6 +2630,33 @@ WHERE {
 					TODO
 				</p>
 			</section>
+			<section id="sparql-not">
+				<h3>sh:NotConstraint</h3>
+				<div id="def-notConstraint-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+					<pre class="def-sparql-body">
+SELECT *
+WHERE {
+	FILTER (sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>)) .
+}</pre>
+				</div>
+			</section>
+			<section id="sparql-and">
+				<h3>sh:AndConstraint</h3>
+				<div id="def-andConstraint-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+					<pre class="def-sparql-body">
+SELECT *
+WHERE {
+	FILTER EXISTS {
+		GRAPH <span class="arg">?shapesGraph</span> {
+			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
+		}
+		FILTER (!sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>)) .
+	}
+}</pre>
+				</div>
+			</section>
 			<section id="sparql-or">
 				<h3>sh:OrConstraint</h3>
 				<div id="def-orConstraint-sparql" class="def def-sparql">
@@ -2394,11 +2665,22 @@ WHERE {
 SELECT *
 WHERE {
 	FILTER NOT EXISTS {
-		GRAPH ?shapesGraph {
+		GRAPH <span class="arg">?shapesGraph</span> {
 			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
 		}
-		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape, ?shapesGraph) .
+		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>) .
 	}
+}</pre>
+				</div>
+			</section>
+			<section id="sparql-xor">
+				<h3>sh:XorConstraint</h3>
+				<div id="def-xorConstraint-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+					<pre class="def-sparql-body">
+SELECT *
+WHERE {
+	FILTER (<a href="#function-validShapeCount">sh:validShapeCount</a>(<span class="arg">?this</span>, <span class="arg">?shapes</span>, <span class="arg">?shapesGraph</span>) != 1) .
 }</pre>
 				</div>
 			</section>
@@ -2408,6 +2690,7 @@ WHERE {
 					The following SPARQL query implements the SHACL template <code>sh:ClosedShapeConstraint</code>.
 					The SHACL system vocabulary includes a resource <code>sh:ClosedShape</code> that is an instance of <code>sh:ClosedShapeConstraint</code> which can be shared among any number of shapes.
 					Only one instance is needed because the template does not take any arguments.
+					<span class="todo">TODO: It is unclear whether this should also walk into properties defined via conjunction/shape extension.</span>
 				</p>
 				<div id="def-ClosedShape-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
