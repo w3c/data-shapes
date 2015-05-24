@@ -1844,7 +1844,7 @@ forEach ?constraint := (?shape sh:constraint|sh:property|sh:inverseProperty|sh:a
 forEach ?shape := (?focusNode sh:nodeShape ?shape)
 	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)
 
-forEach ?type := (?focusNode rdf:type ?type)
+forEach ?type := (?focusNode rdf:type/rdfs:subClassOf* ?type)
 	if (?type instanceof sh:Shape)
 		validateNodeAgainstShape(?focusNode, ?type, ?minSeverity)
 	forEach ?shape := (?shape sh:scopeClass ?type)
@@ -2240,6 +2240,41 @@ ex:ExampleValueResource
 					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
 					This can be used to optimize frequently needed functions.
 					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
+				</p>
+			</section>
+			<section id="sparql-entailment">
+				<h3>SPARQL Entailment</h3>
+				<p class="issue">
+					The topic behind this section is under active discussion, so here is just a proposal.
+				</p>
+				<p>
+					SPARQL-based constraints, functions and templates may require a certain <span class="term">Entailment Regime</span> [[sparql11-entailment]] to execute correctly.
+					Values of <code>sh:sparql</code> may therefore be accompanied with corresponding <code>sh:sparqlEntailment</code> triples that instruct the engine
+					that a certain entailment regime must be present on the default query graph of the dataset.
+					The values of <code>sh:sparqlEntailment</code> must be IRIs, with common use cases covered by [[sparql11-entailment]].
+				</p>
+				<p>
+					The following example validates that the focus node (<code>?this</code>) must not have any non-English
+					value for <code>rdfs:label</code>.
+					Since RDFS entailment is activated, the query would also return errors for sub-properties of <code>rdfs:label</code>.
+				</p>
+				<pre class="example" title="A SPARQL-based constraint with a required Entailment Regime">
+ex:EntailmentExampleShape
+	a sh:Shape ;
+	rdfs:comment "Reports an error for any rdfs:label (or sub-property thereof) that is not in English." ;
+	sh:constraint [
+		sh:message "Labels must be in English" ;
+		sh:sparqlEntailment &lt;http://www.w3.org/ns/entailment/RDFS&gt; ;
+		sh:sparql """
+			SELECT ?this
+			WHERE {
+				?this rdfs:label ?label .
+				FILTER (lang(?label) != "en")
+			}""" ;
+	] .</pre>
+				<p>
+					If the engine is not capable of supporting the given entailment regime, then it MUST produce a <code>sh:FatalError</code>.
+					Standards-compliant SHACL implementations do not have to support any entailment regimes.
 				</p>
 			</section>
 		</section>
