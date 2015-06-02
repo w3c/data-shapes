@@ -3,4 +3,4 @@ compress:
 	rm tests.zip
 	tar -cf tests.tar tests
 	gzip -f tests.tar
-	zip tests.zip tests/*
+	zip -r tests.zip tests/*
