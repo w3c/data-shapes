@@ -1,0 +1,1795 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>SHACL Use Cases and Requirements</title>
+		<script src='http://www.w3.org/Tools/respec/respec-w3c-common'
+		async="async" class='remove'></script>
+<script class='remove'>
+			var respecConfig = {
+				specStatus: "ED",
+				shortName:  "shacl-ucr",
+				edDraftURI: "http://w3c.github.io/data-shapes/data-shapes-ucr/",
+				editors: [{   name:       "Simon Steyskal",
+				url:        "http://steyskal.info/",
+				company:    "WU Vienna/Siemens AG",
+				w3cid: "73545" },
+				{   name:       "Karen Coyle",
+				url:        "http://kcoyle.net/",
+				company:    "DCMI",
+				companyURL: "http://dublincore.org/",
+				w3cid: "44865" }
+				],
+				wg:           "RDF Data Shapes Working Group",
+				wgURI:        "https://www.w3.org/2014/data-shapes",
+				wgPublicList: "public-rdf-shapes",
+				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
+				localBiblio:  {
+				"SHACLspec": {
+					title:    "Shapes Constraint Language (SHACL) Specification",
+					href:     "http://w3c.github.io/data-shapes/shacl/",
+					"authors": [
+						"H. Knublauch",
+						"E. Prud'hommeaux"
+					],
+					publisher: "xyz"
+				}}
+			};
+		</script>
+		<style>
+		/* use tab-like headers for syntax examples */
+div.exampleheader {
+  font-size: 90%;
+  float: left;
+  background: #F9F9F9;
+  color: #2F6FAB;
+  border: 1px dashed #2F6FAB;
+  border-bottom: 0px;
+  padding-top: 2px;
+}
+
+div.exampleheader span.exampleheader {
+  background: #F9F9F9;
+  padding-top: 0px;
+  padding-right: 10px;
+  padding-left: 10px;
+  padding-bottom: 3px;
+  padding-top: 0px;
+}
+
+/* Also copy MediaWiki style here, so it will not look different when exported */
+div.fssyntax pre, div.rdfxml pre, div.owlxml pre, div.turtle pre, div.manchester pre  {
+  background-color: #F9F9F9;
+  border: 1px dashed #2F6FAB;
+  color: black;
+  line-height: 1.1em;
+  padding: 1em;
+  clear: both;
+  margin-left: 0em;
+}</style>
+	</head>
+	<body>
+	  <section id='abstract'>
+			<p>
+				To foster the development of Shapes Constraint Language (SHACL), this document includes a set of use cases and  
+				requirements that motivate a simple language and semantics for formulating structural constraints on <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graphs</a>. 
+				All use cases provide realistic examples describing how people may use structural constraints to validate RDF instance data. Note, that this document avoids the use of any specific vocabulary that might be introduced by the <abbr title="Shapes Constraint Language">SHACL</abbr> specification.
+			</p>
+			</section>
+
+			<section id='sotd'>
+
+			</section>
+
+			<!-- taken from http://www.w3.org/2014/data-shapes/charter -->
+			<section>
+				<h1>Scope and Motivation</h1>
+				<p>
+					One motivation for SHACL is <em>Application Integration</em>, where different software components, potentially maintained by different organizations, need to function together smoothly. As an everyday example, imagine an international company with a dozen divisions, each providing a feed of their Human Resources data to authorized users. Different divisions might use different software to produce their feeds, and there might be many distinct applications which consume the data, ranging from an employee phone book to a hiring-compliance monitoring system. 
+				</p>
+				<p>
+					While systems like this are built and maintained around the world today, their complexity often becomes a problem. Not only are the systems expensive and sometimes unpleasant to maintain, but changing data fields and adding new applications can grow to be practically impossible. An &quot;RDF Data Shapes&quot; standard would help manage the complexity, greatly reducing the cost and hassle, by separating components while still allowing them to work together.
+				</p>
+				<p>
+					Specifically, in this example, SHACL would allow:					</p>
+				<ul>
+		    <li>Developers of each data-consuming application could define the shapes their software needs to find in each feed, in order to work properly, with optional elements it can use to work bette</li>
+						<li>When these developers want to modify their software, they can define new shapes they require.</li>
+						<li>Management can offer guidance in the relative priorities of outputting particular shapes, based on the application(s) that use them. There might be target goals and deadlines.</li>
+						<li>Developers of data-providing systems can read the shape definitions (and possibly related RDF Vocabulary definitions) to learn what they need to provide.</li>
+						<li>Data providers can also validate their data against the definitions, to see if they are producing the right information. (Of course, this doesn't ensure the data is correct, just that it's the right shape.) </li>
+						<li>Data consumers can validate incoming data against the expected shapes, to make sure they are getting the kind of data they were expecting. This can be done manually from time to time, or automatically on all data. This kind of validation is particularly important if producers and consumers keep updating their software to use new shapes to meet changing requirements. </li>
+						<li>Intermediate systems can, in some cases, be written to convert data written to match one shape into data which matches a different shape. </li>
+						<li>Some systems may be able to automatically generate user interface elements (e.g. HTML forms) and/or data bindings based on shapes.</li>
+						<li>There may be optimizations in data processing possible when the data is known to conform to a single declared shape. </li>
+					</ul>
+				</p>
+				<p>
+					In all cases, the <em>semantics</em> of the data are determined by RDF and the vocabularies specified by the shape, so if the shapes match, the systems can reasonably be expected to interoperate correctly. 
+				</p>
+				<p>
+					While SHACL is expected to have immediate everyday utility, as illustrated above, it has even wider potential applicability, ranging in scale. At the large end, SHACL might be used by loosely-knit communities, where data is provided by organizations which are not under any central authority, such as charities and researchers around the world concerned with quality-of-life measures. At the small end, SHACL might be used within a mobile application environment to provide interoperability among independent sensor modules and tools for analyzing and acting on sensor results. The common thread is that SHACL allow a loose coupling, where independently maintained elements of an overall system can reliably and comfortably interoperate. 
+				</p>
+			</section>
+
+			<section>
+				<h1>Organization of this Document</h1>
+				<p>This document is organized as follows:</p>
+				<ul>
+					<li><strong><a href="#usecases" title="Use Cases">Use Cases</a></strong> are
+						used to capture and model functional requirements. Use cases
+						describe the system’s behavior under various conditions [[COCKBURN-2000]],
+						cataloging who does what with the system, for what purpose, but
+						without concern for system design or implementation. Each use case is identified by a
+						reference number to aid cross-reference from other documentation. A variety of styles may be used to capture use cases,
+						from a simple narrative to a structured description with actors,
+						pre/post conditions, and non-functional requirements
+						raised by the use case.</li>
+					</ul>
+
+
+			<ul>
+				<li><strong><a href="#requirements" title="Requirements">Requirements</a></strong>
+					list functional and non-functional or quality requirements, and the use cases
+					they may be derived from/related to. This approach is exemplified in the <em>Use Cases and Requirements for the Data
+					Catalog Vocabulary</em> [[DCAT-UCR]].</li>
+				</ul>
+			</section>
+
+			<section>
+				<h1 id="userstories">Use Cases</h1>
+				<!-- User Story 1 -->
+				<section>
+					<h2><dfn>UC1</dfn>: Model validation</h2>
+					<p>
+			    There is a general need to validate that the instance data matches the models that have been defined in RDFS or OWL. The primary validation requirement is to ensure that the appropriate information is given for each property (or class) in the model. As examples, one could require that each property must have a domain, or that classes must be explicitly stated in the instance data. Input to this case is the RDF representation of an RDFS (or OWL) ontology.</p>
+					<!--<section>
+						<h3>Summary:</h3>-->
+						<p><strong>Summary:</strong> Requires the ability to check whether certain information is given/available for a property or class.					</p>
+					<!--</section>
+					<section>
+					  <h3>Related Requirements:</h3>
+						--><p> <strong>Related Requirements:</strong> 
+							<a>R6.2</a>
+						</p>
+								
+</section>
+				<!-- User Story 2 -->
+				<section>
+					<h2><dfn>UC2</dfn>: Enforcing cardinality</h2>
+					<p>
+						For a tool that will build a list of personal names for named entity resolution to work correctly, every person must have one or more names specified, each of which is a string. Constraints can be used to verify that a particular set of data has at least one such name for each person.
+					</p>					
+						<p><strong>Summary:</strong> Requires the ability to check the cardinality of properties as well as the type of its values.</p>
+					<!--	<p><strong>Related Use Cases</strong>: <a>UC8</a>,<a>UC11</a>,<a>UC23</a>, <a>UC37</a></p>-->
+
+						<p> <strong>Related Requirements:</strong>  
+							<a>R6.2</a> and 
+							<a>R8</a>
+						</p>
+
+				</section> 
+
+				<!-- User Story 3 -->
+				<section>
+					<h2><dfn>UC3</dfn>: Nuanced error conditions</h2>
+					<p>
+						Validation itself will result in a yes/no decision. However, there is a range of responses that any application may wish to act on, or that it may want to echo back to the user as a result of the validation process. There are the obvious results of &quot;keep/reject&quot; but oftentimes there will be a range of error or alert responses. There needs to be a way to associate an error level or code with the output from validation. Some applications will have a number of responses that inform users of ways they could improve their data, while still accepting all but the truly unusable data. Other applications could analyze data using a nuanced granding system. </p>
+			
+						<p><strong>Summary:</strong> Requires the ability to return responses appropriate to the condition, not just &quot;pass/fail.&quot;</p>
+
+						<p> <strong>Related Requirements:</strong>  
+						
+							<a>R5.1</a>, 
+							<a>R5.9.1</a>, 
+							<a>R5.9.2</a>, 
+							<a>R5.9.3</a>, 
+							<a>R5.10</a>, 
+							<a>R10</a>, 
+							<a>R10.1</a>, 
+							<a>R10.2</a>, and
+							<a>R10.3</a>
+						</p>
+
+				</section>
+
+				<!-- User Story 4 -->
+				<section>
+					<h2><dfn>UC4</dfn>: Shape variations within a process or workflow</h2>
+					<p>The same shape can have different values and different requirements at different points in a process or workflow. 
+					Any node in the graph may serve multiple roles, that is, the same node may include properties for a SubmittingUser and for an AssignedEmployee, and these will be relevant at different points in the process.
+	As an example, an LDP Container (e.g PendingIssues) accepts an IssueShape with a status of &quot;assigned&quot; or &quot;unassigned&quot;. The LDP Container is an interface to a service storing data in a conventional relational database. Later, the issue gets resolved and is available as OldIssues without acquiring new type arcs. The constraints for PendingIssues are different from those for Issues at	OldIssues, even though the instance data occupies a single graph.</p>	
+				
+						<p><strong>Summary:</strong> Requires the ability to associate more than one shape to the same graph or node.</p>
+
+						<p><strong>Related Requirements:</strong>  <em>no suitable requirements approved yet</em>. </p>	
+				</section>
+
+				<!-- User Story 5 -->
+				<section>
+					<h2><dfn>UC5</dfn>: Complex constraints</h2>
+					<p>Data applications may have a number of complex constraints that must interoperate. For example, there can be a wide variety of access rules defining what privileges for viewing and updating data. These can be applied to accounts or to applications or functions. There can be additional complex constraints
+					on different import or export data. Incoming data, which itself can be complex, can be subjected to a large number of validation actions, some of which are dependent on output from prior application steps. </p>
+				  <p>Design of validation must make these complex constraints appropriately efficient in application, as well as fostering a manageable maintenance environment for the validation technology.
+				  </p>
+				
+					  <p><strong>Summary:</strong> Requires the expressibility of complex constraints that include e.g. value transformations, string operations, date comparisons, etc.</p>
+
+						<p><strong>Related Requirements:</strong>    
+							<a>R6</a>, 
+							<a>R6.3</a>, 
+							<a>R6.5</a>, 
+							<a>R6.6</a>,  
+							<a>R6.7</a>, 
+							<a>R7.2</a>, and
+							<a>R8</a>
+						</p>
+	
+				</section>
+
+			<!-- User Story 8 -->
+			<section>
+				<h2><dfn>UC8</dfn>: Checking RDF node type</h2>
+				<p>
+					It is often necessary or desirable to check whether certain property values  RDF nodes are of a specific node type (IRI, BlankNode or Literal and all combinations thereof). One example is the need to state that a given property shall only have IRIs but not BlankNodes.
+				</p>
+				<p>
+				There are examples of this functionality in the VOID namespace, (<a href="http://www.w3.org/TR/void/#dumps">void:dataDump</a> and <a href="http://www.w3.org/TR/void/#example-resource">void:exampleResource)</a>, and in SPARQL (<a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#func-isIRI" title="link to isIRI in SPARQL documentation">isIRI</a>, <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#func-isBlank" title="Link to isBlank in SPARQL documentation">isBlank</a>, <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#func-isLiteral" title="Link to isLiteral in SPARQL documentation">isLiteral</a>). 
+
+				</p>
+				
+					<p><strong>Summary:</strong> Requires the possibility to constrain the value type of a property. E.g. check whether it is an IRI, a literal, a blank node, or some combination of those. </p>
+					<!--<p><strong>Related Use Cases</strong>: <a>UC2</a>,<a>UC11</a>,<a>UC23</a>, <a>UC37</a></p>-->
+
+					<p><strong>Related Requirements:</strong>  
+						<a>R5.5</a>  
+					</p>
+
+			</section>
+			<!-- User Story 9 -->
+			<section>
+				<h2><dfn>UC9</dfn>: Contract time intervals</h2>
+<p>An ontology may state  that instances of a class have a value for a property. Subclasses may be  associated with a constraint that requires that there is a provided  value for the property. For example, in the OMG time ontology adopted by  FIBO every contract has to have an end date.  A shape (set of constraints) may require that bonds (a subclass of contracts) have specified end dates without requiring that all contracts have specified end dates.</p>	
+							<p><strong>needs revision</strong><strong>Summary:</strong> Validation must allow for (momentarily) unspecified values. For example, an end date may be assumed but is not specified at this time.</p>
+			
+
+						<p><strong>Related Requirements:</strong>  
+						<em>no suitable requirements approved yet</em>. </p>	
+
+			</section>
+			<!-- User Story 10 -->
+			<section>
+				<h2><dfn>UC10</dfn>: Cardinality &gt;= 0</h2>
+					<p> There is a class in FIBO called IncorporatedCompany, which is a subclass of a bunch of restrictions. Many of them are of the form:					</p>
+	  <div class="turtle"><div class="exampleheader"><span class="exampleheader"><strong>Example</strong></span></div>
+						<pre>fibo-be-oac-cpty:hasControllingInterestParty min 0 fibo-be-oac-cctl:VotingShareholder</pre>
+					</div>
+							
+					i.e., a qualified cardinality of <code>min 0</code>.</p>
+					<p>
+					What exactly does this mean? (logically, it is meaningless. Right?) I have an email in to some other FIBO ontologists, but here are some things I think it should mean:						</p>
+					<ul>
+			    <li>If we build a form for an <code>IncorporatedCompany</code>, there should be a field in that form for <code>hasControllingInterestParty</code>. The field should be pre-populated (e.g., with a drop-down) with known <code>VotingShareholder</code>s. We won't draw any inferences about the things here (as we would have done, if we had said min=1 or more)</li>
+							<li>If we receive a payload describing an <code>IncorporatedCompany</code>, and it has values for <code>hasControllingInterestParty</code>, then at least one of them should be known to be a <code>VotingShareholder</code>. I'm not sure what the appropriate behavior is if this doesn't hold. If we wanted a hard error, we should have said min 1.</li>
+						</ul>
+
+					</p>
+			
+						<p><strong>Summary:</strong> Requires the possibility to indicate an expectation that a certain property will (or might) be there without requiring that it be there.
+						
+						</p>
+
+
+						<p><strong>Related Requirements:</strong>  
+						<a>R5.1</a>,
+						<a>R5.2</a>,
+						<a>R5.3</a>, 
+						<a>R5.4</a>, and
+						<a>R8</a>
+						
+						</p>
+	</section>
+
+				<!-- User Story 11 -->
+				<section>
+					<h2><dfn>UC11</dfn>: Model-Driven UI constraints</h2>
+					<p>
+					There is a need to have constraints that provide model-driven validation of permissible values in user interfaces. 
+						The major requirement here is a declarative model of:					</p>
+					<ul>
+					<li>which properties are relevant for a given class/instance?</li>
+							<li>what is the value type of those properties?</li>
+							<li>what is the valid cardinality (min/maxCount)?</li>
+							<li>what is the interval of valid literal values (min/maxValue)?</li>
+							<li>any other metadata typically needed to build forms with input widgets.</li></ul>
+					          <p>
+						It must be possible to perform validation of this type on instance data without being required to make use of a specific mechanism, such as SPARQL queries. Instead, the model should be of a sufficiently high level  that it is not dependent on a single tool or method. However, at the same time there are many advanced constraints that need to be validated (either on server or client) before a form can be submitted. These constraints are not necessarily &quot;structural&quot; information, but rather executable code that returns error messages. 
+					          </p>
+					
+					            <p><strong>Summary:</strong> Requires the ability to declare and constrain permitted values for properties, as well as their cardinalities, in an abstract
+					              and &quot;high-level&quot; fashion.</p>
+					            
+					           <!-- <p><strong>Related Use Cases</strong>: <a>UC2</a>,<a>UC8</a>,<a>UC23</a>, <a>UC37</a></p>	-->			
+
+						        <p><strong>Related Requirements:</strong>  
+						<a>R5.1</a>,
+						<a>R5.2</a>,
+						<a>R5.3</a>, 
+						<a>R5.4</a>,
+						<a>R5.9.1</a>,
+						<a>R5.9.2</a>,
+						<a>R5.9.3</a>, 
+						<a>R5.10</a>,
+						<a>R8</a>,
+						<a>R14.1</a>,
+						<a>R14.2</a>, and
+						<a>R14.3</a>
+						</p>
+					       
+				</section>
+
+			<!-- User Story 12 -->
+ 			<section>
+			  <h2><dfn>UC12</dfn>: Application interoperability</h2>
+ 			 <p>There is one application (eg Cimba) which stores application state in RDF. It currently queries and modifies that state using HTTP GET and PUT operations on RDF Sources, but we have another version being developed that uses SPARQL to query and modify the data. The question is, how do we communicate the shape of the data this application reads and writes to other developers who want to make compatible applications? We want to say: as long as your data is of this form, Cimba will read it properly. We also want to say: Cimba may write data of any of these forms, so to be interoperable, your application will need to read and correctly process all of them. 
+ 			   </p>
+			    <p><strong>Summary:</strong> Requires the possibility to use shape definitions as descriptions of the shape of expected data.</p>
+ 			    <p><strong>Related Requirements:</strong>  	 						<a>R5.1</a>,
+						<a>R5.2</a>,
+						<a>R5.3</a>,
+						<a>R5.4</a>,
+						<a>R5.9.1</a>,
+						<a>R5.9.2</a>,
+						<a>R5.9.3</a>, 
+						<a>R11.5</a>, and
+						<a>R11.7</a> </p>
+		      </section>
+
+
+
+				<!-- User Story 13 -->
+				<section>
+				  <h2><dfn>UC13</dfn>: Specification and validation of metadata templates</h2>
+				  <p>Data gathering functions, especially those that are consortial or rely on aggregation of data from multiple sources, need to be able to easily create templates to represent metadata. Eas of templating is particularly important in rapidly changing fields, such as medicine. For this reason, it is crucial that a language be developed that can allow easy templating of metadata and constraints. The templates must allow users to define different sets of metadata elements and their requirements. Templates should be modular and re-usable.</p>
+				  <p>
+				    These templates will contain metadata elements that are either required or optional, and that define the value of the field to specific datatypes (e.g. string, integer, decimal, date). Values may be restricted by length or to a regular expression pattern; they may limited to specific categorical values or terminology trees/class expressions of a target ontology.
+				  </p>
+				  <p>
+				    Ideally, the shapes language should be readable by computers in order to automatically generate template forms with restriction to specified values. Moreover, libraries and tools to construct and validate templates and their instance data should be readily available. 
+			      </p>
+					
+				    <p><strong>Summary:</strong> Requires the possibility to define shapes for a specific node in a modular manner, i.e. defining different sets of metadata fields and value sets.</p>
+				    <p>Requires the availability of version information of shapes thus, the results of validation shall record the version of the triggered shape expression.</p>
+				  <!--  <p>Related to(regarding overall constraint requirements): <a>UC2</a>,<a>UC8</a>,<a>UC23</a>, <a>UC37</a> </p>-->
+
+				    <p><strong>Related Requirements:</strong> 
+						<a>R5.1</a>,
+						<a>R5.2</a>,
+						<a>R5.3</a>, and
+						<a>R5.4</a>
+
+					</p>
+			      </section>
+
+
+			<!-- User Story 14 -->
+			<section>
+			  <h2><dfn>UC14</dfn>: Quality Assurance for object reconciliation</h2>
+			  <p>
+			    In data integration activities, tools such as Silk or Limes may be used to discover entity co-references. Entity co-references are pairs of different identifiers, often in different datasets, that refer to the same entity. Detected co-references are often recorded as <code>owl:sameAs</code> triples. This may be a step in an object reconciliation pipeline. 
+			  </p>
+			  <p> It would be nice if shapes could flexibly state conditions by which to check that identity of objects has been correctly recorded; that is, check conditions under which a same-as link should be present between two identifiers, or conversely, check conditions for misidentified same-as links.
+			  </p><ul>
+			    <li>
+			      If <code>source1.movie.title</code> is highly similar (by some widely adopted string similarity function, perhaps plugged in through an extension interface) to <code>source2.film.title</code> and <code>source1.movie.release-date.year</code> is identical to <code>source2.film.initial-release</code>, then a <code>owl:sameAs</code> triple should be present
+				  </li>
+			    <li>
+			      If <code>source1.movie.title</code> is identical to <code>source2.film.title </code>and <code>source1.movie.release-date.year</code> is within two years of <code>source2.film.initial-release</code>, then a <code>owl:sameAs</code> triple should be present
+				  </li>
+				     <li>
+			      If <code>source1.movie.directors</code> has the same set of values as <code>source2.film.directed-by</code> AND <code>source1.movie.title</code> is highly similar to <code>source2.film.title</code>, then a <code>owl:sameAs</code> triple should be present
+				  </li>
+		      </ul>
+			<p>
+				The intent here is not that the validation process should produce the expected owl:sameAs triples. We assume that some other tool or process has already produced these triples. The purpose of these validation rules is to perform quality assurance, or sanity checks, on the output of these other tools or processes. Thus, the quality or completeness of the generated linkset could be assessed.
+			</p>
+			<p>	
+				We note however that object reconciliation tools could be driven by constraints like those given above. So potentially, an object reconciliation tool and a validator could use the same input constraints. Thus, this story straddles the boundaries between constraint checking and inference.
+		    </p>
+			<p><strong>Summary:</strong> Requires the </p>
+			<p><strong>Related Requirements:</strong>  <em>no suitable requirements approved yet</em>. </p>	
+    </section>
+
+				<!-- User Story 15 -->
+				<section>
+				  <h2><dfn>UC15</dfn>: Validation of variant dataset descriptions</h2>
+				  <p>Vocabulary and data re-use are desirable features of an RDF application. Metadata for a community or function may be expressed as levels of description that re-use existing vocabularies in a way that is appropriate to different contexts. For some data it may be possible to define a subset that satisfies a minimum description. In other cases, data may be re-used in a variety of configurations. Each of these contexts can have different validation constraints.</p>
+<p>				  For example, in a data environment that has a 3 component model for summary, versioning, and distribution-level descriptions, each component has access to a specific set of metadata elements and these are specified as MUST, SHOULD, MAY, and MUST NOT. As such there are different conformance criteria for each level. Metadata values are either unrestrained <code>rdfs:Literals</code>, constrained <code>rdfs:Literals</code>, URIs with a specified URI pattern, or instances of a specified URI-identified type, or a disjunction of URI-specified types.
+				  </p>
+	
+				    <p><strong>Summary:</strong> Requires the functionality to restrict application of constraints to certain contexts.</p>
+				    <p>Requires expressibility of cardinality constraints and property value restrictions.</p>
+				    <!--<p>Validation must take place within a context that defines the set of rules to be applied and the response codes returned on specific conditions.</p>-->
+
+				    <p><strong>Related Requirements:</strong>  <a>R5.1</a> </p>
+			      </section>
+
+
+				<!-- User Story 16 -->
+				<section>
+				  <h2><dfn>UC16</dfn>: Constraints and controlled reasoning</h2>
+				  <p>
+				    A use-case we were <a href="https://ai.wu.ac.at/~polleres/publications/sche-etal-2014ConfigWS.pdf">facing recently</a>, revolved around the integration of distributed configurations (i.e. object-oriented models) with RDFS and SPARQL. 
+			      
+				    In this particular use-case we had to assume both Unique Name Assumption (UNA) and Closed World Assumption (CWA) for our ontologies, since the models (i.e. configurations) from which those ontologies were derived were generated by product configurators that impose both UNA and CWA. Since neither RDFS or OWL impose UNA/CWA we had to come up with some workarounds which were basically: 
+			      </p>
+				  <ul>
+				      <li>
+				        <strong>UNA 2.0:</strong> all URIs are treated as different, unless explicitly stated otherwise by owl:sameAs (UNA 2.0 because in general, if two URIs are different and the ontology they are contained in is assumed to obey the UNA then they cannot be connected via owl:sameAs). 
+			        </li>
+				      <li>
+				        <strong>CWA:</strong> we assumed to know every existing individual of local configurations and directly connected individuals from other local configurations, thus an absence of a certain individual in the local configuration means that it does not exist. </li></ul>
+			                            </li>
+				  </ul>
+				        <p>
+				    SPARQL was used  to perform query tasks on the global schema as well as to check simple integrity constraints by translating e.g. cardinality restrictions into ASK queries.
+			            </p>
+				  
+				        <p>
+				    One major problem which arose based on our workaround to impose UNA was, that SPARQL is unaware of the special semantics of owl:sameAs. Which means that especially if one wants to use counting aggregates, one usually wants to count the number of real-objects and not the number of URIs referring to it. As an example we defined two SPARQL queries which should count the number of subnets of a certain system:
+				    
+			            </p>
+					
+				          <p><strong>Summary:</strong> Requires support of unique name assumption, such that each unique IRI is assumed to represent a unique entity.</p>
+				          <p>Requires possibility to encapsulate verbose constraint definitions into macros, thus allowing their reuse in other shapes as well as increase readability of shape expressions.</p>
+
+				          <p><strong>Related Requirements:</strong>  
+						  <a>R7</a>,
+						  <a>R7.1</a>, and
+						<a>R7.2</a>						  </p>
+			            </section>
+
+
+			<!-- User Story 17 -->
+			<section>
+			  <h2><dfn>UC17</dfn>: Specifing subsets of data</h2>
+			  <p>
+			    The medical community has an interest in the notion of &quot;archetypes&quot; that are expressed as abstract constraints on a reference model. The reference model describes the largest set of possible possible instances of a given collection of data and the archetypes then constrain this set of instances by restricting cardinality, types, value ranges, etc.. One way to implement archetype models would be through RDF and SHACL, where the reference model would be viewed as the &quot;constraints&quot; -- the set of rules that are used to validate incoming data and to document data set validity.
+				</p>
+			<p>The archetypes, however, would serve the additional purpose of defining &quot;instance subsets&quot;. The archetypes identify filters/queries that would allow a user to return the a set of shapes that met certain criteria such as abnormal values, co-occurence, etc. They could also act as filters, funneling incoming instances to secondary processes where necessary.
+			</p>
+			<p>It should be noted that the primary representation for archetypes in the medical community will probably <em>not</em> be SHACL -- they will be using <a href="https://openehr.atlassian.net/wiki/display/ADL/ADL+Home">Archetype Definition Language (ADL)</a> (or the UML equivalent, AML) and/or <a href="http://www.hl7.org/implement/standards/fhir/profile.html">profiles</a>, with SHACL being a translation.
+			</p>
+		      <p><strong>Summary:</strong> Defines a use case, where shape definitions could be used to partition a data set (i.e. one could query for individuals that are compliant to a specific shape). </p>
+
+			    <p><strong>Related Requirements:</strong>  TBD </p>
+
+			</section>
+
+			<!-- User Story 19 -->
+			<section>
+			  <h2><dfn>UC19</dfn>: Query Builder</h2>
+			  <p>
+			    Various tools are contributing data to a triple store. A Query Builder wants to know the permitted or likely shapes of the data over which the generated queries must run, so that the end user can be presented with a nice interface prompting for likely predicates and values. Since the data is dynamic, this is not necessarily the same as the shape that could be reverse engineered from the existing data. The Query Builder and the data-producing tools are not provided by the same team - the Query Builder team has very limited control over the data being produced. The source of the data might not provide the necessary shape information, so we need a way for the Query Builder team (or a third party) to be able to provide the shape data independently. See also <a href="https://www.w3.org/2014/data-shapes/wiki/Ontology-Driven_Forms">Ontology-Driven Forms</a>. 
+		      </p>
+					
+			    <p><strong>Summary:</strong> Requires the possibility to provide shape definitions independently of instance data.</p>
+			    <!--<p><strong>Related Use Cases</strong>: <a>UC11</a></p>-->
+
+			    <p><strong>Related Requirements:</strong>  
+						<a>R5.1</a>,
+						<a>R5.2</a>,
+						<a>R5.3</a>,
+						<a>R5.4</a>,
+						<a>R5.9.1</a>,
+						<a>R5.9.2</a>,
+						<a>R5.9.3</a>, 
+						<a>R8</a>,
+						<a>R11.5</a>, 
+						<a>R11.7</a>,
+						<a>R14.1</a>,
+						<a>R14.2</a>, and
+						<a>R14.3</a>
+						</p>
+		      </section>
+
+			<!-- User Story 20 -->
+			<section>
+			  <h2><dfn>UC20</dfn>: Creation Shapes</h2>
+			  <p>
+		      A client creating a new resource by posting to a <a href="http://www.w3.org/TR/ldp/#ldpc" title="Linked Data Platform Container">Linked Data Platform Container</a> wants to know the acceptable properties and their values, including which ones are mandatory and which optional. Note that this creation shape is not necessarily the same as the shape of the resource post-creation - the server may transform some values, add new properties, etc.  
+			  </p>
+					
+			    <p><strong>Summary:</strong> Requires the ability to decide which shape definitions should be valid/triggered for a certain node (in case those shape definitions are mutually exclusive). </p>
+
+			    <p><strong>Related Requirements:</strong>  					
+				<a>R5.1</a>,
+						<a>R5.2</a>,
+						<a>R5.3</a>,
+						<a>R5.4</a>,
+						<a>R5.9.1</a>,
+						<a>R5.9.2</a>, 
+						<a>R5.9.3</a>
+						<a>R8</a>, and
+						<a>R14.1</a>
+						</p>
+		      </section>
+
+
+				<!-- User Story 21 -->
+			  <section>
+					<h2><dfn>UC21</dfn>: SKOS constraints</h2>
+					<p>
+						The well-known SKOS vocabulary defines constraints that are outside of the expressivity of current ontology languages, such as:				  </p>
+				  <ul>
+		      <li>make sure that a resource has at most one preferred label for a given language</li>
+						  <li>preferred labels and alternative labels must be disjoint</li>
+				  </ul>
+						The constraint language must include the capability to define these constraints, and in particular 
+						these constraints should be provided as easily re-usable modules.
+
+					  <p><strong>Summary:</strong> Requires the possibility to define complex constraints including ones on property/value pairs.</p>
+					<!--  <p><strong>Related Use Cases</strong>: Cardinality constraints, constraints over properties of the same node.</p>-->
+
+						  <p> <strong>Related Requirements:</strong>  
+						  <a>R6</a>,
+						    <a>R6.4</a>, 
+						    <a>R6.6</a>, 
+						    <a>R7</a>, and 
+						    <a>R7.3</a>
+					      </p>
+				  </section>
+
+					<!-- User Story 22 -->
+	<section>
+					  <h2><dfn>UC22</dfn>: RDF Data Cube constraints</h2>
+					  <p>
+					    The <a href="http://www.w3.org/TR/vocab-data-cube">Data Cube Vocabulary</a> provides a means to publish multi-dimensional data, such as statistics, on the web in such a way that it can be linked to related data sets and concepts. While the bulk of the vocabulary is defined as an RDF Schema, it also includes <a href="http://www.w3.org/TR/vocab-data-cube/#wf-rules">integrity constraints</a>.
+						</p>
+						<p>Each integrity constraint is expressed as narrative prose and, where possible, a SPARQL ASK query or query template. If the ASK query is applied to an RDF graph then it will return true if that graph contains one or more Data Cube instances which violate the corresponding constraint.
+						</p>
+						<p>Using SPARQL queries to express the integrity constraints does not imply that integrity checking must be performed this way. Implementations are free to use alternative query formulations or alternative implementation techniques to perform equivalent checks.
+						</p>
+					
+					    <p><strong>Summary:</strong> Requires support of RDF Data Cube Integrity Constraints</p>
+					    <!--<p><strong>Related Use Cases</strong>: Cardinality constraints, constraints over properties of the same node, property value restrictions.</p>-->
+
+					    <p> <strong>Related Requirements:</strong>  
+					      <a>R6</a>,
+					      <a>R6.2</a>, and
+					      <a>R6.6</a>
+				        </p>
+
+					  </section>	
+
+				<!-- User Story 23 -->
+	<section>
+				  <h2><dfn>UC23</dfn>: schema.org constraints</h2>
+				  <p>
+				    Developers at Google have created a validation tool for the well-known schema.org vocabulary for use in Google Search, Google Now and Gmail. They have found that what may seem like a potentially infinite number of possible constraints can be represented quite succinctly using existing standards and serialized as RDF. 
+				    Some examples of schema.org constraints are:</p>
+				    <ul>
+				      <li>On <code>schema:Person</code>: Children cannot contain cycles, Children must be born after the parent, deathDate must be after birthDate </li>
+				      <li>On <code>schema:GeoCoordinates</code>: longitude must be between -180 and 180, latitude between -90 and 90 </li>
+				      <li>On <code>various</code>: email address must match a certain regular expression </li>
+				      <li>On <code>schema:priceCurrency, currenciesAccepted</code>: Currency code must be from a given controlled vocabulary </li>
+				      <li>On <code>schema:children, colleagues, follows, knows, parents, relatedTo, siblings, spouse, subEvents, superEvents</code>: Irreflexitity </li>
+      </ul>
+                      
+				 <p>It must be possible to encode schema.org constraints in SHACL.
+				    </p>
+<p><strong>Summary:</strong> Requires support of schema.org constraints.</p>
+
+				    <p> <strong>Related Requirements:</strong>  
+				      <a>R6</a>, 
+				      <a>R6.2</a>, 
+				      <a>R6.3</a>, 
+				      <a>R6.6</a>, and 
+				      <a>R6.8</a> 
+			        </p>
+
+			  </section>		
+
+		<!-- User Story 24 -->
+	  <section>
+      <h2><dfn>UC24</dfn>: Open Content Model</h2>
+		  <p> 
+		    Consider a situation in which there is a need to integrate similar information from multiple applications and that the application owners have agreed on an RDF representation for this information. However, because the applications have some differences, the application owners can only agree on those data items that are common to all applications. The defined RDF representation will include the common data items, and will allow the presence of other undefined data items in order to accommodate differences among the applications. In this situation, the RDF representation is said to have an open content model.</p>
+	    <p>
+      Since the shape of a resource may depend on the tool that hosts it, or the project that hosts it within a tool, but the RDF type of the resource may not depend on the tool or project, there is in general no way to navigate to the shape given only its RDF type. The <a href="http://www.w3.org/Submission/shapes/"> OSLC Resource Shapes</a> specification provides two mechanisms for navigating to the appropriate shape. First, the RDF property oslc:resourceShape where oslc: is &lt;http://open-services.net/ns/core#&gt; may be used to link a tool or project description to a shape resource. Second, the RDF property oslc:instanceShape may be used to link a resource to its shape. 
+	      </p>
+		  <p>	
+		    See <a href="https://www.w3.org/2014/data-shapes/wiki/Open_Content_Model_Example">Open Content Model Example</a> for a detailed example. 
+	      </p>
+					
+		    <p><strong>Summary:</strong> The constraint language must support an open content model that can operate on designated data elements within a larger set of undefined elements that are ignored by the application.</p>
+		    <p>Requires the possibility to address a resource graph based on criteria unrelated to its rdf:type. This can be a general context, or a specific application function.</p>
+		   <!-- <p><strong>Related Use Cases</strong>: <a>UC4</a></p>-->
+
+		    <p><strong>Related Requirements:</strong> 
+				<a>R8</a>
+			</p>	
+
+		  </section>	
+
+		<!-- User Story 25 -->
+		<section>
+		  <h2><dfn>UC25</dfn>: Primary Keys with URI patterns</h2>
+		  <p>
+		    It is very common to have a single property that uniquely identifies instances of a given class. For example, when you import legacy data from a spreadsheet, it should be possible to automatically produce URIs based on a given primary key column. The proposed solution here is to define a standard vocabulary to represent the primary key and a suitable URI pattern. This information can then be used both for constraint checking of existing instances, and to construct new (valid) instances. One requirement here is advanced string processing, including the ability to turn a partial URI and a literal value into a new URI.
+		    </p>
+		  <p>
+		    Details: <a href="https://www.w3.org/2014/data-shapes/wiki/Primary_Keys_with_URI_Pattern">Primary Keys with URI Pattern</a>
+		    </p>
+					
+		    <p><strong>Summary:</strong> Requires The ability to create IRIs from non-IRI identifiers.</p>
+	
+		    <p><strong>Related Requirements:</strong>  
+			<a>R6</a> and <a>R8</a>
+			</p>
+
+		  </section>	
+
+		<!-- User Story 26 -->
+		<section>
+		  <h2><dfn>UC26</dfn>: rdf:Lists and ordered data </h2>
+		  <p>
+		   Can we express validating rdf:Lists a in our framework? This is more than just a stresstest but a variation of this can be used to check whether all members of a list have certain characteristics.
+		   </p>
+		   <p>Libraries have a number of resources that are issued in ordered series. Any library may own or have access to some parts of the series, either sequential or with broken sequences. The list may be very long, and it is often necessary to display the list of items in order. The order can be nicely numerical, or not. Another ordered list use case is that of authors on academic journal articles. For reasons of attribution (and promotion!), the order of authors in article publishing can be significant. This is not a computable order (e.g. alphabetical by name). There are probably other cases, but essentially there will definitely be a need to have ordered lists for some data. Validation could be: a) the list must have a beginning and end; b) there can be/cannot be gaps in the list.
+		   </p>
+		  <p>
+		    Details: <a href="https://www.w3.org/2014/data-shapes/wiki/Rdf:List_Stresstest">rdf:List Stresstest</a>
+		    </p>
+					
+		    <p><strong>Summary:</strong> Requires the possibility to define ordered and unordered lists of properties, including attributes like begin_element, end_element, etc.</p>
+
+		    <p> <strong>Related Requirements:</strong>  
+		      <a>R6</a>, 
+		      <a>R6.7</a>, and 
+		      <a>R6.8</a>
+		      </p>
+
+	  </section>	
+
+	  <!-- User Story 27 -->
+	  <section>
+	    <h2><dfn>UC27</dfn>: Relationships between values of multiple properties</h2>
+	    <p>
+	      Cultural heritage (CH) data is generally created in a distributed way, so when data is gathered together in a single aggregation, quite a bit of checking must be done. One of the key aspects of CH data is the identification of persons and subjects, in particular relating them to historical contexts. For persons, a key context is their own birth and death dates; for events, there is often a date range representing a beginning and end of the event. In addition, there are cultural heritage objects that exist over a span of time (serial publications, for example). In each of these cases, it is desirable to validate the relationship of the values of properties that have temporal or other ordered characteristics. 
+	      </p>
+	    <p>
+	      Details: <a href="https://www.w3.org/2014/data-shapes/wiki/Constraining_the_order_of_different_properties">Relationships between values of different properties</a>
+	      </p>				
+	      <p><strong>Summary:</strong> Requires ability to perform comparisons on the values in selected sets of properties. For example, to compare the value of properties representing birth date and death date to validate that birthdate precedes death date. Similar tests may be needed within workflows, for example to check that step one is completed before step two.</p>
+
+
+	      <p> <strong>Related Requirements:</strong>  
+	        <a>R6</a>, 
+	        <a>R6.6</a>, 
+	        <a>R6.7</a>,  
+	        <a>R7.3</a>, and
+			<a>R8</a>
+	        </p>
+
+      </section>	
+
+	  <!-- User Story 28 -->
+	  <section>
+	    <h2><dfn>UC28</dfn>: Self-Describing Linked Data resources</h2>
+	    <p>
+	      In Linked Data related information is accessed by URI dereferencing. The information that is accessible this way may represent facts about a particular resource, but also typing information for the resource. The types can themselves be used in a similar way to find the ontology describing the resource. It should be possible to use these same mechanisms to find constraints on the information provided about the resource.
+	      </p>
+	    <p>
+	      For example, the ontology could include constraints or could point to another document that includes constraints. Or the first document accessed might include constraints or point to another document that includes constraints. 
+	      </p>
+	    <p>
+	      DCMI story: For some properties there is a requirement that the value IRI resolve to a resource that is a skos:Concept. The resource value is not limited to a particular skos:Concept scheme. 
+	      </p>
+					
+	      <p><strong>Summary:</strong> SHACL must be able to define validation for information received from a dereferencing of the value IRI, e.g. that the value is a member of a skos:ConceptScheme. </p>
+	      <p> <strong>Related Requirements:</strong>  
+	        <a>R7</a>, 
+	        <a>R7.1</a>,  
+			<a>R7.2</a>, 
+	        <a>R7.3</a>, and
+			<a>R8</a>
+	        </p>
+
+      </section>	
+
+	  <!-- User Story 29 -->
+	  <section>
+	    <h2><dfn>UC29</dfn>: Describing interoperable, hypermedia-driven Web APIs (with Hydra)</h2>
+	    <p>
+	      <a href="http://www.hydra-cg.com/">Hydra</a> is a lightweight vocabulary to create hypermedia-driven Web APIs. By specifying a number of concepts commonly used in Web APIs it enables the creation of generic API clients. The Hydra core vocabulary can be used to define classes and &quot;supported properties&quot; which carry additional metadata such as whether the property is required and whether it is read-only.
+	      The constraints vocabulary should support the constraints commonly used in API clients.
+	    </p>
+				
+	      <p><strong>Summary:</strong> Requires the possibility to define a set of routines or concepts that will fulfil commonly required validation tasks, with perhaps some selectable options. </p>
+	      <p><strong>Related Requirements:</strong>  
+			<a>R5.1</a>,
+			<a>R5.9.1</a>,
+			<a>R5.9.2</a>, 
+			<a>R5.9.3</a>, and
+			<a>R8</a>
+		  </p>
+
+      </section>	
+
+	  <!-- User Story 30 -->
+	  <section>
+	    <h2><dfn>UC30</dfn>: PROV constraints</h2>
+	    <p>
+	      The <a href="http://www.w3.org/TR/prov-overview">PROV Family of Documents</a> defines a model, corresponding serializations and other supporting definitions to enable the inter-operable interchange of provenance information in heterogeneous environments such as the Web. One of these documents is a <a href="http://www.w3.org/TR/2013/REC-prov-constraints-20130430/">library of Constraints</a> which defines valid PROV instances. The actual validation process is quite complex and requires a normalization step that can be compared to rules. Various implementations of this validation process exist, including a set of SPARQL INSERT/SELECT queries sequenced by a <a href="https://github.com/pgroth/prov-check/blob/master/provcheck/provconstraints.py">Python script</a>, an <a href="https://provenance.ecs.soton.ac.uk/validator/view/validator.html">implementation in Java</a> and in <a href="https://github.com/jamescheney/prov-constraints">Prolog</a>. Stardog also defines an &quot;<a href="http://docs.stardog.com/#_database_archetypes">archetype</a>&quot; for PROV, which seems to be implemented in SPARQL using their ICV engine. 
+	      </p>
+				
+	      <p><strong>Summary:</strong> Requires support of PROV Constraints.</p>
+	      <p>Requires a mechanism to define rules within shape definitions.</p>
+
+	      <p><strong>Related Requirements:</strong>  <a>R6</a> </p>
+
+      </section>	
+
+	  <!-- User Story 31 -->
+	  <section>
+	    <h2><dfn>UC31</dfn>: LDP: POST content to container of a certain shape</h2>
+	    <p>
+	      Some simple LDP server implementations may be based on lightweight app server technology and only deal with JSON(-LD) and Turtle representations for their LDP RDF Sources (LDP-RS) on top of an existing application, say Bugzilla. As a client implementer, I may have a simple JavaScript application that consumes and produces JSON-LD. I want to have a way to programmatically provide the end-user with a simple form to create new resources and also a way to potential auto-prefill this form based on data from current context.
+	      </p>
+	    <p>
+	      LDP defines some behavior when a POST fails to a <code>ldp:Container</code>, by outlining expected status codes and additional hints that could be found in either the response body of the HTTP POST request or a response header (such as: Link relation of <code>&quot;http://www.w3.org/ns/ldp#constrainedBy&quot;</code>. A client can proactively request headers (instead of trying the POST and it fails) by performing an HTTP HEAD or OPTIONS request on the container URL and inspecting the link relation for &quot;constrainedBy&quot;. Typical constraints are: a) not necessarily based on type b) sometimes limited to the action of creation and may not apply to other states of the resource.
+	      </p>
+	    <p>
+	      Current gap is whatever is at the end of the &quot;constrainedBy&quot; link, could be anything: HTML, OSLC Resource Shapes, SPIN. The LDP WG discussed a need to have something a bit more formalized and deferred making any recommendation looking to apply these requirements unto the Data Shapes work.Once it matures, and meets the requirements, LDP could provide a recommendation for it then. 
+	      </p>
+					
+	      <p><strong>Summary:</strong> This use case covers similar topics as discussed in <a>UC11</a>.</p>
+
+	      <p><strong>Related Requirements:</strong> <em>no suitable requirements approved yet</em>. </p>	
+
+      </section>	
+
+	  <!-- User Story 32 -->
+	  <section>
+		  <h2><dfn>UC32</dfn>: Non-SPARQL based solution to express constraints between different properties</h2>
+		  <p>
+			  In this case there are potentially clients consuming RDF resources, interfacing with an LDP container, that need to work asynchronously (the client being a Workers mobile device where the work zone has no connectivity). The client needs to allow workers to create entries locally in the offline application to mark completion of different stages of the work. These entries will be synched  with the LDP container at a later time, when the device has network connectivity. Prior to that, when the client is in disconnected mode, the client software needs to perform a range of validations on the users entries to reduce the probabilty of an invalid entry.
+		  </p>
+		  <p>
+			  In addition to the basic data type/required/cardinality &quot;stand alone&quot; validations, the client needs to validate constraints between different properties:
+			  </p>
+		  <ul>
+	    <li>start time less than end time</li>
+			    <li>if end time is not specified, the status of the &quot;work&quot; should be &quot;In Progress&quot;</li>
+			    <li>if status is &quot;Complete&quot; end time is required.</li>
+			    </ul>
+
+			  The client side does not have access to any triple store/LDP container. If these validations can be expressed in a higher level language which makes it simpler for clients to implement them constraint systems will be useful in more places. 
+		  </p>
+				
+			  <p><strong>Summary:</strong> Expresses the requirement to be able to define constraints over more than one property.
+				  E.g., value of property start time must be less than value of property end time.</p>
+				  <p>Those interdependencies between properties of the same RDF node should be expressible in a higher level language.
+				  <!--Related to: <a>UC27</a>--></p>
+
+			    <p><strong>Related Requirements:</strong>  
+					<a>R7</a>,
+					<a>R7.4</a>,
+					<a>R11.5</a>, and
+					<a>R11.7</a>
+				</p>
+
+	  </section>	
+
+	  <!-- User Story 33 -->
+	  <section>
+	    <h2><dfn>UC33</dfn>: Structural validation for queriability</h2>
+	    <p>
+	      Data frequently has structural errors. Consider a schema where a medical procedure should have no more than one outcome. Accidental double entry occurs when e.g. a clinician and her assistant both enter outcomes into the database. Statistical queries over malformed data such as this leads to misinterpretation and inaccurate conclusions. Shapes can be used to sequester well-formed data for simpler analysis.		  </p>
+	    <div class="turtle"><div class="exampleheader"><span class="exampleheader"><strong>Example Data</strong></span></div>
+		  <pre>
+_:Bob :hadIntervention [
+	:performedProcedure [ 	a bridg:PerformedProcedure ;
+				:definedBy [ :coding term:MarrowTransplant ; :location terms:Manubrium ] ];
+	:assessmentTest     [   a bridg:PerformedObservation ;
+				:definedBy [ :coding term:TumorMarkerTest ; :evaluator &lt;LabX&gt; ] ;
+				:result    [ :coding term:ImprovedToNormal ; :assessedBy clinic:doctor7 ],
+					   [ :coding term:ImprovedToNormal ; :assessedBy clinic:doctor7 ]
+				]
+] .</pre>
+					</div>
+					</p><p>The obvious SPARQL query on this will improperly weight this as two positive outcomes: 
+					</p>
+					<div class="turtle"><div class="exampleheader"><span class="exampleheader"><strong>Example Query</strong></span></div>
+					<pre>
+SELECT ?location ?result (COUNT(*) AS ?count)
+WHERE {
+	?who :hadIntervention [
+		:performedProcedure [ :definedBy [ :coding term:MarrowTransplant ; :location ?location ] ];
+		:assessmentTest     [ :definedBy [ :coding term:TumorMarkerTest ] ;
+					  :result    [ :coding ?result ] ]
+	]
+} GROUP BY ?result ?location</pre></div>
+				(This is a slight simplification for the sake of readability. In practice, an auxiliary hierarchy identifies multiple codes as positive outcomes, e.g. <code>term:ImprovedToNormal</code> and <code>term2:ClinicalCure</code>, but the effect is the same as described here.) 
+			Being able to select subsets of data related to an RDF node and thus, define a well-formed/cleansed representation of that node (which is represented as shape), allows to improve the quality of data as well as its queriability. </p>
+				
+	      <p><strong>Summary:</strong> Requires the ability to perform structural validation over RDF data. </p>
+
+	      <p><strong>Related Requirements:</strong>  <a>R7.4</a> </p>
+
+      </section>	
+
+	  <!-- User Story 34 -->
+	  <section>
+	    <h2><dfn>UC34</dfn>: Large-scale dataset validation</h2>
+	    <p>
+	      A publisher has a very large RDF Database (in terms of millions or billions of triples) and wants to define multiple shapes for the data that will be checked at regular intervals. To make this process effective the validation must be able to run within a reasonable time-span and the validation engine must be flexible enough to provide different levels of the violation result details. The different levels can range from specific nodes that are violating a shape facet, the success or fail of a shape facet or aggregated violations per shape facet, possibly along with an error prevalence.
+</p><p>Applying a shape in a large database can return thousands or millions of violations and it is not efficient to look at all erroneous RDF nodes one by one. In addition, many times all violations for a specific facet can be attributed to a specific mapping or source code function. An expected workflow in this case is that the maintainer runs a validation asking aggregated violations per shape facet along with a sample of (i.e. 10) specific nodes. Having the higher overview along with the sample data the maintainer can choose the order she will address the errors.
+		</p>	
+	      <p><strong>Summary:</strong> Basically a repetition of <a>UC3</a> with additional requirements regarding the validation performance. </p>
+
+	      <p> <strong>Related Requirements:</strong>  
+	        <a>R10</a> 
+	        </p>
+
+      </section>	
+
+	  <!-- User Story 35 -->
+	  <section>
+	    <h2><dfn>UC35</dfn>: Describe disconnected graphs</h2>
+	    <p>
+	      This use case reflects how information resources are created (e.g. via HTTP POST) or modified (e.g. via HTTP PUT). In these situations, the body of the HTTP request has an RDF content type (RDF/XML, Turtle, JSON-LD, etc.). The server typically needs to verify that the body of the request satisfies some application-specific constraints. Many proposed solutions have an implicit assumption that  all RDF graphs  have a distinguished root node which is the subject of triples that define either literal properties or links to other subjects, which may in turn have literal properties or links to further subjects. The implication is that all the nodes of interest are connected to the root node. However, an RDF graph may not be connected to other graphs acted on by the same application, and in fact disconnected RDF graphs do appear in real-world Linked Data specifications. The RDF representation of an information resource may be a disconnected graph in the sense that the set of nodes in the graph may be partitioned into two disjoint subsets A and B such that there is no undirected path that starts in A and ends in B.   </p>
+	    <p>The example can be taken from a specification related to access control. A conformant access control service must host an access control list resource that supports HTTP GET requests. The response to an HTTP GET request have a response body whose content type is <code>application/ld+json</code>, i.e. JSON-LD. An example is given below. In this example, there is a distinguished root node, i.e. the node of type <code>acc:AccessContextList</code>, but it is not connected to the other nodes of interest, i.e. the nodes of type <code>acc:AccessContext</code>. </p>
+<p>
+      SHACL must be able to describe such graphs. 
+      However, this user use case does not propose that SHACL must be able to distinguish between connected and disconnected graphs. </p>
+
+	      <p><strong>Summary:</strong> States the requirement, that constraints over RDF graphs must be describable for both disconnected and connected graphs. </p>
+
+	      <p> <strong>Related Requirements:</strong>  
+	        <a>R6.7</a>, 
+	        <a>R9</a>, and 
+	        <a>R12.1</a>
+	        </p>
+
+      </section>	
+
+	<!-- User Story 36 -->
+	<section>
+	  <h2><dfn>UC36</dfn>: Support use of inverse properties</h2>
+	  <p>
+	    In some cases the best RDF representation of a property-value pair may reuse a pre-existing property in which the described resource is the object and the property value is the subject. The reuse of properties is a best practice for enabling data interoperability. The fact that a pre-existing property might have the opposite direction should not be used as a justification for the creation of a new inverse property. In fact, the existence of both inverse and direct properties makes writing efficient queries more difficult since both the inverse and the direct property must be included in the query.
+	    </p>
+	  <p>
+	    For example, suppose we are describing test cases and want to express the relations between test cases and the requirements that they validate. Further suppose that there is a pre-existing vocabulary for requirements that defines the property ex:isValidatedBy which asserts that the subject is validated by the object. In this case there is no need to define the inverse property ex:validates. Instead the representation of test case resources should use ex:isValidatedBy with the test case as the object and the requirement as the subject.
+	    </p>
+	  <p>
+	    This situation cannot be described by the current OSLC Shapes specification because that specification has a directional bias. OSLC Shapes describe properties of a given subject node, so inverse properties cannot be used. The OSLC Shape submission proposes a possible solution. See <a href="http://www.w3.org/Submission/shapes/#inverse-properties">http://www.w3.org/Submission/shapes/#inverse-properties</a>.
+	    </p>
+				
+	    <p><strong>Summary:</strong> For sake of simplicity, a potential constraint language shall allow the usage of properties in their inverse direction if 
+	      applicable. I.e. allowing the reuse of already defined properties (in an inverse manner) in a shape, even if the node the 
+	      respective shape is describing only occurs in the object position.</p>
+
+	    <p><strong>Related Requirements:</strong>  
+<a>R5.1</a> and		
+<a>R5.11</a>		</p>
+
+	  </section>	
+
+	  <!-- User Story 37 -->
+	  <section>
+		  <h2><dfn>UC37</dfn>: Defining allowed/required values</h2>
+		  <p>
+			  The cultural heritage community has a large number of lists that control values for particular properties. These are similar to the DCMItypes, but some are quite extensive (&gt;200 types of roles for Agents in relation to resources). There is also a concept of &quot;authorities&quot; which control the identities of people, places, subjects, organizations and even resources themselves. Many of these lists are centralized in major agencies (Library of Congress, Getty Art &amp; Architecture Archive, National Library of Medicine, and national libraries throughout the world). Not all have been defined in RDF or RDF/SKOS, but those that have can be identified by their IRI domain name and pattern. Validation tools need to restrict or check usage according to the rules of the agency creating and sharing the data. Some patterns of needed validation are: 
+			  </p>
+		  <ol>
+	    <li>must be an IRI (not a literal)</li>
+			    <li>must be an IRI matching this pattern</li>
+			    <li>must be an IRI matching one of &gt;1 patterns</li>
+			    <li>must be a (any) literal</li>
+			    <li>must be one of these literals (&quot;red&quot; &quot;blue&quot; &quot;green&quot;)</li>
+			    <li>must be a typed literal of this type (e.g. XML dataType)</li>
+			    <li>literal must have a language code</li> 
+			    </ol>
+			  Some of these are conditional: for resources of type:A, property:P has allowed values a,b,c,f. 
+		  </p>
+	
+		    <p><strong>Summary:</strong> Requires the ability to constrain the potential values of properties of a shape. </p>
+		    <!--<p><strong>Related Use Cases</strong>: <a>UC2</a>,<a>UC8</a>,<a>UC11</a>, <a>UC23</a></p>-->
+	
+
+		    <p><strong>Related Requirements:</strong>  <a>R10</a> </p>
+
+	  </section>	
+
+	  <!-- User Story 38 -->
+	  <section>
+	    <h2><dfn>UC38</dfn>: Describing and validating Linked Data Portals</h2>
+	    <p>A small company specialized in the development of linked data portals needs to describe the model of the RDF graphs that will be generated from the Excel sheets which will also be published as an SPARQL endpoint. The linked data portals could contain observations which will usually be instances of qb:Observation but can contain other properties.The contents of those portals are generally statistical data that is derived from Excel sheets and can easily be mapped to RDF Data Cube observations.</p>
+<p>Examples of  constraints are: that any observation has only one floating point value; that any observation refers to one geographical area, one year, one indicator and one dataset; that those datasets refer to organizations and those organizations have one rdfs:label property in English, another in French, and another in Spanish, etc. </p>
+	    <p>In this context, the company is looking for a solution that can be easily understood by the team of developers who are familiar work with OO programming languages, relational databases, XML technologies and some basic RDF knowledge, but they are not familiar with other semantic web technologies like SPARQL, OWL, etc. The company also wants some solution that can be published and understood by external semantic web developers so they can easily know how to query the SPARQL endpoint. The solution must be machine processable, so the contents of the linked data portal can automatically be validated, and reusable, both internally and by third parties.</p>
+<p>Finally, the company would like to compare the schemas employed by the different linked data portals so they can check which are the differences between the RDF nodes that appear in those portals and they can even create new applications on top of the data aggregated by those portals. </p>
+<p><strong>Summary:</strong> Define RDF graphs to be generated from spread sheet software and made available through a linked data portal. <br />Provide a comparison function for RDF graphs.</p>			
+	 <p><strong>Related Requirements:</strong>  TBD </p>
+
+      </section>
+	  
+	  	  <!-- User Story 39 -->
+	  <section>
+	    <h2><dfn>UC39</dfn>: Arbitrary cardinality</h2>
+	    <p>Some clinical data require specific cardinality constraints, e.g.</p>
+	    <ul>
+    <li>zero or one (optional) birth date.</li>
+    <li>zero or more lab tests.</li>
+    <li>one active patient marker.</li>
+    <li>one or more emergency contact.</li>
+    <li>two biological parents.</li>
+	</ul>
+Which makes it necessary to be able to define arbitrary cardinality constraints, i.e. not be limited to a number of predefined values.</p>
+
+
+	     <p><strong>Summary:</strong> Requires the ability to define arbitrary cardinality constraints. </p>
+
+
+	      <p><strong>Related Requirements:</strong>  <a>R5.2</a> </p>
+
+
+      </section>
+	  	  	  <!-- User Story 40 -->
+	  <section>
+	     <h2><dfn>UC40</dfn>: Describing inline content versus references</h2>
+	     <p>IRIs as values in triples may be the subjects of triples that are inline or may need to be de-referenced to complete the graph. In some cases the URI must be de-referenced to perform validation; in other cases, de-referencing isn't needed or is considered too costly for a low-value property. The language must make it possible to indicate IRIs that must be de-referenced.
+</p>
+		<p><strong>Summary:</strong> TBD</p>
+ <p><strong>Related Requirements:</strong>  TBD</p>
+
+      </section>
+
+	  	  	  	  <!-- User Story 41 -->
+	  <section>
+	    <h2><dfn>UC41</dfn>: Validating schema.org instances against model and metamodel	    </h2>
+	    <p>Validation of schema.org instances must adhere to the  definitions used in that vocabulary. A processor for our validation language should be able to accept a schema.org instance as well as the schema.org model, expressed in an RDF syntax, as inputs (perhaps as separate named graphs), and validate the instance against the model.</p>
+	    <ul>
+<li><strong>domainIncludes/rangeIncludes</strong>: In schema.org, properties can be associated with multiple types via the “domainIncludes” and “rangeIncludes” properties. The semantics is that the domain/range consist of the union of these types (rather than the intersection, as with the “domain” and “range” properties in RDFS). Validation requires that the subject and object of a triple can be compared against a set of types given in the model graph, and a validation error would be raised if the subject/object is not an instance of one of these types, or of one of their subtypes.</li>
+<li><strong>Datatypes and plain literals</strong>: In schema.org, properties may be associated with datatypes, but literals in instance data are always plain (string) literals. In other words, a property may be typed as a date property, but the date could be given as a plain literal, not as a xsd:date typed literal. Examples of named datatypes in schema.org include: ISO 8601 dates and datetimes; xsd:time; boolean “True” and “False”; integers. For validation, the language should be able to make use of annotations on the properties. For example, if we have <code>{ :thing schema:date &quot;value&quot; }</code>, it should be possible to write a validation rule that depends on a “rangeIncludes” annotation on the schema:date property. As each named datatype is used many times throughout the model, it would also be good if the regular expression (or similar mechanism) for the datatype wouldn't have to be repeated for each property that uses the datatype, but could be referred to by reference, or by rule.</li>
+<li><strong>Conformance levels</strong>: Processing of schema.org by the major search engines tends to be quite permissive. For example, often, where an “Organization” instance is expected according to the model, a “Text” literal with the organization's name is sufficient. This could be treated as a warning/notice. Also, some literal properties contain markup recommendations such as for the “price” property: Putting “USD” into a separate currency property is preferred over sticking “$” into the numeric price literal. Again, values like “$99” could be treated as warnings.</li>
+</ul>
+	
+	<p><strong>Summary:</strong> Uses schema.org vocabulary practices to process schema.org data.</p>
+
+	      <p><strong>Related Requirements:</strong>  TBD </p>
+
+
+      </section>
+	  
+	  	  	  	  <!-- User Story 42 -->
+	  <section>
+	    <h2><dfn>UC42</dfn>: Constraining RDF graphs to provide better mapping to JSON</h2>
+	    <p>
+			In client-side application development and in integrating between RDF-based systems and JSON-based APIs, certain problems arise when  mapping between the RDF data model and the JSON data model.
+		
+		In the unconstrained RDF data model, there are too many variations to map arbitrary RDF graphs cleanly to JSON. By selecting an RDF vocabulary that covers the desired JSON structure, and using Shapes to express constraints over the vocabulary, the mapping could be made sensible and predictable.</p>
+<p> The requirements for this are:</p>
+		<ul>
+			<li><strong>MaxCardinality 1</strong>: Properties with a maximum cardinality of 1 can be mapped easily to keys in JSON objects.</li>
+			<li><strong>Support for RDF lists</strong>: Ordered lists are a standard feature of JSON. A clean mapping requires the ability to declare that the value of a property must be an rdf:List, and the ability to place constraints on the members of the list (e.g., be of a certain class or have a certain shape). This has UI advantages too. Knowing that an RDF property is an ordered multi-valued property calls for specific UI widgets. (Partially already covered in <a>UC26</a>)</li>
+			<li><strong>Maximum one string literal per language</strong>: For i18n-capable applications, “one string per language” is an important kind of value. In RDF, this shows up simply as a multi-valued string property. An example is skos:prefLabel. In JSON, the natural representation of this is an object with language codes as keys and the string literals as values. This pattern has special support in JSON-LD for example (&quot;<a href="http://www.w3.org/TR/json-ld/#string-internationalization">language maps</a>&quot;). Again, if we can declare this constraint on a property, we can use better UI widgets and better API access.</li>
+		</ul>
+		<p><strong>Summary:</strong> Use Shapes to define JSON compatible RDF, in particular maxCardinality of &quot;1&quot;, RDF lists function, and limit of one string literal per language tag.</p>
+
+	      <p><strong>Related Requirements:</strong>  <a>R5.2</a>, <a>R6.4</a>, <a>R6.12</a>, <a>R6.13</a></p>
+      </section>
+   </section>
+
+	  	    <section>
+				<h1 id="requirements">Requirements</h1>
+				<p>This section lists the requirements arising from the use-cases catalogued in this document. Specific requirements that have been de-prioritized or rejected have been left in the document for completeness, but are shown as struck out.</p>
+			<section>
+				<h2>SHACL Language Requirements</h2>
+			<!-- <dl> -->
+					<!-- Requirement R1 -->
+					<section>
+					<!--<dt>-->
+						<h3><dfn>R1</dfn>: Higher-Level Language</h3>
+					<!--</dt>-->
+					<!--<dd>-->
+						<p>
+							<em>Constraints/shapes shall be specifiable in a higher-level language with 1. definitional capabilities, such as macro rolling up and naming, and 2. control infrastructure for, e.g., recursion.</em> 
+						</p>
+						<p>
+							<strong>Motivation:</strong> 
+							<a href="http://lelystad.informatik.uni-mannheim.de/rdf-validation/?q=node/127">Dublin Core Requirement 103</a>
+						</p>
+				<!--	</dd>-->
+
+					<!-- Requirement R2 -->
+					</section>
+						
+					<section>
+						<h3><dfn>R2</dfn>: Concise Language</h3>
+					</dt>
+					<dd>
+						<p>
+							<em>Constraints/shapes shall be specifiable in a concise language.</em> 
+						</p>
+						<p>
+							<strong>Motivation:</strong> 
+							<a href="http://lelystad.informatik.uni-mannheim.de/rdf-validation/?q=node/327">Dublin Core Requirement 184</a>
+						</p>
+					</dd>
+
+					<!-- Requirement R3 -->
+					</section>
+					<section>
+						<h3><dfn>R3</dfn>: Addressability</h3>
+					</dt>
+					<dd>
+						<p>
+							<em>Collections of constraints/shapes may be addressable and discoverable. Individual constraints/shapes may be addressable and discoverable. </em> 
+						</p>
+						<p>
+							<strong>Motivation:</strong> 
+							<a href="http://lelystad.informatik.uni-mannheim.de/rdf-validation/?q=node/203">Dublin Core Requirement 147</a> and
+							<a href="http://lelystad.informatik.uni-mannheim.de/rdf-validation/?q=node/204">Dublin Core Requirement 148</a>
+						</p>
+					</dd>
+
+					<!-- Requirement R4 -->
+					</section>
+					<section>
+						<h3><dfn>R4</dfn>: Annotations</h3>
+					</dt>
+					<dd>
+						<p>
+							<em>Constraints/shapes may incorporate extra information that does not affect validation. It shall be possible to search for constraints/shapes with particular extra information. </em> 
+						</p>
+						<p>
+							<strong>Motivation:</strong> 
+							<a href="http://lelystad.informatik.uni-mannheim.de/rdf-validation/?q=node/415">Dublin Core Requirement 208</a>
+						</p>
+					</dd>
+
+					<!-- Requirement R7 -->
+		            </section>
+					<section>
+						<h3><dfn>R7</dfn>: Macro-Language Features</h3>
+					</dt>
+					<dd>
+						<p>
+							<em>The language should enable the definition of macros as short cuts to recurring patterns, and to enable inexperienced users define rich constraints. Macros should be high-level terms that improve overall readability, separation of concerns and maintainability. This overlaps with the already approved &quot;Higher-Level Language&quot;. </em> 
+						</p>
+		            	<p>
+		              		<strong>Motivation:</strong> 
+		              		<a>UC5</a>,
+		              		<!--<a>UC7</a>,-->
+		              		<a>UC16</a>,
+		              		<a>UC21</a>,
+		              		<a>UC27</a>,
+		              		<a>UC28</a>, and
+		              		<a>UC32</a>
+		              	</p>
+
+					  </dd>
+			                <!-- Requirement R7.1 -->
+                  </section>
+							<section>
+								<dfn>R7.1</dfn>: Named Shapes
+							</dt>
+							<dd>
+								<p>
+									<em>It should be possible to encapsulate a group of constraints (a Shape) into a named entity, so that the Shape can be reused in multiple places, also across the Web</em> 
+								</p>
+			                	<p>
+			                  		<strong>Motivation:</strong> 
+			                  		<!--<a>UC7</a>,-->
+			                  		<a>UC16</a> and
+			                  		<a>UC28</a>
+			                  	</p>
+			                </dd>
+			                <!-- Requirement R7.2 -->
+			                </section>
+							<section>
+								<dfn>R7.2</dfn>: Function and Property Macros
+							</dt>
+							<dd>
+								<p>
+									<em>In order to support maintainable and readable constraints, it should be possible to encapsulate recurring patterns into named entities such as functions and dynamically computed properties. This requirement is orthogonal to almost every user story. It includes a vocabulary to share function definitions. </em></p>
+			                	<p>
+			                  		<strong>Motivation:</strong> 
+			                  		<a>UC5</a>,
+			                  		<a>UC16</a>, and
+			                  		<a>UC28</a>
+			                  	</p>
+			                </dd>
+			                <!-- Requirement R7.3 -->
+			                </section>
+							<section>
+			                	<dfn>R7.3</dfn>: Constraint Macros
+			                </dt>
+			                <dd>
+			                	<p>
+			                		<em>Some constraint patterns are recurring with only slight modifications. Example: SKOS constraints that multiple properties must be pairwise disjoint. The language should make it possible to encapsulate such recurring patterns in a parameterizable form. Examples include SPIN/LDOM Templates.</em> 
+			                	</p>
+			                	<p>
+			                		<strong>Motivation:</strong> 
+			                		<a>UC21</a>,
+			                		<a>UC27</a>, and
+			                		<a>UC28</a>
+			                	</p>
+			                </dd>
+			                <!-- Requirement R7.4 -->
+			                </section>
+							<section>
+								<dfn>R7.4</dfn>: Nested Constraint Macros
+							</dt>
+							<dd>
+								<p>
+									<em>It should be possible to combine the high-level terms of the constraint language into larger expressions using nested constraints. Examples of this include ShEx, Resource Shapes' oslc:valueShape and owl:allValuesFrom. </em></p>
+			                	<p>
+			                  		<strong>Motivation:</strong> 
+			                  		<a>UC32</a> and
+			                  		<a>UC33</a>
+			                  	</p>
+			                </dd>
+							</section>
+							<!-- Requirement R10 -->
+							<section>
+				            	<dfn>R10</dfn>: Vocabulary for Constraint Violations
+				            </dt>
+				            <dd>
+				            	<p>
+				            		<em>Instead of just reporting yes/no, the language needs to be able to return more meaningful messages including severity levels, human-readable error descriptions and pointers at specific patterns in the graph. </em> 
+				            	</p>
+				            	<p>
+				            		<strong>Motivation:</strong> 
+				            		<a>UC3</a>,
+				            		<a>UC34</a>, and
+				            		(almost every other use case)
+				            	</p>
+
+				            </dd>
+				              		<!-- Requirement R10.1 -->
+           					  </section>
+								<section>
+										<dfn>R10.1</dfn>: Severity Levels
+									</dt>
+									<dd>
+										<p>
+											<em>The language should allow the creation of error responses that can include severity levels as desired. </em> 
+										</p>
+					                	<p>
+					                  		<strong>Motivation:</strong> 
+					                  		<a>UC3</a>
+					                  	</p>
+					                </dd>
+					               <!--  Requirement R10.2 -->
+               				   </section>
+									<section>
+										<dfn>R10.2</dfn>: Human-readable Violation Messages
+									</dt>
+									<dd>
+										<p>
+											<em>The language should make it possible for constraint checks to create human-readable violation messages that can be either created explicitly by the user or generated dynamically from constraint definition. It should be possible to create such messages in multiple languages. </em> 
+										</p>
+					                	<p>
+					                  		<strong>Motivation:</strong> 
+					                  		<a>UC3</a>
+					                  	</p>
+					                </dd>
+					                <!-- Requirement R10.3 -->
+					                </section>
+									<section>
+					                	<dfn>R10.3</dfn>: Constraint Violations should point at Specific Nodes
+					                </dt>
+					                <dd>
+					                	<p>
+					                		<em>The language should make it possible for authors of constraint checks to produce pointers at specific nodes and graph fragments that caused the violation. Typical examples of such information includes the starting point (root node), a path from the root, and specific values that caused the problem. </em> 
+					                	</p>
+					                	<p>
+					                		<strong>Motivation:</strong> 
+					                		<a>UC3</a>
+					                	</p>
+					                </dd>
+
+
+	                <!-- Requirement R11.5 -->
+	                </section>
+					<section>
+						<dfn>R11.5</dfn>: Profiles
+					</dt>
+					<dd>
+						<p>
+							<em>The language should include a notion of profiles, so that certain applications with limited features can only use certain elements of the overall language.</em> 
+						</p>
+	                	<p>
+	                  		<strong>Motivation:</strong> 
+	                  		<a>UC11</a>,
+	                  		<a>UC19</a> and
+	                  		<a>UC32</a>
+	                  	</p>
+	                </dd>
+
+
+	                <!-- Requirement R11.7 -->
+	                </section>
+					<section>
+						<dfn>R11.7</dfn>: Separation of structural from complex constraints
+					</dt>
+					<dd>
+						<p>
+							<em>There shall be a core language or SHACL profile that excludes any support for constraints defined via embedded SPARQL queries or other complex lower-level expressions. This is so that lightweight applications can validate constraints without requiring a SPARQL processor or similar subsystem.</em> 
+						</p>
+	                	<p>
+	                  		<strong>Motivation:</strong> 
+	                  		<a>UC11</a>,
+	                  		<a>UC19</a> and
+	                  		<a>UC32</a>
+	                  	</p>
+	                </dd>
+					</section>
+                </section>
+                
+				<section>
+                
+				<h2>Property Constraint Requirements</h2>
+	        	                <!-- Requirement R5.2 -->
+		               
+						<section>
+							<dfn>R5.2</dfn>: Property Min/Max Cardinality
+						</dt>
+						<dd>
+							<p>
+								<em>The stated values for a property may be limited by minimum/maximum cardinality, with typical patterns being [0..1], [1..1], [0..*] and [1..*].  </em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC10</a>,
+		                  		<a>UC11</a>,
+		                  		<a>UC13</a>,
+		                  		<a>UC19</a>, 
+		                  		<a>UC20</a>, 
+								<a>UC39</a>, and 
+								<a>UC42</a>
+		                  	</p>
+		                </dd>
+
+		                <!-- Requirement R5.3 -->
+		                </section>
+						<section>
+							<dfn>R5.3</dfn>: Property Datatype
+						</dt>
+						<dd>
+							<p>
+								<em>The values of a property may be limited to be an RDF Literal with a stated datatype, such as xsd:string or xsd:date. </em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC10</a>,
+		                  		<a>UC11</a>,
+		                  		<a>UC13</a>,
+		                  		<a>UC19</a>, and
+		                  		<a>UC20</a>
+		                  	</p>
+		                </dd>
+
+		                <!-- Requirement R5.4 -->
+		                </section>
+						<section>
+							<dfn>R5.4</dfn>: Property Type
+						</dt>
+						<dd>
+							<p>
+								<em>The values of a property may be limited by their type, e.g., all children have to be of type person. </em></p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC10</a>,
+		                  		<a>UC11</a>,
+		                  		<a>UC13</a>,
+		                  		<a>UC19</a>, and
+		                  		<a>UC20</a>
+		                  	</p>
+		                </dd>
+
+		                <!-- Requirement R5.5 -->
+		                </section>
+						<section>
+							<dfn>R5.5</dfn>: Property's RDF Node Type (e.g. only IRIs are allowed)
+						</dt>
+						<dd>
+							<p>
+								<em>The values of a property on instances of a class may be limited by their RDF node type, e.g. IRI, BlankNode, Literal, or BlankNodeOrIRI (for completeness we may want to support all 7 combinations including Node as parent). </em></p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC8</a>
+		                  	</p>
+		                </dd>
+
+
+							                <!-- Requirement R5.9.1 --> 
+		                </section>
+						<section>
+							<dfn>R5.9.1</dfn>: Datatype Property Facets: min/max values 
+						</dt>
+						<dd>
+							<p>
+								<em>Similar to xsd:minInclusive/maxExclusive</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC3</a>,
+		                  		<a>UC11</a>,
+		                  		<a>UC12</a>,
+		                  		<a>UC13</a>,
+		                  		<a>UC19</a>,
+		                  		<a>UC20</a>, and
+		                  		<a>UC29</a>
+		                  	</p>
+		                </dd>
+
+							                <!-- Requirement R5.9.2 --> 
+		                </section>
+						<section>
+							<dfn>R5.9.2</dfn>: Datatype Property Facets: regular expression patterns
+						</dt>
+						<dd>
+							<p>
+								<em>Pattern matching against regular expressions (xsd:pattern).</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC3</a>,
+		                  		<a>UC11</a>,
+		                  		<a>UC12</a>,
+		                  		<a>UC13</a>,
+		                  		<a>UC19</a>,
+		                  		<a>UC20</a>, and
+		                  		<a>UC29</a>
+		                  	</p>
+		                </dd>
+
+							                <!-- Requirement R5.9.3--> 
+		                </section>
+						<section>
+							<dfn>R5.9.3</dfn>: Datatype Property Facets: string length
+						</dt>
+						<dd>
+							<p>
+								<em>Constraining the length of a string.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC3</a>,
+		                  		<a>UC11</a>,
+		                  		<a>UC12</a>,
+		                  		<a>UC13</a>,
+		                  		<a>UC19</a>,
+		                  		<a>UC20</a>, and
+		                  		<a>UC29</a>
+		                  	</p>
+		                </dd>
+
+		                <!-- Requirement R5.10 -->
+		                </section>
+						<section>
+							<dfn>R5.10</dfn>: Property Value Enumerations
+						</dt>
+						<dd>
+							<p>
+								<em>Shapes will provide exhaustive enumerations of the valid values (literals and IRIs).</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC3</a>,
+		                  		<a>UC11</a>, and
+		                  		<a>UC37</a>
+		                  	</p>
+		                </dd>
+
+
+		                <!-- Requirement R5.11 -->
+		                </section>
+						<section>
+							<dfn>R5.11</dfn>: Properties Used in Inverse Direction
+						</dt>
+						<dd>
+							<p>
+								<em>Shapes can have constraints where the tested node is the object of a triple. </em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC36</a> 
+		                  	</p>
+		                </dd>
+
+
+							                <!-- Requirement R14.1 -->
+		                </section>
+						<section>
+
+							<dfn id="dfn-r14.1">R14.1</dfn>: Property Default Value
+						</dt>
+						<dd>
+							<p>
+
+								<em>It should be possible to provide a default value for a given property, e.g. so that input forms can be pre-populated. This requirement is not about using default values as &quot;inferred&quot; triples at run-time. </em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+
+								<a>UC11</a>,
+								<a>UC19</a>, and
+								<a>UC20</a>
+		                  	</p>
+		                </dd>
+					</section>
+                    </section>
+					<section>
+					<h2>Value Constraint Requirements</h2>
+		                <!-- Requirement R6.3 -->
+		               
+						<section>
+		                	<dfn>R6.3</dfn>: Expressivity: String Operations
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>Some constraints require building new strings out of other strings, and building new URIs out of other values. </em> 
+		                	</p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		<a>UC5</a> and
+		                		<a>UC23</a>
+		                	</p>
+		                </dd>
+
+		                <!-- Requirement R6.4 -->
+		                </section>
+						<section>
+		                	<dfn>R6.4</dfn>: Expressivity: Language Tags
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>Some constraints require comparing language tags of RDF literals, e.g. to check that no language is used more than once per property. Also to produce multi-lingual error messages. </em> 
+		                	</p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		<a>UC21</a>, UC42
+		                	</p>
+		                </dd>
+
+		                <!-- Requirement R6.5 -->
+		                </section>
+						<section>
+		                	<dfn>R6.5</dfn>: Expressivity: Mathematical Operations
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>Some constraints require mathematical calculations and comparisons, e.g. area = width * height. </em> 
+		                	</p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		<a>UC5</a>
+		                	</p>
+		                </dd>
+
+		                <!-- Requirement R6.6 -->
+		                </section>
+						<section>
+		                	<dfn>R6.6</dfn>: Expressivity: Literal Value Comparison
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>Some constraints require operators such as &lt;, &gt;=, != etc, either against constants or other values that are dynamically retrieved at query time. Includes date/time comparison and functions such as NOW(). </em> 
+		                	</p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		<a>UC5</a>,
+		                		<a>UC21</a>, 
+		                		<a>UC22</a>,
+		                		<a>UC23</a>, and
+		                		<a>UC27</a>
+		                	</p>
+		                </dd>
+					</section>
+                    </section>
+                      
+					<section>
+
+						<h2>Complex Constraint Requirements</h2>
+
+
+				<!-- Requirement R6 -->
+	          
+				<section>
+					<dfn>R6</dfn>: Complex Constraint Requirements
+				</dt>
+				<dd>
+					<p>
+						<em>The language should allow users to implement constraints that check complex conditions, with an expressivity as covered by the following sub-requirements (e.g. basic graph patterns, string and mathematical operations and comparison of multiple values). </em> 
+					</p>
+	            	<p>
+	              		<strong>Motivation:</strong> 
+	              		<a>UC5</a>,
+	              		<a>UC21</a>,
+	              		<a>UC22</a>,
+	              		<a>UC23</a>,
+	              		<a>UC26</a>,
+	              		<a>UC27</a>, and
+	              		<a>UC30</a>
+	              	</p>
+
+				  </dd>
+
+		                <!-- Requirement R6.2 -->
+                  </section>
+						<section>
+		                	<dfn>R6.2</dfn>: Expressivity: Non-Existence of Patterns
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>Many constraints require that a certain pattern does not exist in the graph. </em> 
+		                	</p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		<a>UC1</a>,
+		                		<a>UC2</a>,
+		                		<a>UC22</a>, and
+		                		<a>UC23</a>
+		                	</p>
+		                </dd>
+
+
+		                <!-- Requirement R6.7 -->
+		                </section>
+						<section>
+		                	<dfn>R6.7</dfn>: Expressivity: Logical Operators
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>The language should make it possible to express the basic logical operators intersection, union and negation of conditions. </em> 
+		                	</p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		<a>UC5</a>,
+		                		<a>UC26</a>, and
+		                		<a>UC35</a>
+		                	</p>
+		                </dd>
+
+		                <!-- Requirement R6.8 -->
+		                </section>
+						<section>
+							<dfn>R6.8</dfn>: Expressivity: Transitive Traversal of Properties
+						</dt>
+						<dd>
+							<p>
+								<em>Some constraints need to be able to traverse a property transitively, such as parent-child or partOf relationships. </em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC16</a>,
+		                  		<a>UC23</a>, and
+		                  		<a>UC26</a>
+		                  	</p>
+		                </dd>
+
+
+
+		                <!-- Requirement R6.12 -->
+		                </section>
+						<section>
+							<dfn>R6.12</dfn>: Expressivity: Checking for well-formed rdf:Lists
+						</dt>
+						<dd>
+							<p>
+								<em>There shall be a concise construct for expressing that a list must be well-formed.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC42</a>
+
+		                  	</p>
+		                </dd>
+
+
+
+				        <!-- Requirement R6.13-->
+		                </section>
+						<section>
+							<dfn>R6.13</dfn>: Expressivity: Placing constraints on the values of rdf:Lists
+						</dt>
+						<dd>
+							<p>
+								<em>There shall be a way of applying the constraints that we can express for normal properties (require a certain rdf:type, require a certain shape, require a certain datatype, require a certain node kind, etc.) to the members of rdf:Lists.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC42</a>
+
+		                  	</p>
+		                </dd>
+					</section>
+                    </section>
+					<section>
+						
+					<h2>Shape Constraint Requirements</h2>
+
+	            <!-- Requirement R8 -->
+	            </section>
+				<section>
+					<dfn>R8</dfn>: Specialization of Shapes
+				</dt>
+				<dd>
+					<p>
+						<em>It should be possible to specialize/extend shapes so that the constraints defined for a more general (super) shape also apply to the specialized (sub) shape. Sub-shapes can only narrow down, i.e. further constrain.</em> 
+
+					</p>
+	            	<p>
+	              		<strong>Motivation:</strong> 
+	              		<a>UC2</a>,
+	              		<a>UC5</a>,
+	              		<a>UC10</a>,
+	              		<a>UC11</a>,
+	              		<a>UC19</a>,
+	              		<a>UC20</a>,
+	              		<a>UC24</a>,
+	              		<a>UC25</a>,
+	              		<a>UC27</a>,
+	              		<a>UC28</a>, and
+	              		<a>UC29</a>
+	              	</p>
+	            </dd>
+	            <!-- Requirement R9 -->
+	            </section>
+				<section>
+					<dfn>R9</dfn>: Global Constraints
+				</dt>
+				<dd>
+					<p>
+						<em>It should be possible to specify constraint conditions that need to be checked &quot;globally&quot; for a whole graph, without referring to a specific set of resources or class. In programming languages such global entities are often called &quot;static&quot;, but &quot;global&quot; is probably better known. </em> 
+					</p>
+	            	<p>
+	              		<strong>Motivation:</strong> 
+	              		<a>UC35</a>
+	              	</p>
+	            </dd>
+
+		                <!--Requirement R11.8 -->
+                  </section>
+						<section>
+		                	<dfn>R11.8</dfn>: Evaluating Constraints for a Single Node Only
+		                </dt>
+		                <dd>
+		                	<p>
+		                		<em>It should be possible to validate constraints on a single node in a graph. This may be impossible to implement 100% correctly, because sometimes a change to a resource invalidates conditions in a very different place in the graph. However, the language could propose a framework that identifies those constraints that SHOULD be checked when a given node is evaluated, e.g. by following its <code>rdf:type</code> and the superclasses of that. This would include validating <code>shacl:valueShape</code> but not <code>shacl:valueType</code>. </em> </p>
+		                	<p>
+		                		<strong>Motivation:</strong> 
+		                		(Orthogonal to basically all use cases) 
+		                	</p>
+		                </dd>
+
+		                <!-- Requirement R12.1-->
+		                </section>
+						<section>
+							<dfn>R12.1</dfn>: Select Whole Graph
+						</dt>
+						<dd>
+							<p>
+								<em>It should be possible to select all the RDF nodes in a graph for validation. This is similar to the Global Constraints (<a>R9</a>) requirement.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC35</a>
+		                  	</p>
+		                </dd>
+
+		                <!-- Requirement R12.2 -->
+		                </section>
+						<section>
+							<dfn>R12.2</dfn>: Selection by Type
+						</dt>
+						<dd>
+							<p>
+								<em>It should be possible to have some mechanism to select the nodes that are instances of some class for validation.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		(Orthogonal to basically all stories)
+		                  	</p>
+		                </dd>
+
+		                <!-- Requirement R12.3 -->
+		                </section>
+						<section>
+							<dfn>R12.3</dfn>: Selection by Single Node
+						</dt>
+						<dd>
+							<p>
+								<em>It should be possible to select a single RDF node for validation.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		(Orthogonal to basically all stories)
+		                  	</p>
+		                </dd>
+
+
+			            <!-- Requirement R5.1  -->
+			            </section>
+						<section>
+							<dfn>R5.1</dfn>: Association of Class with Shape
+						</dt>
+						<dd>
+							<p>
+								<em>There must be an &quot;easy&quot; way of associating a shape with a class, meaning that nodes in a graph that are instances of that class must conform with that shape </em></p>
+			            	<p>
+			              		<strong>Motivation:</strong> 
+			              		<a>UC3</a>,
+			              		<a>UC10</a>,
+			              		<a>UC11</a>,
+			              		<a>UC12</a>,
+			              		<a>UC13</a>,
+			              		<a>UC15</a>,
+			              		<a>UC19</a>,
+			              		<a>UC20</a>,
+			              		<a>UC29</a>, and
+			              		<a>UC36</a>
+			              	</p>
+						  </dd>
+
+							                <!-- Requirement R14.2 -->
+		                </section>
+						<section>
+
+							<dfn id="dfn-r14.2">R14.2</dfn>: Property Labels at Shape
+						</dt>
+						<dd>
+							<p>
+
+								<em>It should be possible to provide human-readable labels of a property in the context of a shape, intended for human consumption such as documentation or UI, not just globally for the rdf:Property. Multiple languages should be supported.</em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+
+		                  		<a>UC11</a> and
+								<a>UC19</a>
+		                  	</p>
+		                </dd>
+
+
+							                <!-- Requirement R14.3 -->
+		                </section>
+						<section>
+
+							<dfn id="dfn-r14.3">R14.3</dfn>: Property Comment in a Shape
+						</dt>
+						<dd>
+							<p>
+
+								<em>It should be possible to provide human-readable descriptions of the role of a property in the context of a shape, not just globally using triples that have the rdf:Property as subject. Multiple languages should be supported. </em> 
+							</p>
+		                	<p>
+		                  		<strong>Motivation:</strong> 
+		                  		<a>UC11</a> and
+								<a>UC19</a>
+		                  	</p>
+		                </dd>
+					</section>
+
+
+    </dl>
+					</section>
+
+</section>
+
+					<section class='appendix'>
+						<h2>Acknowledgements</h2>
+						<p>
+							We would like to acknowledge the contributions of user story authors: Dean Allemang, Anamitra Bhattacharyya, Karen Coyle, Nick Crossley, Michel Dumontier, Jose Emilio Labra Gayo, Sandro Hawke, Dimitris Kontokostas, Holger Knublauch, David Martin, Dave McComb, Peter F. Patel-Schneider, Axel Polleres, Eric Prud'hommeaux, Arthur Ryman, Steve Speicher, and Simon Steyskal.
+						</p>
+					</section>
+
+					<section id='tof'></section>
+				</body>
+				</html>
