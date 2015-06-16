@@ -2528,6 +2528,54 @@ WHERE {
 }</pre>
 				</div>
 			</section>
+			<section id="function-valueCount">
+				<h3>sh:walkShapesList</h3>
+				<p>
+					The function <code>sh:walkShapesList</code> is a helper function for <code>sh:AndConstraint</code> and <code>sh:OrConstraint</code>.
+					The function recursively walks a given <code>rdf:List</code> of shapes from left to right and validates a given focus node against each shape in the list until <code>sh:hasShape</code> returns a given value.
+					Returns true if the traversal has reached such a node, false if it has reached the end of the list.
+					The return type of this function is <code>xsd:boolean</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td><code>rdf:List</code></td>
+						<td>The current list element</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>xsd:boolean</code></td>
+						<td>The expected value of <code>sh:hasShape</code></td>
+					</tr>
+					<tr>
+						<td><code>?arg3</code></td>
+						<td>Any IRI or blank node</td>
+						<td>The focus node</td>
+					</tr>
+					<tr>
+						<td><code>?arg4</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The shapes graph</td>
+					</tr>
+				</table>
+				<div id="def-valueCount-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+ASK {
+	GRAPH ?arg4 {
+		?arg1 rdf:first ?shape .
+		?arg1 rdf:rest ?rest .
+	}
+	BIND (sh:hasShape(?arg3, ?shape, ?arg4) AS ?hasShape) .
+	FILTER IF(?hasShape = ?arg2, true, sh:walkShapesList(?rest, ?arg2, ?arg3, ?arg4)) .
+}</pre>
+				</div>
+			</section>
 		</section>
 		
 		<section id="sparql-template-defs" class="appendix">
@@ -2675,35 +2723,23 @@ WHERE {
 			</section>
 			<section id="sparql-and">
 				<h3>sh:AndConstraint</h3>
-				<p class="todo">TODO: This definition does not honor the ordering of operands, needs to be replaced with a tail recursion using a helper function.</p>
 				<div id="def-andConstraint-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
 					<pre class="def-sparql-body">
-SELECT *
+SELECT <span class="arg">?this</span>
 WHERE {
-	FILTER EXISTS {
-		GRAPH <span class="arg">?shapesGraph</span> {
-			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
-		}
-		FILTER (!sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>)) .
-	}
+	FILTER (sh:walkShapesList(<span class="arg">?shapes</span>, false, <span class="arg">?this</span>, <span class="arg">?shapesGraph</span>))
 }</pre>
 				</div>
 			</section>
 			<section id="sparql-or">
 				<h3>sh:OrConstraint</h3>
-				<p class="todo">TODO: This definition does not honor the ordering of operands, needs to be replaced with a tail recursion using a helper function.</p>
 				<div id="def-orConstraint-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
 					<pre class="def-sparql-body">
-SELECT *
+SELECT <span class="arg">?this</span>
 WHERE {
-	FILTER NOT EXISTS {
-		GRAPH <span class="arg">?shapesGraph</span> {
-			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
-		}
-		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>) .
-	}
+	FILTER (!sh:walkShapesList(<span class="arg">?shapes</span>, true, <span class="arg">?this</span>, <span class="arg">?shapesGraph</span>))
 }</pre>
 				</div>
 			</section>
