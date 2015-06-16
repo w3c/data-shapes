@@ -1461,14 +1461,9 @@ sh:AndConstraint
 	sh:labelTemplate "And constraint: {?shapes}" ;
 	sh:message "Violation of AND constraint" ;
 	sh:sparql """
-		SELECT *
+		SELECT ?this
 		WHERE {
-			FILTER EXISTS {
-				GRAPH ?shapesGraph {
-					?shapes rdf:rest*/rdf:first ?shape .
-				}
-				FILTER (!sh:hasShape(?this, ?shape, ?shapesGraph)) .
-			}
+			FILTER (sh:walkShapesList(?shapes, false, ?this, ?shapesGraph))
 		}
 		""" ;
 .
@@ -1487,14 +1482,9 @@ sh:OrConstraint
 	sh:labelTemplate "Or constraint: {?shapes}" ;
 	sh:message "Violation of OR constraint" ;
 	sh:sparql """
-		SELECT *
+		SELECT ?this
 		WHERE {
-			FILTER NOT EXISTS {
-				GRAPH ?shapesGraph {
-					?shapes rdf:rest*/rdf:first ?shape .
-				}
-				FILTER sh:hasShape(?this, ?shape, ?shapesGraph) .
-			}
+			FILTER (!sh:walkShapesList(?shapes, true, ?this, ?shapesGraph))
 		}
 		""" ;
 .
@@ -1571,6 +1561,29 @@ sh:hasNodeKind
 				(isBlank(?arg1) && ?arg2 = sh:BlankNode))
 		}
 		""" ;
+.
+
+sh:hasShape
+	a sh:Function ;
+	rdfs:subClassOf sh:Functions ;
+	rdfs:label "has shape" ;
+	rdfs:comment "Validates whether a given resource (?arg1) fulfills all error-level constraints defined for a given shape (?arg2). This creates a (possibly recursive) constraint validator." ;
+	sh:argument [
+		sh:predicate sh:arg1 ;
+		sh:valueType rdfs:Resource ;
+		rdfs:comment "The resource to validate." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg2 ;
+		sh:valueType sh:Shape ;
+		rdfs:comment "The shape containing the constraints that need to be validated." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg3 ;
+		sh:valueType sh:Graph ;
+		rdfs:comment "The graph containing the shape definitions." ;
+	] ;
+	sh:returnType xsd:boolean ;
 .
 
 sh:hasType
@@ -1658,53 +1671,6 @@ sh:propertyValue
 		""" ;
 .
 
-sh:valueCount
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "value count" ;
-	rdfs:comment "Gets the number of values of a given property (?arg2) at a given subject (?arg1). The result is the number of matches of (?arg1, ?arg2, ?object)." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The subject resource." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:valueType rdf:Property ;
-		rdfs:comment "The property to get the value count of." ;
-	] ;
-	sh:returnType xsd:integer ;
-	sh:sparql """
-		SELECT ((COUNT(?object)) AS ?result)
-		WHERE {
-			?arg1 ?arg2 ?object .
-		}
-		""" ;
-.
-
-sh:hasShape
-	a sh:Function ;
-	rdfs:subClassOf sh:Functions ;
-	rdfs:label "has shape" ;
-	rdfs:comment "Validates whether a given resource (?arg1) fulfills all error-level constraints defined for a given shape (?arg2). This creates a (possibly recursive) constraint validator." ;
-	sh:argument [
-		sh:predicate sh:arg1 ;
-		sh:valueType rdfs:Resource ;
-		rdfs:comment "The resource to validate." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg2 ;
-		sh:valueType sh:Shape ;
-		rdfs:comment "The shape containing the constraints that need to be validated." ;
-	] ;
-	sh:argument [
-		sh:predicate sh:arg3 ;
-		sh:valueType sh:Graph ;
-		rdfs:comment "The graph containing the shape definitions." ;
-	] ;
-	sh:returnType xsd:boolean ;
-.
-
 sh:validShapeCount
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
@@ -1733,6 +1699,30 @@ sh:validShapeCount
 				?arg2 rdf:rest*/rdf:first ?shape .
 			}
 			FILTER (sh:hasShape(?arg1, ?shape, ?arg3)) .
+		}
+		""" ;
+.
+
+sh:valueCount
+	a sh:Function ;
+	rdfs:subClassOf sh:Functions ;
+	rdfs:label "value count" ;
+	rdfs:comment "Gets the number of values of a given property (?arg2) at a given subject (?arg1). The result is the number of matches of (?arg1, ?arg2, ?object)." ;
+	sh:argument [
+		sh:predicate sh:arg1 ;
+		sh:valueType rdfs:Resource ;
+		rdfs:comment "The subject resource." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg2 ;
+		sh:valueType rdf:Property ;
+		rdfs:comment "The property to get the value count of." ;
+	] ;
+	sh:returnType xsd:integer ;
+	sh:sparql """
+		SELECT ((COUNT(?object)) AS ?result)
+		WHERE {
+			?arg1 ?arg2 ?object .
 		}
 		""" ;
 .
@@ -1768,6 +1758,44 @@ sh:valuesWithShapeCount
 		WHERE {
 			?arg1 ?arg2 ?value .
 			FILTER (sh:hasShape(?value, ?arg3, ?arg4)) .
+		}
+		""" ;
+.
+
+sh:walkShapesList
+	a sh:Function ;
+	rdfs:subClassOf sh:Functions ;
+	rdfs:label "walk shapes list" ;
+	rdfs:comment "Walks a given rdf:List of shapes (?arg1) recursively until it encounters a shape where sh:hasShape returns a provide boolean value (?arg2) for a given focus node (?arg3) using the given shapes graph (?arg4). Returns true if the list has reached such a node, false if it has reached the end of the list." ;
+	sh:argument [
+		sh:predicate sh:arg1 ;
+		sh:valueType rdf:List ;
+		rdfs:comment "The current rdf:List node in the recursion." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg2 ;
+		sh:datatype xsd:boolean ;
+		rdfs:comment "The value to match sh:hasShape against." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg3 ;
+		sh:valueType rdfs:Resource ;
+		rdfs:comment "The focus node to validate." ;
+	] ;
+	sh:argument [
+		sh:predicate sh:arg4 ;
+		sh:valueType rdfs:Resource ;
+		rdfs:comment "The shapes graph." ;
+	] ;
+	sh:returnType xsd:boolean ;
+	sh:sparql """
+		ASK {
+			GRAPH ?arg4 {
+				?arg1 rdf:first ?shape .
+				?arg1 rdf:rest ?rest .
+			}
+			BIND (sh:hasShape(?arg3, ?shape, ?arg4) AS ?hasShape) .
+			FILTER IF(?hasShape = ?arg2, true, sh:walkShapesList(?rest, ?arg2, ?arg3, ?arg4)) .
 		}
 		""" ;
 .

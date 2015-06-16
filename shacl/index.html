@@ -20,7 +20,7 @@
 				wg:           "RDF Data Shapes Working Group",
 				wgURI:        "https://www.w3.org/2014/data-shapes/wiki/Main_Page",
 				wgPublicList: "public-data-shapes",
-				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
+				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status"
 			};
 		</script>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script> 
@@ -59,6 +59,15 @@
 			table.rule { background-color: #EBEBE0; }
 			table.rule td { text-align: center; }
 			td.up { border-bottom:1px solid black; }
+			
+			.algorithm {
+				background: #fafafc;
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #c0c0c0;
+				margin-bottom: 16px;
+				padding: 8px;
+			}
 			
 			.arg {
 				font-weight: bold;
@@ -1827,7 +1836,11 @@ ex:MyProfile
 				All operations have an implicit argument, which is a data set with a default named graph.
 				Details of this need to be fleshed out, pending design decisions on general graph management.
 			</p>
-		
+			<p>
+				The SHACL specification supports an open architecture consisting of <a href="#execution-languages">Execution Languages</a>
+				that serve as work-horses of the individual constraints.
+				The constraint validation operations rely on functions provided by these <span class="term">execution languages</span>.
+			</p>
 			<section id="operation-validateConstraint">
 				<h3>validateConstraint</h3>
 				<p>
@@ -1842,35 +1855,32 @@ ex:MyProfile
 					<tr>
 						<td><code>?constraint</code></td>
 						<td><code>sh:Constraint</code></td>
-						<td>The <span class="term">constraint</span> to evalate</td>
+						<td>The <span class="term">constraint</span> to evaluate</td>
+					</tr>
+					<tr>
+						<td><code>?shape</code></td>
+						<td><code>sh:Shape</code></td>
+						<td>The <span class="term">shape</span> containing the constraint</td>
 					</tr>
 					<tr>
 						<td><code>?focusNode</code></td>
-						<td><code>rdfs:Resource</code> (Optional)</td>
-						<td>The <span class="term">focus node</span>, if present.</td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The <span class="term">focus node</span></td>
 					</tr>
 				</table>
 				<p>
 					This operation assumes that the <code>?constraint</code> is either a <span class="term">native constraint</span>
 					or a <span class="term">template constraint</span>.
+					For template constraints, the algorithm will execute the constraint template itself plus all of its superclasses.
 				</p>
-				<ul>
-					<li>
-						For <span class="term">native constraints</span>, the operation selects one of the provided <span class="term">executable bodies</span>.
-						For example if the constraint has a <code>sh:sparql</code> query and the engine is capable of executing SPARQL,
-						it should follow the execution rules specified in the <a href="#sparql-constraints">SPARQL-based Constraints</a> section,
-						using the provided <code>?focusNode</code> if present.
-						A <code>sh:Warning</code> should be produced if no suitable <span class="term">executable body</span> was found.
-					</li>
-					<li>
-						For <span class="term">template constraints</span>, the operation traverses the associated template as well as all its superclasses.
-						For each of those templates, it selects the best suitable <span class="term">executable body</span>.
-						For example, if the engine is capable of executing SPARQL,
-						it should follow the execution rules specified in the <a href="#sparql-templates">SPARQL-based Templates</a> section,
-						using the provided <code>?focusNode</code> if present.
-						A <code>sh:Warning</code> should be produced if no suitable <span class="term">executable body</span> was found.
-					</li>
-				</ul>
+				<pre class="algorithm">
+if (?constraint instanceOf sh:NativeConstraint)
+	let el := an execution language where el.canExecuteConstraint(?constraint) = true
+	el.executeConstraint(?constraint, null, ?shape, ?focusNode)
+else
+	forEach ?template := (?constraint rdf:type ?type . ?type rdfs:subClassOf* ?template)
+		let el := an execution language where el.canExecuteConstraint(?constraint, ?template) = true
+		el.executeConstraint(?constraint, ?template, ?shape, ?focusNode)</pre>
 			</section>
 			<section id="operation-validateNodeAgainstShape">
 				<h3>validateNodeAgainstShape</h3>
@@ -1902,12 +1912,12 @@ ex:MyProfile
 				<p>
 					Algorithm in pseudo-code:
 				</p>
-				<pre>
+				<pre class="algorithm">
 if (validateNode(?focusNode, ?filterShape, sh:Error) produces the empty set for all declared sh:filterShapes of ?shape)
 	forEach ?constraint := (?shape sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
 		if (declared sh:severity of ?constraint is at least ?minSeverity)
 			if (validateNode(?focusNode, ?filterShape, sh:Error) produces the empty set for all declared sh:filterShapes of ?constraint)
-				validateConstraint(?constraint, ?focusNode)</pre>
+				validateConstraint(?constraint, ?shape, ?focusNode)</pre>
 			</section>
 			<section id="operation-validateNode">
 				<h3>validateNode</h3>
@@ -1934,31 +1944,26 @@ if (validateNode(?focusNode, ?filterShape, sh:Error) produces the empty set for 
 				<p>
 					Algorithm in pseudo-code:
 				</p>
-				<pre>
+				<pre class="algorithm">
 forEach ?shape := getShapes(?focusNode)
 	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
 				<p>
 					where the helper function <code>getShapes</code> produces a set of shapes as follows:
 				</p>
-				<pre>
-include ?shape := (?focusNode sh:nodeShape ?shape)
+				<pre class="algorithm">
+forEach ?shape := (?focusNode sh:nodeShape ?shape)
+	add(?shape) 
 
 forEach ?type := (?focusNode rdf:type/rdfs:subClassOf* ?type)
 	if (?type instanceof sh:Shape)
-		include ?type
+		add(?type)
 	forEach ?shape := (?shape sh:scopeClass ?type)
-		include ?shape
+		add(?shape)
 		
 forEach ?shape, ?scope := (?shape sh:scope ?scope)
-	if (scopeContains(?scope, ?focusNode))
-		include ?shape</pre>
-				<p>
-					and the helper function <code>scopeContains</code> is defined as follows:
-				</p>
-				<ul>
-					<li>If ?scope is a native scope, then find a suitable executable language and execute it.</li>
-					<li>If ?scope is a template scope, then find a suitable executable language for its template and execute it with the provided argument values.</li> 
-				</ul>
+	let el := an execution language where el.canExecuteScope(?scope) = true
+	if (el.isNodeInScope(?scope, ?focusNode)
+		add(?shape)</pre>
 			</section>
 			<section id="operation-validateGraph">
 				<h3>validateGraph</h3>
@@ -1981,15 +1986,203 @@ forEach ?focusNode := collectNodes()
 				<p>
 					where the helper function <code>collectNodes</code> produces a set of focus nodes as follows:
 				</p>
-				<pre>
-include ?focusNode := (?focusNode sh:nodeShape ?anyShape)
+				<pre class="algorithm">
+forEach ?focusNode := (?focusNode sh:nodeShape ?anyShape)
+	add(?focusNode) 
 
-include ?focusNode := (?focusNode rdf:type ?anyClass) where ?anyClass instanceOf sh:Shape
+forEach ?focusNode := (?focusNode rdf:type ?anyClass) where ?anyClass instanceOf sh:Shape
+	add(?focusNode)
 
-include ?focusNode := (?focusNode rdf:type ?anyClass) where exists (?anyShape sh:scopeClass ?anyClass)
+forEach ?focusNode := (?focusNode rdf:type ?anyClass) where exists (?anyShape sh:scopeClass ?anyClass)
+	add(?focusNode)
 
-include ?focusNode := (?shape sh:scope ?scope) and scope execution produces ?focusNode</pre>
+forEach ?scope := (?shape sh:scope ?scope)
+	let el := an execution language where el.canExecuteScope(?scope) = true
+	forEach ?focusNode := el.executeScope(?scope)
+		add(?focusNode)</pre>
    			</section>
+			<section id="execution-languages">
+				<h3>Execution Languages</h3>
+				<p>
+					The SHACL operations assume a <span class="term">registry</span> of known execution languages, such as SPARQL.
+					This registry SHOULD include one or more <span class="term">execution languages</span>, implemented via an interface with the following functions.
+					The SHACL engine must select a suitable execution language from the registry for each constraint, function and scope that it encounters, using the provided <code>can..</code> functions.
+					<span class="todo">Clarify what needs to happen if no suitable language is found: fail gracefully or fatal error.</span> 
+				</p>
+				<pre class="algorithm">
+interface ExecutionLanguage {
+
+	<a href="#canExecuteConstraint">canExecuteConstraint</a>() : boolean
+	<a href="#executeConstraint">executeConstraint</a>() : void
+
+	<a href="#canExecuteScope">canExecuteScope</a>() : boolean
+	<a href="#executeScope">executeScope</a>() : RDF node[]
+	<a href="#isNodeInScope">isNodeInScope</a>() : boolean
+
+	<a href="#canExecuteFunction">canExecuteFunction</a>() : boolean
+	<a href="#executeFunction">executeFunction</a>() : RDF node
+}</pre>
+				<section id="canExecuteConstraint">
+					<h3>canExecuteConstraint</h3>
+					<p>
+						This operation tests whether the given execution language can execute a given constraint, returning either <code>true</code> or <code>false</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code style="white-space: nowrap">?constraint</code></td>
+							<td><code>sh:Constraint</code></td>
+							<td>The <span class="term">constraint</span> to execute</td>
+						</tr>
+						<tr>
+							<td><code>?template</code></td>
+							<td><code>sh:ConstraintTemplate</code></td>
+							<td>Optional, only given if <code>?constraint</code> is a template constraint. The <span class="term">template</span> to execute (possibly a super-class of the directly instantiated template).</td>
+						</tr>
+					</table>
+				</section>
+				<section id="executeConstraint">
+					<h3>executeConstraint</h3>
+					<p>
+						This operation executes a given constraint and adds any constraint violations into the current results graph.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code style="white-space: nowrap">?constraint</code></td>
+							<td><code>sh:Constraint</code></td>
+							<td>The <span class="term">constraint</span> to execute</td>
+						</tr>
+						<tr>
+							<td><code>?template</code></td>
+							<td><code>sh:ConstraintTemplate</code></td>
+							<td>Optional, only given if <code>?constraint</code> is a template constraint. The <span class="term">template</span> to execute (possibly a super-class of the directly instantiated template).</td>
+						</tr>
+						<tr>
+							<td><code>?shape</code></td>
+							<td><code>sh:Shape</code></td>
+							<td>The <span class="term">shape</span> containing the constraint</td>
+						</tr>
+						<tr>
+							<td><code>?focusNode</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>The focus node.</td>
+						</tr>
+					</table>
+					<p>
+						Calling this function is only supported if a prior call to <code>canExecuteConstraint</code> has returned <code>true</code> for the same arguments.
+					</p>
+				</section>
+				<section id="canExecuteScope">
+					<h3>canExecuteScope</h3>
+					<p>
+						This operation tests whether the given execution language can execute a given scope, returning either <code>true</code> or <code>false</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?scope</code></td>
+							<td><code>sh:Scope</code></td>
+							<td>The <span class="term">scope</span> to execute (may be a template scope)</td>
+						</tr>
+					</table>
+				</section>
+				<section id="executeScope">
+					<h3>executeScope</h3>
+					<p>
+						This operation gets all nodes from a given scope.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?scope</code></td>
+							<td><code>sh:Scope</code></td>
+							<td>The <span class="term">scope</span> (may be a template scope)</td>
+						</tr>
+					</table>
+				</section>
+				<section id="isNodeInScope">
+					<h3>isNodeInScope</h3>
+					<p>
+						This operation tests whether a given focus node is within a given scope, returning either <code>true</code> or <code>false</code>.
+						<code>isNodeInScope</code> must return true for exactly the nodes that are produced by <code>executeScope</code> with the same scope argument.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?focusNode</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>The <span class="term">focus node</span> to test</td>
+						</tr>
+						<tr>
+							<td><code>?scope</code></td>
+							<td><code>sh:Scope</code></td>
+							<td>The <span class="term">scope</span> to test (may be a template scope)</td>
+						</tr>
+					</table>
+				</section>
+				<section id="canExecuteFunction">
+					<h3>canExecuteFunction</h3>
+					<p>
+						This operation tests whether the given execution language can execute a given function, returning either <code>true</code> or <code>false</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?function</code></td>
+							<td><code>sh:Function</code></td>
+							<td>The <span class="term">function</span> to execute (must be a IRI).</td>
+						</tr>
+					</table>
+				</section>
+				<section id="executeFunction">
+					<h3>executeFunction</h3>
+					<p>
+						This operation executes a given function with a list of arguments and returns a result node or an error.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?function</code></td>
+							<td><code>sh:Function</code></td>
+							<td>The <span class="term">function</span> to execute (must be a IRI).</td>
+						</tr>
+						<tr>
+							<td><code>?arg1</code>, <code>?arg2</code>, ...</td>
+							<td>RDF node</td>
+							<td>The arguments.</td>
+						</tr>
+					</table>
+				</section>
+			</section>
 		</section>
 		
 		<section id="functions">
@@ -1997,11 +2190,11 @@ include ?focusNode := (?shape sh:scope ?scope) and scope execution produces ?foc
 			<p>
 				SHACL <span class="term">functions</span> define operations that produce an RDF node based on arguments.
 				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
-				However, the general declaration mechanism for SHACL functions is independent from SPARQL.
+				However, the general declaration mechanism for SHACL functions is independent from SPARQL and may also be exploited by other environments.
 			</p>
 			<p>
 				Functions must be declared as instances of the class <code>sh:Function</code>.
-				Well-defined, non-abstract functions MUST provide at least one executable body property using <a href="#sparql-functions"><code>sh:sparql</code></a>.
+				Well-defined, non-abstract functions MUST provide at least one executable body property such as <a href="#sparql-functions"><code>sh:sparql</code></a> so that one of the registered <span class="term">execution languages</span> return <code>true</code> for <code>canExecutionFunction()</code>.
 				The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
 			</p>
 			<pre class="example" title="SHACL function with a SPARQL body">
