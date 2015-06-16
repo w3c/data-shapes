@@ -1031,6 +1031,7 @@ ex:InvalidInstance1
 						An <code>sh:Error</code> must be reported if the <span class="term">focus node</span> produces error-level
 						constraint violations for at least one of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
 						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
+						Evaluation of the shapes in the <code>rdf:List</code> must happen from left to right, and the evaluation must stop as soon as it finds the first error.
 					</div>
 				</div>
 				<p>See also: <a href="#sparql-and">Definition in SPARQL</a>.</p>
@@ -1097,6 +1098,7 @@ ex:InvalidInstance2
 						An <code>sh:Error</code> must be reported if the <span class="term">focus node</span> produces error-level
 						constraint violations against all of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
 						The produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
+						Evaluation of the shapes in the <code>rdf:List</code> must happen from left to right, and the evaluation must stop as soon as it finds the first matching shape.
 					</div>
 				</div>
 				<p>See also: <a href="#sparql-or">Definition in SPARQL</a>.</p>
@@ -2506,7 +2508,8 @@ sh:hasDatatype("string", xsd:string)        # true</pre>
 				</table>
 				<p>
 					This function MUST perform constraint validation equivalent to the <a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code></a> operation.
-					The function MUST return <code>true</code> if the operation returns no error-level constraint violations, <code>false</code> if any error-level constraint violations exist. 
+					The function MUST return <code>true</code> if the operation returns no error-level constraint violations, <code>false</code> if any error-level constraint violations exist.
+					Note that the constraint violations produced by this function must be added to a temporary results graph only, i.e. calls to <code>sh:hasShape</code> must not add new results to the outer operation.
 				</p>
 			</section>
 			<section id="function-hasNodeKind">
@@ -2675,6 +2678,54 @@ WHERE {
 }</pre>
 				</div>
 			</section>
+			<section id="function-walkShapesList">
+				<h3>sh:walkShapesList</h3>
+				<p>
+					The function <code>sh:walkShapesList</code> is a helper function for <code>sh:AndConstraint</code> and <code>sh:OrConstraint</code>.
+					The function recursively walks a given <code>rdf:List</code> of shapes from left to right and validates a given focus node against each shape in the list until <code>sh:hasShape</code> returns a given value.
+					Returns true if the traversal has reached such a node, false if it has reached the end of the list.
+					The return type of this function is <code>xsd:boolean</code>.
+				</p>
+				<table class="term-table" border="1" cellpadding="5">
+					<tr>
+						<th>Argument</th>
+						<th>Value type</th>
+						<th>Description</th>
+					</tr>
+					<tr>
+						<td><code>?arg1</code></td>
+						<td><code>rdf:List</code></td>
+						<td>The current list element</td>
+					</tr>
+					<tr>
+						<td><code>?arg2</code></td>
+						<td><code>xsd:boolean</code></td>
+						<td>The expected value of <code>sh:hasShape</code></td>
+					</tr>
+					<tr>
+						<td><code>?arg3</code></td>
+						<td>Any IRI or blank node</td>
+						<td>The focus node</td>
+					</tr>
+					<tr>
+						<td><code>?arg4</code></td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The shapes graph</td>
+					</tr>
+				</table>
+				<div id="def-walkShapesList-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+ASK {
+	GRAPH ?arg4 {
+		?arg1 rdf:first ?shape .
+		?arg1 rdf:rest ?rest .
+	}
+	BIND (sh:hasShape(?arg3, ?shape, ?arg4) AS ?hasShape) .
+	FILTER IF(?hasShape = ?arg2, true, sh:walkShapesList(?rest, ?arg2, ?arg3, ?arg4)) .
+}</pre>
+				</div>
+			</section>
 		</section>
 		
 		<section id="sparql-constraint-template-defs" class="appendix">
@@ -2719,7 +2770,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasDatatype(?object, <span class="arg">?datatype</span>)) .
+	FILTER (!<a href="#function-hasDatatype">sh:hasDatatype</a>(?object, <span class="arg">?datatype</span>)) .
 }</pre>
 					</div>
 				</section>
@@ -2749,7 +2800,7 @@ WHERE {
 <pre class="def-sparql-body">
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span>
 WHERE {
-	BIND (sh:valueCount(<span class="arg">?this</span>, <span class="arg">?predicate</span>) AS ?count) .
+	BIND (<a href="#function-valueCount">sh:valueCount</a>(<span class="arg">?this</span>, <span class="arg">?predicate</span>) AS ?count) .
 	FILTER ((?count &lt; <span class="arg">?minCount</span>) || (bound(<span class="arg">?maxCount</span>) &amp;&amp; (?count &gt; <span class="arg">?maxCount</span>))) .
 }</pre>
 					</div>
@@ -2765,7 +2816,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasNodeKind(?object, <span class="arg">?nodeKind</span>)) .
+	FILTER (!<a href="#function-hasNodeKind">sh:hasNodeKind</a>(?object, <span class="arg">?nodeKind</span>)) .
 }</pre>
 					</div>
 				</section>
@@ -2780,7 +2831,7 @@ WHERE {
 SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object 
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER (!sh:hasShape(?object, <span class="arg">?valueShape</span>, <span class="arg">?shapesGraph</span>)) .
+	FILTER (!<a href="#function-hasShape">sh:hasShape</a>(?object, <span class="arg">?valueShape</span>, <span class="arg">?shapesGraph</span>)) .
 }</pre>
 					</div>
 				</section>
@@ -2816,7 +2867,7 @@ WHERE {
 					<pre class="def-sparql-body">
 SELECT *
 WHERE {
-	FILTER (sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>)) .
+	FILTER (<a href="#function-hasShape">sh:hasShape</a>(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>)) .
 }</pre>
 				</div>
 			</section>
@@ -2825,14 +2876,9 @@ WHERE {
 				<div id="def-andConstraint-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
 					<pre class="def-sparql-body">
-SELECT *
+SELECT <span class="arg">?this</span>
 WHERE {
-	FILTER EXISTS {
-		GRAPH <span class="arg">?shapesGraph</span> {
-			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
-		}
-		FILTER (!sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>)) .
-	}
+	FILTER (<a href="#function-walkShapesList">sh:walkShapesList</a>(<span class="arg">?shapes</span>, false, <span class="arg">?this</span>, <span class="arg">?shapesGraph</span>))
 }</pre>
 				</div>
 			</section>
@@ -2841,14 +2887,9 @@ WHERE {
 				<div id="def-orConstraint-sparql" class="def def-sparql">
 					<div class="def-header">SPARQL DEFINITION</div>
 					<pre class="def-sparql-body">
-SELECT *
+SELECT <span class="arg">?this</span>
 WHERE {
-	FILTER NOT EXISTS {
-		GRAPH <span class="arg">?shapesGraph</span> {
-			<span class="arg">?shapes</span> rdf:rest*/rdf:first ?shape .
-		}
-		FILTER sh:hasShape(<span class="arg">?this</span>, ?shape, <span class="arg">?shapesGraph</span>) .
-	}
+	FILTER (!<a href="#function-walkShapesList">sh:walkShapesList</a>(<span class="arg">?shapes</span>, true, <span class="arg">?this</span>, <span class="arg">?shapesGraph</span>))
 }</pre>
 				</div>
 			</section>
