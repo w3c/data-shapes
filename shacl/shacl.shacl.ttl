@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft last edited on 2015-06-10
+# Draft last edited on 2015-06-17
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -996,10 +996,11 @@ sh:AbstractQualifiedValueShapePropertyConstraint
 	] ;  
 	sh:message "Violation of qualified value shape constraint {?qualifiedValueShape}: expected [{?qualifiedMinCount}..{?qualifiedMaxCount}], found {?count}" ;
 	sh:sparql """
-		SELECT ?this (?this AS ?subject) ?predicate ?qualifiedValueShape ?qualifiedMinCount ?qualifiedMaxCount ?count
+		SELECT ?this (?this AS ?subject) ?predicate ?qualifiedValueShape ?qualifiedMinCount ?qualifiedMaxCount ?count ?error
 		WHERE {
 			BIND (sh:valuesWithShapeCount(?this, ?predicate, ?qualifiedValueShape, ?shapesGraph) AS ?count) .
-			FILTER ((?count < ?qualifiedMinCount) || (bound(?qualifiedMaxCount) && (?count > ?qualifiedMaxCount))) .
+			BIND (!bound(?count) AS ?error) .
+			FILTER IF(?error, true, ((?count < ?qualifiedMinCount) || (bound(?qualifiedMaxCount) && (?count > ?qualifiedMaxCount)))) .
 		}
 		""" ;
 .
@@ -1020,10 +1021,12 @@ sh:AbstractValueShapePropertyConstraint
 	] ;  
 	sh:message "Value does not fulfill the constraints of shape {?valueShape}" ;
 	sh:sparql """
-		SELECT ?this (?this AS ?subject) ?predicate ?object ?valueShape
+		SELECT ?this (?this AS ?subject) ?predicate ?object ?valueShape ?error
 		WHERE {
 			?this ?predicate ?object .
-			FILTER (!sh:hasShape(?object, ?valueShape, ?shapesGraph)) .
+			BIND (sh:hasShape(?object, ?valueShape, ?shapesGraph) AS ?hasShape) .
+			BIND (!bound(?hasShape) AS ?error) .
+			FILTER (?error || !?hasShape) .
 		}
 		""" ;
 .
@@ -1440,9 +1443,11 @@ sh:NotConstraint
 	sh:labelTemplate "Not constraint: {?shapes}" ;
 	sh:message "Violation of NOT constraint" ;
 	sh:sparql """
-		SELECT *
+		SELECT ?this ?error
 		WHERE {
-			FILTER (sh:hasShape(?this, ?shape, ?shapesGraph)) .
+			BIND (sh:hasShape(?this, ?shape, ?shapesGraph) AS ?hasShape) .
+			BIND (!bound(?hasShape) AS ?error) .
+			FILTER (?error || ?hasShape) .
 		}
 		""" ;
 .
@@ -1461,9 +1466,11 @@ sh:AndConstraint
 	sh:labelTemplate "And constraint: {?shapes}" ;
 	sh:message "Violation of AND constraint" ;
 	sh:sparql """
-		SELECT ?this
+		SELECT ?this ?error
 		WHERE {
-			FILTER (sh:walkShapesList(?shapes, false, ?this, ?shapesGraph))
+			BIND (sh:walkShapesList(?shapes, false, ?this, ?shapesGraph) AS ?result) .
+			BIND (!bound(?result) AS ?error) .
+			FILTER COALESCE(?result, true) .
 		}
 		""" ;
 .
@@ -1482,9 +1489,11 @@ sh:OrConstraint
 	sh:labelTemplate "Or constraint: {?shapes}" ;
 	sh:message "Violation of OR constraint" ;
 	sh:sparql """
-		SELECT ?this
+		SELECT ?this ?error
 		WHERE {
-			FILTER (!sh:walkShapesList(?shapes, true, ?this, ?shapesGraph))
+			BIND (sh:walkShapesList(?shapes, true, ?this, ?shapesGraph) AS ?result) .
+			BIND (!bound(?result) AS ?error) .
+			FILTER COALESCE(!?result, true) .
 		}
 		""" ;
 .
@@ -1503,9 +1512,11 @@ sh:XorConstraint
 	sh:labelTemplate "Xor constraint: {?shapes}" ;
 	sh:message "Violation of XOR constraint" ;
 	sh:sparql """
-		SELECT *
+		SELECT ?this ?error
 		WHERE {
-			FILTER (sh:validShapeCount(?this, ?shapes, ?shapesGraph) != 1) .
+			BIND (sh:validShapeCount(?this, ?shapes, ?shapesGraph) AS ?count)
+			BIND (!bound(?count) AS ?error) .
+			FILTER IF(?error, true, ?count != 1) .
 		}
 		""" ;
 .
@@ -1567,7 +1578,7 @@ sh:hasShape
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
 	rdfs:label "has shape" ;
-	rdfs:comment "Validates whether a given resource (?arg1) fulfills all error-level constraints defined for a given shape (?arg2). This creates a (possibly recursive) constraint validator." ;
+	rdfs:comment "Validates whether a given resource (?arg1) fulfills all error-level constraints defined for a given shape (?arg2). This creates a (possibly recursive) constraint validator. The function returns an error, i.e. no result, if the validation could not be completed, e.g. due to an unsupported recursion or an unsupported extension language. Therefore the function should not be called inside of FILTER statements directly, but rather with BIND." ;
 	sh:argument [
 		sh:predicate sh:arg1 ;
 		sh:valueType rdfs:Resource ;
@@ -1675,7 +1686,7 @@ sh:validShapeCount
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
 	rdfs:label "valid shape count" ;
-	rdfs:comment "Counts the number of shapes from a given rdf:List (?arg2) defined in a given shapes graph (?arg3) where a given focus node (?arg1) returns no error-level constraint violations." ;
+	rdfs:comment "Counts the number of shapes from a given rdf:List (?arg2) defined in a given shapes graph (?arg3) where a given focus node (?arg1) returns no error-level constraint violations. The function produces an error if one of the shapes validated to a fatal error." ;
 	sh:argument [
 		sh:predicate sh:arg1 ;
 		sh:valueType rdfs:Resource ;
@@ -1693,12 +1704,15 @@ sh:validShapeCount
 	] ;
 	sh:returnType xsd:integer ;
 	sh:sparql """
-		SELECT (COUNT(*) AS ?result)
+		# The SUM will fail with an error if one of the operands is not a number
+		# (this mechanism is used to propagate errors from sh:hasShape calls)
+		SELECT (SUM(?s) AS ?result)
 		WHERE {
 			GRAPH ?arg3 {
 				?arg2 rdf:rest*/rdf:first ?shape .
 			}
-			FILTER (sh:hasShape(?arg1, ?shape, ?arg3)) .
+			BIND (sh:hasShape(?arg1, ?shape, ?arg3) AS ?hasShape) .
+			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
 		}
 		""" ;
 .
@@ -1731,7 +1745,7 @@ sh:valuesWithShapeCount
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
 	rdfs:label "values with shape count" ;
-	rdfs:comment "Counts the number of values from a given subject (?arg1) / predicate (?arg2) combination that do not produce any error-level constraint violations for a given shape (?arg3) in a given shapes graph (?arg4)." ;
+	rdfs:comment "Counts the number of values from a given subject (?arg1) / predicate (?arg2) combination that do not produce any error-level constraint violations for a given shape (?arg3) in a given shapes graph (?arg4). The function produces an error if one of the shapes validated to a fatal error." ;
 	sh:argument [
 		sh:predicate sh:arg1 ;
 		sh:valueType rdfs:Resource ;
@@ -1754,10 +1768,13 @@ sh:valuesWithShapeCount
 	] ;
 	sh:returnType xsd:integer ;
 	sh:sparql """
-		SELECT (COUNT(*) AS ?result)
+		# The SUM will fail with an error if one of the operands is not a number
+		# (this mechanism is used to propagate errors from sh:hasShape calls)
+		SELECT (SUM(?s) AS ?result)
 		WHERE {
 			?arg1 ?arg2 ?value .
-			FILTER (sh:hasShape(?value, ?arg3, ?arg4)) .
+			BIND (sh:hasShape(?value, ?arg3, ?arg4) AS ?hasShape) .
+			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
 		}
 		""" ;
 .
@@ -1766,7 +1783,7 @@ sh:walkShapesList
 	a sh:Function ;
 	rdfs:subClassOf sh:Functions ;
 	rdfs:label "walk shapes list" ;
-	rdfs:comment "Walks a given rdf:List of shapes (?arg1) recursively until it encounters a shape where sh:hasShape returns a provide boolean value (?arg2) for a given focus node (?arg3) using the given shapes graph (?arg4). Returns true if the list has reached such a node, false if it has reached the end of the list." ;
+	rdfs:comment "Walks a given rdf:List of shapes (?arg1) recursively until it encounters a shape where sh:hasShape returns a provide boolean value (?arg2) for a given focus node (?arg3) using the given shapes graph (?arg4). Returns true if the list has reached such a node, false if it has reached the end of the list. Returns an error if one of the calls to sh:hasShape has produced a fatal error." ;
 	sh:argument [
 		sh:predicate sh:arg1 ;
 		sh:valueType rdf:List ;
@@ -1789,13 +1806,16 @@ sh:walkShapesList
 	] ;
 	sh:returnType xsd:boolean ;
 	sh:sparql """
-		ASK {
+		SELECT ?result
+		WHERE {
 			GRAPH ?arg4 {
-				?arg1 rdf:first ?shape .
-				?arg1 rdf:rest ?rest .
+				OPTIONAL {
+					?arg1 rdf:first ?shape .
+					?arg1 rdf:rest ?rest .
+				}
 			}
-			BIND (sh:hasShape(?arg3, ?shape, ?arg4) AS ?hasShape) .
-			FILTER IF(?hasShape = ?arg2, true, sh:walkShapesList(?rest, ?arg2, ?arg3, ?arg4)) .
+			BIND (IF(bound(?shape), sh:hasShape(?arg3, ?shape, ?arg4), !?arg2) AS ?hasShape) .
+			BIND (IF(?hasShape = ?arg2, true, IF(bound(?rest), sh:walkShapesList(?rest, ?arg2, ?arg3, ?arg4), false)) AS ?result) .
 		}
 		""" ;
 .
