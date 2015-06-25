@@ -20,7 +20,7 @@
 				wg:           "RDF Data Shapes Working Group",
 				wgURI:        "https://www.w3.org/2014/data-shapes/wiki/Main_Page",
 				wgPublicList: "public-data-shapes",
-				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
+				wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status"
 			};
 		</script>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script> 
@@ -59,6 +59,15 @@
 			table.rule { background-color: #EBEBE0; }
 			table.rule td { text-align: center; }
 			td.up { border-bottom:1px solid black; }
+			
+			.algorithm {
+				background: #fafafc;
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #c0c0c0;
+				margin-bottom: 16px;
+				padding: 8px;
+			}
 			
 			.arg {
 				font-weight: bold;
@@ -223,9 +232,12 @@ ex:SubmitterShape
 				<p>
 					One of the <a href="#operations"><span class="term">operations</span></a> that SHACL engines should support validates that a given RDF node matches a given shape.
 					This operation can be invoked based on any control logic, i.e. applications can pick their own mapping between RDF nodes and their shapes.
-					SHACL also provides two mapping mechanisms based on the RDF triples in the graph being validated.
-					Current proposals for these mechanisms include selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples.
-					Based on such in-graph mappings, SHACL supports constraint validation over a complete graph.
+					Another supported operation is to validate all nodes in a given graph.
+					In order to support that operation, SHACL has the concept of <span class="term">scopes</span>.
+					<span class="term">Scopes</span> are attached to shapes and produce a collection of nodes that shall be validated against the shape.
+					SHACL provides several scoping mechanisms, including node selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples,
+					as well as a more general scoping framework that produces focus nodes based on an executable language such as SPARQL.
+					The scope of a shape can be narrowed down via <span class="term">filter shapes</span> that define pre-conditions that all focus nodes need to fulfill before they are evaluated.
 					The output of constraint validation is a set of <a href="#violations"><span class="term">constraint violations</span></a>.
 				</p>
 				<p>
@@ -279,6 +291,7 @@ ex:UserWithEmail
 					A <span class="term">template</span> serves as a parameterizable macro that wraps an <span class="term">executable body</span>.
 					Constraints that rely on a <span class="term">template</span> are called <span class="term">template constraints</span>.
 					The SHACL vocabulary includes a small library of such <span class="term">templates</span> for common constraint patterns, but anyone can add their own template libraries.
+					Similar to constraint templates, SHACL also supports <span class="term">scope templates</span> that define a high-level vocabulary to represent <span class="term">scopes</span>.
 					Templates can be grouped into so-called <a href="#profiles"><span class="term">profiles</span></a>.
 					Some SHACL engines may decide to only support certain <span class="term">profiles</span> and implement them differently than the provided (SPARQL) bodies.
 				</p>
@@ -433,7 +446,7 @@ ex:UniqueEmailShape
 					</li>
 				</ul>
 				<p>
-					Orthogonal to these constraint types, SHACL has a notion of <a href="#scope">Scopes</a> that can be used to define pre-conditions
+					Orthogonal to these constraint types, SHACL has a notion of <a href="#filterShape">filter shapes</a> that can be used to define pre-conditions
 					that must hold before a constraint is applied to a given <span class="term">focus node</span>.
 				</p>
  				<figure>
@@ -1250,30 +1263,163 @@ ex:ClosedShapeExampleInvalidResource
 			</section>
 		</section>
 			
-		<section id="scope">
-			<h2>Scope of Constraints and Shapes (sh:scopeShape)</h2>
-			<p class="issue">
+		<section id="scopesAndFilters">
+			<h2>Scopes and Filter Shapes</h2>
+			<p class="issue" title="Scopes and Filters">
 				This feature has been proposed but is not an accepted requirement and is fully not worked out yet.
 				Here is just one possible design, as a placeholder, for now.
-				A related tracker item is <a href="http://www.w3.org/2014/data-shapes/track/issues/48">ISSUE-48</a>.
+				Related tracker items are <a href="http://www.w3.org/2014/data-shapes/track/issues/48">ISSUE-48</a> and
+				<a href="http://www.w3.org/2014/data-shapes/track/issues/62">ISSUE-62</a>. 
 			</p>
 			<p>
-				Shapes or constraints may have a property <code>sh:scopeShape</code> to declare <span class="term">scopes</span> that serves as a <span class="term">pre-conditions</span>
-				to narrow down when the constraint(s) applies.	The values of <code>sh:scopeShape</code> must be shape definitions.
-				These shapes must be evaluated before the constraint is evaluated.
-				If the scope shape returns an error-level constraint violation, then the constraint must be ignored.
-				Values of <code>sh:scopeShape</code> that are blank nodes do not require an <code>rdf:type</code> triple - the default type is <code>sh:Shape</code>.
+				SHACL includes vocabulary to define <span class="term">scopes</span>, which can be used by a SHACL processor to select which focus nodes need to be validated against which shapes.
+				The resulting collection of focus nodes can furthermore be narrowed down via so-called <span class="term">filter shapes</span>.
+				Both concepts are illustrated by the following figure, and introduced in the following sub-sections.
 			</p>
-			<p>
-				The following example states that the <code>sh:minCount</code> constraint only applies to resources that have a certain value for <code>ex:requiredProperty</code>. 
-			</p>
-			<pre class="example" title="Scoped constraint">
-ex:ScopedExampleShape
+			<figure>
+				<img src="images/SHACL-Validation-Process.png" />
+				<figcaption>Illustration of the scoping and filtering process</figcaption>
+			</figure>
+			<section id="scopes">
+				<h3>Scopes</h3>
+				<p>
+					SHACL supports three kinds of scopes:
+				</p>
+				<ul>
+					<li><a href="#nodeShape"><b>Individual scopes</b></a> link a specific resource with a shape via <code>sh:nodeShape</code>.
+					<li><a href="#scopeClass"><b>Class-based scopes</b></a> link all instances of a given class with a shape, using <code>sh:scopeClass</code> and <code>rdf:type</code>.</li>
+					<li><a href="#scope"><b>General scopes</b></a> define a flexible mechanism to produce arbitrary focus nodes for a given graph.</li>
+				</ul>
+				
+				<section id="nodeShape">
+					<h4>Individual scopes (sh:nodeShape)</h4>
+					<p>
+						Individual nodes can point to the shapes that they are supposed to be validated against using the property <code>sh:nodeShape</code>.
+						This pattern is illustrated in the following example. 				
+					</p>
+					<pre class="example" title="Scope based on sh:nodeShape">
+ex:ExampleShape
+	a sh:Shape ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	sh:nodeShape ex:ExampleShape .</pre>
+				</section>
+				
+				<section id="scopeClass">
+					<h4>Class-based Scopes (sh:scopeClass and rdf:type)</h4>
+					<p>
+						RDF Schema and OWL provide a well-established framework to model domains in terms of classes and instances.
+						A lot of existing data is already represented using these languages.
+						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with an <code>rdfs:Class</code>.
+						The property <code>rdf:type</code> is used to determine which shapes a given node are expected to fulfill.
+						The scope includes all instances of the <code>sh:scopeClass</code> and its subclasses, by following <code>rdfs:subClassOf</code> triples.
+						<span class="todo">(TODO: specify whether these subClassOf triples are expected to be in the query graph and/or the shapes graph.)</span> 
+						This pattern is illustrated in the following example.
+					</p>
+					<pre class="example" title="Scope based on rdf:type and sh:scopeClass">
+ex:ExampleClass
+	a rdfs:Class .
+
+ex:ExampleShape
+	a sh:Shape ;
+	sh:scopeClass ex:ExampleClass ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	rdf:type ex:ExampleClass .</pre>
+					<p>
+						If the type class of an instance is also an instance of <code>sh:Shape</code> then the <code>sh:scopeClass</code> triple can be omitted and <code>rdf:type</code> may directly link a resource with its shapes.
+						In this <span class="term">scope</span>, the IRIs of classes double as shape definitions, i.e. it is possible to directly attach constraints at the IRI of a class.
+						As syntactic sugar, the metaclass <code>sh:ShapeClass</code> can be used as a combination of <code>rdfs:Class</code> and <code>sh:Shape</code>.
+						This pattern is illustrated in the following example.
+					</p>
+					<pre class="example" title="Scope based on rdf:type only">
+ex:ExampleClassAndShape
+	a rdfs:Class ;    # These two triples can be simplified via sh:ShapeClass
+	a sh:Shape ;
+	sh:constraint [
+		...
+	] .
+
+ex:ExampleInstance
+	rdf:type ex:ExampleClass .</pre>
+				</section>
+				
+				<section id="scope">
+					<h4>General scopes (sh:scope)</h4>
+					<p>
+						SHACL includes a generic mechanism to select focus nodes.
+						A <code>sh:Shape</code> can point to one or more instances of <code>sh:Scope</code>.
+						The core profile of SHACL includes several subclasses of <code>sh:Scope</code> that define a high-level vocabulary for common scope patterns.
+						The full SHACL language also includes a generic mechanism based on executable languages such as SPARQL, elaborated in an <a href="#general-scopes">advanced section</a>.
+					</p>
+					<section id="PropertyScope">
+						<h5>Property scopes (sh:PropertyScope)</h5>
+						<p>
+							The scope class <code>sh:PropertyScope</code> selects all subjects that have at least one value for a given property <code>sh:predicate</code>.
+						</p>
+						<p>See also: <a href="#sparql-PropertyScope">Definition in SPARQL</a>.</p>
+						<p>
+							The following example uses <code>sh:PropertyScope</code> to define a constraint	that shall apply to all resources that have any value for the property <code>ex:property</code>:
+						</p>
+						<pre class="example" title="Shape with sh:PropertyScope">
+ex:PropertyScopeExampleShape
+	a sh:Shape ;
+	sh:scope [
+		a sh:PropertyScope ;
+		sh:predicate ex:property ;
+	] ;
+	sh:constraint [
+		...
+	] .</pre>
+					</section>
+					<section id="AllSubjectsScope">
+						<h5>All subjects scopes (sh:AllSubjectsScope)</h5>
+						<p>
+							The scope class <code>sh:AllSubjectsScope</code> selects all subjects in the given graph.
+						</p>
+						<p>See also: <a href="#sparql-AllSubjectsScope">Definition in SPARQL</a>.</p>
+						<p>
+							The following example uses <code>sh:AllSubjectsScope</code> to define a constraint that shall apply to all subjects in the current graph:
+						</p>
+						<pre class="example" title="Shape with sh:AllSubjectsScope">
+ex:PropertyScopeExampleShape
+	a sh:Shape ;
+	sh:scope [
+		a sh:AllSubjectsScope ;
+	] ;
+	sh:constraint [
+		...
+	] .</pre>
+					</section>
+				</section>
+				
+			</section>
+			
+			<section id="filterShape">
+				<h3>Filter Shapes</h3>
+				<p>
+					In some cases, constraints or shapes should not apply to all focus nodes, produced by a scope.
+					For example, instances of the given class <code>ex:Person</code> that were <code>ex:bornIn</code>
+					the country <code>ex:USA</code> may have a different legal drinking age than others.
+					In order to support such use cases, SHACL includes the concept of <span class="term">filter shapes</span> that act as pre-conditions that all focus nodes need to fulfill before they are being validated.
+					Formally, filter shapes eliminate entries from the collection of focus nodes selected by a shape's scopes, if the focus node produces an error-level constraint violation for the given filter shapes.
+				</p>
+				<p>
+					The following example states that the <code>sh:minCount</code> constraint only applies to resources that have a certain value for <code>ex:requiredProperty</code>. 
+				</p>
+				<pre class="example" title="Constraint with a filter shape">
+ex:FilteredExampleShape
 	a sh:Shape ;
 	sh:property [
 		sh:predicate ex:someProperty ;
 		sh:minCount 1 ;
-		sh:scopeShape [
+		sh:filterShape [
 			a sh:Shape ; # Optional triple
 			sh:property [
 				sh:predicate ex:requiredProperty ;
@@ -1282,17 +1428,17 @@ ex:ScopedExampleShape
 		] ;
 	] .
 
-ex:ScopedShapeValidExampleInstance
+ex:FilteredShapeValidExampleInstance
 	ex:someProperty ex:someValue ;
 	ex:requiredProperty ex:requiredValue .</pre>
 			<p>
-				Alternatively, the <code>sh:scopeShape</code> can be attached to a whole shape, with the meaning
-				that the scope applies to all constraints attached to the shape, as shown in the following example.
+				Alternatively, <code>sh:filterShape</code> can be attached to a whole shape, with the meaning
+				that the filter applies to all constraints attached to the shape, as shown in the following example.
 			</p>
-			<pre class="example" title="Scoped shape">
-ex:ScopedExampleShape
+			<pre class="example" title="Shape with a filter shape">
+ex:FilteredExampleShape
 	a sh:Shape ;
-	sh:scopeShape [
+	sh:filterShape [
 		sh:property [
 			sh:predicate ex:requiredProperty ;
 			sh:hasValue ex:requiredValue ;
@@ -1303,9 +1449,10 @@ ex:ScopedExampleShape
 		sh:minCount 1 ;
 	] .
 
-ex:ScopedShapeValidExampleInstance
+ex:FilteredShapeValidExampleInstance
 	ex:someProperty ex:someValue ;
 	ex:requiredProperty ex:requiredValue .</pre>
+			</section>
 		</section>
 		
 		<section id="violations">
@@ -1514,12 +1661,14 @@ ex:GeneralSPARQLConstraintExampleShape
 			<h2>Templates</h2>
 			<p>
 				Templates can be used to encapsulate and parameterize <span class="term">executable bodies</span> based on arguments.
-				Templates can be instantiated anywhere where a native constraint may appear (for example, at <code>sh:constraint</code>).
+				Constraint templates can be instantiated anywhere where a native constraint may appear (for example, at <code>sh:constraint</code>).
+				Scope templates can be instantiated anywhere where a native scope may appear, at <code>sh:scope</code>.
 				SHACL includes several templates that were deemed to be of general use, including the <a href="#shapeconstraints-property">property constraint templates</a>.
 				Such templates form a high-level vocabulary that may be directly interpreted ("hard-coded") without reliance on their executable bodies.
 			</p>
 			<p>
 				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
+				Scope templates are represented as IRI nodes that are instances of the class <code>sh:ScopeTemplate</code>.
 				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc).
 				Well-defined, non-abstract templates MUST provide at least one executable body property using <a href="#sparql-templates"><code>sh:sparql</code></a>.
 				The following example illustrates the definition of a constraint template based on a SPARQL query.
@@ -1586,18 +1735,35 @@ ex:ExampleTemplate
 				</p>
 			</section>
 		</section>
+		
+		<section id="general-scopes">
+			<h2>General Scopes (sh:scope)</h2>
+			<p>
+				In addition to the scope classes introduced in the core section, such as <code>sh:PropertyScope</code>,
+				SHACL provides facilities for anyone to define custom scopes.
+				Scopes may either have a native executable body or be an instance of <code>sh:TemplateScope</code>.
+				All this is analogous to how constraints work, but with the additional restrictions:
+			</p>
+			<ul>
+				<li>All subjects of <code>sh:scope</code> triples must be IRIs</li>
+				<li>The arguments of a scope template must not be blank nodes</li>
+			</ul>
+			<p class="todo">
+				TODO: Maybe include an example of a user-defined scope template and how it is used.
+			</p>
+		</section>
 
 		<section id="profiles">
 			<h2>Profiles</h2>
 			<p>
-				A Profile is a set of shape templates.
+				A Profile is a set of templates.
 				Profiles can be used to define controlled sub-dialects of SHACL, e.g. with desirable complexity.
 				Tools may decide to only support certain profiles, for example so that they can hard-code and optimize certain algorithms.
-				Since Profiles are entirely based on templates, <span class="term">native constraints</span> such as those in SPARQL are outside of their expressivity.
+				Since Profiles are entirely based on templates, <span class="term">native constraints and scopes</span> such as those in SPARQL are outside of their expressivity.
 			</p>
 			<p>
 				The class <code>sh:Profile</code> is used to represent SHACL profiles.
-				The property <code>sh:member</code> links a <code>sh:Profile</code> with the templates that are in the profile.
+				The properties <code>sh:constraintTemplate</code> and <code>sh:scopeTemplate</code> link a <code>sh:Profile</code> with the templates that are in the profile.
 				The following example defines a profile consisting of the two SHACL templates for min/max cardinality and value shape,
 				as well as their shared superclass (which defines the <code>sh:predicate</code> property) and their shared subclass
 				<code>sh:PropertyConstraint</code> that is directly instantiated.
@@ -1605,10 +1771,11 @@ ex:ExampleTemplate
 			<pre class="example" title="Simple SHACL Profile">
 ex:MyProfile
 	a sh:Profile ;
-	sh:member sh:AbstractPropertyConstraint ;
-	sh:member sh:AbstractCountPropertyConstraint ;
-	sh:member sh:AbstractValueShapePropertyConstraint ;
-	sh:member sh:PropertyConstraint .</pre>
+	sh:constraintTemplate sh:AbstractPropertyConstraint ;
+	sh:constraintTemplate sh:AbstractCountPropertyConstraint ;
+	sh:constraintTemplate sh:AbstractValueShapePropertyConstraint ;
+	sh:constraintTemplate sh:PropertyConstraint ;
+	sh:scopeTemplate sh:PropertyScope .</pre>
 			<p>
 				In the example above, the profile includes only the properties from the enumerated template classes.
 				Sibling template classes such as <code>sh:AbstractAllowedValuesPropertyConstraint</code> are outside of the profile,
@@ -1617,6 +1784,10 @@ ex:MyProfile
 			<p>
 				SHACL includes a profile called <code>sh:CoreProfile</code> that includes all <a href="#property-constraints">property constraint templates</a>
 				as well as the logical operators such as <a href="#or">or</a> and <a href="#ClosedShape">closed shapes</a>. 
+			</p>
+			<p>
+				Profiles can extend each other using the property <code>sh:extends</code>.
+				Such profiles include all templates from the profiles that they (transitively) extend.
 			</p>
 		</section>
 
@@ -1665,77 +1836,11 @@ ex:MyProfile
 				All operations have an implicit argument, which is a data set with a default named graph.
 				Details of this need to be fleshed out, pending design decisions on general graph management.
 			</p>
-		
-			<section id="shape-selection">
-				<h3>Shape Selection</h3>
-				<p>
-					Some operations on SHACL graphs, such as <a href="#operation-validateNode"><code>validateNode</code></a> and
-					<a href="#operation-validateGraph"><code>validateGraph</code></a> rely on in-graph information to determine
-					which nodes need to be evaluated against which shapes.
-					This section describes the three currently supported <span class="term">shape selection</span> mechanisms.
-				</p>
-				<section>
-					<h4>Shape Selection based on sh:nodeShape</h4>
-					<p>
-						In some application scenarios, there may be unwanted interactions between existing RDFS models and shapes.
-						For example, an application may want to ensure that there is no interaction between shapes and RDFS/OWL inferencing.
-						In those cases, users can declare shapes as instances of <code>sh:Shape</code> and use <code>sh:nodeShape</code>
-						to point from a node to its shape(s).
-						This pattern is illustrated in the following example. 				
-					</p>
-					<pre class="example" title="Shape selection based on sh:nodeShape">
-ex:ExampleShape
-	a sh:Shape ;
-	sh:constraint [
-		...
-	] .
-
-ex:ExampleInstance
-	sh:nodeShape ex:ExampleShape .</pre>
-				</section>
-				<section>
-					<h4>Shape Selection based on rdf:type and sh:scopeClass</h4>
-					<p>
-						RDF Schema and OWL provide a well-established framework to model domains in terms of classes and instances.
-						A lot of existing data is already represented using these languages.
-						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with a <code>rdfs:Class</code>.
-						The property <code>rdf:type</code> is used to determine which shapes a given node needs to fulfill.
-						This pattern is illustrated in the following example.
-					</p>
-					<pre class="example" title="Shape selection based on rdf:type">
-ex:ExampleClass
-	a rdfs:Class .
-
-ex:ExampleShape
-	a sh:Shape ;
-	sh:scopeClass ex:ExampleClass ;
-	sh:constraint [
-		...
-	] .
-
-ex:ExampleInstance
-	rdf:type ex:ExampleClass .</pre>
-				</section>
-				<section>
-					<h4>Shape Selection based on rdf:type only</h4>
-					<p>
-						Similar to the previous section, <code>rdf:type</code> may link a resource with its shapes, if the type class is also an instance of <code>sh:Shape</code>.
-						In this <span class="term">shape selector</span>, the IRIs of classes double as shape definitions, i.e.	it is possible to directly attach constraints at the IRI of a class.
-						Note that <code>sh:ShapeClass</code> can be used as a combination of <code>rdfs:Class</code> and <code>sh:Shape</code>.
-						This pattern is illustrated in the following example.
-					</p>
-					<pre class="example" title="Shape selection based on rdf:type only">
-ex:ExampleClassAndShape
-	a rdfs:Class ;    # These two triples can be simplified via sh:ShapeClass
-	a sh:Shape ;
-	sh:constraint [
-		...
-	] .
-
-ex:ExampleInstance
-	rdf:type ex:ExampleClass .</pre>
-				</section>
-			</section>
+			<p>
+				The SHACL specification supports an open architecture consisting of <a href="#execution-languages">Execution Languages</a>
+				that serve as work-horses of the individual constraints.
+				The constraint validation operations rely on functions provided by these <span class="term">execution languages</span>.
+			</p>
 			<section id="operation-validateConstraint">
 				<h3>validateConstraint</h3>
 				<p>
@@ -1750,35 +1855,32 @@ ex:ExampleInstance
 					<tr>
 						<td><code>?constraint</code></td>
 						<td><code>sh:Constraint</code></td>
-						<td>The <span class="term">constraint</span> to evalate</td>
+						<td>The <span class="term">constraint</span> to evaluate</td>
+					</tr>
+					<tr>
+						<td><code>?shape</code></td>
+						<td><code>sh:Shape</code></td>
+						<td>The <span class="term">shape</span> containing the constraint</td>
 					</tr>
 					<tr>
 						<td><code>?focusNode</code></td>
-						<td><code>rdfs:Resource</code> (Optional)</td>
-						<td>The <span class="term">focus node</span>, if present.</td>
+						<td><code>rdfs:Resource</code></td>
+						<td>The <span class="term">focus node</span></td>
 					</tr>
 				</table>
 				<p>
 					This operation assumes that the <code>?constraint</code> is either a <span class="term">native constraint</span>
 					or a <span class="term">template constraint</span>.
+					For template constraints, the algorithm will execute the constraint template itself plus all of its superclasses.
 				</p>
-				<ul>
-					<li>
-						For <span class="term">native constraints</span>, the operation selects one of the provided <span class="term">executable bodies</span>.
-						For example if the constraint has a <code>sh:sparql</code> query and the engine is capable of executing SPARQL,
-						it should follow the execution rules specified in the <a href="#sparql-constraints">SPARQL-based Constraints</a> section,
-						using the provided <code>?focusNode</code> if present.
-						A <code>sh:Warning</code> should be produced if no suitable <span class="term">executable body</span> was found.
-					</li>
-					<li>
-						For <span class="term">template constraints</span>, the operation traverses the associated template as well as all its superclasses.
-						For each of those templates, it selects the best suitable <span class="term">executable body</span>.
-						For example, if the engine is capable of executing SPARQL,
-						it should follow the execution rules specified in the <a href="#sparql-templates">SPARQL-based Templates</a> section,
-						using the provided <code>?focusNode</code> if present.
-						A <code>sh:Warning</code> should be produced if no suitable <span class="term">executable body</span> was found.
-					</li>
-				</ul>
+				<pre class="algorithm">
+if (?constraint instanceOf sh:NativeConstraint)
+	let el := an execution language where el.canExecuteConstraint(?constraint) = true
+	el.executeConstraint(?constraint, null, ?shape, ?focusNode)
+else
+	forEach ?template := (?constraint rdf:type ?type . ?type rdfs:subClassOf* ?template)
+		let el := an execution language where el.canExecuteConstraint(?constraint, ?template) = true
+		el.executeConstraint(?constraint, ?template, ?shape, ?focusNode)</pre>
 			</section>
 			<section id="operation-validateNodeAgainstShape">
 				<h3>validateNodeAgainstShape</h3>
@@ -1810,10 +1912,12 @@ ex:ExampleInstance
 				<p>
 					Algorithm in pseudo-code:
 				</p>
-				<pre>
-forEach ?constraint := (?shape sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
-	if (declared sh:severity of ?constraint is at least ?minSeverity)
-		validateConstraint(?constraint, ?focusNode)</pre>
+				<pre class="algorithm">
+if (validateNode(?focusNode, ?filterShape, sh:Error) produces the empty set for all declared sh:filterShapes of ?shape)
+	forEach ?constraint := (?shape sh:constraint|sh:property|sh:inverseProperty|sh:argument ?constraint)
+		if (declared sh:severity of ?constraint is at least ?minSeverity)
+			if (validateNode(?focusNode, ?filterShape, sh:Error) produces the empty set for all declared sh:filterShapes of ?constraint)
+				validateConstraint(?constraint, ?shape, ?focusNode)</pre>
 			</section>
 			<section id="operation-validateNode">
 				<h3>validateNode</h3>
@@ -1840,20 +1944,31 @@ forEach ?constraint := (?shape sh:constraint|sh:property|sh:inverseProperty|sh:a
 				<p>
 					Algorithm in pseudo-code:
 				</p>
-				<pre>
+				<pre class="algorithm">
+forEach ?shape := getShapes(?focusNode)
+	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
+				<p>
+					where the helper function <code>getShapes</code> produces a set of shapes as follows:
+				</p>
+				<pre class="algorithm">
 forEach ?shape := (?focusNode sh:nodeShape ?shape)
-	validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)
+	add(?shape) 
 
 forEach ?type := (?focusNode rdf:type/rdfs:subClassOf* ?type)
 	if (?type instanceof sh:Shape)
-		validateNodeAgainstShape(?focusNode, ?type, ?minSeverity)
+		add(?type)
 	forEach ?shape := (?shape sh:scopeClass ?type)
-		validateNodeAgainstShape(?focusNode, ?shape, ?minSeverity)</pre>
+		add(?shape)
+		
+forEach ?shape, ?scope := (?shape sh:scope ?scope)
+	let el := an execution language where el.canExecuteScope(?scope) = true
+	if (el.isNodeInScope(?scope, ?focusNode)
+		add(?shape)</pre>
 			</section>
 			<section id="operation-validateGraph">
 				<h3>validateGraph</h3>
 				<p>
-					This operation validates a whole graph against all shapes associated with its resources, based on in-graph mappings.
+					This operation validates a whole graph against all shapes associated with its resources, based on in-graph scopes.
 				</p>
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
@@ -1863,12 +1978,211 @@ forEach ?type := (?focusNode rdf:type/rdfs:subClassOf* ?type)
 					</tr>
 				</table>
 				<p>
-					Algorithm in pseudo-code:
+					Algorithm in pseudo-code (note that the algorithm as written here would be hopelessly inefficient if implemented literally - actual implementations can select shapes and their scopes together and then call <code>validateNodeAgainstShape</code> much more efficiently):
 				</p>
 				<pre>
-forEach ?focusNode := (?focusNode sh:nodeShape|rdf:type ?anyShape)
+forEach ?focusNode := collectNodes()
 	validateNode(?focusNode, ?minSeverity)</pre>
+				<p>
+					where the helper function <code>collectNodes</code> produces a set of focus nodes as follows:
+				</p>
+				<pre class="algorithm">
+forEach ?focusNode := (?focusNode sh:nodeShape ?anyShape)
+	add(?focusNode) 
+
+forEach ?focusNode := (?focusNode rdf:type ?anyClass) where ?anyClass instanceOf sh:Shape
+	add(?focusNode)
+
+forEach ?focusNode := (?focusNode rdf:type ?anyClass) where exists (?anyShape sh:scopeClass ?anyClass)
+	add(?focusNode)
+
+forEach ?scope := (?shape sh:scope ?scope)
+	let el := an execution language where el.canExecuteScope(?scope) = true
+	forEach ?focusNode := el.executeScope(?scope)
+		add(?focusNode)</pre>
    			</section>
+			<section id="execution-languages">
+				<h3>Execution Languages</h3>
+				<p>
+					The SHACL operations assume a <span class="term">registry</span> of known execution languages, such as SPARQL.
+					This registry SHOULD include one or more <span class="term">execution languages</span>, implemented via an interface with the following functions.
+					The SHACL engine must select a suitable execution language from the registry for each constraint, function and scope that it encounters, using the provided <code>can..</code> functions.
+					<span class="todo">Clarify what needs to happen if no suitable language is found: fail gracefully or fatal error.</span> 
+				</p>
+				<pre class="algorithm">
+interface ExecutionLanguage {
+
+	<a href="#canExecuteConstraint">canExecuteConstraint</a>() : boolean
+	<a href="#executeConstraint">executeConstraint</a>() : void
+
+	<a href="#canExecuteScope">canExecuteScope</a>() : boolean
+	<a href="#executeScope">executeScope</a>() : RDF node[]
+	<a href="#isNodeInScope">isNodeInScope</a>() : boolean
+
+	<a href="#canExecuteFunction">canExecuteFunction</a>() : boolean
+	<a href="#executeFunction">executeFunction</a>() : RDF node
+}</pre>
+				<section id="canExecuteConstraint">
+					<h3>canExecuteConstraint</h3>
+					<p>
+						This operation tests whether the given execution language can execute a given constraint, returning either <code>true</code> or <code>false</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code style="white-space: nowrap">?constraint</code></td>
+							<td><code>sh:Constraint</code></td>
+							<td>The <span class="term">constraint</span> to execute</td>
+						</tr>
+						<tr>
+							<td><code>?template</code></td>
+							<td><code>sh:ConstraintTemplate</code></td>
+							<td>Optional, only given if <code>?constraint</code> is a template constraint. The <span class="term">template</span> to execute (possibly a super-class of the directly instantiated template).</td>
+						</tr>
+					</table>
+				</section>
+				<section id="executeConstraint">
+					<h3>executeConstraint</h3>
+					<p>
+						This operation executes a given constraint and adds any constraint violations into the current results graph.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code style="white-space: nowrap">?constraint</code></td>
+							<td><code>sh:Constraint</code></td>
+							<td>The <span class="term">constraint</span> to execute</td>
+						</tr>
+						<tr>
+							<td><code>?template</code></td>
+							<td><code>sh:ConstraintTemplate</code></td>
+							<td>Optional, only given if <code>?constraint</code> is a template constraint. The <span class="term">template</span> to execute (possibly a super-class of the directly instantiated template).</td>
+						</tr>
+						<tr>
+							<td><code>?shape</code></td>
+							<td><code>sh:Shape</code></td>
+							<td>The <span class="term">shape</span> containing the constraint</td>
+						</tr>
+						<tr>
+							<td><code>?focusNode</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>The focus node.</td>
+						</tr>
+					</table>
+					<p>
+						Calling this function is only supported if a prior call to <code>canExecuteConstraint</code> has returned <code>true</code> for the same arguments.
+					</p>
+				</section>
+				<section id="canExecuteScope">
+					<h3>canExecuteScope</h3>
+					<p>
+						This operation tests whether the given execution language can execute a given scope, returning either <code>true</code> or <code>false</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?scope</code></td>
+							<td><code>sh:Scope</code></td>
+							<td>The <span class="term">scope</span> to execute (may be a template scope)</td>
+						</tr>
+					</table>
+				</section>
+				<section id="executeScope">
+					<h3>executeScope</h3>
+					<p>
+						This operation gets all nodes from a given scope.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?scope</code></td>
+							<td><code>sh:Scope</code></td>
+							<td>The <span class="term">scope</span> (may be a template scope)</td>
+						</tr>
+					</table>
+				</section>
+				<section id="isNodeInScope">
+					<h3>isNodeInScope</h3>
+					<p>
+						This operation tests whether a given focus node is within a given scope, returning either <code>true</code> or <code>false</code>.
+						<code>isNodeInScope</code> must return true for exactly the nodes that are produced by <code>executeScope</code> with the same scope argument.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?focusNode</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>The <span class="term">focus node</span> to test</td>
+						</tr>
+						<tr>
+							<td><code>?scope</code></td>
+							<td><code>sh:Scope</code></td>
+							<td>The <span class="term">scope</span> to test (may be a template scope)</td>
+						</tr>
+					</table>
+				</section>
+				<section id="canExecuteFunction">
+					<h3>canExecuteFunction</h3>
+					<p>
+						This operation tests whether the given execution language can execute a given function, returning either <code>true</code> or <code>false</code>.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?function</code></td>
+							<td><code>sh:Function</code></td>
+							<td>The <span class="term">function</span> to execute (must be a IRI).</td>
+						</tr>
+					</table>
+				</section>
+				<section id="executeFunction">
+					<h3>executeFunction</h3>
+					<p>
+						This operation executes a given function with a list of arguments and returns a result node or an error.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Argument</th>
+							<th>Type</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>?function</code></td>
+							<td><code>sh:Function</code></td>
+							<td>The <span class="term">function</span> to execute (must be a IRI).</td>
+						</tr>
+						<tr>
+							<td><code>?arg1</code>, <code>?arg2</code>, ...</td>
+							<td>RDF node</td>
+							<td>The arguments.</td>
+						</tr>
+					</table>
+				</section>
+			</section>
 		</section>
 		
 		<section id="functions">
@@ -1876,11 +2190,11 @@ forEach ?focusNode := (?focusNode sh:nodeShape|rdf:type ?anyShape)
 			<p>
 				SHACL <span class="term">functions</span> define operations that produce an RDF node based on arguments.
 				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
-				However, the general declaration mechanism for SHACL functions is independent from SPARQL.
+				However, the general declaration mechanism for SHACL functions is independent from SPARQL and may also be exploited by other environments.
 			</p>
 			<p>
 				Functions must be declared as instances of the class <code>sh:Function</code>.
-				Well-defined, non-abstract functions MUST provide at least one executable body property using <a href="#sparql-functions"><code>sh:sparql</code></a>.
+				Well-defined, non-abstract functions MUST provide at least one executable body property such as <a href="#sparql-functions"><code>sh:sparql</code></a> so that one of the registered <span class="term">execution languages</span> return <code>true</code> for <code>canExecutionFunction()</code>.
 				The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
 			</p>
 			<pre class="example" title="SHACL function with a SPARQL body">
@@ -2215,10 +2529,39 @@ ex:ExampleValueResource
 ] .</pre>
 				</section>
 			</section>
+			<section id="sparql-scopes">
+				<h3>SPARQL-based Scopes</h3>
+				<p>
+					The SPARQL queries attached to a <span class="term">scope</span> via <code>sh:sparql</code> MUST be of the query form <code>SELECT</code>, or a fragment that produces a valid <code>SELECT</code> query if wrapped by <code>SELECT ?this WHERE { ... }</code>.
+					The SELECT queries MUST project to the result variable <code>?this</code>.
+					The results of execution consists of all distinct bindings for the variable <code>?this</code>.
+				</p>
+				<p>
+					The SELECT queries MUST also be executable when converted to an ASK query and with a pre-bound value for <code>?this</code>.
+					The set of bindings for <code>?this</code> that return <code>true</code> for such ASK queries must be identical to the set produced by the SELECT query.
+					This constraint makes sure that engines can evaluate whether a given shape applies to a given focus node as part of the <a href="#operation-validateNode">validateNode</a> operation.
+				</p>
+				<p>
+					The following example illustrates a well-formed SPARQL-based scope that produces all persons born in the USA:
+				</p>
+				<pre class="example" title="SPARQL-based scope example">
+ex:USCitizenShape
+	a sh:Shape ;
+	sh:scope [
+		sh:sparql """
+			SELECT ?this
+			WHERE {
+				?this a ex:Person .
+				?this ex:bornIn ex:USA .
+			}
+			""" ;
+	] ;
+	sh:constraint ...</pre>
+			</section>
 			<section id="sparql-templates">
 				<h3>SPARQL-based Templates</h3>
 				<p>
-					If a <code>sh:Template</code> has a value for <code>sh:sparql</code>, then the corresponding instances need to follow the same execution rules as outlined for <a href="#sparql-constraints">SPARQL-based Constraints</a>.
+					If a <code>sh:Template</code> has a value for <code>sh:sparql</code>, then the corresponding instances need to follow the same execution rules as outlined for <a href="#sparql-constraints">SPARQL-based Constraints</a> and <a href="#sparql-constraints">SPARQL-based Scopes</a>.
 					The only difference is that the SPARQL queries need to be executed with additional <span class="term">pre-bound</span> variables, derived from the arguments of the template.
 					The names of those variables must match the <a href="#def-local-name"><span class="term">local name</span></a> of the argument predicates, including the arguments defined by any (transitive) superclasses of the template.
 					For example, if an argument is represented with the predicate <code>ex:myArgument</code> then the variable <code>?myArgument</code> must be <span class="term">pre-bound</span> with the value of the argument in the template instance.
@@ -2578,15 +2921,15 @@ ASK {
 			</section>
 		</section>
 		
-		<section id="sparql-template-defs" class="appendix">
-			<h2>SPARQL Definitions of the SHACL Templates</h2>
+		<section id="sparql-constraint-template-defs" class="appendix">
+			<h2>SPARQL Definitions of the SHACL Constraint Templates</h2>
 			<p>
 				The following subsections define the semantics of the high-level constraint vocabulary built into SHACL using SPARQL.
 				The SPARQL Definitions use the variable <code>?this</code> to refer to the <span class="term">focus node</span>.
 				The variable <code>?shapesGraph</code> is expected to point at the <span class="term">Shapes graph</span>.
 				The variable <code>?currentShape</code> is expected to point at the currently evaluated shape.
-				Pre-bound variables such are printed such as <code class="arg">?this</code>.
-				SPARQL-based implementations of SHACL may use variations of the provided SPARQL queries, as long as they expose compatible behavior.
+				Pre-bound variables are printed such as <code class="arg">?this</code>.
+				Implementations of SHACL may use variations of the provided SPARQL queries, as long as they expose compatible behavior.
 			</p>
 			<section>
 				<h3>Property Constraints</h3>
@@ -2776,6 +3119,37 @@ WHERE {
 	}
 }</pre>
 				</div>
+			</section>
+		</section>
+		
+		<section id="sparql-scope-template-defs" class="appendix">
+			<h2>SPARQL Definitions of the SHACL Scope Templates</h2>
+			<p>
+				The following subsections define the semantics of the high-level scope vocabulary built into SHACL using SPARQL.
+				Pre-bound variables are printed such as <code class="arg">?predicate</code>.
+				Implementations of SHACL may use variations of the provided SPARQL queries, as long as they expose compatible behavior.
+			</p>
+			<section id="sparql-AllSubjectsScope">
+				<h4>sh:AllSubjectsScope</h4>
+				<div id="def-AllSubjectsScope-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this
+WHERE {
+	?this ?anyPredicate ?anyObject .
+}</pre>
+					</div>
+			</section>
+			<section id="sparql-PropertyScope">
+				<h4>sh:PropertyScope</h4>
+				<div id="def-PropertyScope-sparql" class="def def-sparql">
+					<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this
+WHERE {
+	?this <span class="arg">?predicate</span> ?anyObject .
+}</pre>
+					</div>
 			</section>
 		</section>
 
