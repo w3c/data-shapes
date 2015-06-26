@@ -193,7 +193,7 @@ ex:Issue
 		rdfs:label "assigned to" ;
 		rdfs:comment "The assignee of an issue must be a person." ;
 		sh:maxCount 1 ;
-		sh:valueType schema:Person ;
+		sh:valueClass schema:Person ;
 	] ;
 	sh:property [
 		sh:predicate ex:submittedBy ;
@@ -201,7 +201,7 @@ ex:Issue
 		rdfs:comment "The submitter of an issue must be a person who also has an email address." ;
 		sh:minCount 1 ;
 		sh:maxCount 1 ;
-		sh:valueType schema:Person ;
+		sh:valueClass schema:Person ;
 		sh:valueShape ex:SubmitterShape ;
 	] .
 
@@ -225,7 +225,7 @@ ex:SubmitterShape
 				<p>
 					In the Issue example above, the shape <code>ex:Issue</code> includes two constraints.
 					These constraints are here represented as blank nodes via <code>sh:property</code>.
-					Each of these constraints specifies the restricted property via <code>sh:predicate</code>, and one or more constraint properties such as <code>sh:minCount</code> and <code>sh:valueType</code>.
+					Each of these constraints specifies the restricted property via <code>sh:predicate</code>, and one or more constraint properties such as <code>sh:minCount</code> and <code>sh:valueClass</code>.
 					The property <code>sh:valueShape</code> points to another <code>sh:Shape</code> that defines additional constraints that the values of
 					the <code>ex:submittedBy</code> property must fulfill, in addition to being instances of <code>schema:Person</code>.
 				</p>
@@ -407,13 +407,6 @@ ex:UniqueEmailShape
 				<p>
 					A consequence of these links between shapes and classes is that shape declarations can specialize the shapes associated with the superclasses, declared via <code>rdfs:subClassOf</code>.
 				</p>
-				<p class="issue" title="RDFS Entailment">
-					The role of RDFS entailment is not decided yet, see <a href="http://www.w3.org/2014/data-shapes/track/issues/1">ISSUE-1</a>. 
-					RDFS entailment would potentially serve as an alternative to walking the rdfs:subClassOf relationship during the validation.
-					However, making RDFS entailment mandatory may exclude too many systems and have other drawbacks.
-					This draft currently handles rdfs:subClassOf on the engine level, plus there is a control mechanims for individual
-					SPARQL queries via sh:sparqlEntailment.
-				</p>
 				<p>
 					The following figure illustrates some relationships between core classes of SHACL and RDF Schema.
 					Note that the use of a UML-like notation does not imply that these RDF concepts are classes in an object-oriented sense.
@@ -496,7 +489,7 @@ ex:InlinePropertyConstraintExampleShape
 	sh:property [
 		sh:predicate ex:someProperty ;
 		sh:minCount 1 ;
-		sh:valueType ex:SomeClass ;
+		sh:valueClass ex:SomeClass ;
 		rdfs:label "some property" ;
 		rdfs:comment "Description of the role of ex:someProperty (in the context of the constraint)" ;
 	] .</pre>
@@ -513,7 +506,7 @@ ex:StandAloneConstraint
 	sh:predicate ex:someProperty ;
 	sh:defaultValue ex:SomeInstance ;
 	sh:minCount 1 ;
-	sh:valueType ex:SomeClass .</pre>
+	sh:valueClass ex:SomeClass .</pre>
 				<p>
 					Property constraints may have an <code>rdfs:label</code> to provide a human-readable label for the property	in the context where it appears.
 					If present, tools SHOULD prefer those locally defined labels over globally defined labels at the <code>rdf:Property</code> itself.
@@ -523,7 +516,7 @@ ex:StandAloneConstraint
 				<p id="defaultValue">
 					Property constraints may have a single value for <code>sh:defaultValue</code>.
 					The default value does not have fixed semantics in SHACL, but may be used by user interface tools to pre-populate input widgets.
-					The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code> or <code>sh:valueType</code> of the same constraint.
+					The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code> or <code>sh:valueClass</code> of the same constraint.
 				</p>
 				<p>
 					The following sections provide details on the properties that may be used with <code>sh:PropertyConstraint</code>.
@@ -556,12 +549,15 @@ ex:StandAloneConstraint
 						<td>Node kind (IRI, blank node, or literal) of all values</td>
 					</tr>
 					<tr>
-						<td><a href="#AbstractValueShapePropertyConstraint"><code>sh:valueShape</code></a></td>
-						<td>Nested shape of all values</td>
+						<td>
+							<a href="#AbstractValueClassPropertyConstraint"><code>sh:valueClass</code></a> and
+							<a href="#AbstractDirectValueTypePropertyConstraint"><code>sh:directValueType</code></a>
+						</td>
+						<td>Type of all values</td>
 					</tr>
 					<tr>
-						<td><a href="#AbstractValueTypePropertyConstraint"><code>sh:valueType</code></a></td>
-						<td>Type of all values</td>
+						<td><a href="#AbstractValueShapePropertyConstraint"><code>sh:valueShape</code></a></td>
+						<td>Nested shape of all values</td>
 					</tr>
 				</table>
 				<p class="issue" title="Datatype facets">
@@ -697,6 +693,37 @@ ex:DatatypeShapeExampleValidResource
 
 ex:DatatypeShapeExampleInvalidResource
 	ex:someProperty 42 .</pre>
+				</section>
+				<section id="AbstractDirectValueTypePropertyConstraint">
+					<h4>sh:directValueType</h4>
+					<p>
+						The property <code>sh:directValueType</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
+						The values of <code>sh:directValueType</code> must be RDFS classes (instances of <code>rdfs:Class</code>).
+						The main difference with <a href="#AbstractValueClassPropertyConstraint"><code>sh:valueClass</code></a> is that <code>sh:directValueType</code> does not include subclasses of the type.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:directValueType</code></td>
+							<td><code>rdfs:Class</code></td>
+							<td>Type of all values</td>
+						</tr>
+					</table>
+					<div id="def-nodeType-text" class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							An <code>sh:Error</code> must be reported for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object does not have an <code>rdf:type</code> triple with the given value type as object.
+							Each produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code> and <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<p>See also: <a href="#sparql-AbstractDirectValueTypePropertyConstraint">Definition in SPARQL</a>.</p>
 				</section>
 				<section id="AbstractHasValuePropertyConstraint">
 					<h4>sh:hasValue</h4>
@@ -838,6 +865,51 @@ ex:NodeKindShapeExampleInvalidResource
 	ex:someProperty ex:SomeIRI ;
 	ex:someProperty "A literal" .</pre>
 				</section>
+				<section id="AbstractValueClassPropertyConstraint">
+					<h4>sh:valueClass</h4>
+					<p>
+						The property <code>sh:valueClass</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
+						The values of <code>sh:valueClass</code> must be RDFS classes (instances of <code>rdfs:Class</code>).
+						The main difference with <a href="#AbstractDirectValueTypePropertyConstraint"><code>sh:directValueType</code></a> is that <code>sh:valueClass</code> also includes subclasses of the type.
+					</p>
+					<table class="term-table" border="1" cellpadding="5">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:valueClass</code></td>
+							<td><code>rdfs:Class</code></td>
+							<td>Type of all values</td>
+						</tr>
+					</table>
+					<div id="def-nodeType-text" class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							An <code>sh:Error</code> must be reported for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object is either a literal, or is an untyped non-literal, or a non-literal with a mismatching <code>rdf:type</code>.
+							A non-literal matches a type if its <code>rdf:type</code> is equal to the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
+							Each produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code> and <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<p>See also: <a href="#sparql-AbstractValueClassPropertyConstraint">Definition in SPARQL</a>.</p>
+					<pre class="example" title="Shape with sh:valueClass constraint">
+ex:ValueClassExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:valueClass ex:ClassA ;
+	] .
+	
+ex:InstanceOfClassA
+	a ex:ClassA .
+
+ex:ValueClassExampleValidResource
+	ex:someProperty ex:InstanceOfClassA .</pre>
+				</section>
 				<section id="AbstractValueShapePropertyConstraint">
 					<h4>sh:valueShape</h4>
 					<p>
@@ -894,50 +966,6 @@ ex:ValueShapeExampleValidResource
 	ex:someProperty [
 		ex:nestedProperty 42 ;
 	] .</pre>
-				</section>
-				<section id="AbstractValueTypePropertyConstraint">
-					<h4>sh:valueType</h4>
-					<p>
-						The property <code>sh:valueType</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
-						The values of <code>sh:valueType</code> must be RDFS classes (instances of <code>rdfs:Class</code>).
-					</p>
-					<table class="term-table" border="1" cellpadding="5">
-						<tr>
-							<th>Property</th>
-							<th>Value Type</th>
-							<th>Summary</th>
-						</tr>
-						<tr>
-							<td><code>sh:valueType</code></td>
-							<td><code>rdfs:Class</code></td>
-							<td>Type of all values</td>
-						</tr>
-					</table>
-					<div id="def-nodeType-text" class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							An <code>sh:Error</code> must be reported for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object is either a literal, or is an untyped non-literal, or a non-literal with a mismatching <code>rdf:type</code>.
-							A non-literal matches a type if its <code>rdf:type</code> is equal to the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
-							Each produced <code>sh:Error</code> must have the <span class="term">focus node</span> as its <code>sh:root</code> and <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
-						</div>
-					</div>
-					<p>See also: <a href="#sparql-AbstractValueTypePropertyConstraint">Definition in SPARQL</a>.</p>
-					<pre class="example" title="Shape with sh:valueType constraint">
-ex:ValueTypeExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:someProperty ;
-		sh:valueType ex:ClassA ;
-	] .
-	
-ex:InstanceOfClassA
-	a ex:ClassA .
-
-ex:ValueTypeExampleValidResource
-	ex:someProperty ex:InstanceOfClassA .</pre>
 				</section>
 			</section>
 			
@@ -1680,7 +1708,7 @@ ex:ExampleTemplate
 	rdfs:comment "Verifies that the given focus node (?this) has at least one value for the argument property (?argProperty)." ;
 	sh:argument [
 		sh:predicate ex:argProperty ;
-		sh:valueType rdf:Property ;
+		sh:valueClass rdf:Property ;
 	] ;
 	sh:labelTemplate "The property {?argProperty} must have at least one value" ;
 	sh:sparql """
@@ -1719,7 +1747,7 @@ ex:ExampleTemplate
 					For non-optional arguments, the engine must use the declared default value for template instances that do not define a value for this argument.
 				</p>
 				<p>
-					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueType</code> or one value for
+					An <code>sh:Argument</code> may declare one value for the property <code>sh:valueClass</code> or one value for
 					<code>sh:datatype</code>, similar to their counterparts in property constraints.
 					This can be used to communicate the expected value type of the argument in template instances.
 					Some implementations MAY use this information to prevent the execution of a template with invalid arguments, and to signal errors.
@@ -2243,7 +2271,7 @@ ex:exampleFunction
 					If an argument has been declared optional, then all succeeding arguments must also be declared optional.
 				</p>
 				<p>
-					Similar to <a href="#property-constraints">Property Constraints</a>, each <code>sh:Argument</code> may declare one value for the property <code>sh:datatype</code> or one value for the property <code>sh:valueType</code>.
+					Similar to <a href="#property-constraints">Property Constraints</a>, each <code>sh:Argument</code> may declare one value for the property <code>sh:datatype</code> or one value for the property <code>sh:valueClass</code>.
 					This can be used to communicate the expected value type of the argument in function calls.
 					Some implementations MAY use this information to prevent the execution of a function with invalid arguments, and to signal errors.
 				</p>
@@ -2265,6 +2293,20 @@ ex:exampleFunction
 					Engines can use this information to cache and reuse previous function calls without repeatedly evaluating their executable body.
 				</p>
 			</section>
+		</section>
+
+		<section id="entailment">
+			<h3>Entailment</h3>
+			<p>
+				By default, SHACL does not assume any <span class="term">entailment regime</span> [[sparql11-entailment]] to be actviated on the graph that is queried.
+				However, the property <code>sh:entailment</code> can be used to instruct a SHACL engine to ensure that a given entailment is activated.
+				The values of <code>sh:entailment</code> must be IRIs, with common use cases covered by [[sparql11-entailment]].
+				The subject of <code>sh:entailment</code> must be the IRI of the shapes graph itself.
+			</p>
+			<p>
+				If the engine is not capable of supporting the given entailment regime, then it MUST produce a <code>sh:FatalError</code>.
+				Standard-compliant SHACL implementations are not required to support any entailment regimes.
+			</p>
 		</section>
 
 		<section id="sparql">
@@ -2583,38 +2625,6 @@ ex:USCitizenShape
 					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
 					This can be used to optimize frequently needed functions.
 					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
-				</p>
-			</section>
-			<section id="sparql-entailment">
-				<h3>SPARQL Entailment</h3>
-				<p>
-					SPARQL-based constraints, functions and templates may require a certain <span class="term">Entailment Regime</span> [[sparql11-entailment]] to execute correctly.
-					Values of <code>sh:sparql</code> may therefore be accompanied with corresponding <code>sh:sparqlEntailment</code> triples that instruct the engine
-					that a certain entailment regime must be present on the default query graph of the dataset.
-					The values of <code>sh:sparqlEntailment</code> must be IRIs, with common use cases covered by [[sparql11-entailment]].
-				</p>
-				<p>
-					The following example validates that the focus node (<code>?this</code>) must not have any non-English
-					value for <code>rdfs:label</code>.
-					Since RDFS entailment is activated, the query would also return errors for sub-properties of <code>rdfs:label</code>.
-				</p>
-				<pre class="example" title="A SPARQL-based constraint with a required Entailment Regime">
-ex:EntailmentExampleShape
-	a sh:Shape ;
-	rdfs:comment "Reports an error for any rdfs:label (or sub-property thereof) that is not in English." ;
-	sh:constraint [
-		sh:message "Labels must be in English" ;
-		sh:sparqlEntailment &lt;http://www.w3.org/ns/entailment/RDFS&gt; ;
-		sh:sparql """
-			SELECT ?this
-			WHERE {
-				?this rdfs:label ?label .
-				FILTER (lang(?label) != "en")
-			}""" ;
-	] .</pre>
-				<p>
-					If the engine is not capable of supporting the given entailment regime, then it MUST produce a <code>sh:FatalError</code>.
-					Standards-compliant SHACL implementations do not have to support any entailment regimes.
 				</p>
 			</section>
 		</section>
@@ -2967,6 +2977,21 @@ WHERE {
 }</pre>
 					</div>
 				</section>
+				<section id="sparql-AbstractDirectValueTypePropertyConstraint">
+					<h4>sh:directValueType</h4>
+					<p>
+						The property <code>sh:directValueType</code> is defined in the SHACL template <code>sh:AbstractDirectValueTypePropertyConstraint</code>.
+					</p>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER NOT EXISTS { ?object a <span class="arg">?directValueType</span> } .
+}</pre>
+					</div>
+				</section>
 				<section id="sparql-AbstractHasValuePropertyConstraint">
 					<h4>sh:hasValue</h4>
 					<p>
@@ -3013,6 +3038,24 @@ WHERE {
 }</pre>
 					</div>
 				</section>
+				<section id="sparql-AbstractValueClassPropertyConstraint">
+					<h4>sh:valueClass</h4>
+					<p>
+						The property <code>sh:valueClass</code> is defined in the SHACL template <code>sh:AbstractValueClassPropertyConstraint</code>.
+					</p>
+					<div id="def-nodeType-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
+WHERE {
+	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
+	FILTER NOT EXISTS {
+		?class rdfs:subClassOf* <span class="arg">?valueClass</span> .
+		?object a ?class .
+	}
+}</pre>
+					</div>
+				</section>
 				<section id="sparql-AbstractValueShapePropertyConstraint">
 					<h4>sh:valueShape</h4>
 					<p>
@@ -3025,24 +3068,6 @@ SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subjec
 WHERE {
 	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
 	FILTER (!<a href="#function-hasShape">sh:hasShape</a>(?object, <span class="arg">?valueShape</span>, <span class="arg">?shapesGraph</span>)) .
-}</pre>
-					</div>
-				</section>
-				<section id="sparql-AbstractValueTypePropertyConstraint">
-					<h4>sh:valueType</h4>
-					<p>
-						The property <code>sh:valueType</code> is defined in the SHACL template <code>sh:AbstractValueTypePropertyConstraint</code>.
-					</p>
-					<div id="def-nodeType-sparql" class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT <span class="arg">?this</span> (<span class="arg">?this</span> AS ?subject) <span class="arg">?predicate</span> ?object
-WHERE {
-	<span class="arg">?this</span> <span class="arg">?predicate</span> ?object .
-	FILTER NOT EXISTS {
-		?class rdfs:subClassOf* <span class="arg">?valueType</span> .
-		?object a ?class .
-	}
 }</pre>
 					</div>
 				</section>
