@@ -16,7 +16,7 @@ var swa = {
 	diagrams : [],
 		
 initClassDiagram : function(id, subClassEdges) {
-	swa.diagrams.push({ id : id, subClassEdges });
+	swa.diagrams.push({ id : id, subClassEdges : subClassEdges });
 },
 
 layoutDiagrams : function() {
