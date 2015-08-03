@@ -1,7 +1,7 @@
 # baseURI: http://www.w3.org/ns/shacl
 
 # SHACL - Shapes Constraint Language
-# Draft last edited on 2015-07-31
+# Draft last edited on 2015-08-03
 # Created by the W3C RDF Data Shapes Working Group
 # Editor: Holger Knublauch <holger@topquadrant.com>
 
@@ -320,24 +320,76 @@ sh:Profile
 
 # Results vocabulary ----------------------------------------------------------
 
-# This vocabulary describes the output of constraint validation
+# Severities
 
-sh:ResultClass
-	a rdfs:Class ;
-	rdfs:subClassOf sh:ShapeClass ;
-	rdfs:label "Result class" ;
-	rdfs:comment "The meta-class of result types that can be instantiated to represent validation results." ;
-.
-
-sh:Result
+sh:Severity
 	a sh:ShapeClass ;
 	rdfs:subClassOf rdfs:Resource ;
-	rdfs:label "Result" ;
-	rdfs:comment "Instances of subclasses of this class can be constructed during constraint validation, to represent a single validation result." ;
+	rdfs:label "Severity" ;
+	rdfs:comment "The class of severity levels of a validation result." ;
+	sh:property [
+		sh:predicate sh:severityIndex ;
+		sh:datatype xsd:decimal ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		rdfs:label "severity index" ;
+		rdfs:comment "A numeric index that needs to be defined for every severity type and can be used to determine their relative ordering. For example sh:Warning has an index of 1 while sh:Error has an the index 2, allowing the system to determine that when the user requests checking for warnings (and above) then all errors should also be checked. Severity levels with higher numbers are more severe than those with lower numbers." ;
+	] ;
+.
+
+sh:Info
+	a sh:Severity ;
+	rdfs:label "Info" ;
+	rdfs:comment "A severity representing INFO-level validation results." ;
+	sh:severityIndex 0.0 ;
+.
+
+sh:Warning
+	a sh:Severity ;
+	rdfs:label "Warning" ;
+	rdfs:comment "A severity representing non-critical constraint violations, indicating a warning." ; 
+	sh:severityIndex 1.0 ;
+.
+
+sh:Error
+	a sh:Severity ;
+	rdfs:label "Error" ;
+	rdfs:comment "A severity representing constraint violations, indicating an error." ; 
+	sh:severityIndex 2.0 ;
+.
+
+# Failures
+
+sh:Failure
+	a rdfs:Class ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Failure" ;
+	rdfs:comment "The class of failures, used to indicate that validation could not be performed." ;
+.
+
+sh:IOFailure
+	a sh:Failure ;
+	rdfs:label "I/O failure" ;
+	rdfs:comment "A failure caused by a communication issue such as a time out." ;
+.
+
+sh:UnsupportedRecursionFailure
+	a sh:Failure ;
+	rdfs:label "Unsupported recursion failure" ;
+	rdfs:comment "A failure caused by an unsupported recursion." ;
+.
+
+# Result classes
+
+sh:AbstractResult
+	a sh:ShapeClass ;
+	rdfs:subClassOf rdfs:Resource ;
+	rdfs:label "Abstract result" ;
+	rdfs:comment "Instances of subclasses of this class are constructed as the result of constraint validation." ;
 	sh:abstract true ;
 	sh:property [
 		sh:predicate sh:detail ;
-		sh:valueClass sh:Result ;
+		sh:valueClass sh:AbstractResult ;
 		rdfs:label "detail" ;
 		rdfs:comment "Can link a result with other results that provide more details. This is especially useful to describe violations against nested patterns or shapes." ;
 	] ;
@@ -352,20 +404,20 @@ sh:Result
 		sh:valueClass rdfs:Resource ;
 		sh:maxCount 1 ;
 		rdfs:label "subject" ;
-		rdfs:comment "The subject of triples involved in this result." ;
+		rdfs:comment "The subject of the key triples involved in this result." ;
 	] ;
 	sh:property [
 		sh:predicate sh:predicate ;
 		sh:valueClass rdf:Property ;
 		sh:maxCount 1 ;
 		rdfs:label "predicate" ;
-		rdfs:comment "The predicate of triples involved in this result." ;
+		rdfs:comment "The predicate of the key triples involved in this result." ;
 	] ;
 	sh:property [
 		sh:predicate sh:object ;
 		sh:maxCount 1 ;
 		rdfs:label "object" ;
-		rdfs:comment "The object of triples involved in this result." ;
+		rdfs:comment "The object of the key triples involved in this result." ;
 	] ;
 	sh:property [
 		sh:predicate sh:root ;
@@ -375,48 +427,52 @@ sh:Result
 		rdfs:comment "The root resource of the result (often: the focus node)." ;
 	] ;
 	sh:property [
-		sh:predicate sh:source ;
+		sh:predicate sh:sourceConstraint ;
 		sh:valueClass sh:Constraint ;
-		rdfs:label "source" ;
-		rdfs:comment "The Constraint that caused this. This property gets filled in automatically by the constraint validation engine." ;
+		sh:maxCount 1 ;
+		rdfs:label "source constraint" ;
+		rdfs:comment "The Constraint that caused this result." ;
+	] ;
+	sh:property [
+		sh:predicate sh:sourceShape ;
+		sh:valueClass sh:Shape ;
+		sh:maxCount 1 ;
+		rdfs:label "source shape" ;
+		rdfs:comment "The Shape that caused this result." ;
 	] ;
 .
 
-sh:ConstraintViolation
+sh:ValidationResult
 	a sh:ShapeClass ;
-	rdfs:subClassOf sh:Result ;
-	rdfs:label "Constraint Violation" ;
-	rdfs:comment "A validation result representing a constraint violation." ;
-	sh:abstract true ;
+	rdfs:subClassOf sh:AbstractResult ;
+	rdfs:label "Validation result" ;
+	rdfs:comment "A (regular) validation result representing a single constraint violation or info." ;
+	sh:property [
+		sh:predicate sh:severity ;
+		sh:valueClass sh:Severity ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		rdfs:label "severity" ;
+		rdfs:comment "The severity level, e.g. sh:Warning." ;
+	] ;
 .
 
-sh:Info
-	a sh:ResultClass ;
-	rdfs:subClassOf sh:Result ;
-	rdfs:label "Info" ;
-	rdfs:comment "An INFO-level validation result." ; 
+sh:FailureResult
+	a sh:ShapeClass ;
+	rdfs:subClassOf sh:AbstractResult ;
+	rdfs:label "Validation result" ;
+	rdfs:comment "A (regular) validation result representing a single constraint violation or info." ;
+	sh:property [
+		sh:predicate sh:failure ;
+		sh:valueClass sh:Failure ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		rdfs:label "failure" ;
+		rdfs:comment "The failure level, providing information on why the execution failed." ;
+	] ;
 .
 
-sh:Warning
-	a sh:ResultClass ;
-	rdfs:subClassOf sh:ConstraintViolation ;
-	rdfs:label "Warning" ;
-	rdfs:comment "A non-critical constraint violation indicating a warning." ; 
-.
-
-sh:Error
-	a sh:ResultClass ;
-	rdfs:subClassOf sh:ConstraintViolation ;
-	rdfs:label "Error" ;
-	rdfs:comment "A constraint violation indicating an error." ; 
-.
-
-sh:FatalError
-	a sh:ResultClass ;
-	rdfs:subClassOf sh:Error ;
-	rdfs:label "Fatal Error" ;
-	rdfs:comment "An error that cannot be recovered and further evaluation may terminate immediately. Engines may decide to perform the validation of potentially fatal constraints first." ;
-.
+# Result annotations
 
 sh:ResultAnnotation
 	a sh:ShapeClass ;
@@ -1875,6 +1931,7 @@ sh:qualifiedValueShape a rdf:Property ; rdfs:label "qualified value shape" .
 sh:resultAnnotation a rdf:Property ; rdfs:label "result annotation" .
 sh:returnType a rdf:Property ; rdfs:label "return type" .
 sh:root a rdf:Property ; rdfs:label "root" .
+sh:severityIndex a rdf:Property ; rdfs:label "severity index" .
 sh:scope a rdf:Property ; rdfs:label "scope" .
 sh:scopeClass a rdf:Property ; rdfs:label "scope class" .
 sh:scopeTemplate a rdf:Property ; rdfs:label "scope template" .
