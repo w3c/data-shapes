@@ -3,7 +3,7 @@
 	<head>
 		<title>Shapes Constraint Language (SHACL)</title>
 		<meta charset="utf-8">
-		<script src="//www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
+		<script src="http://www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
 		<script class="remove">
 			var respecConfig = {
 				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-08-21</b>: Added support for validation functions (<a href="http://www.w3.org/2014/data-shapes/track/issues/79">ISSUE-79</a>)</li>
 				<li><b>2015-08-14</b>:
 					Added qualified cardinality restrictions (<a href="http://www.w3.org/2014/data-shapes/track/issues/72">ISSUE-72</a>),
 					added sh:ignoredProperties to sh:ClosedShape (<a href="http://www.w3.org/2014/data-shapes/track/issues/58">ISSUE-58</a>),
@@ -436,6 +437,21 @@ ex:UniqueEmailShape
 					<img src='images/shacl-class-metamodel.png'>
 					<figcaption>Illustration of some relationships between classes of SHACL and RDF Schema</figcaption>
 				</figure>
+				<div class="issue" data-number="78" title="Abstract classes">
+					The following paragraph about <code>sh:abstract</code> is not yet approved by the WG.
+					Options include:
+					<ul>
+						<li>No support of abstract classes</li>
+						<li>Use <code>sh:abstract</code> entirely for documentation purposes</li>
+						<li>Use <code>sh:abstract</code> also as a constraint check, possibly producing a warning</li>
+					</ul>
+				</div>
+				<p>
+					Classes with type <code>sh:ShapeClass</code> may be declared to be <span class="term">abstract</span> by
+					setting their property <code>sh:abstract</code> to <code>true</code>.
+					Abstract classes SHOULD not be instantiated directly, i.e. every instance of an abstract class SHOULD also
+					have an <code>rdf:type</code> triple to a non-abstract subclass of the abstract class.
+				</p>
 			</section>
 			<section id="shape-constraints">
 				<h3>Shape Constraints</h3>
@@ -2014,7 +2030,7 @@ ex:GlobalPropertyShape
 				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
 				Scope templates are represented as IRI nodes that are instances of the class <code>sh:ScopeTemplate</code>.
 				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc).
-				Well-defined, non-abstract templates MUST provide at least one executable body property using <a href="#sparql-templates"><code>sh:sparql</code></a>.
+				Well-defined, non-abstract templates MUST provide at least one executable body property using a property such as <a href="#sparql-templates"><code>sh:sparql</code></a>.
 				The following example illustrates the definition of a constraint template based on a SPARQL query.
 			</p>
 			<pre class="example" title="Constraint template based on SPARQL">
@@ -2077,6 +2093,20 @@ ex:ExampleTemplate
 					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
 					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
 					These <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
+				</p>
+			</section>
+			<section id="template-validation-functions">
+				<h3>Templates with a sh:validationFunction</h3>
+				<p>
+					Constraint templates that are instances of <code>sh:PropertyValueConstraintTemplate</code> or
+					<code>sh:InversePropertyValueConstraintTemplate</code> do not require an executable body (such a <code>sh:sparql</code>)
+					if they instead point at a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
+					These so called <span class="term">validation functions</span> MUST take an argument with the predicate <code>sh:value</code> as its first argument
+					and return either <code>true</code> or <code>false</code>.
+					This validation function MUST be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
+					and then runs a filter test using the function.  If the filter returns <code>false</code> then a validation result must be produced.
+					Validation functions may take additional arguments, and the engine must fill them with the matching arguments from the surrounding template.
+					The SHACL system vocabulary contains several examples of such validation functions, e.g. <code>sh:AbstractDatatypePropertyConstraint</code>.
 				</p>
 			</section>
 		</section>
@@ -2217,6 +2247,13 @@ ex:MyProfile
 					This operation assumes that the <code>?constraint</code> is either a <span class="term">native constraint</span>
 					or a <span class="term">template constraint</span>.
 					For template constraints, the algorithm will execute the constraint template itself plus all of its superclasses.
+				</p>
+				<p class="todo">
+					The following algorithm needs to clarify under which condition a template instance is complete.
+					It is complete when all non-optional arguments have been supplied.
+					If a template is <code>sh:abstract</code> and takes at least one argument then it must only be
+					executed if at least one argument has a value (or a default value) - this is needed for example
+					for sh:minLength/sh:maxLength, both of which are optional.
 				</p>
 				<pre class="algorithm">
 if (?constraint instanceOf sh:NativeConstraint)
@@ -2577,11 +2614,20 @@ ex:exampleFunction
 				</p>
 				<p>
 					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
-					The values of <code>sh:predicate</code> must be <code>sh:arg1</code> for the first argument,
-					<code>sh:arg2</code> for the second argument, etc.
+					The values of <code>sh:predicate</code> must be IRIs, and follow the same restrictions outlined for <a href="#template-arguments">Template Arguments</a>.
 					Arguments are "inherited" from the superclasses of the function.
 					For example if a superclass already declares <code>sh:arg1</code> then subclasses may only define <code>sh:arg2</code> etc.
 				</p>
+				<p id="function-arguments-ordering">
+					The ordering of function arguments (e.g. for printing in SPARQL strings) is determined by their index.
+					For each function, the indices must be 0, 1, 2 etc.  The index of each declared <code>sh:Argument</code>
+					is determined as follows:
+				</p>
+				<ol>
+					<li>The index of the built-in argument predicates <code>sh:arg1</code>, <code>sh:arg2</code> etc is their numeric name part minus 1, e.g. <code>sh:arg1</code> has index 0.</li>
+					<li>The index of other argument predicates is the value of the property <code>sh:index</code> at the surrounding <code>sh:Argument</code>.</li>
+					<li>The default index for all other cases is the number of other arguments. This means that non-built-in arguments without a <code>sh:index</code> will be placed at the end of the order.</li>
+				</ol>
 				<p>
 					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
 					to indicate that the argument is not mandatory.
@@ -2939,6 +2985,24 @@ ex:USCitizenShape
 					The names of those variables must match the <a href="#def-local-name"><span class="term">local name</span></a> of the argument predicates, including the arguments defined by any (transitive) superclasses of the template.
 					For example, if an argument is represented with the predicate <code>ex:myArgument</code> then the variable <code>?myArgument</code> must be <span class="term">pre-bound</span> with the value of the argument in the template instance.
 				</p>
+				<p>
+					If a <code>sh:PropertyValueConstraintTemplate</code> has a value for <code>sh:validationFunction</code>, then the engine needs to produce a SPARQL query equivalent to the following pattern:
+				</p>
+				<pre class="code">
+SELECT ?this (?this AS ?subject) ?predicate ?object {+ other variables used in sh:message}
+WHERE {
+	?this ?predicate ?object .
+	FILTER (!{validationFunction}(?object, {+ other matching arguments})) .
+}</pre>
+				<p>
+					If a <code>sh:InversePropertyValueConstraintTemplate</code> has a value for <code>sh:validationFunction</code>, then the engine needs to produce a SPARQL query equivalent to the following pattern:
+				</p>
+				<pre class="code">
+SELECT ?this ?subject ?predicate (?this AS ?object) {+ other variables used in sh:message}
+WHERE {
+	?subject ?predicate ?this .
+	FILTER (!{validationFunction}(?subject, {+ other matching arguments})) .
+}</pre>
 			</section>
 			<section id="sparql-functions">
 				<h3>SPARQL-based Functions</h3>
