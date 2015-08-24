@@ -3,7 +3,7 @@
 	<head>
 		<title>Shapes Constraint Language (SHACL)</title>
 		<meta charset="utf-8">
-		<script src="http://www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
+		<script src="//www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
 		<script class="remove">
 			var respecConfig = {
 				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-08-24</b>: Added section on sh:defaultValueType (<a href="http://www.w3.org/2014/data-shapes/track/issues/70">ISSUE-70</a>)</li>
 				<li><b>2015-08-21</b>: Added support for validation functions (<a href="http://www.w3.org/2014/data-shapes/track/issues/79">ISSUE-79</a>)</li>
 				<li><b>2015-08-14</b>:
 					Added qualified cardinality restrictions (<a href="http://www.w3.org/2014/data-shapes/track/issues/72">ISSUE-72</a>),
@@ -2565,6 +2566,35 @@ interface ExecutionLanguage {
 						</tr>
 					</table>
 				</section>
+			</section>
+			<section id="defaultValueType">
+				<h2>Validation of shapes graphs and the sh:defaultValueType property</h2>
+				<div class="issue" data-number="70" title="Special treatment of blank node types">
+					This paragraph is one possible resolution to ISSUE-70.
+					The proposal has not been discussed in the WG yet.
+				</div>
+				<p>
+					The SHACL system vocabulary itself is using shapes, allowing SHACL constraint validation to be executed on shapes graphs, e.g. to validate the syntax of shape definitions.
+					However, some system properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:argument</code> may have untyped blank nodes as their values.
+					If, for example, a value of <code>sh:property</code> is a blank node that does not have any <code>rdf:type</code>, then the assumption is that the blank node has type <code>sh:PropertyConstraint</code>.
+					Unless these implicit triples are present in the query graph, constraint validation will not apply the constraints defined for <code>sh:PropertyConstraint</code>.
+				</p>
+				<p>
+					If an engine intends to validate the syntax of a SHACL shapes graph itself, it should (temporarily) add the missing <code>rdf:type</code> triples.
+					The SHACL system vocabulary includes some helper triples using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
+					For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
+					These triples can be queried by a pre-processor to construct the missing type triples for the affected blank nodes.
+					SHACL includes a template <code>sh:DefaultValueTypeRule</code> which encapsulates a SPARQL query that can be used for that purpose:
+				</p>
+				<pre class="query">
+CONSTRUCT {
+	?blankNode a ?defaultValueType .
+}
+WHERE {
+	?predicate sh:defaultValueType ?defaultValueType .
+	?anySubject ?predicate ?blankNode .
+	FILTER (isBlank(?blankNode) &amp;&amp; NOT EXISTS { ?blankNode a ?anyType }) .
+}</pre>
 			</section>
 		</section>
 		
