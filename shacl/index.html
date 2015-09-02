@@ -124,7 +124,7 @@
 
 		<section id="abstract">
 			<p>
-				SHACL (Shapes Constraint Language) is an RDF vocabulary for describing RDF graph structures.
+				SHACL (Shapes Constraint Language) is a language for checking constraints against RDF graphs and for describing graph structures.
 				Some of these graph structures are captured as "shapes", which group together constraints about the same RDF nodes.
 				Shapes provide a high-level vocabulary to identify predicates and their associated cardinalities, datatypes and other constraints.
 				Additional constraints can be associated with shapes using SPARQL and similar executable languages.
@@ -164,11 +164,11 @@
 		<section id="introduction">
 			<h2>Introduction</h2>
 			<p>
-				SHACL (Shapes Constraint Language) is an RDF vocabulary to formulate structural constraints on <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graphs</a>.
-				The SHACL vocabulary includes high-level concepts to represent restrictions on predicates used in <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple">triples</a>.
+				SHACL (Shapes Constraint Language) is an RDF-based language to formulate structural constraints on <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graphs</a>.
+				SHACL includes high-level constructs to represent restrictions on predicates used in <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple">triples</a>.
 				These restrictions can be grouped into "<span class="term">shapes</span>".
 				Shapes can be used to restrict the number of property values and the permitted value types as well as other conditions.
-				Some users and implementors will be content with using the high-level shapes language only, which is called the <span class="term">SHACL Core Profile</span>
+				Some users will be content with using the high-level language only, which is called the <span class="term">SHACL Core Profile</span>
 				and is described in sections 2 to 6 of this document.
 			</p>
 			<p>
@@ -177,8 +177,8 @@
 				These advanced topics are covered from section 7 onwards. 
 			</p>
 			<p>
-				SHACL definitions are represented in RDF and can be serialized in multiple RDF formats.
-				The example snippets in this document use Turtle [[turtle]] and <span class="todo">(not written yet:)</span> JSON-LD [[json-ld]] notation.
+				SHACL is written in RDF and can be serialized in multiple RDF formats.
+				The examples in this document use Turtle [[turtle]].
 				The reader should be familiar with basic RDF concepts [[rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[sparql11-overview]].
 			</p>
 			<section id="introduction-outline">
@@ -208,8 +208,8 @@
 				<p>
 					The following example illustrates the use of SHACL to define constraints on issues in a hypothetical bug tracking system.
 					In the example scenario, the RDFS class <code>ex:Issue</code> is used to represent issues, and the class <code>schema:Person</code> represents users.
-					Each <code>ex:Issue</code> must point to exactly one user via the property <code>ex:submittedBy</code> and may have one value for <code>ex:assignedTo</code>.
-					Users that have submitted an issue must also have a <code>schema:email</code> address, so that they can be notified when the issue has been updated. 
+					One shape requires that each instance of <code>ex:Issue</code> has exactly one value for <code>ex:submittedBy</code>, that that value is an instance of <code>schema:Person</code> that satisfies the constraints on submitters, has at most one value for <code>ex:assignedTo</code>, and that that value is an instance of <code>schema:Person</code>.
+					The submitter shape requires at least one value for <code>schema:email</code>. 
 				</p>
 				<pre class="example" title="Definition of ex:Issue and ex:SubmitterShape">
 ex:Issue
@@ -256,9 +256,8 @@ ex:SubmitterShape
 					the <code>ex:submittedBy</code> property must fulfill, in addition to being instances of <code>schema:Person</code>.
 				</p>
 				<p>
-					One of the <a href="#operations"><span class="term">operations</span></a> that SHACL engines should support validates a given RDF node against a given shape, producing <a href="#results"><span class="term">validation results</span></a>, including informational results, warnings and errors.
-					This operation can be invoked based on any control logic, i.e. applications can pick their own mapping between RDF nodes and their shapes.
-					Another supported operation is to validate a given graph using all applicable shapes.
+					One of the <a href="#operations"><span class="term">operations</span></a> of SHACL is validating a given RDF node against a given shape, producing <a href="#results"><span class="term">validation results</span></a>, including informational results, warnings and errors.
+					Another operation is to validate a given graph using all applicable shapes.
 					In order to support that operation, SHACL has the concept of <span class="term">scopes</span>.
 					<span class="term">Scopes</span> are attached to shapes and produce a collection of nodes that shall be validated against the shape.
 					SHACL provides several scoping mechanisms, including node selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples,
@@ -266,7 +265,7 @@ ex:SubmitterShape
 					The scope of a shape can be narrowed down via <span class="term">filter shapes</span> that define pre-conditions that all focus nodes need to fulfill before they are validated.
 				</p>
 				<p>
-					The following example code defines two instances of the class <code>ex:Issue</code>.
+					The following RDF graph defines two instances of the class <code>ex:Issue</code>.
 					When constraint validation is started, a SHACL engine may follow the <code>rdf:type</code> link of these instances to determine which shapes need to be used.
 					(If <code>ex:Issue</code> were not a class but a <code>sh:Shape</code>, then the property <code>sh:nodeShape</code> would have been used instead).
 					The first instance passes validation without producing any results.
@@ -425,7 +424,7 @@ ex:UniqueEmailShape
 					i.e. any resource that has the <code>sh:scopeClass</code> or one of its subclasses as its <code>rdf:type</code>.
 				</p>
 				<p>
-					If a <code>sh:Shape</code> is also an instance of <code>rdfs:Class</code> then the interpretation is that all instances of the class are expected to have the shape.
+					If a <code>sh:Shape</code> is also an instance of <code>rdfs:Class</code> then the validation will verify that all instances of the class have the shape.
 					There is a built-in subclass of <code>sh:Shape</code> called <code>sh:ShapeClass</code> that is also a subclass of <code>rdfs:Class</code> to simplify the declaration of shapes that are also classes.
 				</p>
 				<p>
@@ -511,6 +510,9 @@ ex:UniqueEmailShape
 					Here, the focus node is the <span class="term">subject</span> and the property is the <span class="term">predicate</span> of relevant triples.
 					The property <code>sh:property</code> can be used to link a shape with its property constraints.
 				</p>
+				<div class="issue" data-number="70" title="Special treatment of blank nodes">
+					The WG has not yet decided whether the special treatment of blank nodes explained below (and in other places) will remain in the language.
+				</div>
 				<p>
 					In the SHACL RDF vocabulary, property constraints are instances of the class <code>sh:PropertyConstraint</code>.
 					When used as values of <code>sh:property</code>, property constraints represented as blank nodes do not require an <code>rdf:type</code> triple.
@@ -632,7 +634,6 @@ ex:StandAloneConstraint
 					<p>
 						The property <code>sh:allowedValues</code> can be used to specify that all values of the given predicate
 						at the <span class="term">focus node</span> must be members of a given set of allowed values.
-						The set of allowed values is assumed to be an exhaustive enumeration of all possible values.
 					</p>
 					<table class="term-table" border="1" cellpadding="5">
 						<tr>
@@ -804,18 +805,17 @@ ex:HasValueExampleValidResource
 						<tr>
 							<td><code>sh:minCount</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The minimum cardinality. Optional. Default value is 0.</td>
+							<td>The minimum cardinality. Default value is 0.</td>
 						</tr>
 						<tr>
 							<td><code>sh:maxCount</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The maximum cardinality. Optional. Default interpretation is unlimited.</td>
+							<td>The maximum cardinality. Default interpretation is unlimited.</td>
 						</tr>
 					</table>
 					<div id="def-count-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							Both <code>sh:minCount</code> and <code>sh:maxCount</code> are optional.
 							The default value of <code>sh:minCount</code> is 0.
 							Let <code>?count</code> be the number of triples that have the <span class="term">focus node</span> as
 							the <span class="term">subject</span> and the <code>sh:predicate</code> as the <span class="term">predicate</span>.
@@ -843,7 +843,7 @@ ex:CountExampleValidResource
 					<h4>sh:minLength, sh:maxLength</h4>
 					<p>
 						The properties <code>sh:minLength</code> and <code>sh:maxLength</code>
-						restrict the string length of triples with the <span class="term">focus node</span>
+						restrict the string length of objects of triples with the <span class="term">focus node</span>
 						as the <span class="term">subject</span> and the given property as the <span class="term">predicate</span>.
 						This can be applied to any type of literal and IRIs, but not for blank nodes.
 					</p>
@@ -856,18 +856,17 @@ ex:CountExampleValidResource
 						<tr>
 							<td><code>sh:minLength</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The minimum length. Optional. Default value is 0.</td>
+							<td>The minimum length. Default value is 0.</td>
 						</tr>
 						<tr>
 							<td><code>sh:maxLength</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The maximum length. Optional. Default interpretation is unlimited.</td>
+							<td>The maximum length. Default interpretation is unlimited.</td>
 						</tr>
 					</table>
 					<div id="def-count-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							Both <code>sh:minLength</code> and <code>sh:maxLength</code> are optional.
 							The default value of <code>sh:minLength</code> is 0.
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
@@ -1081,7 +1080,7 @@ ex:PatternShapeExampleInvalidResource
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object is either a literal, or is an untyped non-literal, or a non-literal with a mismatching <code>rdf:type</code>.
+							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
 							A non-literal matches a type if its <code>rdf:type</code> is equal to the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:root</code> and <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
@@ -1189,13 +1188,16 @@ ex:ValueShapeExampleValidResource
 							<td>The maximum number of values that can have the shape</td>
 						</tr>
 					</table>
+					<div class="issue" data-number="83" title="Syntax of multiple qualified shape constraints">
+						There is an ongoing debate how to best represent multiple qualified shape constraints for the same property.
+					</div>
 					<div id="def-valueShape-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the number of triples that have
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where validating the object against the shape specified by <code>sh:qualifiedValueShape</code>
-							produces error-level constraint violations is outside of the interval specified by <code>sh:qualifiedMinCount</code> and <code>sh:qualifiedMaxCount</code>.
+							produces no error-level constraint violations is outside of the interval specified by <code>sh:qualifiedMinCount</code> and <code>sh:qualifiedMaxCount</code>.
 							The interval defaults to <code>0</code> if the min count is not specified, and unlimited if the max count is not specified.
 							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:root</code> and <code>sh:subject</code>,
 							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
@@ -1254,7 +1256,7 @@ ex:InversePropertyConstraintExampleShape
 		</section>
 
 		<section id="other">
-			<h2>Other Core Constraints on Shapes</h2>
+			<h2>Other Core Constraints</h2>
 			<p>
 				While the previous sections have introduced constraints that focused on a single property within a shape,
 				this section introduces other constraint types that can be used with shapes.
@@ -1325,6 +1327,10 @@ ex:InvalidInstance1
 						<td>List of shapes to validate</td>
 					</tr>
 				</table>
+				<div class="issue" data-number="76" title="Ordering of operands in AND/OR">
+					The current specification of sh:AndConstraint and sh:OrConstraint does not yet reflect the resolution to ISSUE-76,
+					that the order of operands does not matter.
+				</div> 
 				<div id="def-andConstraint-text" class="def def-text">
 					<div class="def-header">TEXTUAL DEFINITION</div>
 					<div class="def-text-body">
@@ -1598,6 +1604,9 @@ ex:ClosedShapeExampleInvalidResource
 				
 				<section id="nodeShape">
 					<h4>Individual scopes (sh:nodeShape)</h4>
+					<div class="issue" data-number="61" title="Direction of sh:nodeShape">
+						There is an alternative proposal discussed that would reverse the direction of this, pointing from the shape to the nodes.
+					</div>
 					<p>
 						Individual nodes can point to the shapes that they are supposed to be validated against using the property <code>sh:nodeShape</code>.
 						The values of <code>sh:nodeShape</code> must be IRIs.
@@ -1783,6 +1792,9 @@ ex:FilteredShapeValidExampleInstance
 				structural information that may provide guidance on how to fix a violation, as well as
 				human-readable messages.
 			</p>
+			<div class="issue" data-number="51" title="Result types">
+				This vocabulary is likely going to change once the WG resolves ISSUE-51 and ISSUE-75.
+			</div>
 			<p>
 				The following code snippet represents a syntactically correct result that may have been produced by a constraint validation engine:
 			</p>
@@ -1831,8 +1843,6 @@ ex:ExampleConstraintViolation
 						</td>
 					</tr>
 				</table>
-				<p class="issue" data-number="51" title="Result types">
-				</p>
 				<p>
 					SHACL extensions may define additional result types, as long as they are rooted in
 					<code>sh:Result</code>.
@@ -2761,6 +2771,9 @@ ex:exampleFunction
 							</td>
 						</tr>
 					</table>
+					<div class="issue" data-number="47" title="Access to ?hapesGraph">
+						There is no consensus yet if and under which conditions SPARQL queries can access the shapes graph.
+					</div>
 				</section>
 				<section id="sparql-constraints-variables">
 					<h4>Mapping of Result Variables to Validation Results</h4>
