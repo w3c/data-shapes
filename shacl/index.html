@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-04</b>: Applied resolution to <a href="http://www.w3.org/2014/data-shapes/track/issues/70">ISSUE-70</a></li>
 				<li><b>2015-09-03</b>: Many editorial changes, restructured section 5 (scopes and filters) into section 2 (Shapes)</li>
 				<li><b>2015-09-01</b>: Minor changes and clarifications</li>
 				<li><b>2015-08-24</b>: Added section on sh:defaultValueType (<a href="http://www.w3.org/2014/data-shapes/track/issues/70">ISSUE-70</a>)</li>
@@ -693,12 +694,10 @@ ex:FilteredShapeValidExampleInstance
 					Here, the focus node is the <span class="term">subject</span> and the property is the <span class="term">predicate</span> of relevant triples.
 					The property <code>sh:property</code> can be used to link a shape with its property constraints.
 				</p>
-				<div class="issue" data-number="70" title="Special treatment of blank nodes">
-					The WG has not yet decided whether the special treatment of blank nodes explained below (and in other places) will remain in the language.
-				</div>
 				<p>
 					In the SHACL RDF vocabulary, property constraints are instances of the class <code>sh:PropertyConstraint</code>.
-					When used as values of <code>sh:property</code>, property constraints represented as blank nodes do not require an <code>rdf:type</code> triple.
+					When used as values of <code>sh:property</code>, property constraints do not require an <code>rdf:type</code> triple.
+					However, if those values are IRIs, then they SHOULD have an <code>rdf:type</code> triple.
 					Note that <code>sh:property</code> may also have values that are sub-classes of <code>sh:PropertyConstraint</code>,
 					but in this case the <code>rdf:type</code> triple is required.
 					It is not valid to use <code>sh:property</code> for constraints that are not instance of <code>sh:PropertyConstraint</code>.
@@ -1291,8 +1290,7 @@ ex:ValueClassExampleValidResource
 					<h4>sh:valueShape</h4>
 					<p>
 						The property <code>sh:valueShape</code> can be used verify that all values of the given property must have a given shape.
-						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>.
-						If the value shapes are blank nodes, then their <code>rdf:type</code> triple can be omitted.
+						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>, but the <code>rdf:type</code> triple of those shapes can be omitted.
 					</p>
 					<table class="term-table" border="1" cellpadding="5">
 						<tr>
@@ -1350,7 +1348,7 @@ ex:ValueShapeExampleValidResource
 						The property <code>sh:qualifiedValueShape</code> can be used verify that a certain number values of the given property must have a given shape.
 						The value type of <code>sh:qualifiedValueShape</code> is <code>sh:Shape</code>, and it needs to be accompanied by
 						a <code>sh:qualifiedMinCount</code> or a <code>sh:qualifiedMaxCount</code> (both typed <code>xsd:integer</code>), or both.
-						If the value shapes are blank nodes, then their <code>rdf:type</code> triple can be omitted.
+						The <code>rdf:type</code> of the value shapes can be omitted.
 					</p>
 					<table class="term-table" border="1" cellpadding="5">
 						<tr>
@@ -2052,8 +2050,7 @@ ex:ExampleTemplate
 				<h3>Template Arguments</h3>
 				<p>
 					The arguments of a template are linked via the property <code>sh:argument</code>.
-					Each argument must be an instance of <code>sh:Argument</code>.
-					The <code>rdf:type</code> triple of the argument can be omitted if it is a blank node with an incoming <code>sh:argument</code> triple.
+					Each argument must be an instance of <code>sh:Argument</code>, but their <code>rdf:type</code> triple can be omitted.
 				</p>
 				<p>
 					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
@@ -2563,13 +2560,9 @@ interface ExecutionLanguage {
 			</section>
 			<section id="defaultValueType">
 				<h2>Validation of shapes graphs and the sh:defaultValueType property</h2>
-				<div class="issue" data-number="70" title="Special treatment of blank node types">
-					This paragraph is one possible resolution to ISSUE-70.
-					The proposal has not been discussed in the WG yet.
-				</div>
 				<p>
 					The SHACL system vocabulary itself is using shapes, allowing SHACL constraint validation to be executed on shapes graphs, e.g. to validate the syntax of shape definitions.
-					However, some system properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:argument</code> may have untyped blank nodes as their values.
+					However, some system properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:argument</code> may have untyped blank nodes or IRIs as their values.
 					If, for example, a value of <code>sh:property</code> is a blank node that does not have any <code>rdf:type</code>, then the assumption is that the blank node has type <code>sh:PropertyConstraint</code>.
 					Unless these implicit triples are present in the data graph, constraint validation will not apply the constraints defined for <code>sh:PropertyConstraint</code>.
 				</p>
@@ -2577,17 +2570,17 @@ interface ExecutionLanguage {
 					If an engine intends to validate the syntax of a SHACL shapes graph itself, it should (temporarily) add the missing <code>rdf:type</code> triples.
 					The SHACL system vocabulary includes some helper triples using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
 					For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
-					These triples can be queried by a pre-processor to construct the missing type triples for the affected blank nodes.
+					These triples can be queried by a pre-processor to construct the missing type triples for the affected nodes.
 					SHACL includes a template <code>sh:DefaultValueTypeRule</code> which encapsulates a SPARQL query that can be used for that purpose:
 				</p>
 				<pre class="query">
 CONSTRUCT {
-	?blankNode a ?defaultValueType .
+	?node a ?defaultValueType .
 }
 WHERE {
 	?predicate sh:defaultValueType ?defaultValueType .
-	?anySubject ?predicate ?blankNode .
-	FILTER (isBlank(?blankNode) &amp;&amp; NOT EXISTS { ?blankNode a ?anyType }) .
+	?anySubject ?predicate ?node .
+	FILTER (NOT EXISTS { ?node a ?anyType }) .
 }</pre>
 			</section>
 		</section>
@@ -2633,8 +2626,7 @@ ex:exampleFunction
 				<h3>Function Arguments</h3>
 				<p>
 					The arguments of a function are linked to its <code>sh:Function</code> via the property <code>sh:argument</code>.
-					Each argument must be an instance of <code>sh:Argument</code>.
-					The <code>rdf:type</code> triple of the argument can be omitted if it is a blank node with an incoming <code>sh:argument</code> triple.
+					Each argument must be an instance of <code>sh:Argument</code>, but their <code>rdf:type</code> triple can be omitted.
 					Arguments are ordered, corresponding to the notation of function calls in SPARQL such as
 					<code>ex:exampleFunction(?arg1, ?arg2)</code>.
 				</p>
