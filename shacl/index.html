@@ -135,11 +135,13 @@
 		</section>
 
 		<section id="sotd">
+
 			<h4>Revision History</h4>
 			<p>
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-09</b>: Rewritten introduction, dropped Profile section, word-smithing on sh:valueClass</li>
 				<li><b>2015-09-04</b>: Applied resolution to <a href="http://www.w3.org/2014/data-shapes/track/issues/70">ISSUE-70</a></li>
 				<li><b>2015-09-03</b>: Many editorial changes, restructured section 5 (scopes and filters) into section 2 (Shapes)</li>
 				<li><b>2015-09-01</b>: Minor changes and clarifications</li>
@@ -161,193 +163,132 @@
 				<li><b>2015-07-13</b>: Replaced Appendix with references to SHACL-REF document</li>
 				<li><b>2015-07-03</b>: Editorial fixes, started revision history</li>
 			</ul>
+			
+			<h2>Document Outline</h2>
+			<p>
+				The sections 2 - 5 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
+			</p>
+			<p>
+				The sections 6 onwards are about the remaining features of the full SHACL language, including templates, functions and execution semantics.
+			</p>
+			<p>
+				The Appendix provides a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
+			</p>
+			<p>
+				The companion specification <a href="../shacl-ref/">SHACL Vocabulary Reference</a> provides additional normative definitions and details.
+			</p>
+			<p>
+				The examples in this document use Turtle [[!turtle]].
+				The reader should be familiar with basic RDF concepts [[!rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[!sparql11-overview]].			<p>
+			</p>
 		</section>
 	
 		<section id="introduction">
 			<h2>Introduction</h2>
 			<p>
-				SHACL (Shapes Constraint Language) is an RDF-based language to formulate structural constraints on <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graphs</a>.
-				SHACL includes high-level constructs to represent restrictions on predicates used in <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple">triples</a>.
-				These restrictions can be grouped into "<span class="term">shapes</span>".
-				Shapes can be used to restrict the number of property values and the permitted value types as well as other conditions.
-				Some users will be content with using the high-level language only, which is called the <span class="term">SHACL Core Profile</span>
-				and is described in sections 2 to 5 of this document.
+				SHACL (Shapes Constraint Language) is a language for specifying data shapes and determining whether an <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graph</a> (possibly in an <a href="http://www.w3.org/TR/rdf11-concepts/#section-dataset">RDF dataset</a>) conforms to certain shapes.
+				For example, SHACL can be used to check whether all the nodes in an RDF graph that have a type link to <code>foaf:Person</code> have a single value for <code>foaf:mbox</code> and that that value is an IRI.
+				SHACL can also be used to check whether a particular node in an RDF graph, say the node <code>ex:bug1</code>, has at least one
+				value for <code>ex:reportedBy</code> and all such values have an <code>rdf:type</code> link to <code>foaf:Person</code>.
 			</p>
 			<p>
-				For more complex use cases, SHACL also includes facilities to express other restrictions in a language such as SPARQL and, possibly, other languages such as JavaScript.
-				SHACL includes macro facilities that encapsulate reusable building blocks based on these executable languages into <span class="term">templates</span> and <span class="term">functions</span>.
-				These advanced topics are covered from section 6 onwards. 
+				The most general interface to SHACL has two arguments:
+			</p>
+			<ul>
+				<li>A <span class="term">data graph</span> in a dataset that contains the data that is to be validated</li>
+				<li>A <span class="term">shapes graph</span> containing shape definitions and other information that can be utilized to determine what validation is to be done</li>
+			</ul>
+			<p>
+				So in SHACL one might want to determine whether RDF graphs contain information about issues and users, such as each issue is in either an
+				unassigned or an assigned state, and each issue has a reporter and each such reporter has a precisely one string name and one or more IRI mailboxes.
 			</p>
 			<p>
-				SHACL is written in RDF and can be serialized in multiple RDF formats.
-				The examples in this document use Turtle [[!turtle]].
-				The reader should be familiar with basic RDF concepts [[!rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[!sparql11-overview]].
+				A shapes graph that does this validation has two shapes.
+				The first, <code>ex:IssueShape</code> contains the two constraints on issues.
+				The second, <code>ex:UserShape</code>, contains the two constraints on reporters.
+				The first shape also contains scope information that here says that its constraints are to be validated against all nodes that have an <code>rdf:type</code> link to <code>ex:Issue</code>.
 			</p>
-			<section id="introduction-outline">
-				<h3>Document Outline</h3>
-				<p>
-					The remaining sub-sections of the Introduction provide an overview of the complete language and introduce relevant terminology.
-				</p>
-				<p>
-					The sections 2 - 5 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
-				</p>
-				<p>
-					The sections 6 onwards are about the remaining features of the full SHACL language, including templates, functions and execution semantics.
-				</p>
-				<p>
-					The Appendix provides a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
-				</p>
-				<p>
-					The companion specification <a href="../shacl-ref/">SHACL Vocabulary Reference</a> provides additional normative definitions and details.
-				</p>
-			</section>
-			<section id="introduction-overview">
-				<h3>Overview and Terminology of Core Features</h3>
-				<p>
-					The following example illustrates the use of SHACL to define constraints on issues in a hypothetical bug tracking system.
-					In the example scenario, the <a href="http://www.w3.org/TR/rdf-schema/#ch_class">RDFS class</a> <code>ex:Issue</code> is used to represent issues, and the class <code>schema:Person</code> represents users.
-					One shape requires that each instance of <code>ex:Issue</code> has exactly one value for <code>ex:submittedBy</code>, that that value is an instance of <code>schema:Person</code> that satisfies the constraints on submitters, has at most one value for <code>ex:assignedTo</code>, and that that value is an instance of <code>schema:Person</code>.
-					The submitter shape requires at least one value for <code>schema:email</code>. 
-				</p>
-				<pre class="example" title="Definition of ex:Issue and ex:SubmitterShape">
-ex:Issue
-	a sh:ShapeClass ;
+			<pre class="example" title="Definition of ex:IssueShape and ex:UserShape">
+ex:IssueShape
+	a sh:Shape ;
+	sh:scopeClass ex:Issue;
 	sh:property [
-		sh:predicate ex:assignedTo ;
-		rdfs:label "assigned to" ;
-		rdfs:comment "The assignee of an issue must be a person." ;
+		sh:predicate ex:state ;
+		sh:allowedValue (ex:unassigned ex:assigned) ;
+		sh:minCount 1 ;
 		sh:maxCount 1 ;
-		sh:valueClass schema:Person ;
 	] ;
 	sh:property [
-		sh:predicate ex:submittedBy ;
-		rdfs:label "submitted by" ;
-		rdfs:comment "The submitter of an issue must be a person who also has an email address." ;
+		sh:predicate ex:reportedBy ;
+		sh:valueShape ex:UserShape ;
 		sh:minCount 1 ;
 		sh:maxCount 1 ;
-		sh:valueClass schema:Person ;
-		sh:valueShape ex:SubmitterShape ;
 	] .
 
-ex:SubmitterShape
+ex:UserShape
 	a sh:Shape ;
-	rdfs:comment "A submitter must have at least one email address." ;
 	sh:property [
-		sh:predicate schema:email ;
+		sh:predicate foaf:name ;
+		sh:datatype xsd:string ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:predicate foaf:mbox ;
+		sh:nodeKind sh:IRI ;
 		sh:minCount 1 ;
 	] .</pre>
-				<p>
-					SHACL can be used to define structural constraints that can be used to validate graphs.
-					A SHACL validation process takes two graphs as input:
-				</p>
-				<ul>
-					<li>A <span class="term">data graph</span> (or more general: a <a href="http://www.w3.org/TR/rdf11-concepts/#section-dataset">dataset</a>), for example containing instances of <code>ex:Issue</code></li>
-					<li>A <span class="term">shapes graph</span> containing shape definitions, as shown in the example above.</li>
-				</ul>
-				<p>
-					The output of a SHACL validation process is a new graph, containing validation results.
-				</p>
-				<p>
-					The basic building blocks of SHACL are <span class="term">constraints</span>.
-					Each <span class="term">constraint</span> defines a condition that can be validated against a node in a data graph.
-					The node against which a constraint is validated is called the <span class="term">focus node</span>.
-					A <a href="#shapes"><span class="term">shape</span></a> defines a group of <span class="term">constraints</span> to be validated against the same <span class="term">focus node</span>.
-					Many of these constraints are about a certain property only, and these are called <a href="#property-constraints"><span class="term">property constraints</span></a>.
-					<span class="term">Constraints</span> are validated against a given <span class="term">focus node</span>, which can serve as starting point of property paths and other graph traversal algorithms.
-					In the current draft, classes (such as <code>ex:Issue</code> above) MAY also be used as shapes.
-					Such shape classes may be arranged in a <span class="term">specialization</span> hierarchy, effectively allowing some shape classes to further narrow down the constraints from other shape classes.
-				</p>
-				<p>
-					In the Issue example above, the shape <code>ex:Issue</code> includes two constraints.
-					These constraints are here represented as blank nodes via <code>sh:property</code>.
-					Each of these constraints specifies the restricted property via <code>sh:predicate</code>, and one or more constraint properties such as <code>sh:minCount</code> and <code>sh:valueClass</code>.
-					The property <code>sh:valueShape</code> points to another <code>sh:Shape</code> that defines additional constraints that the values of
-					the <code>ex:submittedBy</code> property must fulfill, in addition to being instances of <code>schema:Person</code>.
-				</p>
-				<p>
-					One of the <a href="#operations"><span class="term">operations</span></a> of SHACL is validating a given RDF node against a given shape, producing <a href="#results"><span class="term">validation results</span></a>, including informational results, warnings and errors.
-					Another operation is to validate a given data graph using all applicable shapes.
-					In order to support that operation, SHACL has the concept of <span class="term">scopes</span>.
-					A <span class="term">scope</span> is linked to a shape and defines the nodes to which the shape applies.
-					SHACL provides several scoping mechanisms, including node selection based on <code>sh:nodeShape</code> and <code>rdf:type</code> triples,
-					as well as a more general scoping framework that produces focus nodes based on an executable language such as SPARQL.
-					The scope of a shape can be narrowed down via <span class="term">filter shapes</span> that define pre-conditions that all focus nodes need to fulfill before they are validated.
-				</p>
-				<p>
-					The following data graph defines two instances of the class <code>ex:Issue</code>.
-					When constraint validation is started, a SHACL engine will follow the <code>rdf:type</code> link of these instances to determine which shapes need to be used.
-					(If <code>ex:Issue</code> were not a class but a <code>sh:Shape</code>, then the property <code>sh:nodeShape</code> would have been used instead).
-					The first instance passes validation without producing any results.
-					The second instance produces an <code>sh:Error</code>, because its value for <code>ex:submittedBy</code> does not have an <code>schema:email</code>. 
-				</p>
-				<pre class="example" title="Sample Issue instances">
-ex:ValidExampleIssue
+			<p>
+				The following data graph might be validated against this shapes graph.
+			</p>
+			<pre class="example" title="Definition of ex:IssueShape and ex:UserShape">
+inst:Issue1
 	a ex:Issue ;
-	ex:assignedTo ex:UserWithoutEmail ;
-	ex:submittedBy ex:UserWithEmail .
-	
-ex:InvalidExampleIssue
-	a ex:Issue ;
-	ex:submittedBy ex:UserWithoutEmail .
+	ex:state ex:unassigned ;
+	ex:reportedBy inst:User2 .
 
-ex:UserWithoutEmail
-	a schema:Person .
-	
-ex:UserWithEmail
-	a schema:Person ;
-	schema:email "someone@example.org" .</pre>
+inst:User2
+	a foaf:Person ;
+	foaf:name "Bob Smith" ;
+	foaf:mbox &lt;mailto:bob@example.org&gt; ;
+	foaf:mbox &lt;mailto:rs@example.org&gt; .
+
+inst:Issue3
+	a ex:Issue ;
+	ex:state ex:unsinged ;
+	ex:reportedBy inst:User4 .
+
+inst:User4
+	a foaf:Person ;
+	foaf:name "Bob Smith", "Robert Smith" ;
+	foaf:mbox &lt;mailto:bob@example.org&gt; ;
+	foaf:mbox &lt;mailto:rs@example.org&gt; .</pre>
+			<p>
+				The SHACL validation would validate <code>my:IssueShape</code> against <code>inst:Issue1</code> and <code>inst:Issue3</code>.
+				Validating the first node would determine that <code>inst:Issue1</code> satisfies the constraints in <code>my:IssueShape</code>, along the way determining that <code>inst:User2</code> satisfies the constraints in <code>my:UserShape</code>.
+				Validating the second node would determine that <code>inst:Issue3</code> violates the constraint on values for <code>ex:state</code>, because <code>ex:unsigned</code> is not in the list of allowed values,
+				and also violates the constraint on values for <code>ex:reportedBy</code>, because <code>inst:User4</code> violates the <code>ex:UserShape</code> constraint on the maximum number of values for <code>foaf:name</code>.
+			</p>
+			
+			<section id="shacl-rdfs">
+				<h3>Relationship between SHACL and RDFS</h3>
 				<p>
-					When this instance data is validated, a SHACL engine will produce the following results:
-				</p>
-				<pre class="example" title="Validation results for the sample instances">
-[
-	a sh:Error ;
-	sh:root ex:InvalidExampleIssue ;
-	sh:subject ex:InvalidExampleIssue ;
-	sh:predicate ex:submittedBy ;
-	sh:object ex:UserWithoutEmail ;
-	sh:message "Value does not have the shape ex:SubmitterShape." ;
-]</pre>
-			</section>
-			<section id="introduction-overview-advanced">
-				<h3>Overview and Terminology of Advanced Features</h3>
-				<p>
-					The following paragraphs give an overview of the advanced features of SHACL.
-					Readers only interested in the Core Profile may skip this section.
-				</p>
-				<p>
-					Each <span class="term">constraint</span> is defined in terms of one or more <span class="term">execution languages</span>.
-					This version of SHACL supports <a href="#sparql">SPARQL</a> as an <span class="term">execution language</span>, but other languages may be supported in future versions or by other communities.
-					Each constraint needs to be backed by at least one <span class="term">executable body</span> in SPARQL, and any alternative bodies need to follow the same semantics as the SPARQL queries.
-					Constraints may either directly define such an <span class="term">executable body</span> or point to a <a href="#templates"><span class="term">template</span></a>.
-					Constraints that directly include an <span class="term">executable body</span> are called <span class="term">native constraints</span>.
-					A <span class="term">template</span> serves as a parameterizable macro that wraps an <span class="term">executable body</span>.
-					Constraints that rely on a <span class="term">template</span> are called <span class="term">template constraints</span>.
-					The SHACL vocabulary includes a small library of such <span class="term">templates</span> for common constraint patterns, but anyone can add their own template libraries.
-					Similar to constraint templates, SHACL also supports <span class="term">scope templates</span> that define a high-level vocabulary to represent <span class="term">scopes</span>.
-					Templates can be grouped into so-called <a href="#profiles"><span class="term">profiles</span></a>.
-					Some SHACL engines may decide to only support certain <span class="term">profiles</span> and implement them differently than the provided (SPARQL) bodies.
+					SHACL uses RDF and RDFS vocabulary (in particular <code>rdf:type</code>, <code>rdfs:Class</code>, <code>rdfs:subClassOf</code>, <code>rdfs:label</code>, <code>rdfs:comment</code>, <code>rdf:Property</code>, <code>rdf:List</code>,
+					<code>rdf:langLiteral</code>, and <code>rdfs:Resource</code>) and notions (notably classes, instances, and subclasses).
+					However, SHACL does not use this vocabulary or these notions in the way that they are defined in RDF and RDFS [[!rdf11-mt]].				
 				</p>
 				<p>
-					The following example illustrates the use of a <span class="term">native SPARQL constraint</span>,
-					to specify that there cannot be two resources with the same <code>schema:email</code>.
-					Note that each result set row produced by the SELECT clause of the SPARQL query creates one validation result.
+					When determining subclass and instance relationships SHACL only uses the transitive closure of <code>rdfs:subClassOf</code>,
+					ignoring in particular the RDF axioms, the RDFS meaning of <code>rdfs:Resource</code>, the reflexivity of <code>rdfs:subClassOf</code>,
+					the effect of subproperties of <code>rdfs:subClassOf</code>, and the effects of <code>rdfs:domain</code> and <code>rdfs:range</code>.
 				</p>
-				<pre class="example" title="A SPARQL-based constraint">
-ex:UniqueEmailShape
-	a sh:Shape ;
-	sh:constraint [
-		sh:message "There cannot be two resources with the same email address." ;
-		sh:predicate schema:email ;
-		sh:sparql """
-			SELECT ?this (?this AS ?subject) (?email AS ?object)
-			WHERE {
-				?this schema:email ?email .
-				?other schema:email ?email .
-				FILTER (?this != ?other) .
-			}
-			"""
-	] .</pre>
+				<p>
+					Note that <code>rdfs:subClassOf</code> transitivity is not uniformly applied throughout SHACL.
+					It is only used when SHACL explicitly determines type and subclass relationships in the shapes graph and the data.
+					In other places only triples that are explicitly present in the shapes graph or the data are considered.
+					For example, SHACL property constraints on <code>rdf:type</code> and <code>rdfs:subClassOf</code> only utilize triples that are explicitly in the data.
+					Similarly, subproperties of <code>rdfs:label</code> and <code>rdfs:commment</code> and subclasses of <code>rdf:List</code> are not recognized in the shapes graph.
+				</p>
 			</section>
 			
 			<section id="namespaces">
@@ -380,14 +321,6 @@ ex:UniqueEmailShape
 					<tr>
 						<td><code>xsd:</code></td>
 						<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
-					</tr>
-					<tr>
-						<td><code>ex:</code></td>
-						<td><code>http://example.com/ns#</code></td>
-					</tr>
-					<tr>
-						<td><code>schema:</code></td>
-						<td><code>http://schema.org/</code></td>
 					</tr>
 				</table>
 			</section>
@@ -525,7 +458,7 @@ ex:ExampleInstance
 					<p>
 						SHACL includes a generic mechanism to select focus nodes.
 						A <code>sh:Shape</code> can point to one or more instances of <code>sh:Scope</code>.
-						The core profile of SHACL includes several subclasses of <code>sh:Scope</code> that define a high-level vocabulary for common scope patterns.
+						SHACL includes several subclasses of <code>sh:Scope</code> that define a high-level vocabulary for common scope patterns.
 						The full SHACL language also includes a generic mechanism based on executable languages such as SPARQL, elaborated in an <a href="#general-scopes">advanced section</a>.
 					</p>
 					<section id="PropertyScope">
@@ -1244,7 +1177,7 @@ ex:PatternShapeExampleInvalidResource
 				<section id="AbstractValueClassPropertyConstraint">
 					<h4>sh:valueClass</h4>
 					<p>
-						The property <code>sh:valueClass</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
+						The property <code>sh:valueClass</code> can be used to verify that each value of the given property is an instance of a given type. 
 						The values of <code>sh:valueClass</code> must be classes (instances of <code>rdfs:Class</code>).
 						The main difference with <a href="#AbstractDirectValueTypePropertyConstraint"><code>sh:directValueType</code></a> is that <code>sh:valueClass</code> also includes subclasses of the type.
 					</p>
@@ -1266,7 +1199,7 @@ ex:PatternShapeExampleInvalidResource
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
-							A non-literal matches a type if its <code>rdf:type</code> is equal to the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
+							A non-literal matches a type if it has an <code>rdf:type</code> value that is the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:root</code> and <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
@@ -2118,44 +2051,6 @@ ex:ExampleTemplate
 			</ul>
 			<p class="todo">
 				TODO: Maybe include an example of a user-defined scope template and how it is used.
-			</p>
-		</section>
-
-		<section id="profiles">
-			<h2>Profiles</h2>
-			<p>
-				A Profile is a set of templates.
-				Profiles can be used to define controlled sub-dialects of SHACL, e.g. with desirable complexity.
-				Tools may decide to only support certain profiles, for example so that they can hard-code and optimize certain algorithms.
-				Since Profiles are entirely based on templates, <span class="term">native constraints and scopes</span> such as those in SPARQL are outside of their expressivity.
-			</p>
-			<p>
-				The class <code>sh:Profile</code> is used to represent SHACL profiles.
-				The properties <code>sh:constraintTemplate</code> and <code>sh:scopeTemplate</code> link a <code>sh:Profile</code> with the templates that are in the profile.
-				The following example defines a profile consisting of the two SHACL templates for min/max cardinality and value shape,
-				as well as their shared superclass (which defines the <code>sh:predicate</code> property) and their shared subclass
-				<code>sh:PropertyConstraint</code> that is directly instantiated.
-			</p>
-			<pre class="example" title="Simple SHACL Profile">
-ex:MyProfile
-	a sh:Profile ;
-	sh:constraintTemplate sh:AbstractPropertyConstraint ;
-	sh:constraintTemplate sh:AbstractCountPropertyConstraint ;
-	sh:constraintTemplate sh:AbstractValueShapePropertyConstraint ;
-	sh:constraintTemplate sh:PropertyConstraint ;
-	sh:scopeTemplate sh:PropertyScope .</pre>
-			<p>
-				In the example above, the profile includes only the properties from the enumerated template classes.
-				Sibling template classes such as <code>sh:AbstractAllowedValuesPropertyConstraint</code> are outside of the profile,
-				which means that <code>sh:allowedValues</code> would be out of scope for this profile.
-			</p>
-			<p>
-				SHACL includes a profile called <code>sh:CoreProfile</code> that includes all <a href="#property-constraints">property constraint templates</a>
-				as well as the logical operators such as <a href="#or">or</a> and <a href="#ClosedShape">closed shapes</a>. 
-			</p>
-			<p>
-				Profiles can extend each other using the property <code>sh:extends</code>.
-				Such profiles include all templates from the profiles that they (transitively) extend.
 			</p>
 		</section>
 
