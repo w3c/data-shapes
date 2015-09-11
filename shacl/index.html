@@ -177,9 +177,6 @@
 				The Appendix provides a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
 			</p>
 			<p>
-				The companion specification <a href="../shacl-ref/">SHACL Vocabulary Reference</a> provides additional normative definitions and details.
-			</p>
-			<p>
 				The examples in this document use Turtle [[!turtle]].
 				The reader should be familiar with basic RDF concepts [[!rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[!sparql11-overview]].			<p>
 			</p>
@@ -610,6 +607,21 @@ ex:FilteredShapeValidExampleInstance
 		
 		<section id="constraints">
 			<h2>Core Constraint Types</h2>
+			<p>
+				The following sections define the constraint types built into the SHACL Core.
+				Compliant SHACL engines MUST support all of these constraints.
+			</p>
+			<p>
+				The specification uses SPARQL for the normative definition of the semantics of these constraints.
+				Implementations do not have to use the exact same SPARQL queries, and do not even have to use SPARQL at all.
+				However, all implementation MUST produce the same validation results.
+				Each row in the result set of the SPARQL queries in this document represents one validation result.
+				The variable <code>$this</code> is assumed to point at the current focus node.
+				The other variables in the SELECT clause are mapped to the details of each validation result, e.g. <code>?object</code> is mapped to <code>sh:object</code>.
+				<span class="todo">(Clarify what exact compliance level is required, e.g. do they need to produce focus nodes)</span>
+				The SPARQL queries use the convention that the variables starting with <code>$</code> must be substituted
+				with values that have been passed into the query from the outside, similar to the semantics of a VALUES clause.
+			</p>
 
 			<section id="constraints-property">
 				<h3>Property Constraints (sh:property)</h3>
@@ -768,7 +780,19 @@ ex:StandAloneConstraint
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective invalid value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractAllowedValuesPropertyConstraint">Definition in SPARQL</a>.</p>
+					<div id="def-allowedValues-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		GRAPH $shapesGraph {
+			$allowedValues (rdf:rest*)/rdf:first ?value .
+		}
+	}
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:allowedValues constraint">
 ex:AllowedValuesExampleShape
 	a sh:Shape ;
@@ -935,7 +959,20 @@ ex:HasValueExampleValidResource
 							and the predicate as its <code>sh:predicate</code>. 
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractCountPropertyConstraint">Definition in SPARQL</a>.</p>
+					<div id="def-count-sparql" class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate
+WHERE {
+	{
+		SELECT (COUNT(?value) AS ?count)
+		WHERE {
+			$this $predicate ?value .
+		}
+	}
+	FILTER (?count &lt; $minCount || (bound($maxCount) &amp;&amp; ?count &gt; $maxCount))
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:minCount and sh:maxCount constraints">
 ex:CountExampleShape
 	a sh:Shape ;
