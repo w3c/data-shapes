@@ -127,10 +127,10 @@
 				SHACL (Shapes Constraint Language) is a language for checking constraints against RDF graphs and for describing graph structures.
 				Some of these graph structures are captured as "shapes", which group together constraints about the same RDF nodes.
 				Shapes provide a high-level vocabulary to identify predicates and their associated cardinalities, datatypes and other constraints.
-				Additional constraints can be associated with shapes using SPARQL and similar executable languages.
-				These executable languages can also be used to define new high-level vocabulary terms.
+				Additional constraints can be associated with shapes using SPARQL and similar extension languages.
+				These extension languages can also be used to define new high-level vocabulary terms.
 				SHACL shapes can be used to communicate data structures associated with some process or interface, generate or validate data, or drive user interfaces.
-				This document defines the SHACL RDF vocabulary together with its underlying semantics.
+				This document defines the SHACL language together with its underlying semantics.
 			</p>	
 		</section>
 
@@ -141,6 +141,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-14</b>: Started adding SPARQL definitions for each constraint type</li>
 				<li><b>2015-09-11</b>: Restructured constraint section, cleaned up results vocabulary</li>
 				<li><b>2015-09-10</b>: Added sh:shapesGraph property (<a href="http://www.w3.org/2014/data-shapes/track/issues/44">ISSUE-44</a>)</li>
 				<li><b>2015-09-09</b>: Rewritten introduction, dropped Profile section, word-smithing on sh:valueClass</li>
@@ -171,7 +172,7 @@
 				The sections 2 - 5 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
 			</p>
 			<p>
-				The sections 6 onwards are about the remaining features of the full SHACL language, including templates, functions and execution semantics.
+				The sections 6 onwards are about the advanced features of the SHACL language, including templates, functions and execution semantics.
 			</p>
 			<p>
 				The Appendix provides a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
@@ -405,15 +406,7 @@ ex:ExampleShape
 ex:ExampleInstance
 	rdf:type ex:ExampleClass .</pre>
 					<div class="issue" data-number="23" title="Classes and/or Shapes">
-						There is no agreement in the WG on the relationship of sh:Shape with classes.
-						Proposals include:
-						<ul>
-							<li>Keep them completely separate, users only instantiate sh:Shape and use sh:extends</li>
-							<li>Have rdfs:Class rdfs:subClassOf sh:Shape, use rdfs:subClassOf</li>
-							<li>Have sh:Shape rdfs:subClassOf rdfs:Class, use rdfs:subClassOf</li>
-							<li>Allow both approaches in parallel: either rdfs:Class/subClassOf or sh:Shape/extends</li>
-							<li>Allow both and have sh:classShape or sh:classScope or sh:scopeClass to point from a class to its shapes (or vice versa)</li>
-						</ul>
+						There is no agreement in the WG on the relationship between sh:Shape and rdfs:Class.
 						In the absence of such an agreement, this document uses sh:Shape in most examples but allows
 						classes to be also shapes, with the class sh:ShapeClass as syntactic sugar.
 					</div>
@@ -612,12 +605,16 @@ ex:FilteredShapeValidExampleInstance
 				Compliant SHACL engines MUST support all of these constraints.
 			</p>
 			<p>
+				Note that the textual definitions of the constraint types refer to the <a href="#results">Validation Results Vocabulary</a>
+				introduced in a later section.
+			</p>
+			<p>
 				The specification uses SPARQL for the normative definition of the semantics of these constraints.
 				Implementations do not have to use the exact same SPARQL queries, and do not even have to use SPARQL at all.
-				However, all implementation MUST produce the same validation results.
+				However, all implementation MUST produce the same validation results for the same inputs.
 				Each row in the result set of the SPARQL queries in this document represents one validation result.
 				The variable <code>$this</code> is assumed to point at the current focus node.
-				The other variables in the SELECT clause are mapped to the details of each validation result, e.g. <code>?object</code> is mapped to <code>sh:object</code>.
+				The other variables in the SELECT clause are mapped to the details of each <a href="#results">validation result</a>, e.g. <code>?object</code> is mapped to <code>sh:object</code>.
 				<span class="todo">(Clarify what exact compliance level is required, e.g. do they need to produce focus nodes)</span>
 				The SPARQL queries use the convention that the variables starting with <code>$</code> must be substituted
 				with values that have been passed into the query from the outside, similar to the semantics of a VALUES clause.
@@ -631,7 +628,7 @@ ex:FilteredShapeValidExampleInstance
 					The property <code>sh:property</code> can be used to link a shape with its property constraints.
 				</p>
 				<p>
-					In the SHACL RDF vocabulary, property constraints are instances of the class <code>sh:PropertyConstraint</code>.
+					In SHACL, property constraints are instances of the class <code>sh:PropertyConstraint</code>.
 					When used as values of <code>sh:property</code>, property constraints do not require an <code>rdf:type</code> triple.
 					However, if those values are IRIs, then they SHOULD have an <code>rdf:type</code> triple.
 					Note that <code>sh:property</code> may also have values that are sub-classes of <code>sh:PropertyConstraint</code>,
@@ -682,8 +679,6 @@ ex:StandAloneConstraint
 					The following sections provide details on the properties that may be used with <code>sh:PropertyConstraint</code>.
 					None of these properties can be repeated within the same <code>sh:PropertyConstraint</code>.
 					In order to define multiple constraints using the same property, such as multiple <code>sh:hasValue</code> constraints, the shape MUST use multiple <code>sh:property</code> definitions.
-					Note that the textual definitions of those properties refer to the <a href="#results">Validation Results Vocabulary</a>
-					introduced in a later section.
 				</p>
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
@@ -768,7 +763,7 @@ ex:StandAloneConstraint
 							<td>Enumeration of allowed values</td>
 						</tr>
 					</table>
-					<div id="def-allowedValues-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							The values of <code>sh:allowedValues</code> must be well-formed instances of <code>rdf:List</code>.
@@ -780,7 +775,7 @@ ex:StandAloneConstraint
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective invalid value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<div id="def-allowedValues-sparql" class="def def-sparql">
+					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
@@ -822,7 +817,7 @@ ex:AllowedValuesExampleValidResource
 							<td>Datatype of all values (e.g., <code>xsd:integer</code>)</td>
 						</tr>
 					</table>
-					<div id="def-nodeType-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -834,7 +829,21 @@ ex:AllowedValuesExampleValidResource
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractDatatypePropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		{
+			FILTER isLiteral(?value) .
+		} .
+		BIND (datatype(?value) AS ?valueDatatype) .
+		FILTER ((?valueDatatype = $datatype) || ($datatype = sh:text &amp;&amp; ?valueDatatype IN (rdf:langString, xsd:string))) .
+	}
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:datatype constraint">
 ex:DatatypeExampleShape
 	a sh:Shape ;
@@ -869,7 +878,7 @@ ex:DatatypeShapeExampleInvalidResource
 							<td>Type of all values</td>
 						</tr>
 					</table>
-					<div id="def-nodeType-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -879,7 +888,17 @@ ex:DatatypeShapeExampleInvalidResource
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractDirectValueTypePropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		?value a $directValueType .
+	}
+}</pre>
+					</div>
 				</section>
 				<section id="AbstractHasValuePropertyConstraint">
 					<h4>sh:hasValue</h4>
@@ -910,7 +929,16 @@ ex:DatatypeShapeExampleInvalidResource
 							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractHasValuePropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate
+WHERE {
+	FILTER NOT EXISTS {
+		$this $predicate $hasValue .
+	}
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:hasValue constraint">
 ex:HasValueExampleShape
 	a sh:Shape ;
@@ -946,7 +974,7 @@ ex:HasValueExampleValidResource
 							<td>The maximum cardinality. Default interpretation is unlimited.</td>
 						</tr>
 					</table>
-					<div id="def-count-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							The default value of <code>sh:minCount</code> is 0.
@@ -959,7 +987,7 @@ ex:HasValueExampleValidResource
 							and the predicate as its <code>sh:predicate</code>. 
 						</div>
 					</div>
-					<div id="def-count-sparql" class="def def-sparql">
+					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate
@@ -1010,7 +1038,7 @@ ex:CountExampleValidResource
 							<td>The maximum length. Default interpretation is unlimited.</td>
 						</tr>
 					</table>
-					<div id="def-count-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							The default value of <code>sh:minLength</code> is 0.
@@ -1022,7 +1050,20 @@ ex:CountExampleValidResource
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractLengthPropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		BIND (STRLEN(str(?value)) AS ?valueLength) .
+		FILTER (bound(?valueLength) &amp;&amp; 
+			(?valueLength &gt;= COALESCE($minLength, 0)) &amp;&amp;
+			(!bound($maxLength) || ?valueLength &lt;= $maxLength)) .
+	}
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:minLength and sh:maxLength constraints">
 ex:PasswordExampleShape
 	a sh:Shape ;
@@ -1054,19 +1095,19 @@ ex:PasswordExampleValidResource
 							<td><code>sh:minExclusive</code></td>
 							<td>(supported datatypes)</td>
 							<td>The minimum exclusive value</td>
-							<td><code>&lt;</code> (see also: <a href="../shacl-ref/#AbstractMinExclusivePropertyConstraint">Definition in SPARQL</a>)</td>
+							<td><code>&lt;</code></td>
 						</tr>
 						<tr id="AbstractMinInclusivePropertyConstraint">
 							<td><code>sh:minInclusive</code></td>
 							<td>(supported datatypes)</td>
 							<td>The minimum inclusive value</td>
-							<td><code>&lt;=</code> (see also: <a href="../shacl-ref/#AbstractMinInclusivePropertyConstraint">Definition in SPARQL</a>)</td>
+							<td><code>&lt;=</code></td>
 						</tr>
 						<tr id="AbstractMaxExclusivePropertyConstraint">
 							<td><code>sh:maxExclusive</code></td>
 							<td>(supported datatypes)</td>
 							<td>The maximum exclusive value</td>
-							<td><code>&gt;</code> (see also: <a href="../shacl-ref/#AbstractMaxExclusivePropertyConstraint">Definition in SPARQL</a>)</td>
+							<td><code>&gt;</code></td>
 						</tr>
 						<tr id="AbstractMaxInclusivePropertyConstraint">
 							<td><code>sh:maxInclusive</code></td>
@@ -1075,7 +1116,7 @@ ex:PasswordExampleValidResource
 							<td><code>&gt;=</code> (see also: <a href="../shacl-ref/#AbstractMaxInclusivePropertyConstraint">Definition in SPARQL</a>)</td>
 						</tr>
 					</table>
-					<div id="def-count-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -1092,6 +1133,18 @@ ex:PasswordExampleValidResource
 						then the engine will produce an error.  This is different from, say, a plain SPARQL query, in
 						which such failures would silently not lead to any results.
 					</p>
+					<p>
+						The following SPARQL definition covers <code>sh:minExclusive</code> - the other variations can be derived by replacing the <code>&gt;</code> operator.
+					</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (!($value &gt; $minExclusive)) .
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:minInclusive and sh:maxInclusive constraints">
 ex:NumericRangeExampleShape
 	a sh:Shape ;
@@ -1132,7 +1185,7 @@ ex:NumericExampleInvalidResource2
 						The SHACL system vocabulary defines that <code>sh:NodeKind</code> has exactly 3 instances:
 						<code>sh:BlankNode</code>, <code>sh:IRI</code> and <code>sh:Literal</code> (see also the <a href="#function-hasNodeKind">Appendix</a>).
 					</p>
-					<div id="def-nodeType-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -1142,7 +1195,19 @@ ex:NumericExampleInvalidResource2
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractNodeKindPropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		FILTER ((isIRI(?value) &amp;&amp; $nodeKind = sh:IRI) ||
+			(isLiteral(?value) &amp;&amp; $nodeKind = sh:Literal) ||
+			(isBlank(?value) &amp;&amp; $nodeKind = sh:BlankNode)) .
+	}
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:nodeKind constraint">
 ex:NodeKindExampleShape
 	a sh:Shape ;
@@ -1176,7 +1241,7 @@ ex:NodeKindShapeExampleInvalidResource
 							<td>Regular expression that all values must match</td>
 						</tr>
 					</table>
-					<div id="def-nodeType-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -1187,7 +1252,15 @@ ex:NodeKindShapeExampleInvalidResource
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractPatternPropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (isBlank(?value) || !regex(str(?value), $pattern)) .
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:pattern constraint">
 ex:PatternExampleShape
 	a sh:Shape ;
@@ -1221,7 +1294,7 @@ ex:PatternShapeExampleInvalidResource
 							<td>Type of all values</td>
 						</tr>
 					</table>
-					<div id="def-nodeType-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -1232,7 +1305,17 @@ ex:PatternShapeExampleInvalidResource
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractValueClassPropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (isLiteral(?value) || NOT EXISTS {
+		<span class="todo">TODO: clarify details, e.g. what should happen with rdfs:Resource, rdf:List</span>
+	})
+}</pre>
+					</div>
 					<pre class="example" title="Shape with sh:valueClass constraint">
 ex:ValueClassExampleShape
 	a sh:Shape ;
@@ -1265,7 +1348,7 @@ ex:ValueClassExampleValidResource
 							<td>The required shape of all values</td>
 						</tr>
 					</table>
-					<div id="def-valueShape-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
@@ -1276,7 +1359,17 @@ ex:ValueClassExampleValidResource
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractValueShapePropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		<span class="todo">TODO: work out details, e.g. with sh:hasShape function</span>
+	}
+}</pre>
+					</div>
 					<p class="issue" data-number="22" title="Recursion of sh:valueShape">
 						It is not yet decided how to handle recursive shape definitions in sh:valueShape and similar constructs.
 					</p>
@@ -1336,7 +1429,7 @@ ex:ValueShapeExampleValidResource
 					<div class="issue" data-number="83" title="Syntax of multiple qualified shape constraints">
 						There is an ongoing debate how to best represent multiple qualified shape constraints for the same property.
 					</div>
-					<div id="def-valueShape-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the number of triples that have
@@ -1348,7 +1441,17 @@ ex:ValueShapeExampleValidResource
 							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AbstractQualifiedValueShapePropertyConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		<span class="todo">TODO: describe without helper function etc</span>
+	}
+}</pre>
+					</div>
 					<p>
 						In the following example, the property <code>ex:parent</code> must have exactly two values,
 						and at least one of them needs to be female.
@@ -1430,14 +1533,21 @@ ex:InversePropertyConstraintExampleShape
 							<td>The shape to negate</td>
 						</tr>
 					</table>
-					<div id="def-andConstraint-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces no validation results with severity <code>sh:Error</code> or a failure for the shape given via <code>sh:shape</code>. 
 							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#NotConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this
+WHERE {
+	<span class="todo">TODO: work out details, e.g. with sh:hasShape function</span>
+}</pre>
+					</div>
 					<p>
 						The following example illustrates the use of <code>sh:NotConstraint</code> in a shape to verify
 						that certain nodes cannot have any value of <code>ex:property</code>.
@@ -1481,7 +1591,7 @@ ex:InvalidInstance1
 						The current specification of sh:AndConstraint and sh:OrConstraint does not yet reflect the resolution to ISSUE-76,
 						that the order of operands does not matter.
 					</div> 
-					<div id="def-andConstraint-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces validation results with severity <code>sh:Error</code> or a failure for at least one of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
@@ -1489,7 +1599,14 @@ ex:InvalidInstance1
 							Validation of the shapes in the <code>rdf:List</code> must happen from left to right, and the validation must stop as soon as it finds the first error.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#AndConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this
+WHERE {
+	<span class="todo">TODO: work out details, e.g. with sh:hasShape function</span>
+}</pre>
+					</div>
 					<p>
 						The following example illustrates the use of <code>sh:AndConstraint</code> in a shape to verify
 						that certain nodes have exactly one value of <code>ex:property</code>.
@@ -1547,7 +1664,7 @@ ex:InvalidInstance2
 							<td>List of shapes to validate</td>
 						</tr>
 					</table>
-					<div id="def-orConstraint-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces validation results with severity <code>sh:Error</code> or a failure against all of the shapes in the <code>rdf:List</code> <code>sh:shapes</code>. 
@@ -1555,7 +1672,14 @@ ex:InvalidInstance2
 							Validation of the shapes in the <code>rdf:List</code> must happen from left to right, and the validation must stop as soon as it finds the first shape that produces no validation results with severity <code>sh:Error</code> or a failure.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#OrConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this
+WHERE {
+	<span class="todo">TODO: work out details, e.g. with sh:hasShape function</span>
+}</pre>
+					</div>
 					<p>
 						The following example illustrates the use of <code>sh:OrConstraint</code> in a shape to verify
 						that certain nodes have at least one value of <code>ex:exampleProperty1</code>
@@ -1602,7 +1726,7 @@ ex:OrConstraintExampleValidResource
 							<td>List of shapes to validate</td>
 						</tr>
 					</table>
-					<div id="def-orConstraint-text" class="def def-text">
+					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							Using all shapes in the <code>rdf:List</code> <code>sh:shapes</code>, a <span class="term">validation result</span> must be produced if the number of   
@@ -1610,7 +1734,14 @@ ex:OrConstraintExampleValidResource
 							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:root</code>.
 						</div>
 					</div>
-					<p>See also: <a href="../shacl-ref/#XorConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this
+WHERE {
+	<span class="todo">TODO: work out details, e.g. with sh:hasShape function</span>
+}</pre>
+					</div>
 					<p>
 						The following example illustrates the use of <code>sh:XorConstraint</code> in a shape to verify
 						that certain nodes have either a value for <code>ex:fullName</code> or a combination of
@@ -1698,7 +1829,23 @@ ex:InvalidInstance2
 						The core vocabulary includes an instance of <code>sh:ClosedShapeConstraint</code> called <code>sh:ClosedShape</code>
 						that can be used in places where no other arguments such as <code>sh:ignoredProperties</code> are needed.
 					</p>
-					<p>See also: <a href="../shacl-ref/#ClosedShapeConstraint">Definition in SPARQL</a>.</p>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) ?predicate ?object
+WHERE {
+	$this ?predicate ?object .
+	FILTER (NOT EXISTS {
+		GRAPH $shapesGraph {
+			$currentShape sh:property/sh:predicate ?predicate .
+		}
+	} &amp;&amp; (!bound($ignoredProperties) || NOT EXISTS {
+		GRAPH $shapesGraph {
+			$ignoredProperties rdf:rest*/rdf:first ?predicate .
+		}
+	}))
+}</pre>
+					</div>
 					<p>
 						The following example illustrates the use of <code>sh:ClosedShapeConstraint</code> in a shape to verify
 						that certain nodes only have values for <code>ex:exampleProperty1</code> and <code>ex:exampleProperty2</code>.
