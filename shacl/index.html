@@ -2624,16 +2624,16 @@ ex:LanguageConstraint
 	rdfs:label "Language constraint" ;
 	rdfs:subClassOf sh:TemplateConstraint ;
 	sh:argument [
-		rdfs:comment "The property to validate the values of." ;
-		rdfs:label "predicate" ;
 		sh:predicate ex:predicate ;
 		sh:valueClass rdf:Property ;
+		rdfs:label "predicate" ;
+		rdfs:comment "The property to validate the values of." ;
     ] ;
 	sh:argument [
-		rdfs:comment "The language tag, e.g. \"de\"." ;
-		rdfs:label "language" ;
-		sh:datatype xsd:string ;
 		sh:predicate ex:lang ;
+		sh:datatype xsd:string ;
+		rdfs:label "language" ;
+		rdfs:comment "The language tag, e.g. \"de\"." ;
 	] ;
 	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
 	sh:message "Values must be literals with language \"{?lang}\"" ;
@@ -2647,7 +2647,7 @@ ex:LanguageConstraint
 				<p>
 					Once a template has been defined, it can be instantiated as a constraint, as illustrated in the following example:
 				</p>
-				<pre class="example" title="Shape definition using ex:LanguageConstraint">
+				<pre id="TemplateLanguageExampleShape" class="example" title="Shape definition using ex:LanguageConstraint">
 ex:TemplateLanguageExampleShape
 	a sh:Shape ;
 	sh:scopeClass ex:Country ;
@@ -2706,6 +2706,22 @@ ex:TemplateLanguageExampleShape
 					Some implementations MAY use this information to prevent the execution of a template with invalid arguments.
 				</p>
 			</section>
+			<section id="template-instantiation">
+				<h3>Template Instantiation</h3>
+				<p>
+					<code>sh:Template</code> is subclass of <code>rdfs:Class</code>, which means that templates can be instantiated via <code>rdf:type</code>.
+					Such <span class="term">template instances</span> can be used as values of <code>sh:constraint</code>, among others, as demonstrated in an <a href="#TemplateLanguageExampleShape">example</a> above.
+				</p>
+				<p>
+					Template instances are called <span class="term">complete</span> when they have values for all non-optional arguments.
+					Only template instances that are complete will be validated - incomplete templates will be (silently) ignored during constraint validation.
+				</p>
+				<p>
+					Constraint templates may be placed in a <code>rdfs:subClassOf</code> relationship with other templates.
+					The implication of doing this is that when an instance of the superclass template is validated, then all (transitive) superclass templates will also be validated,
+					assuming their arguments are <span class="term">complete</span>.
+				</p>
+			</section>
 			<section id="template-labelTemplate">
 				<h3>sh:labelTemplate</h3>
 				<p>
@@ -2713,6 +2729,50 @@ ex:TemplateLanguageExampleShape
 					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
 					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
 					At display time, these <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
+				</p>
+			</section>
+			<section id="template-property-constraints">
+				<h3>Property Constraint Templates</h3>
+				<p>
+					Some constraints are about a specific property only, and SHACL provides the system properties <code>sh:property</code> and <code>sh:inverseProperty</code> for those cases.
+					In order to define constraints that can be used similar to the built-in Core constraint properties such as <code>sh:minCount</code>,
+					a SHACL template needs to declared to be a subclass of <code>sh:PropertyConstraint</code> (for <code>sh:property</code>) or <code>sh:InversePropertyConstraint</code> (for <code>sh:inverseProperty</code>).
+					Such templates "inherit" the argument <code>sh:predicate</code>.
+					This is illustrated in the following example.
+				</p>
+				<pre class="example" title="An example property constraint template with a shape that uses it">
+ex:LanguagePropertyConstraint
+	a sh:ConstraintTemplate ;
+	rdfs:subClassOf sh:PropertyConstraint ;
+	sh:argument [
+		sh:predicate ex:lang ;
+		sh:datatype xsd:string ;
+		rdfs:label "language" ;
+		rdfs:comment "The language tag, e.g. \"de\"." ;
+	] ;
+	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
+	sh:message "Values must be literals with language \"{?lang}\"" ;
+	sh:sparql """
+		SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+		WHERE {
+			$this $predicate ?value .
+			FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
+		}
+		""" .
+
+ex:TemplateLanguageWithPropertyConstraintExampleShape
+	a sh:Shape ;
+	sh:scopeClass ex:Country ;
+	sh:property [
+		a ex:LanguagePropertyConstraint ;
+		sh:predicate ex:germanLabel ;
+		sh:datatype rdf:langString ;
+		sh:maxCount 1 ;
+		ex:lang "de" ;
+	] .</pre>
+				<p>
+					As shown above, shapes can instantiate such templates via <code>sh:property</code>
+					and mix custom constraint properties such as <code>ex:lang</code> with those from the SHACL Core vocabulary, such as <code>sh:maxCount</code>.
 				</p>
 			</section>
 			<section id="template-validation-functions">
@@ -2728,6 +2788,29 @@ ex:TemplateLanguageExampleShape
 					Validation functions may take additional arguments, and the engine must fill them with the matching arguments from the surrounding template.
 					The SHACL system vocabulary contains several examples of such validation functions, e.g. <code>sh:AbstractDatatypePropertyConstraint</code>.
 				</p>
+				<p>
+					The following example defines a constraint template using a <span class="term">validation function</span> from a <a href="#ValidationFunctions">later section</a>.
+				</p>
+				<pre class="example" title="Template definition using a validation function">
+ex:LanguageConstraint
+	a sh:PropertyValueConstraintTemplate ;
+	rdfs:label "Language constraint" ;
+	rdfs:subClassOf sh:TemplateConstraint ;
+	sh:argument [
+		sh:predicate ex:predicate ;
+		sh:valueClass rdf:Property ;
+		rdfs:label "predicate" ;
+		rdfs:comment "The property to validate the values of." ;
+    ] ;
+	sh:argument [
+		sh:predicate ex:lang ;
+		sh:datatype xsd:string ;
+		rdfs:label "language" ;
+		rdfs:comment "The language tag, e.g. \"de\"." ;
+	] ;
+	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
+	sh:message "Values must be literals with language \"{?lang}\"" ;
+	sh:validationFunction ex:hasLanguage .</pre>
 			</section>
 			<section id="sparql-templates">
 				<h3>SPARQL-based Constraint Templates</h3>
@@ -2818,7 +2901,6 @@ ex:USCitizenShape
 					The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
 				</p>
 				<pre class="example" title="SHACL function with a SPARQL body">
-# Example call: ex:exampleFunction(4, 3) returns 7
 ex:exampleFunction
 	a sh:Function ;
 	rdfs:comment "Computes the sum of its two arguments ?arg1 and ?arg2." ;
@@ -2838,6 +2920,9 @@ ex:exampleFunction
 		WHERE {
 		}
 		""" .</pre>
+				<p>
+					Based on the declaration above, SPARQL engines with full SHACL support can handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>.
+				</p>
 				<p>
 					The following sections introduce the properties that all such functions may have.
 					A later <a href="#sparql-functions">section</a> provides additional details for SPARQL-based SHACL functions.
@@ -2893,6 +2978,36 @@ ex:exampleFunction
 					A <code>sh:Function</code> may have a property <code>sh:cachable</code> set to <code>true</code>.
 					Functions that are marked as cachable MUST always return the same value for the same combination of arguments, regardless of the query graphs.
 					Engines can use this information to cache and reuse previous function calls without repeatedly executing their body.
+				</p>
+			</section>
+			<section id="ValidationFunctions">
+				<h3>Validation Functions</h3>
+				<p>
+					It is a common design pattern for functions to take a value as input and validate whether that value fulfills certain conditions or not.
+					In support of this pattern, SHACL supports <span class="term">validation functions</span>, which are instances of <code>sh:Function</code> that are also subclasses of <code>sh:ValidationFunctions</code>.
+					From that superclass, these functions "inherit" the (first) argument <code>sh:value</code>.
+					Validation functions may define additional arguments with <code>sh:index</code> values larger than 1.
+					The following example illustrates a validation function for the running example of the <a href="#template-validation-functions">section on constraint templates</a>.
+				</p>
+				<pre class="example" title="A validation function">
+ex:hasLanguage
+	a sh:Function ;
+	rdfs:subClassOf sh:ValidationFunctions ;
+	sh:argument [
+		sh:predicate ex:lang ;
+		sh:datatype xsd:string ;
+		sh:index 1 ;
+		rdfs:label "language" ;
+		rdfs:comment "The language to match against, e.g. \"de\"." ;
+	] ;
+	sh:returnType xsd:boolean ;
+	sh:sparql """
+  		ASK {
+  			FILTER (isLiteral($value) &amp;&amp; langMatches(lang($value), $lang)) .
+		}
+		""" .</pre>
+				<p>
+					An example invocation of the function above is: <code>ex:hasLanguage("Spain"@en, "en")</code>, producing <code>true</code>.
 				</p>
 			</section>
 			<section id="sparql-functions">
