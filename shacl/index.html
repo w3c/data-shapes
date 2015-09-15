@@ -42,7 +42,7 @@
 				var ul = $("#respecContents");
 				var first = $(ul.children()[1]);
 				var middle = $(ul.children()[5]);
-				var appendix = $(ul.children()[12]);
+				var appendix = $(ul.children()[11]);
 				first.before("<p class='part-header'>Part 1: Core Features</p>");
 				middle.before("<p class='part-header'>Part 2: Advanced Features</p>");
 				appendix.before("<p class='part-header'>Appendix</p>");
@@ -2281,6 +2281,12 @@ ex:MyShape
 		
 		<div style="padding-top: 30px">
 			<h1 style="font-size: 160%; font-weight: bold">Part 2: Advanced Features</h1>
+			<p>
+				Part 1 of this specification has introduced features that are built into the Core of SHACL.
+				The goal of this Core was to provide a high-level vocabulary for common use cases to describe shapes.
+				However, SHACL also provides mechanisms to go beyond the Core vocabulary and represent constraints and scopes with greater flexibility.
+				These mechanisms are described in the sections of Part 2.
+			</p>
 		</div>
 		
 		<section id="native-constraints">
@@ -2316,7 +2322,7 @@ ex:InvalidCountry
 	ex:germanLabel "Spain"@en .</pre>
 				<p>
 					The following example illustrates the definition of a <span class="term">native constraint</span> based on a SPARQL query.
-					The property <code>sh:sparql</code> is used to point at a SELECT query as explained in a later <a href="#sparql-constraints">section</a>.
+					The property <code>sh:sparql</code> is used to point at a SELECT query as explained in a later <a href="#native-constraints-sparql">section</a>.
 				</p>
 				<pre class="example" title="Example Shape with a native SPARQL constraint">
 ex:LanguageExampleShape
@@ -2358,7 +2364,7 @@ ex:LanguageExampleShape
 				<p>
 					In the example above, it is assumed that the existing SHACL engine is capable of evaluating native constraints using SPARQL, as described in the following section.
 					Additional executable languages such as JavaScript may be provided based on other sets of properties like <code>ex:javaScript</code>,
-					but this is outside of the scope of this specification.
+					but that is outside of the scope of this specification.
 				</p>
 			</section>
 			<section id="native-constraints-sparql">
@@ -2427,7 +2433,7 @@ ex:LanguageExampleShape
 							<td><code>sh:severity</code></td>
 							<td>
 								<ol>
-									<li>For <span class="term">template constraints</span>, the value of <code>sh:severity</code> of the constraint node</li>
+									<li>For <span class="term">template constraints</span>, the value of <code>sh:severity</code> of the constraint node (template instance)</li>
 									<li>The value of <code>sh:severity</code> of the subject of the <code>sh:sparql</code> triple</li>
 									<li><code>sh:Error</code> as default</li>
 								</ol>
@@ -2548,9 +2554,9 @@ ex:ShapeWithPathViolationExample
 			sh:annotationVarName "time"
 		] ;
 		sh:sparql """
-			SELECT ?subject (ex:property2 AS ?predicate) (?first AS ?object) ?message ?time
+			SELECT $this ?subject (ex:property2 AS ?predicate) (?first AS ?object) ?message ?time
 			WHERE {
-				?this ex:property1 ?first .
+				$this ex:property1 ?first .
 				?subject ex:property2 ?first .
 				FILTER isBlank(?value) .
 				BIND (CONCAT("The ", "message.") AS ?message) .
@@ -2567,7 +2573,7 @@ ex:ExampleValueResource
 	ex:property2 ex:ExampleIntermediateResource .
 </pre>
 					<p>
-						Which produces the following error resource:
+						Which produces the following validation result resource:
 					</p>
 					<pre class="example" title="Constraint example result output">
 [
@@ -2591,7 +2597,7 @@ ex:ExampleValueResource
 			<p>
 				Native constraints in a language like SPARQL as introduced in the previous section typically provide a lot of flexibility.
 				However, SPARQL-based constraints may also be hard to understand for some people, and may be repetitive.
-				<span class="term">Templates</span> can be used to encapsulate and parameterize native language elements.
+				<span class="term">Templates</span> can be used to encapsulate and parameterize such native queries.
 				<span class="term">Constraint templates</span> can be instantiated anywhere where a native constraint may appear (in particular, at <code>sh:constraint</code>).
 				<span class="term">Scope templates</span> can be instantiated anywhere where a native scope may appear, at <code>sh:scope</code>.
 				All of the constraint and scope types built into the SHACL Core are also represented as templates in the SHACL RDF vocabulary.
@@ -2608,7 +2614,7 @@ ex:ExampleValueResource
 				<p>
 					The following example illustrates the definition of a constraint template based on a SPARQL query.
 					It is a variation of the native example constraint from the previous section.
-					That SPARQL query included two constants - the specific property <code>ex:germanLabel</code> and the language tag <code>de</code>.
+					That SPARQL query included two constants: the specific property <code>ex:germanLabel</code> and the language tag <code>de</code>.
 					Templates make it possible to generalize such scenarios, so that constants get substituted with <span class="term">arguments</span>.
 					This allows the query logic to be reused in multiple places, without having to write any new SPARQL. 
 				</p>
@@ -2713,7 +2719,7 @@ ex:TemplateLanguageExampleShape
 				<h3>Templates with a sh:validationFunction</h3>
 				<p>
 					Constraint templates that are instances of <code>sh:PropertyValueConstraintTemplate</code> or
-					<code>sh:InversePropertyValueConstraintTemplate</code> do not require an executable body (such a <code>sh:sparql</code>)
+					<code>sh:InversePropertyValueConstraintTemplate</code> (which are subclasses of <code>sh:ConstraintTemplate</code>) do not require an executable body (such a <code>sh:sparql</code>)
 					if they instead point at a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
 					These so called <span class="term">validation functions</span> MUST take an argument with the predicate <code>sh:value</code> as its first argument
 					and return either <code>true</code> or <code>false</code>.
@@ -2734,7 +2740,7 @@ ex:TemplateLanguageExampleShape
 				<p>
 					If a <code>sh:PropertyValueConstraintTemplate</code> has a value for <code>sh:validationFunction</code>, then the engine needs to produce a SPARQL query equivalent to the following pattern:
 				</p>
-				<pre class="code">
+				<pre class="algorithm">
 SELECT $this ($this AS ?subject) $predicate ?object
 WHERE {
 	$this $predicate ?object .
@@ -2743,7 +2749,7 @@ WHERE {
 				<p>
 					If a <code>sh:InversePropertyValueConstraintTemplate</code> has a value for <code>sh:validationFunction</code>, then the engine needs to produce a SPARQL query equivalent to the following pattern:
 				</p>
-				<pre class="code">
+				<pre class="algorithm">
 SELECT $this ?subject $predicate ($this AS ?object)
 WHERE {
 	?subject $predicate $this .
@@ -2756,7 +2762,7 @@ WHERE {
 			<h2>General Scopes (sh:scope)</h2>
 			<p>
 				In addition to the scope classes introduced in the core section, such as <code>sh:PropertyScope</code>,
-				SHACL provides facilities for anyone to define custom scopes.
+				SHACL provides facilities to define custom scopes.
 				Similar to constraints, scopes may either have be <span class="term">native scopes</span> or be an instance of <code>sh:TemplateScope</code>.
 				All this is analogous to how constraints work, but with the additional restrictions:
 			</p>
@@ -3184,7 +3190,7 @@ boolean validateNode(Node focusNode, String minSeverity) {
 					These triples can be queried by a pre-processor to construct the missing type triples for the affected nodes.
 					SHACL includes a template <code>sh:DefaultValueTypeRule</code> which encapsulates a SPARQL query that can be used for that purpose:
 				</p>
-				<pre class="query">
+				<pre class="algorithm">
 CONSTRUCT {
 	?node a ?defaultValueType .
 }
