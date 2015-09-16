@@ -143,6 +143,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-17</b>: Added missing definition of <code>sh:valueClass</code></li>
 				<li><b>2015-09-15</b>: Restructured Part 2, with new examples, integrated SPARQL binding and rewritten Operations section</li>
 				<li><b>2015-09-14</b>: Added SPARQL definitions for each constraint type, added description of sh:hasShape function</li>
 				<li><b>2015-09-11</b>: Restructured constraint section, cleaned up results vocabulary</li>
@@ -1341,6 +1342,8 @@ ex:PatternShapeExampleInvalidResource
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
 							A non-literal matches a type if it has an <code>rdf:type</code> value that is the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
+							If the value class is <code>rdfs:Resource</code> then all resources match, including untyped resources.
+							Finally, if the value class is <code>rdf:List</code> then the object matches if it has an <code>rdf:first</code> triple.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
@@ -1351,9 +1354,13 @@ ex:PatternShapeExampleInvalidResource
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
 	$this $predicate ?value .
-	FILTER (isLiteral(?value) || NOT EXISTS {
-		<span class="todo">TODO: clarify details, e.g. what should happen with rdfs:Resource, rdf:List</span>
-	})
+	FILTER (isLiteral(?value) || 
+		!(
+			$valueClass = rdfs:Resource ||
+			($valueClass = rdf:List &amp;&amp; EXISTS { $value rdf:first ?any }) ||
+			EXISTS { $value rdf:type/rdfs:subClassOf* $valueClass }
+		))
+	}
 }</pre>
 					</div>
 					<pre class="example" title="Shape with sh:valueClass constraint">
