@@ -143,7 +143,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
-				<li><b>2015-09-17</b>: Added missing definition of <code>sh:valueClass</code></li>
+				<li><b>2015-09-17</b>: Added missing definition of <code>sh:valueClass</code>, editorial changes</li>
 				<li><b>2015-09-15</b>: Restructured Part 2, with new examples, integrated SPARQL binding and rewritten Operations section</li>
 				<li><b>2015-09-14</b>: Added SPARQL definitions for each constraint type, added description of sh:hasShape function</li>
 				<li><b>2015-09-11</b>: Restructured constraint section, cleaned up results vocabulary</li>
@@ -295,6 +295,34 @@ inst:User4
 				</p>
 			</section>
 			
+			<section id="shacl-sparql">
+				<h3>Relationship between SHACL and SPARQL</h3>
+				<p>
+					This specification uses SPARQL 1.1 for the normative definition of the semantics of the SHACL Core constraints and scopes.
+					Implementations do not have to use the exact same SPARQL queries, and do not even have to use SPARQL at all.
+					However, all implementation MUST produce the same outputs for the same inputs.
+				</p>
+				<p>
+					The SPARQL definitions in this document use the convention that the variables starting with <code>$</code> must be substituted
+					with values that have been passed into the query from the outside, similar to the semantics of a VALUES clause.
+				</p>
+				<p>
+					In some places, the specification assumes that the provided SPARQL engines are preserving the identity of blank nodes,
+					so that repeated invocations of queries consistently identify and communicate the same blank nodes.
+					<span class="todo">TODO: what is the best wording to make this clearer?</span>
+				</p>
+				<p>
+					The definition of some constraints require access to a named graph represented with the variable <code>$shapesGraph</code>.
+					Not all implementations (such as those using SPARQL endpoints) may be able to provide this named graph in the same dataset as the executing query.
+					Such implementations may need to find alternative techniques (such as string insertion) leading to equivalent results. 
+				</p>
+				<p>
+					The definition of some constraints assume that SPARQL engines provide a function called <code>sh:hasShape</code> as elaborated in the <a href="#constraints">beginning of section 3</a>.
+					In the advanced sections, SHACL introduces mechanisms to define constraints, scopes and new functions in SPARQL.
+					Implementations that only plan to cover the SHACL Core features are not required to support those mechanisms.
+				</p>
+			</section>
+			
 			<section id="namespaces">
 				<h3>Namespaces</h3>
 				<p>
@@ -339,7 +367,8 @@ inst:User4
 			<h2>Shapes</h2>
 			<p>
 				In the SHACL RDF vocabulary, shapes are instances of the class <code>sh:Shape</code>.
-				A <span class="term">shape</span> is a group of constraints that is to be validated against the same focus nodes.
+				A <span class="term">shape</span> is a group of constraints that can be validated against nodes.
+				If a node is validated against a constraint then it is called the <span class="term">focus node</span>.
 				Shapes MAY have <span class="term">scopes</span> that instruct a SHACL processor on how to select those focus nodes,
 				and MAY also have <span class="term">filter shapes</span> that narrow down the scope.
 				For example, a shape can be used to state that all instances of a class must have a certain number of values for a given property.
@@ -458,7 +487,16 @@ ex:ExampleInstance
 						<h5>Property scopes (sh:PropertyScope)</h5>
 						<p>
 							The scope class <code>sh:PropertyScope</code> selects all subjects that have at least one value for a given property <code>sh:predicate</code>.
+							In the following SPARQL query, the variable <code>$predicate</code> is assumed to be substituted with the given value of <code>sh:predicate</code>.
 						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this
+WHERE {
+	?this $predicate ?any .
+}</pre>
+						</div>
 						<p>
 							The following example uses <code>sh:PropertyScope</code> to define a constraint	that shall apply to all resources that have any value for the property <code>ex:property</code>:
 						</p>
@@ -477,13 +515,30 @@ ex:PropertyScopeExampleShape
 						<h5>Inverse property scopes (sh:InversePropertyScope)</h5>
 						<p>
 							The scope class <code>sh:InversePropertyScope</code> selects all objects that appear in at least one triple with a given property <code>sh:predicate</code>.
+							In the following SPARQL query, the variable <code>$predicate</code> is assumed to be substituted with the given value of <code>sh:predicate</code>.
 						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this
+WHERE {
+	?any $predicate ?this .
+}</pre>
+						</div>
 					</section>
 					<section id="AllSubjectsScope">
 						<h5>All subjects scopes (sh:AllSubjectsScope)</h5>
 						<p>
 							The scope class <code>sh:AllSubjectsScope</code> selects all subjects in the data graph.
 						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this
+WHERE {
+	?this ?anyPredicate ?anyObject .
+}</pre>
+						</div>
 						<p>
 							The following example uses <code>sh:AllSubjectsScope</code> to define a constraint that shall apply to all subjects in the data graph:
 						</p>
@@ -502,6 +557,15 @@ ex:PropertyScopeExampleShape
 						<p>
 							The scope class <code>sh:AllObjectsScope</code> selects all objects in the data graph, unless they are literals.
 						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this
+WHERE {
+	?anySubject ?anyPredicate ?this .
+	FILTER (!isLiteral(?this)) .
+}</pre>
+						</div>
 					</section>
 				</section>
 			</section>
@@ -572,7 +636,7 @@ ex:FilteredShapeValidExampleInstance
 			<section id="shape-constraints">
 				<h3>Constraints</h3>
 				<p>
-					A shape defines a group of constraints applicable to the same <span class="term">focus node</span>.
+					A shape defines a group of constraints.
 					SHACL includes a collection of Core constraint types that are covered in the next section.
 					Additional types of constraints can be added using the <a href="#template-constraints">extension mechanism</a>.
 				</p>
@@ -608,21 +672,21 @@ ex:FilteredShapeValidExampleInstance
 				introduced in a later section.
 			</p>
 			<p>
-				The specification uses SPARQL for the normative definition of the semantics of the SHACL Core constraints.
-				Implementations do not have to use the exact same SPARQL queries, and do not even have to use SPARQL at all.
-				However, all implementation MUST produce the same validation results for the same inputs.
-				The SPARQL queries use the convention that the variables starting with <code>$</code> must be substituted
-				with values that have been passed into the query from the outside, similar to the semantics of a VALUES clause.
-				The variable <code>$this</code> is assumed to point at the current focus node.
-				The variable <code>$shapesGraph</code> points at the IRI of the <span class="term">shapes graph</span> in the current dataset.
-				The variable <code>$currentShape</code> points at the currently evaluated shape.
+				The SPARQL definitions in this section assume the following variable bindings:
+			</p>
+			<ul>
+				<li>The variable <code>$this</code> is assumed to point at the current focus node.</li>
+				<li>The variable <code>$shapesGraph</code> points at the IRI of the <span class="term">shapes graph</span> in the current dataset.</li>
+				<li>The variable <code>$currentShape</code> points at the currently evaluated shape.</li>
+			</ul>
+			<p>
 				Each row in the result set of the SPARQL queries in this document represents one <span class="term">validation result</span>.
 				The other variables in the SELECT clause are mapped to the details of each <a href="#results">validation result</a>, e.g. <code>?object</code> is mapped to <code>sh:object</code>.
 				<span class="todo">(Clarify what exact compliance level is required, e.g. do they need to produce focus nodes)</span>
 				If a row in a SPARQL result set produces <code>true</code> as value for the variable <code>?failure</code> then a <span class="term">failure</span> must be reported.
 			</p>
 			<p>
-				The SPARQL definitions also assume the existence of a built-in SPARQL function <code>sh:hasShape</code>, which takes the following arguments:
+				The SPARQL definitions in this section also assume the existence of a built-in SPARQL function <code>sh:hasShape</code>, which takes the following arguments:
 			</p>
 			<table class="term-table" border="1" cellpadding="5">
 				<tr>
@@ -649,9 +713,9 @@ ex:FilteredShapeValidExampleInstance
 					<td><code>?recursionIsError</code></td>
 					<td><code>xsd:boolean</code></td>
 					<td>
-						If set to <code>true</code> then any recursive occurrence of the same resource against the same shape MUST signal a failure,
+						If set to <code>true</code> then any recursive occurrence of the same resource against the same shape signals a failure,
 						with the function returning <span class="term">undefined</span>.
-						If not <code>true</code> then any recursive occurrence MUST return <code>true</code>.
+						If not <code>true</code> then any recursive occurrence must return <code>true</code>.
 					</td>
 				</tr>
 			</table>
@@ -659,6 +723,8 @@ ex:FilteredShapeValidExampleInstance
 				The result of the <code>sh:hasShape</code> function is either <code>true</code>, <code>false</code> or <span class="term">undefined</span>.
 				The function returns <code>true</code> if the validation of the <code>?focusNode</code> against the given <code>?shape</code> produces no validation results with severity <code>sh:Error</code>.
 				The validation algorithm of <code>sh:hasShape</code> itself is based the <a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code> operation</a>.
+				Note that any validation results produced inside of the <code>sh:hasShape</code> function are temporary, i.e. they are not added to the results graph of the surrounding execution environment.
+				However, some implementations may add those nested validation results as annotations to the surrounding validation results, via <a href="#results-detail"><code>sh:detail</code></a>.
 			</p>
 
 			<section id="constraints-property">
@@ -719,7 +785,7 @@ ex:StandAloneConstraint
 				<p>
 					The following sections provide details on the properties that may be used with <code>sh:PropertyConstraint</code>.
 					None of these properties can be repeated within the same <code>sh:PropertyConstraint</code>.
-					In order to define multiple constraints using the same property, such as multiple <code>sh:hasValue</code> constraints, the shape MUST use multiple <code>sh:property</code> definitions.
+					In order to define multiple constraints using the same property, such as multiple <code>sh:hasValue</code> constraints, the shape must use multiple <code>sh:property</code> definitions.
 				</p>
 				<table class="term-table" border="1" cellpadding="5">
 					<tr>
@@ -790,7 +856,7 @@ ex:StandAloneConstraint
 					<h4>sh:allowedValues</h4>
 					<p>
 						The property <code>sh:allowedValues</code> can be used to enumerate the values a property can have.
-						When specified, the value of the given property MUST be members of the specified set.
+						When specified, the value of the given property must be members of the specified set.
 					</p>
 					<table class="term-table" border="1" cellpadding="5">
 						<tr>
@@ -2146,9 +2212,9 @@ ex:ClosedShapeExampleInvalidResource
 			<h2>Declaring the Shapes Graph</h2>
 			<p>
 				A <span class="term">data graph</span> MAY link to one or more <span class="term">shapes graphs</span> via the property <code>sh:shapesGraph</code>.
-				The subject of this predicate MUST be the graph resource, i.e. the name of the data graph in the dataset.
-				The objects of this predicate MUST be IRI nodes, pointing at a named graph in the dataset.
-				Tools MAY use this information to determine which shapes graph to use for validation.
+				The subject of this predicate must be the graph resource, i.e. the name of the data graph in the dataset.
+				The objects of this predicate must be IRI nodes, pointing at a named graph in the dataset.
+				Tools may use this information to determine which shapes graph to use for validation.
 				If present, tools SHOULD transitively follow any links from the shapes graph via the predicate <a href="http://www.w3.org/TR/owl2-syntax/#Imports"><code>owl:imports</code></a> to other graphs and use the resulting union graph as parameter to the validation process.
 			</p>
 			<p>
@@ -2218,7 +2284,7 @@ ex:ExampleConstraintViolation
 					and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
 				</p>
 			</section>
-			<section id="results-structure-detail">
+			<section id="results-detail">
 				<h4>sh:detail</h4>
 				<p>
 					The property <code>sh:detail</code> may link a (parent) result with one or more other
@@ -2381,12 +2447,12 @@ ex:LanguageExampleShape
 					However, the <code>rdf:type</code> triple of native constraints can be ommitted for typeless resources that are object of a <code>sh:constraint</code> triples.
 					If a native constraint has a value for the property <code>sh:sparql</code> then it can be considered to be a <span class="term">native SPARQL constraint</span>.
 					The SPARQL queries linked to a <span class="term">constraint</span> via <code>sh:sparql</code> must be string literals that can be parsed into legal SPARQL 1.1 queries	of the query form <code>SELECT</code>.
-					Before parsing, a SHACL processor MUST pre-pend <code>PREFIX</code> statements for all namespace prefixes defined in the current <span class="term">shapes graph</span>.
+					Before parsing, a SHACL processor must pre-pend <code>PREFIX</code> statements for all namespace prefixes defined in the current <span class="term">shapes graph</span>.
 				</p>
 				<section id="sparql-constraints-prebound">
 					<h4>Pre-bound Variables in SPARQL Constraints ($this, $shapesGraph, $currentShape)</h4>
 					<p>
-						When SPARQL constraints are executed, the engine MUST pre-bind values for the following variables with special meaning.
+						When SPARQL constraints are executed, the engine must pre-bind values for the following variables with special meaning.
 						The effect of this pre-binding is that all occurrences of these variables in the top-level query will have the provided
 						values, similar to inserting a SPARQL VALUES clause into the beginning of the query, but also supporting blank nodes.
 					</p>
@@ -2547,7 +2613,7 @@ ex:LanguageExampleShape
 						If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the engine must copy the bindings for the given variable into the constructed validation results for the same row.
 					</p>
 					<p>
-						The values of <code>sh:annotationProperty</code> MUST NOT be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
+						The values of <code>sh:annotationProperty</code> must not be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
 					</p>
 					<p>
 						Here is a slightly complex example, illustrating the use of result annotations.
@@ -2614,7 +2680,7 @@ ex:ExampleValueResource
 				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
 				Scope templates are represented as IRI nodes that are instances of the class <code>sh:ScopeTemplate</code>.
 				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc).
-				Well-defined, non-abstract templates MUST provide at least one <span class="term">body</span> using a property such as <a href="#sparql-templates"><code>sh:sparql</code></a>.
+				Well-defined, non-abstract templates must provide at least one <span class="term">body</span> using a property such as <a href="#sparql-templates"><code>sh:sparql</code></a>.
 			</p>
 			<section class="informative">
 				<h3>An Example Template Constraint</h3>
@@ -2687,7 +2753,7 @@ ex:TemplateLanguageExampleShape
 					Each argument must be an instance of <code>sh:Argument</code>, but the <code>rdf:type</code> triples of these instances can be omitted.
 				</p>
 				<p>
-					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
+					Each <code>sh:Argument</code> must have exactly one value for the property <code>sh:predicate</code>.
 					The values of <code>sh:predicate</code> must be IRIs.
 					<span id="def-local-name">The <span class="term">local name</span> of a IRI is defined as the longest <a href="http://www.w3.org/TR/REC-xml-names/#NT-NCName">NCNAME</a>
 					at the end of the IRI, not immediately preceeded by the first colon in the IRI.</span>
@@ -2788,9 +2854,9 @@ ex:TemplateLanguageWithPropertyConstraintExampleShape
 					Constraint templates that are instances of <code>sh:PropertyValueConstraintTemplate</code> or
 					<code>sh:InversePropertyValueConstraintTemplate</code> (which are subclasses of <code>sh:ConstraintTemplate</code>) do not require an executable body (such a <code>sh:sparql</code>)
 					if they instead point at a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
-					These so called <span class="term">validation functions</span> MUST take an argument with the predicate <code>sh:value</code> as its first argument
+					These so called <span class="term">validation functions</span> must take an argument with the predicate <code>sh:value</code> as its first argument
 					and return either <code>true</code> or <code>false</code>.
-					This validation function MUST be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
+					This validation function must be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
 					and then runs a filter test using the function.  If the filter returns <code>false</code> then a validation result must be produced.
 					Validation functions may take additional arguments, and the engine must fill them with the matching arguments from the surrounding template.
 					The SHACL system vocabulary contains several examples of such validation functions, e.g. <code>sh:AbstractDatatypePropertyConstraint</code>.
@@ -2863,12 +2929,12 @@ WHERE {
 			<section id="sparql-scopes">
 				<h3>SPARQL-based Scopes</h3>
 				<p>
-					The SPARQL queries linked to a <span class="term">scope</span> via <code>sh:sparql</code> MUST be of the query form <code>SELECT</code>, or a fragment that produces a valid <code>SELECT</code> query if wrapped by <code>SELECT ?this WHERE { ... }</code>.
-					The SELECT queries MUST project to the result variable <code>?this</code>.
+					The SPARQL queries linked to a <span class="term">scope</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>, or a fragment that produces a valid <code>SELECT</code> query if wrapped by <code>SELECT ?this WHERE { ... }</code>.
+					The SELECT queries must project to the result variable <code>?this</code>.
 					The resulting scope consists of all distinct bindings for the variable <code>?this</code>.
 				</p>
 				<p>
-					The SELECT queries MUST also be executable when converted to an ASK query and with a pre-bound value for <code>?this</code>.
+					The SELECT queries must also be executable when converted to an ASK query and with a pre-bound value for <code>?this</code>.
 					The set of bindings for <code>?this</code> that return <code>true</code> for such ASK queries must be identical to the set produced by the SELECT query.
 					This constraint makes sure that engines can validate whether a given shape applies to a given focus node as part of the <a href="#operation-validateNode">validateNode</a> operation.
 				</p>
@@ -2900,7 +2966,7 @@ ex:USCitizenShape
 			</p>
 			<p>
 				Functions must be declared as instances of the class <code>sh:Function</code>.
-				Well-defined, non-abstract functions MUST provide at least one body property such as <a href="#sparql-functions"><code>sh:sparql</code></a>.
+				Well-defined, non-abstract functions must provide at least one body property such as <a href="#sparql-functions"><code>sh:sparql</code></a>.
 			</p>
 			<section class="informative">
 				<h3>An Example Function</h3>
@@ -2944,7 +3010,7 @@ ex:exampleFunction
 					<code>ex:exampleFunction(?arg1, ?arg2)</code>.
 				</p>
 				<p>
-					Each <code>sh:Argument</code> MUST have exactly one value for the property <code>sh:predicate</code>.
+					Each <code>sh:Argument</code> must have exactly one value for the property <code>sh:predicate</code>.
 					The values of <code>sh:predicate</code> must be IRIs, and follow the same restrictions outlined for <a href="#template-arguments">Template Arguments</a>.
 					Arguments are "inherited" from the superclasses of the function.
 					For example if a superclass already declares <code>sh:arg1</code> then subclasses may only define <code>sh:arg2</code> etc.
@@ -2962,7 +3028,7 @@ ex:exampleFunction
 				<p>
 					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
 					to indicate that the argument is not mandatory.
-					If an argument has been declared optional, then all succeeding arguments MUST also be declared optional.
+					If an argument has been declared optional, then all succeeding arguments must also be declared optional.
 				</p>
 				<p>
 					Similar to <a href="#property-constraints">Property Constraints</a>, each <code>sh:Argument</code> may declare one value for the property <code>sh:datatype</code> or one value for the property <code>sh:valueClass</code>.
@@ -2983,7 +3049,7 @@ ex:exampleFunction
 				<h3>sh:cachable</h3>
 				<p>
 					A <code>sh:Function</code> may have a property <code>sh:cachable</code> set to <code>true</code>.
-					Functions that are marked as cachable MUST always return the same value for the same combination of arguments, regardless of the query graphs.
+					Functions that are marked as cachable must always return the same value for the same combination of arguments, regardless of the query graphs.
 					Engines can use this information to cache and reuse previous function calls without repeatedly executing their body.
 				</p>
 			</section>
@@ -3337,7 +3403,7 @@ WHERE {
 				The subject of <code>sh:entailment</code> must be the IRI of the shapes graph itself.
 			</p>
 			<p>
-				If the engine is not capable of supporting the given entailment regime, then it MUST produce a <span class="term">failure</span>.
+				If the engine is not capable of supporting the given entailment regime, then it must produce a <span class="term">failure</span>.
 				Standard-compliant SHACL implementations are not required to support any entailment regimes.
 			</p>
 		</section>
