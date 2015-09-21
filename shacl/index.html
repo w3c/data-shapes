@@ -1499,7 +1499,7 @@ ex:ValueClassExampleValidResource
 SELECT $this ($this AS ?subject) $predicate ?object ?failure
 WHERE {
 	$this $predicate ?object .
-	BIND (sh:hasShape(?object, $valueShape, $shapesGraph) AS ?hasShape) .
+	BIND (sh:hasShape(?object, $valueShape, $shapesGraph, false) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || !?hasShape) .
 }</pre>
@@ -1580,9 +1580,17 @@ WHERE {
 	{
 		SELECT (SUM(?s) AS ?count)
 		WHERE {
-			$this $predicate ?value .
-			BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
-			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
+			{
+				FILTER NOT EXISTS { $this $predicate ?value } .
+				BIND (0 AS ?s) .
+			}
+			UNION
+			{
+				FILTER EXISTS { $this $predicate ?value } .
+				$this $predicate ?value .
+				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
+				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
+			}
 		}
 	}
 	BIND (!bound(?count) AS ?failure) .
