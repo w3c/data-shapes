@@ -3,7 +3,7 @@
 	<head>
 		<title>Shapes Constraint Language (SHACL)</title>
 		<meta charset="utf-8">
-		<script src="//www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
+		<script src="http://www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
 		<script class="remove">
 			var respecConfig = {
 				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
@@ -16,6 +16,11 @@
 						url:        "http://knublauch.com/",
 						company:    "TopQuadrant, Inc.",
 						companyURL: "http://topquadrant.com/"
+					},
+					{
+						name:       "Arthur Ryman",
+						url:        "https://ca.linkedin.com/pub/arthur-ryman/0/809/662",
+						company:    "Invited Expert"
 					}
 				],
 				wg:           "RDF Data Shapes Working Group",
@@ -135,13 +140,13 @@
 
 		<section id="abstract">
 			<p>
-				SHACL (Shapes Constraint Language) is a language for checking constraints against RDF graphs and for describing graph structures.
-				Some of these graph structures are captured as "shapes", which group together constraints about the same RDF nodes.
+				SHACL (Shapes Constraint Language) is a language for describing and constraining the contents of RDF graphs.
+				SHACL groups these descriptions and constraints into "shapes", which specify conditions that apply at a given RDF node.
 				Shapes provide a high-level vocabulary to identify predicates and their associated cardinalities, datatypes and other constraints.
 				Additional constraints can be associated with shapes using SPARQL and similar extension languages.
 				These extension languages can also be used to define new high-level vocabulary terms.
-				SHACL shapes can be used to communicate data structures associated with some process or interface, generate or validate data, or drive user interfaces.
-				This document defines the SHACL language together with its underlying semantics.
+				SHACL shapes can be used to communicate information about data structures associated with some process or interface, generate or validate data, or drive user interfaces.
+				This document defines the SHACL language and its underlying semantics.
 			</p>	
 		</section>
 
@@ -152,6 +157,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-23</b>: Multiple minor stylistic edits and corrections</li>
 				<li><b>2015-09-21</b>: Added button to show or hide SPARQL definitions (thanks to Simon)</li>
 				<li><b>2015-09-18</b>: Deleted <code>sh:XorConstraint</code> as resolved, renamed <code>sh:Error</code> to <code>sh:Violation</code></li>
 				<li><b>2015-09-17</b>: Added missing definition of <code>sh:valueClass</code>, editorial changes, renamed sh:ClosedShape to sh:Closed, added sh:sourceTemplate</li>
@@ -187,7 +193,7 @@
 				The sections 2 - 5 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
 			</p>
 			<p>
-				The sections 6 onwards are about the advanced features of the SHACL language, including templates, functions and execution semantics.
+				The sections 6 onwards are about the advanced features of the SHACL language, including templates, functions, and execution semantics.
 			</p>
 			<p>
 				The Appendix provides a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
@@ -201,27 +207,41 @@
 		<section id="introduction">
 			<h2>Introduction</h2>
 			<p>
-				SHACL (Shapes Constraint Language) is a language for specifying data shapes and determining whether an <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graph</a> (possibly in an <a href="http://www.w3.org/TR/rdf11-concepts/#section-dataset">RDF dataset</a>) conforms to certain shapes.
-				For example, SHACL can be used to check whether all the nodes in an RDF graph that have a type link to <code>foaf:Person</code> have a single value for <code>foaf:mbox</code> and that that value is an IRI.
-				SHACL can also be used to check whether a particular node in an RDF graph, say the node <code>ex:bug1</code>, has at least one
+				SHACL (Shapes Constraint Language) is a language for describing and constraining RDF graphs. 
+				SHACL can be used with RDF graphs that are obtained by any means, e.g. from the file system, HTTP requests, or <a href="http://www.w3.org/TR/rdf11-concepts/#section-dataset">RDF datasets</a>.
+				SHACL groups descriptive information and constraints that apply to a given data node into "shapes".
+				This document defines what it means for an <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graph</a>, referred to as the "data graph", to conform to a SHACL program, referred to as the "shapes graph".
+				Conformance can be programatically checked by processors referred to as "SHACL engines".
+				The process of checking conformance is referred to as "validation".
+				A shape may include a "scope" which defines which data nodes must conform to it.
+				When a data node is checked for conformance to a shape, that node is referred to as the "focus node".
+				The output of the validation process is a "validation report" which indicates whether or not the data graph conforms to the shapes graph.
+				If any constraints are not satisfied, then the validation report will include one or more "violations" which indicate the source of the problem.
+			</p>
+			<p>
+				For example, SHACL can be used to check whether all the nodes in a data graph that have a type link to <code>foaf:Person</code> have a single value for <code>foaf:mbox</code>, and that that value is an IRI.
+				SHACL can also be used to check whether a particular node in a data graph, say the node <code>ex:bug1</code>, has at least one
 				value for <code>ex:reportedBy</code> and all such values have an <code>rdf:type</code> link to <code>foaf:Person</code>.
 			</p>
 			<p>
-				The most general interface to SHACL has two arguments:
+				The simplest interface to a SHACL processor has two inputs:
 			</p>
 			<ul>
-				<li>A <span class="term">data graph</span> in a dataset that contains the data that is to be validated</li>
+				<li>A <span class="term">data graph</span> that contains the data that is to be validated</li>
 				<li>A <span class="term">shapes graph</span> containing shape definitions and other information that can be utilized to determine what validation is to be done</li>
 			</ul>
 			<p>
-				So in SHACL one might want to determine whether RDF graphs contain information about issues and users, such as each issue is in either an
-				unassigned or an assigned state, and each issue has a reporter and each such reporter has a precisely one string name and one or more IRI mailboxes.
+				For example, one might use SHACL to determine whether data graphs that contain information about issues and users conform to the following constraints:
+				<ul>
+					<li>each issue is in either an unassigned or an assigned state, and</li>
+					<li>each issue has a reporter and each such reporter has a precisely one string name and one or more IRI mailboxes.</li>
+				</ul>
 			</p>
 			<p>
-				A shapes graph that does this validation has two shapes.
+				A shapes graph that defines these constraints has two shapes.
 				The first, <code>ex:IssueShape</code> contains the two constraints on issues.
 				The second, <code>ex:UserShape</code>, contains the two constraints on reporters.
-				The first shape also contains scope information that here says that its constraints are to be validated against all nodes that have an <code>rdf:type</code> link to <code>ex:Issue</code>.
+				<code>ex:IssueShape</code> also contains scope information which in this case says that its constraints apply to all nodes that have an <code>rdf:type</code> link to <code>ex:Issue</code>.
 			</p>
 			<pre class="example" title="Definition of ex:IssueShape and ex:UserShape">
 ex:IssueShape
@@ -519,7 +539,7 @@ WHERE {
 }</pre>
 						</div>
 						<p>
-							The following example uses <code>sh:PropertyScope</code> to define a constraint	that shall apply to all resources that have any value for the property <code>ex:property</code>:
+							The following example uses <code>sh:PropertyScope</code> to define a constraint	that applies to all resources that have any value for the property <code>ex:property</code>:
 						</p>
 						<pre class="example" title="Shape with sh:PropertyScope">
 ex:PropertyScopeExampleShape
@@ -2210,7 +2230,7 @@ ex:ExampleConstraintViolation
 				<h4>sh:sourceConstraint, sh:sourceShape and sh:sourceTemplate</h4>
 				<p>
 					Validation results may point at one <code>sh:Constraint</code> that has caused
-					the result, specified via the property <code>sh:sourceShape</code>,
+					the result, specified via the property <code>sh:sourceConstraint</code>,
 					and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
 					Validation results that were produced by a <a href="#template-constraints">template call</a> may
 					point at the <code>sh:ConstraintTemplate</code> that caused the result.
@@ -3384,7 +3404,7 @@ WHERE {
 				<ul>
 					<li>A <span class="term">Scope</span> is a declarative mechanism to select <span class="term">Focus Nodes</span> from a given graph.</li>
 					<li>There are individual scopes (<code>sh:nodeShape</code>), class-based scopes (<code>sh:scopeClass</code>, <code>rdf:type</code>) and general scopes (<code>sh:scope</code>).</li>
-					<li>General scopes may be backed by a SPARQL query or a template.</li>
+					<li>A general scope may be defined by either a SPARQL query or a template.</li>
 				</ul>
 			</section>
 			<section id="term-FilterShape">
