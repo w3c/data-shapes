@@ -157,6 +157,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-29</b>: Added support for derived properties (sh:derivedValues)</li>
 				<li><b>2015-09-23</b>: Multiple minor stylistic edits and corrections</li>
 				<li><b>2015-09-21</b>: Added button to show or hide SPARQL definitions (thanks to Simon)</li>
 				<li><b>2015-09-18</b>: Deleted <code>sh:XorConstraint</code> as resolved, renamed <code>sh:Error</code> to <code>sh:Violation</code></li>
@@ -3053,6 +3054,58 @@ ex:hasLanguage
 					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
 				</p>
 			</section>
+		</section>
+		
+		<section id="derivedValues">
+			<h2>Derived Values Constraints</h2>
+			<p>
+				It is a common scenario that certain property values are derived from other values.
+				For example, the area of a rectangle must be the product of width and height, or an uncle of a person is a male sibling of a parent.
+				SHACL includes a property <code>sh:derivedProperty</code> that can be used with property and inverse property constraints, to define such constraints.
+				The values of <code>sh:derivedProperty</code> must be instances of the class <code>sh:DerivedValuesTemplate</code>, although the <code>rdf:type</code> triple of those instances is optional.
+				Each <code>sh:DerivedValuesTemplate</code> must include execution instructions such as a SPARQL query or a JavaScript snippet, that produce the values that the property is expected to have.
+				This is illustrated in the following example.
+			</p>
+			<pre class="example" title="A property definition with derived values">
+ex:RectangleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:width ;
+		sh:datatype xsd:integer ;
+	] ;
+	sh:property [
+		sh:predicate ex:height ;
+		sh:datatype xsd:integer ;
+	] ;
+	sh:property [
+		sh:predicate ex:area ;
+		sh:datatype xsd:integer ;
+		sh:derivedValues [
+			sh:sparql """
+				$this ex:width ?width .
+				$this ex:height ?height .
+				BIND (?width * ?height AS ?value) .
+				""" ;
+		] ;
+	] .</pre>
+			<p>
+				For SHACL processors supporting SPARQL, a <code>sh:DerivedValuesTemplate</code> can have a value of <code>sh:sparql</code>.
+				The values of <code>sh:sparql</code> must be SPARQL fragments that can be turned into a valid SPARQL query by surrounding it
+				with the prefix declarations from the shapes graph and <code>SELECT ?value WHERE { ... }</code>.
+				These fragments can access the current focus node via the variable <code>$this</code> and must produce bindings for the variable <code>?value</code> for all derived values.
+				In the example above, all values of the property <code>ex:area</code> must be all products of <code>ex:width</code> and <code>ex:height</code>.
+			</p>
+			<div class="def def-text">
+				<div class="def-header">TEXTUAL DEFINITION</div>
+				<div class="def-text-body">
+					Let S be the set of nodes produces by the derived values template for the <span class="term">focus node</span>.
+					A <span class="term">validation result</span> must be produced for every value of the given property <code>sh:predicate</code>
+					that is not in S, and for every member of S that is not a property value.
+					The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+					the <code>sh:predicate</code> as its <code>sh:predicate</code>, and the missing or extra value as its <code>sh:object</code>.
+					(The same definition applies in the inverse direction if <code>sh:derivedValues</code> is used in an inverse property constraint.)
+				</div>
+			</div>
 		</section>
 
 		<section id="operations">
