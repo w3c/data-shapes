@@ -157,6 +157,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-09-29</b>: Revised (node) validation functions, added section on template injection via sh:scopeClass</li>
 				<li><b>2015-09-23</b>: Multiple minor stylistic edits and corrections</li>
 				<li><b>2015-09-21</b>: Added button to show or hide SPARQL definitions (thanks to Simon)</li>
 				<li><b>2015-09-18</b>: Deleted <code>sh:XorConstraint</code> as resolved, renamed <code>sh:Error</code> to <code>sh:Violation</code></li>
@@ -2746,30 +2747,22 @@ ex:TemplateLanguageExampleShape
 					Constraint templates may be placed in a <code>rdfs:subClassOf</code> relationship with other templates.
 					The implication of doing this is that when an instance of the superclass template is validated, then all (transitive) superclass templates will also be validated,
 					assuming their arguments are <span class="term">complete</span>.
+					Another implication of placing templates in a <code>rdfs:subClassOf</code> relationship is that subclass templates also reuse the argument declarations on their (transitive) superclasses.
 				</p>
 			</section>
-			<section id="template-labelTemplate">
-				<h3>sh:labelTemplate</h3>
+			<section id="template-injection">
+				<h3>Template Injection</h3>
 				<p>
-					The property <code>sh:labelTemplate</code> can be used to suggest how instances of the template shall be rendered to humans.
-					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
-					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
-					At display time, these <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
+					It is sometimes desirable to mix multiple template types so that they can be used within the same instance node.
+					The SHACL core model itself includes many examples of this, allowing users to mix, for example, <code>sh:minCount</code> and <code>sh:allowedValues</code> although these are represented by different templates.
+					To support such scenarios, templates may inject themselves into other template types using <code>sh:scopeClass</code> as illustrated in the following example.
 				</p>
-			</section>
-			<section id="template-property-constraints">
-				<h3>Property Constraint Templates</h3>
-				<p>
-					Some constraints are about a specific property only, and SHACL provides the system properties <code>sh:property</code> and <code>sh:inverseProperty</code> for those cases.
-					In order to define constraints that can be used similar to the built-in Core constraint properties such as <code>sh:minCount</code>,
-					a SHACL template needs to declared to be a subclass of <code>sh:PropertyConstraint</code> (for <code>sh:property</code>) or <code>sh:InversePropertyConstraint</code> (for <code>sh:inverseProperty</code>).
-					Such templates "inherit" the argument <code>sh:predicate</code>.
-					This is illustrated in the following example.
-				</p>
-				<pre class="example" title="An example property constraint template with a shape that uses it">
-ex:LanguagePropertyConstraint
+				<pre class="example" title="A template that injects itself into sh:PropertyConstraint">
+ex:LanguageConstraint
 	a sh:ConstraintTemplate ;
-	rdfs:subClassOf sh:PropertyConstraint ;
+	sh:scopeClass sh:PropertyConstraint ;
+	rdfs:label "Language constraint" ;
+	rdfs:subClassOf sh:AbstractPropertyConstraint ;
 	sh:argument [
 		sh:predicate ex:lang ;
 		sh:datatype xsd:string ;
@@ -2784,59 +2777,43 @@ ex:LanguagePropertyConstraint
 			$this $predicate ?value .
 			FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
 		}
-		""" .
-
-ex:TemplateLanguageWithPropertyConstraintExampleShape
+		""" .</pre>
+				<p>
+					In the example above, the template <code>ex:LanguageConstraint</code> declares itself to have <code>sh:PropertyConstraint</code> as its <code>sh:scopeClass</code>.
+					This triple informs the SHACL processor that any instance of <code>sh:PropertyConstraint</code> may also use the arguments of <code>ex:LanguageConstraint</code>, as shown in the next example.
+				</p>
+				<pre id="template-injection-example-shape" class="example" title="Shape definition using ex:LanguageConstraint via sh:property">
+ex:TemplateLanguageExampleShape
 	a sh:Shape ;
 	sh:scopeClass ex:Country ;
 	sh:property [
-		a ex:LanguagePropertyConstraint ;
 		sh:predicate ex:germanLabel ;
-		sh:datatype rdf:langString ;
 		sh:maxCount 1 ;
 		ex:lang "de" ;
+	] ;
+	sh:property [
+		sh:predicate ex:englishLabel ;
+		sh:maxCount 1 ;
+		ex:lang "en" ;
 	] .</pre>
 				<p>
-					As shown above, shapes can instantiate such templates via <code>sh:property</code>
-					and mix custom constraint properties such as <code>ex:lang</code> with those from the SHACL Core vocabulary, such as <code>sh:maxCount</code>.
+					In the example above, the shape uses <code>sh:property</code> to point at two instances of <code>sh:PropertyConstraint</code>.
+					(Note that the <code>rdf:type</code> of those is optional, as it can be deduced from the <a href="#defaultValueType">default value type</a>).
+					The template itself was defined to be a subclass of <code>sh:AbstractPropertyConstraint</code>, from where it "inherits" the declaration of the <code>sh:predicate</code> argument.
+					This means that the value of <code>sh:predicate</code> is used both for the <code>sh:maxCount</code> and the <code>ex:lang</code> constraints.
+				</p>
+				<p>
+					Note that this <code>sh:scopeClass</code> mechanism can also be used to inject constraints based on <a href="#NodeValidationFunction">node validation functions</a> which are introduced later. 
 				</p>
 			</section>
-			<section id="template-validation-functions">
-				<h3>Templates with a sh:validationFunction</h3>
+			<section id="template-labelTemplate">
+				<h3>sh:labelTemplate</h3>
 				<p>
-					Constraint templates that are instances of <code>sh:PropertyValueConstraintTemplate</code> or
-					<code>sh:InversePropertyValueConstraintTemplate</code> (which are subclasses of <code>sh:ConstraintTemplate</code>) do not require an executable body (such a <code>sh:sparql</code>)
-					if they instead point at a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
-					These so called <span class="term">validation functions</span> must take an argument with the predicate <code>sh:value</code> as its first argument
-					and return either <code>true</code> or <code>false</code>.
-					This validation function must be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
-					and then runs a filter test using the function.  If the filter returns <code>false</code> then a validation result must be produced.
-					Validation functions may take additional arguments, and the engine must fill them with the matching arguments from the surrounding template.
-					The SHACL system vocabulary contains several examples of such validation functions, e.g. <code>sh:AbstractDatatypePropertyConstraint</code>.
+					The property <code>sh:labelTemplate</code> can be used to suggest how instances of the template shall be rendered to humans.
+					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code> or <code>{$varName}</code>,
+					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
+					At display time, these <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
 				</p>
-				<p>
-					The following example defines a constraint template using a <span class="term">validation function</span> from a <a href="#ValidationFunctions">later section</a>.
-				</p>
-				<pre class="example" title="Template definition using a validation function">
-ex:LanguageConstraint
-	a sh:PropertyValueConstraintTemplate ;
-	rdfs:label "Language constraint" ;
-	rdfs:subClassOf sh:TemplateConstraint ;
-	sh:argument [
-		sh:predicate ex:predicate ;
-		sh:valueClass rdf:Property ;
-		rdfs:label "predicate" ;
-		rdfs:comment "The property to validate the values of." ;
-    ] ;
-	sh:argument [
-		sh:predicate ex:lang ;
-		sh:datatype xsd:string ;
-		rdfs:label "language" ;
-		rdfs:comment "The language tag, e.g. \"de\"." ;
-	] ;
-	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
-	sh:message "Values must be literals with language \"{?lang}\"" ;
-	sh:validationFunction ex:hasLanguage .</pre>
 			</section>
 			<section id="sparql-templates">
 				<h3>SPARQL-based Constraint Templates</h3>
@@ -3006,34 +2983,47 @@ ex:exampleFunction
 					Engines can use this information to cache and reuse previous function calls without repeatedly executing their body.
 				</p>
 			</section>
-			<section id="ValidationFunctions">
-				<h3>Validation Functions</h3>
+			<section id="NodeValidationFunction">
+				<h3>Node Validation Functions</h3>
 				<p>
-					It is a common design pattern for functions to take a value as input and validate whether that value fulfills certain conditions or not.
-					In support of this pattern, SHACL supports <span class="term">validation functions</span>, which are instances of <code>sh:Function</code> that are also subclasses of <code>sh:ValidationFunctions</code>.
-					From that superclass, these functions "inherit" the (first) argument <code>sh:value</code>.
-					Validation functions may define additional arguments with <code>sh:index</code> values larger than 1.
-					The following example illustrates a validation function for the running example of the <a href="#template-validation-functions">section on constraint templates</a>.
+					It is a common design pattern for functions to take a node as input and validate whether that node fulfills certain conditions or not.
+					In support of this pattern, SHACL supports <span class="term">node validation functions</span>, which are instances of <code>sh:NodeValidationFunction</code> (which is a subclass of <code>sh:Function</code>).
+					Such functions have a special status in SHACL's extension mechanism, in that they can be used within constraint templates, using the <a href="template-injection">Template Injection</a> mechanism.
+					The following example illustrates a node validation function for the running example of the <a href="#template-validation-functions">section on constraint templates</a>.
 				</p>
-				<pre class="example" title="A validation function">
+				<pre class="example" title="A node validation function">
 ex:hasLanguage
-	a sh:Function ;
-	rdfs:subClassOf sh:ValidationFunctions ;
+	a sh:NodeValidationFunction ;
+	sh:scopeClass sh:PropertyConstraint ;
 	sh:argument [
 		sh:predicate ex:lang ;
 		sh:datatype xsd:string ;
-		sh:index 1 ;
 		rdfs:label "language" ;
 		rdfs:comment "The language to match against, e.g. \"de\"." ;
 	] ;
-	sh:returnType xsd:boolean ;
 	sh:sparql """
   		ASK {
-  			FILTER (isLiteral($value) &amp;&amp; langMatches(lang($value), $lang)) .
+  			FILTER (isLiteral($node) &amp;&amp; langMatches(lang($node), $lang)) .
 		}
 		""" .</pre>
 				<p>
 					An example invocation of the function above is: <code>ex:hasLanguage("Spain"@en, "en")</code>, producing <code>true</code>.
+				</p>
+				<p>
+					All node validation functions take an implicit first argument, which is represented by the variable <code>$node</code>.
+					At execution time, this variable will have the node that is being tested as its value.
+					Each node validation function must declare at least one additional argument, taking the indices from 1 onwards.
+					Node validation functions must return a boolean, where <code>true</code> means that the input node has passed the validation successfully.
+				</p>
+				<p>
+					In order to use node validation functions for constraint validation, they may have a <code>sh:scopeClass</code> of either
+					<code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code> or <code>sh:Argument</code>.
+					This makes it possible to directly use them via <code>sh:property</code> etc, with exactly the same syntax as already shown in a <a href="#template-injection-example-shape">previous example</a>.
+				</p>
+				<p>
+					At execution time, node validation functions must be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
+					and then run a filter test using the function.  If the filter returns <code>false</code> then a validation result must be produced.
+					These validation results must have the appropriate values for <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>. 
 				</p>
 			</section>
 			<section id="sparql-functions">
