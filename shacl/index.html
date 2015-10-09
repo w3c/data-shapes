@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-10-09</b>: Added sh:flags and sh:uniqueLang</li>
 				<li><b>2015-09-23</b>: Multiple minor stylistic edits and corrections</li>
 				<li><b>2015-09-21</b>: Added button to show or hide SPARQL definitions (thanks to Simon)</li>
 				<li><b>2015-09-18</b>: Deleted <code>sh:XorConstraint</code> as resolved, renamed <code>sh:Error</code> to <code>sh:Violation</code></li>
@@ -862,6 +863,10 @@ ex:StandAloneConstraint
 						<td>Regular expression string matching</td>
 					</tr>
 					<tr>
+						<td><a href="#AbstractUniqueLangPropertyConstraint"><code>sh:uniqueLang</code></a></td>
+						<td>No duplicate language tags</td>
+					</tr>
+					<tr>
 						<td>
 							<a href="#AbstractValueClassPropertyConstraint"><code>sh:valueClass</code></a> and
 							<a href="#AbstractDirectValueTypePropertyConstraint"><code>sh:directValueType</code></a>
@@ -1372,6 +1377,11 @@ ex:NodeKindShapeExampleInvalidResource
 							<td><code>xsd:string</code></td>
 							<td>Regular expression that all values must match</td>
 						</tr>
+						<tr>
+							<td><code>sh:flags</code></td>
+							<td><code>xsd:string</code> (optional)</td>
+							<td>An optional string of flags, interpreted as in <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL 1.1 REGEX</a></td>
+						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
@@ -1380,6 +1390,7 @@ ex:NodeKindShapeExampleInvalidResource
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
 							of the object does not match the given regular expression (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL REGEX function</a>).
+							If <code>sh:flags</code> is present then this must be interpreted according to the SPARQL REGEX function. 
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
@@ -1390,7 +1401,7 @@ ex:NodeKindShapeExampleInvalidResource
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
 	$this $predicate ?value .
-	FILTER (isBlank(?value) || !regex(str(?value), $pattern)) .
+	FILTER (isBlank(?value) || IF(bound($flags), !regex(str(?value), $pattern, $flags), !regex(str(?value), $pattern))) .
 }</pre>
 					</div>
 					<pre class="example" title="Shape with sh:pattern constraint">
@@ -1399,13 +1410,75 @@ ex:PatternExampleShape
 	sh:property [
 		sh:predicate ex:someProperty ;
 		sh:pattern "^Ali" ;
+		sh:flags "i" ;       # Ignore case
 	] .
 
 ex:PatternShapeExampleValidResource
-	ex:someProperty "Alice" .
+	ex:someProperty "alice" .
 
 ex:PatternShapeExampleInvalidResource
 	ex:someProperty "The Alice" .</pre>
+				</section>
+				<section id="AbstractUniqueLangPropertyConstraint">
+					<h4>sh:pattern</h4>
+					<p>
+						The property <code>sh:uniqueLang</code> can be set to <code>true</code> to specify that no pair of values of the given property may use the same language tag.
+						The values of <code>sh:uniqueLang</code> must be <code>xsd:boolean</code>.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:uniqueLang</code></td>
+							<td><code>xsd:boolean</code></td>
+							<td><code>true</code> to activate this constraint</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							If <code>sh:uniqueLang</code> is set to <code>true</code> then a <span class="term">validation result</span> must be produced for each non-empty language tag that is
+							used by at least two triples that have the <span class="term">focus node</span> as their subject and the <code>sh:predicate</code> as their predicate.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT $this ($this AS ?subject) $predicate
+WHERE {
+	{
+		FILTER ($uniqueLang) .
+	}
+	$this $predicate ?value .
+	BIND (lang(?value) AS ?lang) .
+	FILTER (bound(?lang) &amp;&amp; ?lang != "") . 
+	FILTER EXISTS {
+		$this $predicate ?otherValue .
+		FILTER (?otherValue != ?value &amp;&amp; ?lang = lang(?otherValue)) .
+	}
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:pattern constraint">
+ex:UniqueLangExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:uniqueLang true ;
+	] .
+
+ex:UniqueLangShapeExampleValidResource
+	ex:someProperty "Me" ;
+	ex:someProperty "Me"@en ;
+	ex:someProperty "Moi"@fr .
+
+ex:UniqueLangShapeExampleInvalidResource
+	ex:someProperty "Me"@en ;
+	ex:someProperty "Myself"@en .</pre>
 				</section>
 				<section id="AbstractValueClassPropertyConstraint">
 					<h4>sh:valueClass</h4>
@@ -2960,7 +3033,7 @@ ex:exampleFunction
 				<ol>
 					<li>The index of the built-in argument predicates <code>sh:arg1</code>, <code>sh:arg2</code> etc is their numeric name part minus 1, e.g. <code>sh:arg1</code> has index 0.</li>
 					<li>The index of other argument predicates is the value of the property <code>sh:index</code> at the surrounding <code>sh:Argument</code>.</li>
-					<li>The default index for all other cases is the number of other arguments. This means that non-built-in arguments without a <code>sh:index</code> will be placed at the end of the order.</li>
+					<li>Arguments that are neither of the form <code>sh:argX</code> nor have an <code>sh:index</code> are place at the end, whereby arguments that have <code>sh:optional</code> set to <code>true</code> get a higher index than non-optional arguments.</li>
 				</ol>
 				<p>
 					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
