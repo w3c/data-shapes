@@ -140,6 +140,8 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-10-22</b>: Define sh:minLength, sh:maxLength, sh:qualifiedMinCount, and sh:qualifiedMaxCount without reference to default values</li>
+				<li><b>2015-10-22</b>: Replaced ex:bornIn with ex:residentIn in Section 2.2</li>
 				<li><b>2015-10-16</b>: Added sh:SPARQLConstraint and sh:SPARQLScope (part of ISSUE-98)</li>
 				<li><b>2015-10-16</b>: Renamed sh:valueClass to sh:class, sh:allowedValues to sh:in, sh:directValueType to sh:directType (part of ISSUE-98)</li>
 				<li><b>2015-10-15</b>: Define sh:minCount and sh:maxCount without reference to default values</li>
@@ -604,7 +606,7 @@ WHERE {
 				<h3>Filter Shapes</h3>
 				<p>
 					In some cases, constraints should not apply to all focus nodes, produced by a scope.
-					For example, instances of the given class <code>ex:Person</code> that were <code>ex:bornIn</code>
+					For example, instances of the given class <code>ex:Person</code> that were <code>ex:residentIn</code>
 					the country <code>ex:USA</code> may have a different legal drinking age than others.
 					In order to support such use cases, SHACL includes the concept of <span class="term">filter shapes</span> that act as pre-conditions that all focus nodes need to fulfill before they are being validated.
 					Formally, filter shapes eliminate entries from the collection of focus nodes selected by a shape's scopes, if the focus node produces a validation result with severity <code>sh:Violation</code> or a failure for the given filter shapes.
@@ -1223,7 +1225,7 @@ ex:InExampleValidResource
 						<tr>
 							<td><code>sh:minCount</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The minimum cardinality. If the value is 0 then this constraint is always satisfied and so may be ommitted.</td>
+							<td>The minimum cardinality. If the value is 0 then this constraint is always satisfied and so may be omitted.</td>
 						</tr>
 						<tr>
 							<td><code>sh:maxCount</code></td>
@@ -1310,38 +1312,53 @@ ex:CountExampleValidResource
 						<tr>
 							<td><code>sh:minLength</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The minimum length. Default value is 0.</td>
+							<td>The minimum length. If the value is 0 then there is no restriction on the string length but this constraint is still violated if the node is a blank node.</td>
 						</tr>
 						<tr>
 							<td><code>sh:maxLength</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The maximum length. Default interpretation is unlimited.</td>
+							<td>The maximum length. If this constraint is omitted then there is no restriction on the string length and no requirement that the node is a literal or IRI.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-header">TEXTUAL DEFINITION of sh:minLength</div>
 						<div class="def-text-body">
-							The default value of <code>sh:minLength</code> is 0.
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where the length of the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
-							of the object is either less than the specified minimum length or more than the specified maximum length, or if the object is a blank node.
+							of the object is less than the specified minimum length, or if the object is a blank node.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION of sh:minLength</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
 	$this $predicate ?value .
-	FILTER NOT EXISTS {
-		BIND (STRLEN(str(?value)) AS ?valueLength) .
-		FILTER (bound(?valueLength) &amp;&amp; 
-			(?valueLength &gt;= COALESCE($minLength, 0)) &amp;&amp;
-			(!bound($maxLength) || ?valueLength &lt;= $maxLength)) .
-	}
+	FILTER (isBlank(?value) || STRLEN(str(?value)) &lt; $minLength) .
+}</pre>
+					</div>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION of sh:maxLength</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the length of the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
+							of the object is either more than the specified maximum length, or if the object is a blank node.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION of sh:maxLength</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	$this $predicate ?value .
+	FILTER (isBlank(?value) || STRLEN(str(?value)) &gt; $maxLength) .
 }</pre>
 					</div>
 					<pre class="example" title="Shape with sh:minLength and sh:maxLength constraints">
@@ -1711,12 +1728,12 @@ ex:ValueShapeExampleValidResource
 						<tr>
 							<td><code>sh:qualifiedMinCount</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The minimum number of values that must have the shape</td>
+							<td>The minimum number of values that must have the shape. If this constraint is omitted then there is no minimum number of values required. </td>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedMaxCount</code></td>
 							<td><code>xsd:integer</code></td>
-							<td>The maximum number of values that can have the shape</td>
+							<td>The maximum number of values that can have the shape. If this constraint is omitted then there is no maximum number of values required.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
@@ -1726,7 +1743,6 @@ ex:ValueShapeExampleValidResource
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where validating the object against the shape specified by <code>sh:qualifiedValueShape</code>
 							produces no validation results with severity <code>sh:Violation</code> or a failure is outside of the interval specified by <code>sh:qualifiedMinCount</code> and <code>sh:qualifiedMaxCount</code>.
-							The interval defaults to <code>0</code> if the min count is not specified, and unlimited if the max count is not specified.
 							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
 						</div>
@@ -1753,7 +1769,9 @@ WHERE {
 		}
 	}
 	BIND (!bound(?count) AS ?failure) .
-	FILTER IF(?failure, true, ((?count &lt; $qualifiedMinCount) || (bound($qualifiedMaxCount) &amp;&amp; (?count &gt; $qualifiedMaxCount)))) .
+	FILTER IF(?failure, true, 
+		(bound($qualifiedMinCount) &amp;&amp; (?count &lt; $qualifiedMinCount)) || 
+		(bound($qualifiedMaxCount) &amp;&amp; (?count &gt; $qualifiedMaxCount))) .
 }</pre>
 					</div>
 					<p>
@@ -2435,7 +2453,7 @@ ex:MyShape
 		sh:severity sh:Warning ;
 	] ;
 	sh:property [
-		# Violation of maxCount are produced as sh:Violations (which is the default for sh:maxCount)
+		# Violation of maxCount are produced as sh:Violations (which is the default severity for sh:maxCount)
 		sh:predicate ex:myProperty ;
 		sh:maxCount 1 ;
 	] ;
