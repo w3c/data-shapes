@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2015-10-30</b>: Deleted sh:cachable, removed the option for sh:sparql to be a query fragment in sh:scope</li>
 				<li><b>2015-10-28</b>: Separated definitions of sh:qualifiedMinCount and sh:qualifiedMaxCount</li>
 				<li><b>2015-10-22</b>: Define sh:minLength, sh:maxLength, sh:qualifiedMinCount, and sh:qualifiedMaxCount without reference to default values</li>
 				<li><b>2015-10-22</b>: Replaced ex:bornIn with ex:residentIn in Section 2.2</li>
@@ -2748,11 +2749,20 @@ ex:LanguageExampleShape
 							<td><code>sh:annotationValue</code></td>
 							<td></td>
 							<td><code>0..unlimited</code></td>
-							<td>Constant nodes that shall be used as values</td>
+							<td>Constant nodes that shall be used as default values</td>
 						</tr>
 					</table>
 					<p>
-						If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the engine must copy the bindings for the given variable into the constructed validation results for the same row.
+						For each row of a SELECT result set, a SHACL processor must walk through the declared result annotations.
+						The mapping from result annotations to SPARQL variables uses the following rules:
+					</p>
+					<ol>
+						<li>If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the engine must look for the variable named after the <code>sh:annotationVarName</code></li>
+						<li>Otherwise, the engine must derive a variable name from the value of <code>sh:annotationProperty</code> using the same <a href="#template-arguments">local name mechanism</a> as described earlier</li>
+					</ol>
+					<p>
+						If a variable name could be determined, then the engine must copy the bindings for the given variable into the constructed validation results for the current row.
+						If the variable has no binding in the result set row, then the value of <code>sh:annotationValue</code> must be used, if present.
 					</p>
 					<p>
 						The values of <code>sh:annotationProperty</code> must not be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
@@ -3074,7 +3084,7 @@ WHERE {
 				<h3>SPARQL-based Scopes</h3>
 				<p>
 					SPARQL-based scopes must be instances of <code>sh:SPARQLScope</code>, which is a subclass of <code>sh:NativeScope</code>.
-					The SPARQL queries linked to a <span class="term">scope</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>, or a fragment that produces a valid <code>SELECT</code> query if wrapped by <code>SELECT ?this WHERE { ... }</code>.
+					The SPARQL queries linked to a <span class="term">scope</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
 					The SELECT queries must project to the result variable <code>?this</code>.
 					The resulting scope consists of all distinct bindings for the variable <code>?this</code>.
 				</p>
@@ -3140,8 +3150,15 @@ ex:exampleFunction
 		}
 		""" .</pre>
 				<p>
-					Based on the declaration above, SPARQL engines with full SHACL support can handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>.
+					Based on the declaration above, SPARQL engines with full SHACL support can install a new SPARQL function based on the SPARQL 1.1 <a href="http://www.w3.org/TR/sparql11-query/#extensionFunctions">Extensible Value Testing</a> mechanism.
+					Such engines are then able to handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>, as illustrated in the following SPARQL query.
 				</p>
+				<pre class="example" title="Call of a SHACL function in a SPARQL query">
+SELECT ?subject
+WHERE {
+	?subject ex:myProperty ?value .
+	FILTER (ex:exampleFunction(?value, 2) = 42) .
+}</pre>
 				<p>
 					The following sections introduce the properties that all such functions may have.
 					A later <a href="#sparql-functions">section</a> provides additional details for SPARQL-based SHACL functions.
@@ -3189,14 +3206,6 @@ ex:exampleFunction
 					This information may serve for documentation purposes, only.
 					However, in some execution languages such as JavaScript, the declared <code>sh:returnType</code> may inform
 					the engine how to cast a native value into an RDF value type.
-				</p>
-			</section>
-			<section id="function-cachable">
-				<h3>sh:cachable</h3>
-				<p>
-					A <code>sh:Function</code> may have a property <code>sh:cachable</code> set to <code>true</code>.
-					Functions that are marked as cachable must always return the same value for the same combination of arguments, regardless of the query graphs.
-					Engines can use this information to cache and reuse previous function calls without repeatedly executing their body.
 				</p>
 			</section>
 			<section id="ValidationFunctions">
