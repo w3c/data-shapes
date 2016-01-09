@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-01-09</b>: Syntax simplifications: sh:NotConstraint -> sh:not, sh:AndConstraint -> sh:and, sh:OrConstraint -> sh:or (part of <a href="http://www.w3.org/2014/data-shapes/track/issues/103">ISSUE-103</a>)</li>
 				<li><b>2015-12-02</b>: Fixed <a href="https://github.com/w3c/data-shapes/issues/9">minor mistake in spec - ex:unsinged</a>.</li>
 				<li><b>2015-11-20</b>: Switched from rdfs:label/rdfs:comment at property constraints to sh:name/sh:description (ISSUE-112)</li>
 				<li><b>2015-11-06</b>: Renamed sh:nodeShape to sh:scopeNode, clarified that its triples are expected in shapes graph (ISSUE-61)</li>
@@ -2067,7 +2068,7 @@ WHERE {
 					this section introduces other constraint types that can be used with shapes.
 				</p>
 				<section id="not">
-					<h3>sh:NotConstraint</h3>
+					<h3>sh:not</h3>
 					<p>
 						SHACL supports a high-level negation constraint that can be used to verify that the <span class="term">focus node</span> does not have a given shape.
 						This is comparable to a logical "not" operator.
@@ -2079,7 +2080,7 @@ WHERE {
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:shape</code></td>
+							<td><code>sh:not</code></td>
 							<td><code>sh:Shape</code></td>
 							<td>The shape to negate</td>
 						</tr>
@@ -2087,7 +2088,7 @@ WHERE {
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces no validation results with severity <code>sh:Violation</code> for the shape given via <code>sh:shape</code>.
+							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces no validation results with severity <code>sh:Violation</code> for the shape given via <code>sh:not</code>.
 							A <span class="term">failure</span> must be reported if the validation of the shape produces a failure.
 						</div>
 					</div>
@@ -2096,21 +2097,20 @@ WHERE {
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
-	BIND (sh:hasShape($this, $shape, $shapesGraph, true) AS ?hasShape) .
+	BIND (sh:hasShape($this, $not, $shapesGraph, true) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || ?hasShape) .
 }</pre>
 					</div>
 					<p>
-						The following example illustrates the use of <code>sh:NotConstraint</code> in a shape to verify
+						The following example illustrates the use of <code>sh:not</code> in a shape to verify
 						that certain nodes cannot have any value of <code>ex:property</code>.
 					</p>
 					<pre class="example" title="Shape with a negation">
 ex:NotExampleShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:NotConstraint ;
-		sh:shape [
+		sh:not [
 			a sh:Shape ;
 			sh:property [
 				sh:predicate ex:property ;
@@ -2123,7 +2123,7 @@ ex:InvalidInstance1
   	ex:property "Some value" .</pre>
 				</section>
 				<section id="and">
-					<h3>sh:AndConstraint</h3>
+					<h3>sh:and</h3>
 					<p>
 						SHACL supports a high-level syntax for conjunctive constraints that can be used to test whether the <span class="term">focus node</span> has all out of several shapes.
 						This is comparable to a logical "and" operator.
@@ -2135,7 +2135,7 @@ ex:InvalidInstance1
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:shapes</code></td>
+							<td><code>sh:and</code></td>
 							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
 							<td>List of shapes to validate the focus node against</td>
 						</tr>
@@ -2144,7 +2144,7 @@ ex:InvalidInstance1
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the following condition is false:
-							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:shapes</code> list produces a validation result with severity <code>sh:Violation</code> for at least one shape.
+							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:and</code> list produces a validation result with severity <code>sh:Violation</code> for at least one shape.
 							A <span class="term">failure</span> must be produced if the validation of one of the shapes fails.
 						</div>
 					</div>
@@ -2157,7 +2157,7 @@ WHERE {
 		SELECT (SUM(?s) AS ?count)
 		WHERE {
 			GRAPH $shapesGraph {
-				$shapes rdf:rest*/rdf:first ?shape .
+				$and rdf:rest*/rdf:first ?shape .
 			}
 			BIND (sh:hasShape($this, ?shape, $shapesGraph, true) AS ?hasShape) .
 			BIND (IF(bound(?hasShape), IF(!?hasShape, 1, 0), 'error') AS ?s) .
@@ -2168,15 +2168,15 @@ WHERE {
 }</pre>
 					</div>
 					<p>
-						Note that although <code>sh:shapes</code> has an <code>rdf:List</code> of shapes as its value,
+						Note that although <code>sh:and</code> has an <code>rdf:List</code> of shapes as its value,
 						the order of those shapes does not impact the validation results.
 					</p>
 					<p>
-						The following example illustrates the use of <code>sh:AndConstraint</code> in a shape to verify
+						The following example illustrates the use of <code>sh:and</code> in a shape to verify
 						that certain nodes have exactly one value of <code>ex:property</code>.
 						This is achieved via the conjunction of a separate named shape (<code>ex:SuperShape</code>) which defines
 						the minimum count, and a blank node shape that further constrains the maximum count.
-						As shown here, <code>sh:AndConstraint</code> can be used to implement a specialization mechanism between shapes. 
+						As shown here, <code>sh:and</code> can be used to implement a specialization mechanism between shapes. 
 					</p>
 					<pre class="example" title="Shape with a conjunction">
 ex:SuperShape
@@ -2189,8 +2189,7 @@ ex:SuperShape
 ex:ExampleAndShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:AndConstraint ;
-		sh:shapes (
+		sh:and (
 			ex:SuperShape
 			[
 				sh:property [
@@ -2211,7 +2210,7 @@ ex:InvalidInstance2
 	ex:property "Two" .</pre>
 				</section>
 				<section id="or">
-					<h3>sh:OrConstraint</h3>
+					<h3>sh:or</h3>
 					<p>
 						SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether the <span class="term">focus node</span> has at least one out of several shapes.
 						This is comparable to a logical "or" operator.
@@ -2223,7 +2222,7 @@ ex:InvalidInstance2
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:shapes</code></td>
+							<td><code>sh:or</code></td>
 							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
 							<td>List of shapes to validate the focus node against</td>
 						</tr>
@@ -2232,7 +2231,7 @@ ex:InvalidInstance2
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the following condition is false:
-							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:shapes</code> list produces no validation results with severity <code>sh:Violation</code> for at least one shape.
+							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:or</code> list produces no validation results with severity <code>sh:Violation</code> for at least one shape.
 							A <span class="term">failure</span> must be produced if the validation of one of the shapes fails.
 						</div>
 					</div>
@@ -2245,7 +2244,7 @@ WHERE {
 		SELECT (SUM(?s) AS ?count)
 		WHERE {
 			GRAPH $shapesGraph {
-				$shapes rdf:rest*/rdf:first ?shape .
+				$or rdf:rest*/rdf:first ?shape .
 			}
 			BIND (sh:hasShape($this, ?shape, $shapesGraph, true) AS ?hasShape) .
 			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
@@ -2256,11 +2255,11 @@ WHERE {
 }</pre>
 					</div>
 					<p>
-						Note that although <code>sh:shapes</code> has an <code>rdf:List</code> of shapes as its value,
+						Note that although <code>sh:or</code> has an <code>rdf:List</code> of shapes as its value,
 						the order of those shapes does not impact the validation results.
 					</p>
 					<p>
-						The following example illustrates the use of <code>sh:OrConstraint</code> in a shape to verify
+						The following example illustrates the use of <code>sh:or</code> in a shape to verify
 						that certain nodes have at least one value of <code>ex:exampleProperty1</code>
 						or at least one value of <code>ex:exampleProperty2</code>.
 					</p>
@@ -2268,8 +2267,7 @@ WHERE {
 ex:OrConstraintExampleShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:OrConstraint ;
-		sh:shapes (
+		sh:or (
 			[
 				sh:property [
 					sh:predicate ex:exampleProperty1 ;
