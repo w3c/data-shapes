@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-01-10</b>: Introduced sh:datatypeIn and sh:classIn, deleted sh:text (<a href="http://www.w3.org/2014/data-shapes/track/issues/104">ISSUE-104</a>)</li>
 				<li><b>2016-01-09</b>: Syntax simplifications: Switched to sh:not, sh:and, sh:or, sh:equals, sh:notEquals, sh:lessThan, sh:lessThanOrEquals (<a href="http://www.w3.org/2014/data-shapes/track/issues/103">ISSUE-103</a>)</li>
 				<li><b>2015-12-02</b>: Fixed <a href="https://github.com/w3c/data-shapes/issues/9">minor mistake in spec - ex:unsinged</a>.</li>
 				<li><b>2015-11-20</b>: Switched from rdfs:label/rdfs:comment at property constraints to sh:name/sh:description (ISSUE-112)</li>
@@ -848,7 +849,8 @@ ex:StandAloneConstraint
 					</tr>
 					<tr>
 						<td>
-							<a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a> and
+							<a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a>,
+							<a href="#classIn"><code>sh:classIn</code></a> and
 							<a href="#AbstractDirectTypePropertyConstraint"><code>sh:directType</code></a>
 						</td>
 						<td>&#9745;</td>
@@ -857,7 +859,10 @@ ex:StandAloneConstraint
 						<td>Type, based on <code>rdf:type</code></td>
 					</tr>
 					<tr>
-						<td><a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a></td>
+						<td>
+							<a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a> and
+							<a href="#datatypeIn"><code>sh:datatypeIn</code></a>
+						</td>
 						<td>&#9745;</td>
 						<td>&#9745;</td>
 						<td></td>
@@ -1043,6 +1048,71 @@ ex:InstanceOfClassA
 ex:ClassExampleValidResource
 	ex:someProperty ex:InstanceOfClassA .</pre>
 				</section>
+				<section id="classIn">
+					<h4>sh:classIn</h4>
+					<p>
+						The property <code>sh:classIn</code> can be used to verify that each value of the given property is an instance of a type from a given list. 
+						The values of <code>sh:classIn</code> must be lists of classes (instances of <code>rdfs:Class</code>).
+						<code>sh:classIn</code> is a generalization of <code>sh:class</code> allowing users to state that the values must have one out of several types.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:classIn</code></td>
+							<td><code>rdf:List</code> (members: <code>rdfs:Class</code>)</td>
+							<td>List of types of all values</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
+							A non-literal matches a type if it has an <code>rdf:type</code> value that is one of the types from the list or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
+							Each type from the list is tested using the same logic as <code>sh:class</code>.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (isLiteral(?value) || NOT EXISTS {
+			GRAPH $shapesGraph {
+				$classIn (rdf:rest*)/rdf:first ?class .
+			}
+			FILTER (?class = rdfs:Resource ||
+				(?class = rdf:List &amp;&amp; EXISTS { ?value rdf:first ?any }) ||
+				EXISTS { ?value rdf:type/rdfs:subClassOf* ?class })
+		})
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:classIn constraint">
+ex:ClassInExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:classIn ( ex:ClassA ex:ClassB ) ;
+	] .
+	
+ex:InstanceOfClassA
+	a ex:ClassA .
+	
+ex:InstanceOfClassB
+	a ex:ClassB .
+
+ex:ClassExampleValidResource
+	ex:someProperty ex:InstanceOfClassA ;
+	ex:someProperty ex:InstanceOfClassB .</pre>
+				</section>
 				<section id="AbstractDatatypePropertyConstraint">
 					<h4>sh:datatype</h4>
 					<p>
@@ -1067,8 +1137,7 @@ ex:ClassExampleValidResource
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
-							A literal matches a datatype if the literal's datatype has the same IRI,
-							or if its datatype is <code>rdf:langLiteral</code> or <code>xsd:string</code> and the expected datatype is <code>sh:text</code>.
+							A literal matches a datatype if the literal's datatype has the same IRI.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
@@ -1084,7 +1153,7 @@ WHERE {
 			FILTER isLiteral(?value) .
 		} .
 		BIND (datatype(?value) AS ?valueDatatype) .
-		FILTER ((?valueDatatype = $datatype) || ($datatype = sh:text &amp;&amp; ?valueDatatype IN (rdf:langString, xsd:string))) .
+		FILTER (?valueDatatype = $datatype) .
 	}
 }</pre>
 					</div>
@@ -1093,14 +1162,75 @@ ex:DatatypeExampleShape
 	a sh:Shape ;
 	sh:property [
 		sh:predicate ex:someProperty ;
-		sh:datatype sh:text ;
+		sh:datatype xsd:string ;
 	] .
 
 ex:DatatypeShapeExampleValidResource
-	ex:someProperty "Some value" ;
-	ex:someProperty "Value with language tag"@en .
+	ex:someProperty "Some value" .
 
 ex:DatatypeShapeExampleInvalidResource
+	ex:someProperty "Value with language tag"@en ;
+	ex:someProperty 42 .</pre>
+				</section>
+				<section id="datatypeIn">
+					<h4>sh:datatypeIn</h4>
+					<p>
+						The property <code>sh:datatypeIn</code> can be used to restrict the datatype of all values of the given property.
+						The values of <code>sh:datatypeIn</code> must be lists of instances of the class <code>rdfs:Datatype</code>, such as <code>xsd:string</code>.
+						<code>sh:datatypeIn</code> is a generalization of <code>sh:datatype</code> allowing users to state that the values must have one out of several datatypes.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:datatype</code></td>
+							<td><code>rdf:List</code> (members: <code>rdfs:Datatype</code>)</td>
+							<td>Allowed datatypes of all values (e.g., <code>xsd:integer</code>)</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
+							A literal matches if the literal's datatype is member of the provided datatypes list.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (!isLiteral(?value) || NOT EXISTS {
+			GRAPH $shapesGraph {
+				$datatypeIn (rdf:rest*)/rdf:first ?datatype .
+			} 
+			BIND (datatype(?value) AS ?valueDatatype) .
+			FILTER (?valueDatatype = $datatype) .
+		})
+	}
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:datatypeIn constraint">
+ex:DatatypeInExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:datatypeIn ( xsd:string rdf:langString ) ;
+	] .
+
+ex:DatatypeInShapeExampleValidResource
+	ex:someProperty "Value with language tag"@en ;
+	ex:someProperty "Some string value" .
+
+ex:DatatypeInShapeExampleInvalidResource
 	ex:someProperty 42 .</pre>
 				</section>
 				<section id="AbstractDirectTypePropertyConstraint">
