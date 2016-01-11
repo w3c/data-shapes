@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-01-11</b>: Dropped sh:ShapeClass (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>), elaborated on possible sh:scopeClass rule</li>
 				<li><b>2016-01-10</b>: Added sh:order (<a href="http://www.w3.org/2014/data-shapes/track/issues/100">ISSUE-100</a>) and sh:group (<a href="http://www.w3.org/2014/data-shapes/track/issues/114">ISSUE-114</a>)</li>
 				<li><b>2016-01-10</b>: Introduced sh:datatypeIn and sh:classIn, deleted sh:text (<a href="http://www.w3.org/2014/data-shapes/track/issues/104">ISSUE-104</a>)</li>
 				<li><b>2016-01-09</b>: Syntax simplifications: Switched to sh:not, sh:and, sh:or, sh:equals, sh:notEquals, sh:lessThan, sh:lessThanOrEquals (<a href="http://www.w3.org/2014/data-shapes/track/issues/103">ISSUE-103</a>)</li>
@@ -486,25 +487,39 @@ ex:PersonShape
 ex:Alice
 	rdf:type foaf:Person .</pre>
 					<div class="issue" data-number="23" title="Classes and/or Shapes">
-						There is no agreement in the WG on the relationship between sh:Shape and rdfs:Class.
-						In the absence of such an agreement, this document uses sh:Shape in most examples but allows
-						classes to be also shapes, with the class sh:ShapeClass as syntactic sugar.
+						The remainder of this section is not agreed upon within the SHACL Working Group.
 					</div>
-					<p>
-						If the class of an instance is also an instance of <code>sh:Shape</code> then the <code>sh:scopeClass</code> triple MAY be omitted and <code>rdf:type</code> MAY directly link a resource with its shapes.
-						In this <span class="term">scope</span>, the IRIs of classes double as shape definitions, i.e. it is possible to directly link constraints to the IRI of a class.
-						As syntactic sugar, the metaclass <code>sh:ShapeClass</code> can be used as a combination of <code>rdfs:Class</code> and <code>sh:Shape</code>.
-						This pattern is illustrated in the following example.
+					<p id="scopeClass-inference">
+						Shapes and classes are unrelated concepts in SHACL.
+						In many scenarios, classes and shapes should be kept separate and given different IRIs.
+						However, some application designers may find it more convenient to couple classes and shapes together and reuse the same IRIs.
+						In the following example, the IRI of the class <code>ex:Person</code> is also used as a shape,
+						and the <code>sh:scopeClass</code> triple instructs a SHACL engine to apply the property constraints
+						of the shape <code>ex:Person</code> to all instances of the namesake class.
 					</p>
-					<pre class="example" title="Scope based on rdf:type only">
-foaf:Person
-	a rdfs:Class , sh:Shape ;    # These two classes can be replaced by sh:ShapeClass
+					<pre class="example" title="Sharing of IRIs between classes and shapes">
+ex:Person
+	a rdfs:Class, sh:Shape ;
+	sh:scopeClass ex:Person ;   # This triple is optional
 	sh:property [
 		...
 	] .
 
 ex:Alice
-	rdf:type foaf:Person .</pre>
+	rdf:type ex:Person .</pre>
+					<p>
+						As syntactic sugar for the scenario above, SHACL includes a rule that if a class is also a shape (in the shapes graph), then
+						the <code>sh:scopeClass</code> triple pointing at itself can be omitted.
+						This rule is illustrated by the following SPARQL CONSTRUCT query, which may be executed over the shapes graph prior to validation, to produce the implicit <code>sh:scopeClass</code> triples.
+					</p>
+				<pre class="algorithm">
+CONSTRUCT {
+	?class sh:scopeClass ?class .
+}
+WHERE {
+	?class rdfs:subClassOf*/rdf:type rdfs:Class .
+	?class rdfs:subClassOf*/rdf:type sh:Shape .
+}</pre>
 					<div class="issue" data-number="78" title="Abstract classes">
 						The following paragraph about <code>sh:abstract</code> is not yet approved by the WG.
 						Options include:
@@ -515,7 +530,7 @@ ex:Alice
 						</ul>
 					</div>
 					<p>
-						Classes with type <code>sh:ShapeClass</code> may be declared to be <span class="term">abstract</span> by
+						Classes may be declared to be <span class="term">abstract</span> by
 						setting their property <code>sh:abstract</code> to <code>true</code>.
 						Abstract classes SHOULD not be instantiated directly, i.e. every instance of an abstract class SHOULD also
 						have an <code>rdf:type</code> triple to a non-abstract subclass of the abstract class.
