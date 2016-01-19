@@ -140,6 +140,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-01-19</b>: Describe scoping of shapes that are also classes (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>)</li>
 				<li><b>2016-01-18</b>: Stated starting point for recursion (<a href="http://www.w3.org/2014/data-shapes/track/issues/22">ISSUE-22</a>)</li>
 				<li><b>2016-01-18</b>: Clarified the meaning of filter shapes (<a href="http://www.w3.org/2014/data-shapes/track/issues/49">ISSUE-49</a>)</li>
 				<li><b>2016-01-11</b>: Deleted operations section (<a href="http://www.w3.org/2014/data-shapes/track/issues/108">ISSUE-108</a>)</li>
@@ -475,6 +476,10 @@ ex:Alice
 						The property <code>rdf:type</code> is used to determine which shapes a given node are expected to fulfill.
 						The scope includes all instances of the <code>sh:scopeClass</code> and its subclasses, by following <code>rdfs:subClassOf</code> triples.
 						To determine class membership, the <code>rdf:type</code> and <code>rdfs:subClassOf</code> triples are queried in the <span class="term">data graph</span>. 
+						<div class="issue" data-number="23" title="Use of shapes graph versus data graph for metadata">
+							We should be consistent here. We put shape information in the shapes graph. Class information should also be in the shapes graph, especially for designers who couple shapes and classes. 
+							Both shapes and classes are kinds of metadata so they should be in the same graph.
+						</div>
 						This pattern is illustrated in the following example.
 					</p>
 					<pre class="example" title="Scope based on rdf:type and sh:scopeClass">
@@ -493,19 +498,22 @@ ex:Alice
 	rdf:type foaf:Person .</pre>
 					<div class="issue" data-number="23" title="Classes and/or Shapes">
 						The remainder of this section is not agreed upon within the SHACL Working Group.
+						The proposed text was discussed in the WG telecon dated 2016-01-14.
 					</div>
 					<p id="scopeClass-inference">
-						Shapes and classes are unrelated concepts in SHACL.
-						In many scenarios, classes and shapes should be kept separate and given different IRIs.
-						However, some application designers may find it more convenient to couple classes and shapes together and reuse the same IRIs.
-						In the following example, the IRI of the class <code>ex:Person</code> is also used as a shape,
-						and the <code>sh:scopeClass</code> triple instructs a SHACL engine to apply the property constraints
-						of the shape <code>ex:Person</code> to all instances of the namesake class.
+						Shapes and classes are independent concepts in SHACL.
+						In many applications, classes and shapes are separate resources and are therefore given different IRIs.
+						However, some application designers may find it more convenient to tightly couple class and shape information
+						and use the same IRI for both.
+						In the following example, the IRI <code>ex:Person</code> identifies a resource that is 
+						both a class and a shape.
+						The <code>sh:scopeClass</code> triple explicitly instructs a SHACL engine to apply the constraints
+						of the shape <code>ex:Person</code> to all instances of the class <code>ex:Person</code>.
 					</p>
 					<pre class="example" title="Sharing of IRIs between classes and shapes">
 ex:Person
 	a rdfs:Class, sh:Shape ;
-	sh:scopeClass ex:Person ;   # This triple is optional
+	sh:scopeClass ex:Person ;
 	sh:property [
 		...
 	] .
@@ -513,17 +521,31 @@ ex:Person
 ex:Alice
 	rdf:type ex:Person .</pre>
 					<p>
-						As syntactic sugar for the scenario above, SHACL includes a rule that if a class is also a shape (in the shapes graph), then
-						the <code>sh:scopeClass</code> triple pointing at itself can be omitted.
-						This rule is illustrated by the following SPARQL CONSTRUCT query, which may be executed over the shapes graph prior to validation, to produce the implicit <code>sh:scopeClass</code> triples.
+						In the case where a shape is also a class, a SHACL processor MUST include all the instances of the class in the scope
+						of the shape, exactly as if an explicit <code>sh:scopeClass</code> triple was present.
+						An explicit <code>sh:scopeClass</code> triple is not required but MAY be included for clarity.
+					</p>
+					<p>
+						A SHACL processor MUST recognize a resource <code>X</code> as a shape if and only if the shapes graph contains 
+						a triple <code>X rdf:type S</code> where <code>S</code> is either <code>sh:Shape</code> or a direct or indirect 
+						subclass of <code>sh:Shape</code> via <code>rdfs:subClassOf</code>.
+						Similarly, a SHACL processor MUST recognize a resource <code>X</code> as a class if and only if the shapes graph contains
+						a triple <code>X rdf:type C</code> where <code>C</code> is either <code>rdfs:Class</code> or a direct or indirect 
+						subclass of <code>rdfs:Class</code> via <code>rdfs:subClassOf</code>.
+					</p>
+					<p>
+						The following SPARQL query, when run on a shapes graph, illustrates how a SHACL processor MUST recognize all resources 
+						<code>X</code> that are both shapes and classes for the purpose of computing class-based scopes.
+						The use of SPARQL here is for illustration purposes only.
+						A SHACL implementation MAY use any equivalent method.
+						If a SHACL processor recognizes a resource <code>X</code> as both a shape and a class as defined here then all instances of
+						the class <code>X</code> are included in the scope of the shape <code>X</code>.
 					</p>
 				<pre class="algorithm">
-CONSTRUCT {
-	?class sh:scopeClass ?class .
-}
+SELECT ?X
 WHERE {
-	?class rdfs:subClassOf*/rdf:type rdfs:Class .
-	?class rdfs:subClassOf*/rdf:type sh:Shape .
+	?X rdfs:subClassOf*/rdf:type rdfs:Class .
+	?X rdfs:subClassOf*/rdf:type sh:Shape .
 }</pre>
 					<div class="issue" data-number="78" title="Abstract classes">
 						The following paragraph about <code>sh:abstract</code> is not yet approved by the WG.
