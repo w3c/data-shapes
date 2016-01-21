@@ -140,6 +140,15 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-01-19</b>: Describe scoping of shapes that are also classes (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>)</li>
+				<li><b>2016-01-18</b>: Stated starting point for recursion (<a href="http://www.w3.org/2014/data-shapes/track/issues/22">ISSUE-22</a>)</li>
+				<li><b>2016-01-18</b>: Clarified the meaning of filter shapes (<a href="http://www.w3.org/2014/data-shapes/track/issues/49">ISSUE-49</a>)</li>
+				<li><b>2016-01-11</b>: Deleted operations section (<a href="http://www.w3.org/2014/data-shapes/track/issues/108">ISSUE-108</a>)</li>
+				<li><b>2016-01-11</b>: Added derived properties (<a href="http://www.w3.org/2014/data-shapes/track/issues/97">ISSUE-97</a>)</li>
+				<li><b>2016-01-11</b>: Dropped sh:ShapeClass (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>), elaborated on possible sh:scopeClass rule</li>
+				<li><b>2016-01-10</b>: Added sh:order (<a href="http://www.w3.org/2014/data-shapes/track/issues/100">ISSUE-100</a>) and sh:group (<a href="http://www.w3.org/2014/data-shapes/track/issues/114">ISSUE-114</a>)</li>
+				<li><b>2016-01-10</b>: Introduced sh:datatypeIn and sh:classIn, deleted sh:text (<a href="http://www.w3.org/2014/data-shapes/track/issues/104">ISSUE-104</a>)</li>
+				<li><b>2016-01-09</b>: Syntax simplifications: Switched to sh:not, sh:and, sh:or, sh:equals, sh:notEquals, sh:lessThan, sh:lessThanOrEquals (<a href="http://www.w3.org/2014/data-shapes/track/issues/103">ISSUE-103</a>)</li>
 				<li><b>2015-12-02</b>: Fixed <a href="https://github.com/w3c/data-shapes/issues/9">minor mistake in spec - ex:unsinged</a>.</li>
 				<li><b>2015-11-20</b>: Switched from rdfs:label/rdfs:comment at property constraints to sh:name/sh:description (ISSUE-112)</li>
 				<li><b>2015-11-06</b>: Renamed sh:nodeShape to sh:scopeNode, clarified that its triples are expected in shapes graph (ISSUE-61)</li>
@@ -466,6 +475,11 @@ ex:Alice
 						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with an <code>rdfs:Class</code>.
 						The property <code>rdf:type</code> is used to determine which shapes a given node are expected to fulfill.
 						The scope includes all instances of the <code>sh:scopeClass</code> and its subclasses, by following <code>rdfs:subClassOf</code> triples.
+						To determine class membership, the <code>rdf:type</code> and <code>rdfs:subClassOf</code> triples are queried in the <span class="term">data graph</span>. 
+						<div class="issue" data-number="23" title="Use of shapes graph versus data graph for metadata">
+							We should be consistent here. We put shape information in the shapes graph. Class information should also be in the shapes graph, especially for designers who couple shapes and classes. 
+							Both shapes and classes are kinds of metadata so they should be in the same graph.
+						</div>
 						This pattern is illustrated in the following example.
 					</p>
 					<pre class="example" title="Scope based on rdf:type and sh:scopeClass">
@@ -483,25 +497,56 @@ ex:PersonShape
 ex:Alice
 	rdf:type foaf:Person .</pre>
 					<div class="issue" data-number="23" title="Classes and/or Shapes">
-						There is no agreement in the WG on the relationship between sh:Shape and rdfs:Class.
-						In the absence of such an agreement, this document uses sh:Shape in most examples but allows
-						classes to be also shapes, with the class sh:ShapeClass as syntactic sugar.
+						The remainder of this section is not agreed upon within the SHACL Working Group.
+						The proposed text was discussed in the WG telecon dated 2016-01-14.
 					</div>
-					<p>
-						If the class of an instance is also an instance of <code>sh:Shape</code> then the <code>sh:scopeClass</code> triple MAY be omitted and <code>rdf:type</code> MAY directly link a resource with its shapes.
-						In this <span class="term">scope</span>, the IRIs of classes double as shape definitions, i.e. it is possible to directly link constraints to the IRI of a class.
-						As syntactic sugar, the metaclass <code>sh:ShapeClass</code> can be used as a combination of <code>rdfs:Class</code> and <code>sh:Shape</code>.
-						This pattern is illustrated in the following example.
+					<p id="scopeClass-inference">
+						Shapes and classes are independent concepts in SHACL.
+						In many applications, classes and shapes are separate resources and are therefore given different IRIs.
+						However, some application designers may find it more convenient to tightly couple class and shape information
+						and use the same IRI for both.
+						In the following example, the IRI <code>ex:Person</code> identifies a resource that is 
+						both a class and a shape.
+						The <code>sh:scopeClass</code> triple explicitly instructs a SHACL engine to apply the constraints
+						of the shape <code>ex:Person</code> to all instances of the class <code>ex:Person</code>.
 					</p>
-					<pre class="example" title="Scope based on rdf:type only">
-foaf:Person
-	a rdfs:Class , sh:Shape ;    # These two classes can be replaced by sh:ShapeClass
+					<pre class="example" title="Sharing of IRIs between classes and shapes">
+ex:Person
+	a rdfs:Class, sh:Shape ;
+	sh:scopeClass ex:Person ;
 	sh:property [
 		...
 	] .
 
 ex:Alice
-	rdf:type foaf:Person .</pre>
+	rdf:type ex:Person .</pre>
+					<p>
+						In the case where a shape is also a class, a SHACL processor MUST include all the instances of the class in the scope
+						of the shape, exactly as if an explicit <code>sh:scopeClass</code> triple was present.
+						An explicit <code>sh:scopeClass</code> triple is not required but MAY be included for clarity.
+					</p>
+					<p>
+						A SHACL processor MUST recognize a resource <code>X</code> as a shape if and only if the shapes graph contains 
+						a triple <code>X rdf:type S</code> where <code>S</code> is either <code>sh:Shape</code> or a direct or indirect 
+						subclass of <code>sh:Shape</code> via <code>rdfs:subClassOf</code>.
+						Similarly, a SHACL processor MUST recognize a resource <code>X</code> as a class if and only if the shapes graph contains
+						a triple <code>X rdf:type C</code> where <code>C</code> is either <code>rdfs:Class</code> or a direct or indirect 
+						subclass of <code>rdfs:Class</code> via <code>rdfs:subClassOf</code>.
+					</p>
+					<p>
+						The following SPARQL query, when run on a shapes graph, illustrates how a SHACL processor MUST recognize all resources 
+						<code>X</code> that are both shapes and classes for the purpose of computing class-based scopes.
+						The use of SPARQL here is for illustration purposes only.
+						A SHACL implementation MAY use any equivalent method.
+						If a SHACL processor recognizes a resource <code>X</code> as both a shape and a class as defined here then all instances of
+						the class <code>X</code> are included in the scope of the shape <code>X</code>.
+					</p>
+				<pre class="algorithm">
+SELECT ?X
+WHERE {
+	?X rdfs:subClassOf*/rdf:type rdfs:Class .
+	?X rdfs:subClassOf*/rdf:type sh:Shape .
+}</pre>
 					<div class="issue" data-number="78" title="Abstract classes">
 						The following paragraph about <code>sh:abstract</code> is not yet approved by the WG.
 						Options include:
@@ -512,7 +557,7 @@ ex:Alice
 						</ul>
 					</div>
 					<p>
-						Classes with type <code>sh:ShapeClass</code> may be declared to be <span class="term">abstract</span> by
+						Classes may be declared to be <span class="term">abstract</span> by
 						setting their property <code>sh:abstract</code> to <code>true</code>.
 						Abstract classes SHOULD not be instantiated directly, i.e. every instance of an abstract class SHOULD also
 						have an <code>rdf:type</code> triple to a non-abstract subclass of the abstract class.
@@ -665,9 +710,31 @@ ex:FilteredExampleShape
 ex:FilteredShapeValidExampleInstance
 	ex:someProperty ex:someValue ;
 	ex:requiredProperty ex:requiredValue .</pre>
-				<div class="issue" data-number="49" title="Do filters apply to sh:valueShape etc">
-					It is still undecided whether filters shall also be applied for shapes that are directly invoked, e.g. via sh:valueShape.
-				</div>
+				<p>
+					Filters always contribute to the meaning of a shapes.
+					This includes both the computation of scopes and when shapes are directly referenced via <code>sh:valueShape</code>.
+					In general, a filter shape acts like the test condition of an <code>IF-THEN</code> statement.
+					For example, suppose some optional property has a default value.
+					Then a shape might express the constraint that <code>IF</code> the property is present <code>THEN</code> its value must be equal to the default value.
+					In this case the filter would test for the presence of the property and the constraint would test that its value was equal to the
+					default value.
+				</p>
+				<p>
+					When a SHACL processor validates a focus node against a shape, it begins by validating any filters associated with the shape via 
+					<code>sh:filterShape</code>.
+					If any of the filters produce a violation then the processor interprets this as indicating that none of the constraints
+					of the shape are applicable to the focus node and no violations for the shape are reported.
+					Conversely, if none of the filters produce a violation then the processor proceeds to evaluate the constraints and reports any 
+					violations produced by them.
+				</p>
+				<p>
+					Similarly, when a SHACL processor validates a focus node against a constraint, it begins by validating any filters
+					associated with the constraint via <code>sh:filterShape</code>.
+					If any of the filters produce a violation then the processor interprets this as indicating that the constraint
+					is not applicable to the focus node and no violations for the constraint are reported.
+					Conversely, if none of the filters produce a violation then the processor proceeds to evaluate the constraint and reports any 
+					violations produced by it.
+				</p>
 				<p>
 					The following figure illustrates some relationships between core classes of SHACL and RDF Schema.
 					Note that the use of a UML-like notation does not imply that these RDF concepts are classes in an object-oriented sense.
@@ -698,8 +765,7 @@ ex:FilteredShapeValidExampleInstance
 					</li>
 					<li>
 						<code>sh:constraint</code> link a shape with constraints that do not involve just a single dedicated property.
-						SHACL includes <a href="#constraints-property-pair"><span class="term">property pair constraints</span></a> and
-						<a href="#constraints-other">other constraints</a> such as logical operators.
+						SHACL includes several <a href="#constraints-other">built-in constraint types</a> such as logical operators.
 					</li>
 				</ul>
 			</section>
@@ -766,7 +832,6 @@ ex:FilteredShapeValidExampleInstance
 			<p>
 				The result of the <code>sh:hasShape</code> function is either <code>true</code>, <code>false</code> or <span class="term">undefined</span>.
 				The function returns <code>true</code> if the validation of the <code>?focusNode</code> against the given <code>?shape</code> produces no validation results with severity <code>sh:Violation</code>.
-				The validation algorithm of <code>sh:hasShape</code> itself is based the <a href="#operation-validateNodeAgainstShape"><code>validateNodeAgainstShape</code> operation</a>.
 				Note that any validation results produced inside of the <code>sh:hasShape</code> function are temporary, i.e. they are not added to the results graph of the surrounding execution environment.
 				However, some implementations may add those nested validation results as annotations to the surrounding validation results, via <a href="#results-detail"><code>sh:detail</code></a>.
 			</p>
@@ -815,18 +880,6 @@ ex:StandAloneConstraint
 	sh:minCount 1 ;
 	sh:class ex:SomeClass .</pre>
 				<p>
-					Property constraints may have one or more values for <code>sh:name</code> to provide human-readable labels for the property in the scope where it appears.
-					If present, tools SHOULD prefer those locally defined labels over globally defined labels at the <code>rdf:Property</code> itself.
-					For example, if a form displays a resource that is in the scope of a given shape, and the shape defines a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
-					Similarly, property constraints may have an <code>sh:description</code> to provide a description of the property in the given context.
-					Both <code>sh:name</code> and <code>sh:description</code> may have multiple values, but SHOULD only have one value per language tag.
-				</p>
-				<p id="defaultValue">
-					Property constraints may have a single value for <code>sh:defaultValue</code>.
-					The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
-					The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code>, <code>sh:directType</code> or <code>sh:class</code> of the same constraint.
-				</p>
-				<p>
 					The following sections provide details on the properties that may be used with <code>sh:PropertyConstraint</code>.
 					None of these properties can be repeated within the same <code>sh:PropertyConstraint</code>.
 					In order to define multiple constraints using the same property, such as multiple <code>sh:hasValue</code> constraints, the shape must use multiple <code>sh:property</code> definitions.
@@ -848,7 +901,8 @@ ex:StandAloneConstraint
 					</tr>
 					<tr>
 						<td>
-							<a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a> and
+							<a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a>,
+							<a href="#classIn"><code>sh:classIn</code></a> and
 							<a href="#AbstractDirectTypePropertyConstraint"><code>sh:directType</code></a>
 						</td>
 						<td>&#9745;</td>
@@ -857,11 +911,21 @@ ex:StandAloneConstraint
 						<td>Type, based on <code>rdf:type</code></td>
 					</tr>
 					<tr>
-						<td><a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a></td>
+						<td>
+							<a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a> and
+							<a href="#datatypeIn"><code>sh:datatypeIn</code></a>
+						</td>
 						<td>&#9745;</td>
 						<td>&#9745;</td>
 						<td></td>
 						<td>Datatype, for literals</td>
+					</tr>
+					<tr>
+						<td><a href="#equals"><code>sh:equals</code></a></td>
+						<td></td>
+						<td>&#9745;</td>
+						<td></td>
+						<td>Property with equal values</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractHasValuePropertyConstraint"><code>sh:hasValue</code></a></td>
@@ -876,6 +940,20 @@ ex:StandAloneConstraint
 						<td>&#9745;</td>
 						<td>&#9745;</td>
 						<td>Enumeration of allowed values</td>
+					</tr>
+					<tr>
+						<td><a href="#lessThan"><code>sh:lessThan</code></a></td>
+						<td></td>
+						<td>&#9745;</td>
+						<td></td>
+						<td>Must have lesser values than another property</td>
+					</tr>
+					<tr>
+						<td><a href="#lessThan"><code>sh:lessThanOrEquals</code></a></td>
+						<td></td>
+						<td>&#9745;</td>
+						<td></td>
+						<td>Must have lesser or equal values than another property</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractCountPropertyConstraint"><code>sh:minCount</code>, <code>sh:maxCount</code></a></td>
@@ -925,6 +1003,13 @@ ex:StandAloneConstraint
 						<td>&#9745;</td>
 						<td>&#9745;</td>
 						<td>Node kind (IRI, blank node, or literal) of all values</td>
+					</tr>
+					<tr>
+						<td><a href="#notEquals"><code>sh:notEquals</code></a></td>
+						<td></td>
+						<td>&#9745;</td>
+						<td></td>
+						<td>Property with unequal values</td>
 					</tr>
 					<tr>
 						<td><a href="#AbstractPatternPropertyConstraint"><code>sh:pattern</code></a></td>
@@ -1015,6 +1100,71 @@ ex:InstanceOfClassA
 ex:ClassExampleValidResource
 	ex:someProperty ex:InstanceOfClassA .</pre>
 				</section>
+				<section id="classIn">
+					<h4>sh:classIn</h4>
+					<p>
+						The property <code>sh:classIn</code> can be used to verify that each value of the given property is an instance of a type from a given list. 
+						The values of <code>sh:classIn</code> must be lists of classes (instances of <code>rdfs:Class</code>).
+						<code>sh:classIn</code> is a generalization of <code>sh:class</code> allowing users to state that the values must have one out of several types.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:classIn</code></td>
+							<td><code>rdf:List</code> (members: <code>rdfs:Class</code>)</td>
+							<td>List of types of all values</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
+							A non-literal matches a type if it has an <code>rdf:type</code> value that is one of the types from the list or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
+							Each type from the list is tested using the same logic as <code>sh:class</code>.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (isLiteral(?value) || NOT EXISTS {
+			GRAPH $shapesGraph {
+				$classIn (rdf:rest*)/rdf:first ?class .
+			}
+			FILTER (?class = rdfs:Resource ||
+				(?class = rdf:List &amp;&amp; EXISTS { ?value rdf:first ?any }) ||
+				EXISTS { ?value rdf:type/rdfs:subClassOf* ?class })
+		})
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:classIn constraint">
+ex:ClassInExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:classIn ( ex:ClassA ex:ClassB ) ;
+	] .
+	
+ex:InstanceOfClassA
+	a ex:ClassA .
+	
+ex:InstanceOfClassB
+	a ex:ClassB .
+
+ex:ClassExampleValidResource
+	ex:someProperty ex:InstanceOfClassA ;
+	ex:someProperty ex:InstanceOfClassB .</pre>
+				</section>
 				<section id="AbstractDatatypePropertyConstraint">
 					<h4>sh:datatype</h4>
 					<p>
@@ -1039,8 +1189,7 @@ ex:ClassExampleValidResource
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
 							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
-							A literal matches a datatype if the literal's datatype has the same IRI,
-							or if its datatype is <code>rdf:langLiteral</code> or <code>xsd:string</code> and the expected datatype is <code>sh:text</code>.
+							A literal matches a datatype if the literal's datatype has the same IRI.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
@@ -1056,7 +1205,7 @@ WHERE {
 			FILTER isLiteral(?value) .
 		} .
 		BIND (datatype(?value) AS ?valueDatatype) .
-		FILTER ((?valueDatatype = $datatype) || ($datatype = sh:text &amp;&amp; ?valueDatatype IN (rdf:langString, xsd:string))) .
+		FILTER (?valueDatatype = $datatype) .
 	}
 }</pre>
 					</div>
@@ -1065,14 +1214,75 @@ ex:DatatypeExampleShape
 	a sh:Shape ;
 	sh:property [
 		sh:predicate ex:someProperty ;
-		sh:datatype sh:text ;
+		sh:datatype xsd:string ;
 	] .
 
 ex:DatatypeShapeExampleValidResource
-	ex:someProperty "Some value" ;
-	ex:someProperty "Value with language tag"@en .
+	ex:someProperty "Some value" .
 
 ex:DatatypeShapeExampleInvalidResource
+	ex:someProperty "Value with language tag"@en ;
+	ex:someProperty 42 .</pre>
+				</section>
+				<section id="datatypeIn">
+					<h4>sh:datatypeIn</h4>
+					<p>
+						The property <code>sh:datatypeIn</code> can be used to restrict the datatype of all values of the given property.
+						The values of <code>sh:datatypeIn</code> must be lists of instances of the class <code>rdfs:Datatype</code>, such as <code>xsd:string</code>.
+						<code>sh:datatypeIn</code> is a generalization of <code>sh:datatype</code> allowing users to state that the values must have one out of several datatypes.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:datatype</code></td>
+							<td><code>rdf:List</code> (members: <code>rdfs:Datatype</code>)</td>
+							<td>Allowed datatypes of all values (e.g., <code>xsd:integer</code>)</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
+							A literal matches if the literal's datatype is member of the provided datatypes list.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER (!isLiteral(?value) || NOT EXISTS {
+			GRAPH $shapesGraph {
+				$datatypeIn (rdf:rest*)/rdf:first ?datatype .
+			} 
+			BIND (datatype(?value) AS ?valueDatatype) .
+			FILTER (?valueDatatype = $datatype) .
+		})
+	}
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:datatypeIn constraint">
+ex:DatatypeInExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:datatypeIn ( xsd:string rdf:langString ) ;
+	] .
+
+ex:DatatypeInShapeExampleValidResource
+	ex:someProperty "Value with language tag"@en ;
+	ex:someProperty "Some string value" .
+
+ex:DatatypeInShapeExampleInvalidResource
 	ex:someProperty 42 .</pre>
 				</section>
 				<section id="AbstractDirectTypePropertyConstraint">
@@ -1115,6 +1325,57 @@ WHERE {
 	}
 }</pre>
 					</div>
+				</section>
+				<section id="equals">
+					<h3>sh:equals</h3>
+					<p>
+						<code>sh:equals</code> constrains a pair of properties so that the value sets of both properties at a given focus node must be equal.
+					</p>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced
+							for each value of <code>sh:predicate</code> that does not exist as value of <code>sh:equals</code> and
+							for each value of <code>sh:equals</code> that does not exist as value of <code>sh:predicate</code>
+							at the given <span class="term">focus node</span>.
+							The produced <span class="term">validation result</span> must have the corresponding values of the existing triple as <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object
+WHERE {
+	{
+		$this $predicate ?object .
+		FILTER NOT EXISTS {
+			$this $equals ?object .
+		}
+	}
+	UNION
+	{
+		$this $equals ?object .
+		FILTER NOT EXISTS {
+			$this $predicate ?object .
+		}
+	}
+}</pre>
+					</div>
+					<p>
+						The following example illustrates the use of <code>sh:equals</code> in a shape to verify
+						that certain nodes must have the same value sets for <code>ex:firstName</code> and <code>ex:givenName</code>.
+					</p>
+					<pre class="example" title="Shape with an sh:equals constraint">
+ex:EqualExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:firstName ;
+		sh:equals ex:givenName ;
+	] .
+
+ex:ValidInstance1
+	ex:firstName "John" ;
+	ex:givenName "John" .</pre>
 				</section>
 				<section id="AbstractHasValuePropertyConstraint">
 					<h4>sh:hasValue</h4>
@@ -1219,6 +1480,71 @@ ex:AllowedValuesExampleShape
 
 ex:InExampleValidResource
 	ex:someProperty ex:Value2 .</pre>
+				</section>
+				<section id="lessThan">
+					<h3>sh:lessThan</h3>
+					<p>
+						<code>sh:lessThan</code> constrains a pair of properties so that the values of the first property must be smaller than the values of the second property at a given focus node.
+					</p>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate</code>
+							and <code>sh:lessThan</code> at the given <span class="term">focus node</span>, where
+							the first value is not less than the second value, based on SPARQL's <code>&lt;</code> operator.
+							A validation result must also be produced if the two values cannot be compared.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value of <code>sh:predicate</code> as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object
+WHERE {
+	$this $predicate ?object .
+	$this $lessThan ?object2 .
+	FILTER (!(?object &lt; ?object2)) .
+}</pre>
+					</div>
+					<p>
+						The following example illustrates the use of <code>sh:lessThan</code> in a shape to verify
+						that all values of <code>ex:startDate</code> must "before" the values of <code>ex:endDate</code>.
+					</p>
+					<pre class="example" title="Shape with an sh:lessThan constraint">
+ex:LessThanExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:startDate ;
+		sh:lessThan ex:endDate ;
+	] .</pre>
+				</section>
+				<section id="LessThanOrEqualConstraint">
+					<h3>sh:lessThanOrEquals</h3>
+					<p>
+						<code>sh:lessThanOrEquals</code> constrains a pair of properties so that the values of the first property must be smaller than or equal to the values of the second property at a given focus node.
+					</p>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate</code>
+							and <code>sh:lessThanOrEquals</code> at the given <span class="term">focus node</span>, where
+							the first value is not less than or equal to the second value, based on SPARQL's <code>&lt;=</code> operator.
+							A validation result must also be produced if the two values cannot be compared.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value of the first predicate as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object
+WHERE {
+	$this $predicate ?object .
+	$this $lessThanOrEquals ?object2 .
+	FILTER (!(?object &lt;= ?object2)) .
+}</pre>
+					</div>
 				</section>
 				<section id="AbstractCountPropertyConstraint">
 					<h4>sh:minCount, sh:maxCount</h4>
@@ -1530,6 +1856,49 @@ ex:NodeKindShapeExampleInvalidResource
 	ex:someProperty ex:SomeIRI ;
 	ex:someProperty "A literal" .</pre>
 				</section>
+				<section id="notEquals">
+					<h3>sh:notEquals</h3>
+					<p>
+						<code>sh:notEquals</code> constrains a pair of properties so that the value sets of both properties at a given focus node must not share any values.
+					</p>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each value of <code>sh:predicate</code>
+							that also exists as value of <code>sh:notEquals</code> at the given <span class="term">focus node</span>.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object
+WHERE {
+	$this $predicate ?object .
+	$this $notEquals ?object .
+}</pre>
+					</div>
+					<p>
+						The following example illustrates the use of <code>sh:notEquals</code> in a shape to verify
+						that certain nodes must not share any values for <code>ex:prefLabel</code> and <code>ex:altLabel</code>.
+					</p>
+					<pre class="example" title="Shape with an sh:notEquals constraint">
+ex:NotEqualsExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:prefLabel ;
+		sh:notEquals ex:altLabel ;
+	] .
+
+ex:ValidInstance1
+	ex:prefLabel "USA" ;
+	ex:altLabel "United States" .
+
+ex:InvalidInstance1
+	ex:prefLabel "Germany" ;
+	ex:altLabel "Germany" .</pre>
+				</section>
 				<section id="AbstractPatternPropertyConstraint">
 					<h4>sh:pattern</h4>
 					<p>
@@ -1690,8 +2059,16 @@ WHERE {
 	FILTER (?failure || !?hasShape) .
 }</pre>
 					</div>
-					<p class="issue" data-number="22" title="Recursion of sh:valueShape">
-						It is not yet decided how to handle recursive shape definitions in sh:valueShape and similar constructs.
+					<p>
+						A shape may refer to itself directly or indirectly via <code>sh:valueShape</code>, <code>sh:filterShape</code>, etc.
+						Such a shape is said to be <em>recursive</em>.
+						The meaning of non-recursive shapes is always well-founded.
+						In contrast, the meaning of a recursive shape may not be well-founded.
+						As a starting point, the SHACL specification only defines the meaning of non-recursive shapes.
+						However, there are use-cases where recursion is valuable, either for its inherent expressive power or because it makes the
+						intension of shapes clearer.
+						The Working Group will therefore explore conditions under which recursive shapes can be assigned a well-defined meaning and will
+						relax the restrictions on recursion accordingly. 
 					</p>
 					<p>
 						In the following example, all values of the property <code>ex:someProperty</code> are supposed to validate with no results for the shape
@@ -1849,6 +2226,124 @@ ex:John
 ex:Jane
 	ex:gender ex:female .</pre>
 				</section>
+				
+				<section id="nonValidation">
+					<h4>Non-Validating Constraint Characteristics</h4>
+					<p>
+						While the previous sections introduced properties that represent validation conditions,
+						this section covers properties that are ignored by SHACL validation engines.
+						The use of these properties is entirely optional and not subject to formal interpretation contracts.
+						They may be used for purposes such as form building, predictable printing of RDF files, etc.
+					</p>
+					<p id="name">
+						Property constraints may have one or more values for <code>sh:name</code> to provide human-readable labels for the property in the scope where it appears.
+						If present, tools SHOULD prefer those locally defined labels over globally defined labels at the <code>rdf:Property</code> itself.
+						For example, if a form displays a resource that is in the scope of a given shape, and the shape defines a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
+						Similarly, property constraints may have an <code>sh:description</code> to provide a description of the property in the given context.
+						Both <code>sh:name</code> and <code>sh:description</code> may have multiple values, but SHOULD only have one value per language tag.
+					</p>
+					<p id="order">
+						Property constraints may have one value for the property <code>sh:order</code> to indicate the relative order of the property constraint for purposes such as form building.
+						The values of <code>sh:order</code> must be decimals.
+						<code>sh:order</code> is not used for validation purposes.
+						If present, the recommended use of <code>sh:order</code> is to sort the property constraints in an ascending order, for example so that
+						properties with smaller order are placed above (or to the left) of properties with larger order.
+					</p>
+					<p id="group">
+						Property constraints may point at an instance of the class <code>sh:PropertyGroup</code> to indicate that
+						the constraint belongs to a group of related property constraints.
+						Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
+						Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
+					</p>
+					<p id="defaultValue">
+						Property constraints may have a single value for <code>sh:defaultValue</code>.
+						The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
+						The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code>, <code>sh:directType</code> or <code>sh:class</code> of the same constraint.
+					</p>
+					<p>
+						The following example illustrates the use of these various features together.
+					</p>
+					<pre class="example" title="Shape with non-validating property characteristics">
+ex:PersonFormShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:firstName ;
+		sh:name "first name" ;
+		sh:description "The person's given name(s)" ;
+		sh:order 0 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:lastName ;
+		sh:name "last name" ;
+		sh:description "The person's last name" ;
+		sh:order 1 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:streetAddress ;
+		sh:name "street address" ;
+		sh:description "The street address including number" ;
+		sh:order 11 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:locality ;
+		sh:name "locality" ;
+		sh:description "The suburb, city or town of the address" ;
+		sh:order 12 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:postalCode ;
+		sh:name "postal code" ;
+		sh:name "zip code"@en-US ;
+		sh:description "The postal code of the locality" ;
+		sh:order 13 ;
+		sh:group ex:AddressGroup ;
+	] .
+	
+ex:NameGroup
+	a sh:PropertyGroup ;
+	sh:order 0 ;
+	rdfs:label "Name" .
+
+ex:AddressGroup
+	a sh:PropertyGroup ;
+	sh:order 1 ;
+	rdfs:label "Address" .</pre>
+					<p>
+						A form building application may use the information above to display instances as follows:
+					</p>
+					<div style="background: #f3f3f3; padding: 8px">
+						<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
+						<table>
+							<tr>
+								<td style="text-align: right; width: 160px"><b>first name:</b></td>
+								<td>John</td>
+							</tr>
+							<tr>
+								<td style="text-align: right"><b>last name:</b></td>
+								<td>Doe</td>
+							</tr>
+						</table>
+						<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
+						<table>
+							<tr>
+								<td style="text-align: right; width: 160px"><b>street address:</b></td>
+								<td>123 Silverado Ave</td>
+							</tr>
+							<tr>
+								<td style="text-align: right"><b>locality:</b></td>
+								<td>Cupertino</td>
+							</tr>
+							<tr>
+								<td style="text-align: right"><b>zip code:</b></td>
+								<td>54321</td>
+							</tr>
+						</table>
+					</div>
+				</section>
 			</section>
 			
 			<section id="constraints-inverse-property">
@@ -1868,198 +2363,6 @@ ex:InversePropertyConstraintExampleShape
 	] .</pre>
 			</section>
 			
-			<section id="constraints-property-pair">
-				<h3>Property Pair Constraints</h3>
-				<p>
-					SHACL includes a collection of constraint types that are about a given pair of properties at the same focus node.
-					All constraint types in this section take the following arguments:
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Property</th>
-						<th>Value Type</th>
-						<th>Summary</th>
-					</tr>
-					<tr>
-						<td><code>sh:predicate1</code></td>
-						<td><code>rdf:Property</code></td>
-						<td>The first property being constrained.</td>
-					</tr>
-					<tr>
-						<td><code>sh:predicate2</code></td>
-						<td><code>rdf:Property</code></td>
-						<td>The second property being constrained.</td>
-					</tr>
-				</table>
-				<p>
-					The values of <code>sh:predicate1</code> and <code>sh:predicate2</code> must be distinct.
-				</p>
-				<section id="EqualConstraint">
-					<h3>sh:EqualConstraint</h3>
-					<p>
-						The <code>sh:EqualConstraint</code> constrains a pair of properties so that the value sets of both properties at a given focus node must be equal.
-					</p>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced
-							for each value of <code>sh:predicate1</code> that does not exist as value of <code>sh:predicate2</code> and
-							for each value of <code>sh:predicate2</code> that does not exist as value of <code>sh:predicate1</code>
-							at the given <span class="term">focus node</span>.
-							The produced <span class="term">validation result</span> must have the corresponding values of the existing triple as <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) ?predicate ?object
-WHERE {
-	{
-		$this $predicate1 ?object .
-		FILTER NOT EXISTS {
-			$this $predicate2 ?object .
-		}
-		BIND ($predicate1 AS ?predicate) .
-	}
-	UNION
-	{
-		$this $predicate2 ?object .
-		FILTER NOT EXISTS {
-			$this $predicate1 ?object .
-		}
-		BIND ($predicate2 AS ?predicate) .
-	}
-}</pre>
-					</div>
-					<p>
-						The following example illustrates the use of <code>sh:EqualConstraint</code> in a shape to verify
-						that certain nodes must have the same value sets for <code>ex:firstName</code> and <code>ex:givenName</code>.
-					</p>
-					<pre class="example" title="Shape with an sh:EqualsConstraint">
-ex:EqualExampleShape
-	a sh:Shape ;
-	sh:constraint [
-		a sh:EqualsConstraint ;
-		sh:predicate1 ex:firstName ;
-		sh:predicate2 ex:givenName ;
-	] .
-
-ex:ValidInstance1
-	ex:firstName "John" ;
-	ex:givenName "John" .</pre>
-				</section>
-				<section id="NotEqualConstraint">
-					<h3>sh:NotEqualConstraint</h3>
-					<p>
-						The <code>sh:NotEqualConstraint</code> constrains a pair of properties so that the value sets of both properties at a given focus node must not share any values.
-					</p>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each value of <code>sh:predicate1</code>
-							that also exists as value of <code>sh:predicate2</code> at the given <span class="term">focus node</span>.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate1</code> as its <code>sh:predicate</code> and the value as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) ($predicate1 AS ?predicate) ?object
-WHERE {
-	$this $predicate1 ?object .
-	$this $predicate2 ?object .
-}</pre>
-					</div>
-					<p>
-						The following example illustrates the use of <code>sh:NotEqualConstraint</code> in a shape to verify
-						that certain nodes must not share any values for <code>ex:prefLabel</code> and <code>ex:altLabel</code>.
-					</p>
-					<pre class="example" title="Shape with an sh:NotEqualConstraint">
-ex:NotEqualExampleShape
-	a sh:Shape ;
-	sh:constraint [
-		a sh:NotEqualsConstraint ;
-		sh:predicate1 ex:prefLabel ;
-		sh:predicate2 ex:altLabel ;
-	] .
-
-ex:ValidInstance1
-	ex:prefLabel "USA" ;
-	ex:altLabel "United States" .
-
-ex:InvalidInstance1
-	ex:prefLabel "Germany" ;
-	ex:altLabel "Germany" .</pre>
-				</section>
-				<section id="LessThanConstraint">
-					<h3>sh:LessThanConstraint</h3>
-					<p>
-						The <code>sh:LessThanConstraint</code> constrains a pair of properties so that the values of the first property must be smaller than the values of the second property at a given focus node.
-					</p>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate1</code>
-							and <code>sh:predicate2</code> at the given <span class="term">focus node</span>, where
-							the first value is not less than the second value, based on SPARQL's <code>&lt;</code> operator.
-							A validation result must also be produced if the two values cannot be compared.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate1</code> as its <code>sh:predicate</code> and the value of the first predicate as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) ($predicate1 AS ?predicate) ?object
-WHERE {
-	$this $predicate1 ?object .
-	$this $predicate2 ?object2 .
-	FILTER (!(?object &lt; ?object2)) .
-}</pre>
-					</div>
-					<p>
-						The following example illustrates the use of <code>sh:LessThanConstraint</code> in a shape to verify
-						that all values of <code>ex:startDate</code> must "before" the values of <code>ex:endDate</code>.
-					</p>
-					<pre class="example" title="Shape with an sh:LessThanConstraint">
-ex:LessThanExampleShape
-	a sh:Shape ;
-	sh:constraint [
-		a sh:LessThanConstraint ;
-		sh:predicate1 ex:startDate ;
-		sh:predicate2 ex:endDate ;
-	] .</pre>
-				</section>
-				<section id="LessThanOrEqualConstraint">
-					<h3>sh:LessThanOrEqualConstraint</h3>
-					<p>
-						The <code>sh:LessThanOrEqualConstraint</code> constrains a pair of properties so that the values of the first property must be smaller than or equal to the values of the second property at a given focus node.
-					</p>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate1</code>
-							and <code>sh:predicate2</code> at the given <span class="term">focus node</span>, where
-							the first value is not less than or equal to the second value, based on SPARQL's <code>&lt;=</code> operator.
-							A validation result must also be produced if the two values cannot be compared.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate1</code> as its <code>sh:predicate</code> and the value of the first predicate as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) ($predicate1 AS ?predicate) ?object
-WHERE {
-	$this $predicate1 ?object .
-	$this $predicate2 ?object2 .
-	FILTER (!(?object &lt;= ?object2)) .
-}</pre>
-					</div>
-				</section>
-			</section>
-			
 			<section id="constraints-other">
 				<h2>Other Core Constraints</h2>
 				<p>
@@ -2067,7 +2370,7 @@ WHERE {
 					this section introduces other constraint types that can be used with shapes.
 				</p>
 				<section id="not">
-					<h3>sh:NotConstraint</h3>
+					<h3>sh:not</h3>
 					<p>
 						SHACL supports a high-level negation constraint that can be used to verify that the <span class="term">focus node</span> does not have a given shape.
 						This is comparable to a logical "not" operator.
@@ -2079,7 +2382,7 @@ WHERE {
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:shape</code></td>
+							<td><code>sh:not</code></td>
 							<td><code>sh:Shape</code></td>
 							<td>The shape to negate</td>
 						</tr>
@@ -2087,7 +2390,7 @@ WHERE {
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces no validation results with severity <code>sh:Violation</code> for the shape given via <code>sh:shape</code>.
+							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces no validation results with severity <code>sh:Violation</code> for the shape given via <code>sh:not</code>.
 							A <span class="term">failure</span> must be reported if the validation of the shape produces a failure.
 						</div>
 					</div>
@@ -2096,21 +2399,20 @@ WHERE {
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
-	BIND (sh:hasShape($this, $shape, $shapesGraph, true) AS ?hasShape) .
+	BIND (sh:hasShape($this, $not, $shapesGraph, true) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || ?hasShape) .
 }</pre>
 					</div>
 					<p>
-						The following example illustrates the use of <code>sh:NotConstraint</code> in a shape to verify
+						The following example illustrates the use of <code>sh:not</code> in a shape to verify
 						that certain nodes cannot have any value of <code>ex:property</code>.
 					</p>
 					<pre class="example" title="Shape with a negation">
 ex:NotExampleShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:NotConstraint ;
-		sh:shape [
+		sh:not [
 			a sh:Shape ;
 			sh:property [
 				sh:predicate ex:property ;
@@ -2123,7 +2425,7 @@ ex:InvalidInstance1
   	ex:property "Some value" .</pre>
 				</section>
 				<section id="and">
-					<h3>sh:AndConstraint</h3>
+					<h3>sh:and</h3>
 					<p>
 						SHACL supports a high-level syntax for conjunctive constraints that can be used to test whether the <span class="term">focus node</span> has all out of several shapes.
 						This is comparable to a logical "and" operator.
@@ -2135,7 +2437,7 @@ ex:InvalidInstance1
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:shapes</code></td>
+							<td><code>sh:and</code></td>
 							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
 							<td>List of shapes to validate the focus node against</td>
 						</tr>
@@ -2144,7 +2446,7 @@ ex:InvalidInstance1
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the following condition is false:
-							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:shapes</code> list produces a validation result with severity <code>sh:Violation</code> for at least one shape.
+							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:and</code> list produces a validation result with severity <code>sh:Violation</code> for at least one shape.
 							A <span class="term">failure</span> must be produced if the validation of one of the shapes fails.
 						</div>
 					</div>
@@ -2157,7 +2459,7 @@ WHERE {
 		SELECT (SUM(?s) AS ?count)
 		WHERE {
 			GRAPH $shapesGraph {
-				$shapes rdf:rest*/rdf:first ?shape .
+				$and rdf:rest*/rdf:first ?shape .
 			}
 			BIND (sh:hasShape($this, ?shape, $shapesGraph, true) AS ?hasShape) .
 			BIND (IF(bound(?hasShape), IF(!?hasShape, 1, 0), 'error') AS ?s) .
@@ -2168,11 +2470,15 @@ WHERE {
 }</pre>
 					</div>
 					<p>
-						The following example illustrates the use of <code>sh:AndConstraint</code> in a shape to verify
+						Note that although <code>sh:and</code> has an <code>rdf:List</code> of shapes as its value,
+						the order of those shapes does not impact the validation results.
+					</p>
+					<p>
+						The following example illustrates the use of <code>sh:and</code> in a shape to verify
 						that certain nodes have exactly one value of <code>ex:property</code>.
 						This is achieved via the conjunction of a separate named shape (<code>ex:SuperShape</code>) which defines
 						the minimum count, and a blank node shape that further constrains the maximum count.
-						As shown here, <code>sh:AndConstraint</code> can be used to implement a specialization mechanism between shapes. 
+						As shown here, <code>sh:and</code> can be used to implement a specialization mechanism between shapes. 
 					</p>
 					<pre class="example" title="Shape with a conjunction">
 ex:SuperShape
@@ -2185,8 +2491,7 @@ ex:SuperShape
 ex:ExampleAndShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:AndConstraint ;
-		sh:shapes (
+		sh:and (
 			ex:SuperShape
 			[
 				sh:property [
@@ -2207,7 +2512,7 @@ ex:InvalidInstance2
 	ex:property "Two" .</pre>
 				</section>
 				<section id="or">
-					<h3>sh:OrConstraint</h3>
+					<h3>sh:or</h3>
 					<p>
 						SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether the <span class="term">focus node</span> has at least one out of several shapes.
 						This is comparable to a logical "or" operator.
@@ -2219,7 +2524,7 @@ ex:InvalidInstance2
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:shapes</code></td>
+							<td><code>sh:or</code></td>
 							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
 							<td>List of shapes to validate the focus node against</td>
 						</tr>
@@ -2228,7 +2533,7 @@ ex:InvalidInstance2
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced if the following condition is false:
-							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:shapes</code> list produces no validation results with severity <code>sh:Violation</code> for at least one shape.
+							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:or</code> list produces no validation results with severity <code>sh:Violation</code> for at least one shape.
 							A <span class="term">failure</span> must be produced if the validation of one of the shapes fails.
 						</div>
 					</div>
@@ -2241,7 +2546,7 @@ WHERE {
 		SELECT (SUM(?s) AS ?count)
 		WHERE {
 			GRAPH $shapesGraph {
-				$shapes rdf:rest*/rdf:first ?shape .
+				$or rdf:rest*/rdf:first ?shape .
 			}
 			BIND (sh:hasShape($this, ?shape, $shapesGraph, true) AS ?hasShape) .
 			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
@@ -2252,7 +2557,11 @@ WHERE {
 }</pre>
 					</div>
 					<p>
-						The following example illustrates the use of <code>sh:OrConstraint</code> in a shape to verify
+						Note that although <code>sh:or</code> has an <code>rdf:List</code> of shapes as its value,
+						the order of those shapes does not impact the validation results.
+					</p>
+					<p>
+						The following example illustrates the use of <code>sh:or</code> in a shape to verify
 						that certain nodes have at least one value of <code>ex:exampleProperty1</code>
 						or at least one value of <code>ex:exampleProperty2</code>.
 					</p>
@@ -2260,8 +2569,7 @@ WHERE {
 ex:OrConstraintExampleShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:OrConstraint ;
-		sh:shapes (
+		sh:or (
 			[
 				sh:property [
 					sh:predicate ex:exampleProperty1 ;
@@ -3100,7 +3408,7 @@ WHERE {
 				<p>
 					The SELECT queries must also be executable when converted to an ASK query and with a pre-bound value for <code>?this</code>.
 					The set of bindings for <code>?this</code> that return <code>true</code> for such ASK queries must be identical to the set produced by the SELECT query.
-					This constraint makes sure that validation engines can validate whether a given shape applies to a given focus node as part of the <a href="#operation-validateNode">validateNode</a> operation.
+					This constraint makes sure that validation engines can validate whether a given shape applies to a given focus node.
 				</p>
 				<p>
 					The following example illustrates a well-formed SPARQL-based scope that produces all persons born in the USA:
@@ -3194,8 +3502,8 @@ WHERE {
 				</p>
 				<ol>
 					<li>The index of the built-in argument predicates <code>sh:arg1</code>, <code>sh:arg2</code> etc is their numeric name part minus 1, e.g. <code>sh:arg1</code> has index 0.</li>
-					<li>The index of other argument predicates is the value of the property <code>sh:index</code> at the surrounding <code>sh:Argument</code>.</li>
-					<li>Arguments that are neither of the form <code>sh:argX</code> nor have an <code>sh:index</code> are place at the end, whereby arguments that have <code>sh:optional</code> set to <code>true</code> get a higher index than non-optional arguments.</li>
+					<li>The index of other argument predicates is the value of the property <code>sh:order</code> at the surrounding <code>sh:Argument</code>.</li>
+					<li>Arguments that are neither of the form <code>sh:argX</code> nor have an <code>sh:order</code> are place at the end, whereby arguments that have <code>sh:optional</code> set to <code>true</code> get a higher index than non-optional arguments.</li>
 				</ol>
 				<p>
 					Each <code>sh:Argument</code> may have its property <code>sh:optional</code> set to <code>true</code>
@@ -3223,7 +3531,7 @@ WHERE {
 					It is a common design pattern for functions to take a value as input and validate whether that value fulfills certain conditions or not.
 					In support of this pattern, SHACL supports <span class="term">validation functions</span>, which are instances of <code>sh:Function</code> that are also subclasses of <code>sh:ValidationFunctions</code>.
 					From that superclass, these functions "inherit" the (first) argument <code>sh:value</code>.
-					Validation functions may define additional arguments with <code>sh:index</code> values larger than 1.
+					Validation functions may define additional arguments with <code>sh:order</code> values larger than 1.
 					The following example illustrates a validation function for the running example of the <a href="#template-validation-functions">section on constraint templates</a>.
 				</p>
 				<pre class="example" title="A validation function">
@@ -3233,7 +3541,7 @@ ex:hasLanguage
 	sh:argument [
 		sh:predicate ex:lang ;
 		sh:datatype xsd:string ;
-		sh:index 1 ;
+		sh:order 1 ;
 		sh:name "language" ;
 		sh:description "The language to match against, e.g. \"de\"." ;
 	] ;
@@ -3258,6 +3566,12 @@ ex:hasLanguage
 					Since all other bindings will be ignored, such SELECT queries SHOULD only return a single result variable and at most one row.
 				</p>
 				<p>
+					<em>Recursive use of functions is undefined:</em>
+					If a SPARQL-based function contains calls to other functions so that the same function with the same combination of arguments would be visited twice
+					then the result of the function call is undefined.
+					An implementation may either return no result (unbound) or terminate the surrounding SPARQL query with an error.
+				</p>
+				<p>
 					Some validation engines may ignore the specified <code>sh:sparql</code> query and rely on an alternative (possibly native) implementation instead,
 					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
 					This can be used to optimize frequently needed functions.
@@ -3265,284 +3579,75 @@ ex:hasLanguage
 				</p>
 			</section>
 		</section>
-
-		<section id="operations">
-			<h2>Supported Operations</h2>
-			<div class="issue" title="Specification of Operations">
-				It is undecided to what extent this (operations) section is needed, and to what level of detail it should be specified.
-				For now we present some high-level functions, but more details would be useful.
-			</div>
+		
+		<section id="derivedValues">
+			<h2>Derived Values Constraints</h2>
 			<p>
-				This section enumerates the basic operations that complete SHACL validation engines SHOULD support.
-				The specification does not prescribe how these operations are exposed to the user of a SHACL system.
-				The functions are written in Java, assuming the presence of the following basic interfaces:
+				It is a common scenario that certain property values are derived from other values.
+				For example, the area of a rectangle must be the product of width and height, or an uncle of a person is a male sibling of a parent.
+				SHACL includes a property <code>sh:derivedValues</code> that can be used with property and inverse property constraints, to define such constraints.
+				The values of <code>sh:derivedValues</code> must be instances of the class <code>sh:DerivedValuesTemplate</code>, although the <code>rdf:type</code> triple of those instances is optional.
+				Each <code>sh:DerivedValuesTemplate</code> must include execution instructions such as a SPARQL query or a JavaScript snippet, that produce the values that the property is expected to have.
+				This is illustrated in the following example.
+			</p>
+			<pre class="example" title="A property definition with derived values">
+ex:RectangleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:width ;
+		sh:datatype xsd:integer ;
+	] ;
+	sh:property [
+		sh:predicate ex:height ;
+		sh:datatype xsd:integer ;
+	] ;
+	sh:property [
+		sh:predicate ex:area ;
+		sh:datatype xsd:integer ;
+		sh:derivedValues [
+			sh:sparql """
+				$this ex:width ?width .
+				$this ex:height ?height .
+				BIND (?width * ?height AS ?value) .
+				""" ;
+		] ;
+	] .</pre>
+			<p>
+				For SHACL processors supporting SPARQL, a <code>sh:DerivedValuesTemplate</code> can have a value of <code>sh:sparql</code>.
+				The values of <code>sh:sparql</code> must be SPARQL fragments that can be turned into a valid SPARQL query by surrounding it
+				with the prefix declarations from the shapes graph and <code>SELECT ?value WHERE { ... }</code>.
+				These fragments can access the current focus node via the variable <code>$this</code> and must produce bindings for the variable <code>?value</code> for all derived values.
+				In the example above, all values of the property <code>ex:area</code> must be all products of <code>ex:width</code> and <code>ex:height</code>.
+			</p>
+			<div class="def def-text">
+				<div class="def-header">TEXTUAL DEFINITION</div>
+				<div class="def-text-body">
+					Let S be the set of nodes produces by the derived values template for the <span class="term">focus node</span>.
+					A <span class="term">validation result</span> must be produced for every value of the given property <code>sh:predicate</code>
+					that is not in S, and for every member of S that is not a property value.
+					The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+					the <code>sh:predicate</code> as its <code>sh:predicate</code>, and the missing or extra value as its <code>sh:object</code>.
+					(The same definition applies in the inverse direction if <code>sh:derivedValues</code> is used in an inverse property constraint.)
+				</div>
+			</div>
+		</section>
+
+		<section id="defaultValueType">
+			<h2>Validation of shapes graphs and the sh:defaultValueType property</h2>
+			<p>
+				The SHACL system vocabulary itself is using shapes, allowing SHACL constraint validation to be executed on shapes graphs, e.g. to validate the syntax of shape definitions.
+				However, some system properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:argument</code> may have untyped blank nodes or IRIs as their values.
+				If, for example, a value of <code>sh:property</code> is a blank node that does not have any <code>rdf:type</code>, then the assumption is that the blank node has type <code>sh:PropertyConstraint</code>.
+				Unless these implicit triples are present in the data graph, constraint validation will not apply the constraints defined for <code>sh:PropertyConstraint</code>.
+			</p>
+			<p>
+				If a validation engine intends to validate the syntax of a SHACL shapes graph itself, it should (temporarily) add the missing <code>rdf:type</code> triples.
+				The SHACL system vocabulary includes some helper triples using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
+				For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
+				These triples can be queried by a pre-processor to construct the missing type triples for the affected nodes.
+				SHACL includes a template <code>sh:DefaultValueTypeRule</code> which encapsulates a SPARQL query that can be used for that purpose:
 			</p>
 			<pre class="algorithm">
-// Represents RDF nodes: literals, IRIs or blank nodes.
-interface Node {
-}
-
-// Represents an RDF triple
-interface Triple {
-	Node getSubject();
-	Node getPredicate();
-	Node getObject();
-}
-
-// Represents an RDF Graph
-interface Graph {
-	// Find operation - each argument may be null to indicate a wildcard
-	Set&lt;Triple&gt; find(Node subject, Node predicate, Node object);
-}
-
-interface Dataset {
-	Graph getDefaultGraph();
-	Graph getNamedGraph(String iri);
-}</pre>
-			<p>
-				The code snippets also assume access to interfaces defining constants for the various namespaces used in the code.
-				For example, the value of <code>SH.Shape</code> is the IRI String for the <code>sh:Shape</code> class.
-			</p>
-			<p>
-				All operations have access to the following fields:
-			</p>
-			<table class="term-table">
-				<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Description</th>
-				</tr>
-				<tr>
-					<td>dataset</td>
-					<td>Dataset</td>
-					<td>The dataset to operate on, must have a default graph and contain the shapesGraph</td>
-				</tr>
-				<tr>
-					<td>dataGraph</td>
-					<td>Graph</td>
-					<td>The default Graph of the dataset</td>
-				</tr>
-				<tr>
-					<td>shapesGraph</td>
-					<td>Graph</td>
-					<td>The shapes Graph</td>
-				</tr>
-				<tr>
-					<td>shapesGraphIRI</td>
-					<td>String</td>
-					<td>The IRI of the shapes Graph</td>
-				</tr>
-				<tr>
-					<td>resultsGraph</td>
-					<td>Graph</td>
-					<td>The Graph that will contain the validation results after completion</td>
-				</tr>
-			</table>
-			<p>
-				All operations produce <span class="term">validation results</span>.
-				For the sake of this specification, we assume that the validation results are represented as instances of
-				<code>sh:ValidationResult</code> that are added to the <code>resultsGraph</code>.
-				Actual implementations may use different data structures and result formats and input and output to these operations.
-			</p>
-			<section id="operation-validateGraph">
-				<h3>validateGraph</h3>
-				<p>
-					This operation validates a whole data graph against all shapes associated with its resources, based on the available scope definitions.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>minSeverity</code></td>
-						<td><code>String</code></td>
-						<td>The IRI of the minimum severity, e.g. <code>SH.Violation</code> specifying which constraints to exclude/include.</td>
-					</tr>
-				</table>
-				<pre class="algorithm">
-void validateGraph(String minSeverity) {
-	for(Node shape : getAllInstances(iri(SH.Shape), shapesGraph)) {
-		validateShape(shape, minSeverity);
-	}
-}</pre>
-   			</section>
-			<section id="operation-validateShape">
-				<h3>validateShape</h3>
-				<p>
-					Validates all nodes that are in the scope of a given shape against the constraints of that shape.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>shape</code></td>
-						<td><code>Node</code></td>
-						<td>The Node representing the shape to validate</td>
-					</tr>
-					<tr>
-						<td><code>minSeverity</code></td>
-						<td><code>String</code></td>
-						<td>The IRI of the minimum severity, e.g. <code>sh:Violation</code> specifying which constraints to exclude/include.</td>
-					</tr>
-				</table>
-				<pre class="algorithm">
-void validateShape(Node shape, String minSeverity) {
-	for(Node focusNode : getNodesInScopeOfShape(shape)) {
-		validateNodeAgainstShape(focusNode, shape, minSeverity);
-	}
-}</pre>
-   			</section>
-			<section id="operation-validateNodeAgainstShape">
-				<h3>validateNodeAgainstShape</h3>
-				<p>
-					Validates a given node against the constraints of a given shape.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>focusNode</code></td>
-						<td><code>Node</code></td>
-						<td>The focus Node to validate</td>
-					</tr>
-					<tr>
-						<td><code>shape</code></td>
-						<td><code>Node</code></td>
-						<td>The Node representing the shape to validate against</td>
-					</tr>
-					<tr>
-						<td><code>minSeverity</code></td>
-						<td><code>String</code></td>
-						<td>The IRI of the minimum severity, e.g. <code>sh:Violation</code> specifying which constraints to exclude/include.</td>
-					</tr>
-				</table>
-				<pre class="algorithm">
-boolean validateNodeAgainstShape(Node focusNode, Node shape, String minSeverity) {
-	boolean hasResults = false;
-	if(isNodeValidForFilterShapes(focusNode, shape)) {
-		for(Node constraint : getConstraintsOfShape(shape)) {
-			if(hasMinSeverity(constraint, shape, minSeverity)) {
-				if(isNodeValidForFilterShapes(focusNode, constraint)) {
-					hasResults |= validateNodeAgainstConstraint(focusNode, constraint, shape);
-				}
-			}
-		}
-	}
-	return hasResults;
-}</pre>
-				<p>
-					The function returns <code>true</code> if there has been at least one <span class="term">validation result</span> with the given minimum severity.
-				</p>
-				<p>
-					The helper function <code>getConstraintsOfShape</code> produces a Set of all values of the properties
-					<code>sh:constraint</code>, <code>sh:property</code>, <code>sh:inverseProperty</code> and <code>sh:argument</code>
-					for the given shape node in the shapes graph.
-				</p>
-   			</section>
-			<section id="operation-validateNodeAgainstConstraint">
-				<h3>validateNodeAgainstConstraint</h3>
-				<p>
-					Validates a given node against a given constraints from a given shape.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>focusNode</code></td>
-						<td><code>Node</code></td>
-						<td>The focus Node to validate</td>
-					</tr>
-					<tr>
-						<td><code>constraint</code></td>
-						<td><code>Node</code></td>
-						<td>The constraint to validate against</td>
-					</tr>
-					<tr>
-						<td><code>shape</code></td>
-						<td><code>Node</code></td>
-						<td>The Node representing the shape containing the constraint</td>
-					</tr>
-				</table>
-				<pre class="algorithm">
-boolean validateNodeAgainstConstraint(Node focusNode, Node constraint, Node shape) {
-	if(isNativeConstraint(constraint, shape)) {
-		return executeNativeConstraint(constraint, shape, focusNode);
-	}
-	else {
-		boolean hasResult = false;
-		for(Node template : getAllTypes(constraint, shapesGraph)) {
-			if(hasType(template, iri(SH.ConstraintTemplate), shapesGraph)) {
-				hasResult |= executeTemplateConstraint(constraint, template, shape, focusNode);
-			}
-		}
-		return hasResult;
-	}
-}</pre>
-				<p>
-					The function returns <code>true</code> if there has been at least one <span class="term">validation result</span> with the given minimum severity.
-				</p>
-   			</section>
-			<section id="operation-validateNode">
-				<h3>validateNode</h3>
-				<p>
-					Validates a given node against all shapes that it is in the scope of.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Argument</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>focusNode</code></td>
-						<td><code>Node</code></td>
-						<td>The focus Node to validate</td>
-					</tr>
-					<tr>
-						<td><code>minSeverity</code></td>
-						<td><code>String</code></td>
-						<td>The IRI of the minimum severity, e.g. <code>sh:Violation</code> specifying which constraints to exclude/include.</td>
-					</tr>
-				</table>
-				<pre class="algorithm">
-boolean validateNode(Node focusNode, String minSeverity) {
-	boolean hasResult = false;
-	for(Node shape : getShapesWithNodeInScope(focusNode)) {
-		hasResult |= validateNodeAgainstShape(focusNode, shape, minSeverity);
-	}
-	return hasResult;
-}</pre>
-				<p>
-					The function returns <code>true</code> if there has been at least one <span class="term">validation result</span> with the given minimum severity.
-				</p>
-   			</section>
-			<section id="defaultValueType">
-				<h2>Validation of shapes graphs and the sh:defaultValueType property</h2>
-				<p>
-					The SHACL system vocabulary itself is using shapes, allowing SHACL constraint validation to be executed on shapes graphs, e.g. to validate the syntax of shape definitions.
-					However, some system properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:argument</code> may have untyped blank nodes or IRIs as their values.
-					If, for example, a value of <code>sh:property</code> is a blank node that does not have any <code>rdf:type</code>, then the assumption is that the blank node has type <code>sh:PropertyConstraint</code>.
-					Unless these implicit triples are present in the data graph, constraint validation will not apply the constraints defined for <code>sh:PropertyConstraint</code>.
-				</p>
-				<p>
-					If a validation engine intends to validate the syntax of a SHACL shapes graph itself, it should (temporarily) add the missing <code>rdf:type</code> triples.
-					The SHACL system vocabulary includes some helper triples using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
-					For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
-					These triples can be queried by a pre-processor to construct the missing type triples for the affected nodes.
-					SHACL includes a template <code>sh:DefaultValueTypeRule</code> which encapsulates a SPARQL query that can be used for that purpose:
-				</p>
-				<pre class="algorithm">
 CONSTRUCT {
 	?node a ?defaultValueType .
 }
@@ -3551,15 +3656,14 @@ WHERE {
 	?anySubject ?predicate ?node .
 	FILTER (NOT EXISTS { ?node a ?anyType }) .
 }</pre>
-				<p>
-					The operations in this section assume that these default value types are present in the shapes graph, e.g.
-					simplifying the test whether a given node is a <code>sh:PropertyConstraint</code>.
-				</p>
-			</section>
+			<p>
+				The operations in this section assume that these default value types are present in the shapes graph, e.g.
+				simplifying the test whether a given node is a <code>sh:PropertyConstraint</code>.
+			</p>
 		</section>
 
 		<section id="entailment">
-			<h3>Entailment</h3>
+			<h2>Entailment</h2>
 			<p>
 				By default, SHACL does not assume any <span class="term">entailment regime</span> [[!sparql11-entailment]] to be actviated on the data graph.
 				However, the property <code>sh:entailment</code> can be used to instruct a SHACL validation engine to ensure that a given entailment is activated.
