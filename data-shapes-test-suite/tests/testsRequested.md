@@ -2,8 +2,11 @@
 
 ## **name of test**
 Short description
-    code (indented 4 spaces)
-    code
+
+`code (backtick)
+
+    code`
+    
 > blockquote text for longer
 > descriptions
 
