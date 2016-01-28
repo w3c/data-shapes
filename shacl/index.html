@@ -15,12 +15,14 @@
 						name:       "Holger Knublauch",
 						url:        "http://knublauch.com/",
 						company:    "TopQuadrant, Inc.",
-						companyURL: "http://topquadrant.com/"
+						companyURL: "http://topquadrant.com/",
+            w3cid:      46500
 					},
 					{
 						name:       "Arthur Ryman",
 						url:        "https://ca.linkedin.com/pub/arthur-ryman/0/809/662",
-						company:    "Invited Expert"
+						company:    "Invited Expert",
+            w3cid:      15877
 					}
 				],
 				wg:           "RDF Data Shapes Working Group",
@@ -140,6 +142,12 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-01-25</b>: Clarified direction of property path. Remove comment about consistency. (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>)</li>
+				<li><b>2016-01-22</b>: Switched closed shapes syntax to sh:closed (<a href="http://www.w3.org/2014/data-shapes/track/issues/115">ISSUE-115</a>)</li>
+				<li><b>2016-01-21</b>: Limit definition of shapes that are also classes to the shapes graph (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>)</li>
+				<li><b>2016-01-19</b>: Describe scoping of shapes that are also classes (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>)</li>
+				<li><b>2016-01-18</b>: Stated starting point for recursion (<a href="http://www.w3.org/2014/data-shapes/track/issues/22">ISSUE-22</a>)</li>
+				<li><b>2016-01-18</b>: Clarified the meaning of filter shapes (<a href="http://www.w3.org/2014/data-shapes/track/issues/49">ISSUE-49</a>)</li>
 				<li><b>2016-01-11</b>: Deleted operations section (<a href="http://www.w3.org/2014/data-shapes/track/issues/108">ISSUE-108</a>)</li>
 				<li><b>2016-01-11</b>: Added derived properties (<a href="http://www.w3.org/2014/data-shapes/track/issues/97">ISSUE-97</a>)</li>
 				<li><b>2016-01-11</b>: Dropped sh:ShapeClass (<a href="http://www.w3.org/2014/data-shapes/track/issues/23">ISSUE-23</a>), elaborated on possible sh:scopeClass rule</li>
@@ -472,6 +480,7 @@ ex:Alice
 						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with an <code>rdfs:Class</code>.
 						The property <code>rdf:type</code> is used to determine which shapes a given node are expected to fulfill.
 						The scope includes all instances of the <code>sh:scopeClass</code> and its subclasses, by following <code>rdfs:subClassOf</code> triples.
+						To determine class membership, the <code>rdf:type</code> and <code>rdfs:subClassOf</code> triples are queried in the <span class="term">data graph</span>. 
 						This pattern is illustrated in the following example.
 					</p>
 					<pre class="example" title="Scope based on rdf:type and sh:scopeClass">
@@ -490,19 +499,22 @@ ex:Alice
 	rdf:type foaf:Person .</pre>
 					<div class="issue" data-number="23" title="Classes and/or Shapes">
 						The remainder of this section is not agreed upon within the SHACL Working Group.
+						The proposed text was discussed in the WG telecon dated 2016-01-14.
 					</div>
-					<p id="scopeClass-inference">
-						Shapes and classes are unrelated concepts in SHACL.
-						In many scenarios, classes and shapes should be kept separate and given different IRIs.
-						However, some application designers may find it more convenient to couple classes and shapes together and reuse the same IRIs.
-						In the following example, the IRI of the class <code>ex:Person</code> is also used as a shape,
-						and the <code>sh:scopeClass</code> triple instructs a SHACL engine to apply the property constraints
-						of the shape <code>ex:Person</code> to all instances of the namesake class.
+					<p id="implicit-scopeClass">
+						Shapes and classes are independent concepts in SHACL.
+						In many applications, classes and shapes are separate resources and are therefore given different IRIs.
+						However, some application designers may find it more convenient to tightly couple class and shape information
+						and use the same IRI for both.
+						In the following example, the IRI <code>ex:Person</code> identifies a resource that is 
+						both a class and a shape.
+						The <code>sh:scopeClass</code> triple explicitly instructs a SHACL engine to apply the constraints
+						of the shape <code>ex:Person</code> to all instances of the class <code>ex:Person</code>.
 					</p>
 					<pre class="example" title="Sharing of IRIs between classes and shapes">
 ex:Person
 	a rdfs:Class, sh:Shape ;
-	sh:scopeClass ex:Person ;   # This triple is optional
+	sh:scopeClass ex:Person ;
 	sh:property [
 		...
 	] .
@@ -510,17 +522,32 @@ ex:Person
 ex:Alice
 	rdf:type ex:Person .</pre>
 					<p>
-						As syntactic sugar for the scenario above, SHACL includes a rule that if a class is also a shape (in the shapes graph), then
-						the <code>sh:scopeClass</code> triple pointing at itself can be omitted.
-						This rule is illustrated by the following SPARQL CONSTRUCT query, which may be executed over the shapes graph prior to validation, to produce the implicit <code>sh:scopeClass</code> triples.
+						In the case where a shape is also a class, a SHACL processor MUST include all the instances of the class in the scope
+						of the shape, exactly as if an explicit <code>sh:scopeClass</code> triple was present.
+						An explicit <code>sh:scopeClass</code> triple is not required but MAY be included for clarity.
+					</p>
+					<p id="definition-of-implicit-scopeClass">
+						A SHACL processor MUST recognize a resource <code>X</code> in the shapes graph as a shape if and only if the shapes graph contains 
+						a triple <code>X rdf:type S</code> where <code>S</code> is either <code>sh:Shape</code> or <code>S</code> is connected to <code>sh:Shape</code> by a property path from <code>S</code> to <code>sh:Shape</code> in the shapes graph consisting of one or more triples whose predicate is <code>rdfs:subClassOf</code>.
+						Similarly, a SHACL processor MUST recognize a resource <code>X</code> in the shapes graph as a class if and only if the shapes graph contains a triple <code>X rdf:type C</code> where <code>C</code> is either <code>rdfs:Class</code> or <code>C</code> is connected to <code>rdfs:Class</code> by a property path from <code>C</code> to <code>rdfs:Class</code> in the shapes graph consisting of one or more triples whose predicate is <code>rdfs:subClassOf</code>. If a SHACL processor recognizes a resource <code>X</code> in the shapes graph as both a shape and a class as defined here then all instances of
+						the class <code>X</code> in the data graph MUST be included in the scope of the shape <code>X</code>.
+						For the purposes of this definition, a resource <code>R</code> in the data graph is said to be an instance of the resource <code>X</code> if and only if
+						the data graph contains a triple <code>R rdf:type X</code> or the data graph contains a triple <code>R rdf:type Y</code>
+						and <code>Y</code> is connected to <code>X</code> by a property path from <code>Y</code> to <code>X</code> in the data graph consisting of one or more triples whose
+						predicate is <code>rdfs:subClassOf</code>.
+					</p>
+					<p>
+						The following SPARQL query, when run on a shapes graph, illustrates how a SHACL processor MUST recognize all resources 
+						<code>X</code> that are both shapes and classes for the purpose of computing class-based scopes.
+						The use of SPARQL here is for illustration purposes only.
+						A SHACL implementation MAY use any equivalent method.
+						
 					</p>
 				<pre class="algorithm">
-CONSTRUCT {
-	?class sh:scopeClass ?class .
-}
+SELECT ?X
 WHERE {
-	?class rdfs:subClassOf*/rdf:type rdfs:Class .
-	?class rdfs:subClassOf*/rdf:type sh:Shape .
+	?X rdf:type/rdfs:subClassOf* sh:Shape .
+	?X rdf:type/rdfs:subClassOf* rdfs:Class .
 }</pre>
 					<div class="issue" data-number="78" title="Abstract classes">
 						The following paragraph about <code>sh:abstract</code> is not yet approved by the WG.
@@ -685,9 +712,31 @@ ex:FilteredExampleShape
 ex:FilteredShapeValidExampleInstance
 	ex:someProperty ex:someValue ;
 	ex:requiredProperty ex:requiredValue .</pre>
-				<div class="issue" data-number="49" title="Do filters apply to sh:valueShape etc">
-					It is still undecided whether filters shall also be applied for shapes that are directly invoked, e.g. via sh:valueShape.
-				</div>
+				<p>
+					Filters always contribute to the meaning of a shapes.
+					This includes both the computation of scopes and when shapes are directly referenced via <code>sh:valueShape</code>.
+					In general, a filter shape acts like the test condition of an <code>IF-THEN</code> statement.
+					For example, suppose some optional property has a default value.
+					Then a shape might express the constraint that <code>IF</code> the property is present <code>THEN</code> its value must be equal to the default value.
+					In this case the filter would test for the presence of the property and the constraint would test that its value was equal to the
+					default value.
+				</p>
+				<p>
+					When a SHACL processor validates a focus node against a shape, it begins by validating any filters associated with the shape via 
+					<code>sh:filterShape</code>.
+					If any of the filters produce a violation then the processor interprets this as indicating that none of the constraints
+					of the shape are applicable to the focus node and no violations for the shape are reported.
+					Conversely, if none of the filters produce a violation then the processor proceeds to evaluate the constraints and reports any 
+					violations produced by them.
+				</p>
+				<p>
+					Similarly, when a SHACL processor validates a focus node against a constraint, it begins by validating any filters
+					associated with the constraint via <code>sh:filterShape</code>.
+					If any of the filters produce a violation then the processor interprets this as indicating that the constraint
+					is not applicable to the focus node and no violations for the constraint are reported.
+					Conversely, if none of the filters produce a violation then the processor proceeds to evaluate the constraint and reports any 
+					violations produced by it.
+				</p>
 				<p>
 					The following figure illustrates some relationships between core classes of SHACL and RDF Schema.
 					Note that the use of a UML-like notation does not imply that these RDF concepts are classes in an object-oriented sense.
@@ -2012,8 +2061,16 @@ WHERE {
 	FILTER (?failure || !?hasShape) .
 }</pre>
 					</div>
-					<p class="issue" data-number="22" title="Recursion of sh:valueShape">
-						It is not yet decided how to handle recursive shape definitions in sh:valueShape and similar constructs.
+					<p>
+						A shape may refer to itself directly or indirectly via <code>sh:valueShape</code>, <code>sh:filterShape</code>, etc.
+						Such a shape is said to be <em>recursive</em>.
+						The meaning of non-recursive shapes is always well-founded.
+						In contrast, the meaning of a recursive shape may not be well-founded.
+						As a starting point, the SHACL specification only defines the meaning of non-recursive shapes.
+						However, there are use-cases where recursion is valuable, either for its inherent expressive power or because it makes the
+						intension of shapes clearer.
+						The Working Group will therefore explore conditions under which recursive shapes can be assigned a well-defined meaning and will
+						relax the restrictions on recursion accordingly. 
 					</p>
 					<p>
 						In the following example, all values of the property <code>ex:someProperty</code> are supposed to validate with no results for the shape
@@ -2533,13 +2590,13 @@ ex:OrConstraintExampleShape
 ex:OrConstraintExampleValidResource
 	ex:exampleProperty1 ex:someValue .</pre>
 				</section>
-				<section id="ClosedShape">
-					<h3>Closed Shapes (sh:ClosedShapeConstraint)</h3>
+				<section id="closed">
+					<h3>Closed Shapes (sh:closed, sh:ignoredProperties)</h3>
 					<p>
 						The RDF data model offers a huge amount of flexibility.
 						Any resource can in principle have values for any property.
 						However, in some cases it makes sense to restrict which properties can be applied to resources.
-						The SHACL core language includes a construct called <code>sh:ClosedShapeConstraint</code> that can be assigned to
+						The SHACL core language includes a property called <code>sh:closed</code> that can be assigned to
 						a shape via the property <code>sh:constraint</code> to indicate that valid resources must only have
 						values for those properties that have been explicitly declared via <code>sh:property</code>.
 					</p>
@@ -2550,6 +2607,11 @@ ex:OrConstraintExampleValidResource
 							<th>Summary</th>
 						</tr>
 						<tr>
+							<td><code>sh:closed</code></td>
+							<td><code>xsd:boolean</code></td>
+							<td>Set to <code>true</code> to close the shape</td>
+						</tr>
+						<tr>
 							<td><code>sh:ignoredProperties</code></td>
 							<td><code>rdf:List</code> (members: <code>rdf:Property</code>)</td>
 							<td>Optional list of properties that are also permitted in addition to those explicitly enumerated via <code>sh:property</code></td>
@@ -2558,7 +2620,8 @@ ex:OrConstraintExampleValidResource
 					<div id="def-ClosedShape-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has the <span class="term">focus node</span> as its
+							If <code>sh:closed</code> is <code>true</code> then
+							a <span class="term">validation result</span> must be produced for each triple that has the <span class="term">focus node</span> as its
 							<span class="term">subject</span> and a <span class="term">predicate</span> that is not explicitly enumerated as a <code>sh:predicate</code>
 							of the <code>sh:property</code> constraints at the surrounding shape.
 							If the argument <code>sh:ignoredProperties</code> is present then the properties enumerated in this list are also permitted.
@@ -2566,7 +2629,7 @@ ex:OrConstraintExampleValidResource
 						</div>
 					</div>
 					<p>
-						The core vocabulary includes an instance of <code>sh:ClosedShapeConstraint</code> called <code>sh:Closed</code>
+						The core vocabulary includes an instance of <code>sh:NodeConstraint</code> called <code>sh:Closed</code>
 						that can be used in places where no other arguments such as <code>sh:ignoredProperties</code> are needed.
 					</p>
 					<div class="def def-sparql">
@@ -2574,6 +2637,9 @@ ex:OrConstraintExampleValidResource
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) ?predicate ?object
 WHERE {
+	{
+		FILTER $closed .
+	}
 	$this ?predicate ?object .
 	FILTER (NOT EXISTS {
 		GRAPH $shapesGraph {
@@ -2587,15 +2653,15 @@ WHERE {
 }</pre>
 					</div>
 					<p>
-						The following example illustrates the use of <code>sh:ClosedShapeConstraint</code> in a shape to verify
+						The following example illustrates the use of <code>sh:closed</code> in a shape to verify
 						that certain nodes only have values for <code>ex:exampleProperty1</code> and <code>ex:exampleProperty2</code>.
 						The "ignored" property <code>rdf:type</code> would also be allowed.
 					</p>
-					<pre class="example" title="A closed shape">
+					<pre class="example" title="A closed shape (complex syntax)">
 ex:ClosedShapeExampleShape
 	a sh:Shape ;
 	sh:constraint [
-		a sh:ClosedShapeConstraint ;
+		sh:closed true ;
 		sh:ignoredProperties (rdf:type) ;
 	] ;
 	sh:property [
@@ -2611,6 +2677,20 @@ ex:ClosedShapeExampleValidResource
 ex:ClosedShapeExampleInvalidResource
 	ex:exampleProperty2 ex:someValue ;
 	ex:someOtherProperty 42 .</pre>
+					<p>
+						The next example illustrates a more compact syntax using the built-in instance <code>sh:Closed</code>.
+						In this form, no ignored properties can be specified.
+					</p>
+					<pre class="example" title="A closed shape (simple syntax)">
+ex:ClosedShapeExampleShape
+	a sh:Shape ;
+	sh:constraint sh:Closed ;
+	sh:property [
+		sh:predicate ex:exampleProperty1 ;
+	] ;
+	sh:property [
+		sh:predicate ex:exampleProperty2 ;
+	] .</pre>
 				</section>
 			</section>
 		</section>
