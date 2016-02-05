@@ -200,27 +200,43 @@ sh:NodeValidationFunctions
 
 # Library of standard constraint types ----------------------------------------
 
-sh:MinCountConstraint
-	a rdfs:Class ;
-	rdfs:subClassOf sh:Constraint ;
+sh:ClassConstraint
+	sh:parameter [
+		sh:predicate sh:class ;
+	] ;
+	sh:message "Values must be instances of {?class}" ;
+	sh:propertyValidator sh:hasClass ;   # sh:hasClass is a NodeValidationFunction
+	sh:inversePropertyValidator sh:hasClass ;
+	sh:nodeValidator sh:hasClass ;
 .
 
-sh:minCount
-	rdfs:domain sh:MinCountConstraint ;
-.
-
-sh:PatternConstraint
-	a rdfs:Class ;
-	rdfs:subClassOf sh:Constraint ;
-.
-
-sh:pattern
-	rdfs:domain sh:PatternConstraint ;
-.
-
-sh:flags
-	rdfs:domain sh:PatternConstraint ;
-.
+sh:EqualsConstraint
+	sh:argument [
+		sh:predicate sh:equals ;
+	] ;
+	sh:message "Value sets of {?predicate} and {?equals} must be equal" ;
+	sh:propertyValidator [
+		a sh:SPARQLValidator ;
+		sh:sparql """
+			SELECT $this ($this AS ?subject) $predicate ?object
+			WHERE {
+				{
+					$this $predicate ?object .
+					FILTER NOT EXISTS {
+						$this $equals ?object .
+					}
+				}
+				UNION
+				{
+					$this $equals ?object .
+					FILTER NOT EXISTS {
+						$this $predicate ?object .
+					}
+				}
+			}
+			"""
+	]
+.	
 
 # ... etc for other constraint types
 
