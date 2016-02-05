@@ -169,11 +169,17 @@ sh:annotationVarName
 sh:Function
 	a rdfs:Class ;
 	rdfs:subClassOf sh:Parameterizable ;
-	rdfs:subClassOf sh:SPARQLExecutable ;
 	rdfs:label "Function" ;
 	rdfs:comment """
-		An object implementing a function that may take parameters, typically backed by a SPARQL ASK or SELECT query.
+		An object implementing a function that may take parameters, implemented in an executable language such as SPARQL.
 		"""^^rdf:HTML ;
+.
+
+sh:SPARQLFunction
+	a rdfs:Class ;
+	rdfs:subClassOf sh:Function ;
+	rdfs:subClassOf sh:SPARQLExecutable ;
+	rdfs:comment "A Function backed by a SPARQL query." ;
 .
 
 sh:NodeValidationFunction
@@ -255,3 +261,71 @@ sh:NodeConstraint
 	rdfs:subClassOf sh:PatternConstraint ;
 	# ... other constraint types of sh:constraint
 .
+
+
+# Helper functions ------------------------------------------------------------
+# Here we need to decide whether these are in the sh: namespace.
+# If we are defining the sh:sparql queries then I think they should be included
+# If not, and we leave the Validators undefined, then we could also leave the 
+# functions out.  However then there is less code reuse possible.
+
+sh:hasClass
+	a sh:NodeValidationFunction ;
+	a sh:SPARQLFunction ;
+	rdfs:subClassOf sh:NodeValidationFunctions ;
+	rdfs:label "has class" ;
+	rdfs:comment "Checks whether a given node ($value) is an instance of a given class ($class) or its subclasses. Returns false if the value is a literal. Returns true if $class is rdfs:Resource. Returns true if $class is rdf:List and $value has a rdf:first value." ;
+	sh:parameter [
+		sh:order 1 ;
+		sh:predicate sh:class ;
+		sh:class rdfs:Class ;
+		sh:description "The type that the node must have." ;
+	] ;
+	sh:returnType xsd:boolean ;
+	sh:sparql """
+		ASK {
+			FILTER (isIRI($value) || isBlank($value)) .
+			FILTER (
+				$class = rdfs:Resource ||
+				($class = rdf:List && EXISTS { $value rdf:first ?any }) ||
+				EXISTS { $value rdf:type/rdfs:subClassOf* $class }
+				)
+		}
+		""" ;
+.
+
+# ... more validation functions
+
+
+# Derived Values support ------------------------------------------------------
+
+sh:DerivedValuesConstraint
+	a rdfs:Class ;   # HK: sh:ConstraintType ;
+	rdfs:subClassOf sh:AbstractPropertyConstraint ;
+	sh:parameter [
+		sh:predicate sh:derivedValues ;
+		sh:class sh:ValuesDeriver ;
+		sh:name "derived values" ;
+		sh:description "Points at an object that wraps an executable body (e.g. a SPARQL query) that computes all values for the given property." ;
+	] ;
+.
+
+sh:derivedValues
+	a rdf:Property ;
+	rdfs:domain sh:DerivedValuesConstraint ;
+	rdfs:range sh:ValuesDeriver ;
+.
+
+sh:ValuesDeriver
+	a rdfs:Class ;
+.
+
+sh:SPARQLValuesDeriver
+	a rdfs:Class ;
+	rdfs:subClassOf sh:ValuesDeriver ;
+	rdfs:subClassOf sh:SPARQLExecutable ;
+.
+
+
+# TODOs
+# - How is sh:predicate inherited by constraint types - sh:NodeConstraints don't need it
