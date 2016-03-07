@@ -127,7 +127,8 @@
 				SHACL (Shapes Constraint Language) is a language for describing and constraining the contents of RDF graphs.
 				SHACL groups these descriptions and constraints into "shapes", which specify conditions that apply at a given RDF node.
 				Shapes provide a high-level vocabulary to identify predicates and their associated cardinalities, datatypes and other constraints.
-				Additional constraints can be associated with shapes using SPARQL and similar extension languages.
+				Additional constraints can be associated with shapes using SPARQL.
+				The vocabulary of SHACL has been designed to support similar extension languages besides SPARQL.
 				These extension languages can also be used to define new high-level vocabulary terms.
 				SHACL shapes can be used to communicate information about data structures associated with some process or interface, generate or validate data, or drive user interfaces.
 				This document defines the SHACL language and its underlying semantics.
@@ -231,10 +232,10 @@
 				SHACL (Shapes Constraint Language) is a language for describing and constraining RDF graphs. 
 				SHACL can be used with RDF graphs that are obtained by any means, e.g. from the file system, HTTP requests, or <a href="http://www.w3.org/TR/rdf11-concepts/#section-dataset">RDF datasets</a>.
 				SHACL groups descriptive information and constraints that apply to a given data node into <span class="term">shapes</span>.
-				This document defines what it means for an <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graph</a>, referred to as the "data graph", to conform to a set of SHACL shapes, referred to as the "shapes graph".
+				This document defines what it means for an <a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph">RDF graph</a>, referred to as the "data graph", to conform to a graph containing SHACL shapes, referred to as the "shapes graph".
 				Conformance can be programmatically checked by processors referred to as SHACL <span class="term">validation engines</span>.
 				The process of checking conformance is referred to as <span class="term">validation</span>.
-				A shape may include a <span class="term">scope</span> which defines which data nodes must conform to it.
+				A shape may include a <span class="term">scope</span> which defines which nodes in the data graph must conform to it.
 				When a data node is checked for conformance to a shape, that node is referred to as the <span class="term">focus node</span>.
 				The output of the validation process is a <span class="term">validation report</span> which indicates whether or not the data graph conforms to the shapes graph.
 				If any constraints are not satisfied, then the validation report will include one or more <span class="term">violations</span> which indicate the source of the problem.
@@ -262,8 +263,8 @@
 				A shapes graph that defines these constraints has two shapes.
 				The first, <code>ex:IssueShape</code> contains the two constraints on issues.
 				The second, <code>ex:UserShape</code>, contains the two constraints on reporters.
-				<code>ex:IssueShape</code> contains scope information which in this case says that its constraints apply to all nodes that have an <code>rdf:type</code> link to <code>ex:Issue</code>.
-				In other words, the scope states that all instances of the class <code>ex:Issue</code> shall be validated against the shape <code>ex:IssueShape</code>.
+				<code>ex:IssueShape</code> contains scope information which in this case says that its constraints apply to all nodes that have an <code>rdf:type</code> link to
+				either <code>ex:Issue</code> directly or to a (transitive) subclass of <code>ex:Issue</code> following <code>rdf:subClassOf</code> triples.
 			</p>
 			<pre class="example" title="Definition of ex:IssueShape and ex:UserShape">
 ex:IssueShape
@@ -336,7 +337,7 @@ inst:User4
 				</p>
 				<p>
 					When determining subclass and instance relationships SHACL only uses the transitive closure of <code>rdfs:subClassOf</code>,
-					ignoring in particular the RDF axioms, the RDFS meaning of <code>rdfs:Resource</code>, the reflexivity of <code>rdfs:subClassOf</code>,
+					without requiring in particular the RDF axioms, the RDFS meaning of <code>rdfs:Resource</code>, the reflexivity of <code>rdfs:subClassOf</code>,
 					the effect of subproperties of <code>rdfs:subClassOf</code>, and the effects of <code>rdfs:domain</code> and <code>rdfs:range</code>.
 				</p>
 				<p>
@@ -352,12 +353,32 @@ inst:User4
 					To support on the fly processing of entailments, SHACL includes the property <a href="#entailment"><code>sh:entailment</code></a> to indicate what kind of inferencing is required by a given shapes graph.
 					SHACL implementations may, but are not required to, support entailment regimes.
 				</p>
+				<p>
+					In the remainder of this document, the following terminology is used:
+				</p>
+				<ul>
+					<li>
+						<span class="term">subclass</span>, <span class="term">superclass</span>:
+						A class <code>Sub</code> is a subclass of another class <code>Super</code>
+						if there is a path of asserted <code>rdfs:subClassOf</code> triples from <code>Sub</code> to <code>Super</code>
+						equivalent to the SPARQL property path  [[!sparql11-query]] <code>?Sub rdfs:subClassOf+ ?Super</code>.
+						The term superclass is referring to the same relationship in reverse order.
+					</li>
+					<li>
+						<span class="term">type</span>: The types of a node are the classes that are linked to the node via
+						<code>rdf:type</code> as well as their superclasses as defined above.
+					</li>
+					<li>
+						<span class="term">instance</span>: A node is an instance of a class if one of its
+						<span class="term">types</span> (as defined above) is the given class.
+					</li>
+				</ul>
 			</section>
 			
 			<section id="shacl-sparql">
 				<h3>Relationship between SHACL and SPARQL</h3>
 				<p>
-					This specification uses SPARQL 1.1 for the normative definition of the semantics of the SHACL Core constraints and scopes.
+					This specification uses parts of SPARQL 1.1 for the normative definition of the semantics of the SHACL Core constraints and scopes.
 					Implementations do not have to use the exact same SPARQL queries, and do not even have to use SPARQL at all.
 					However, all implementation MUST produce the same outputs for the same inputs.
 				</p>
@@ -372,7 +393,8 @@ inst:User4
 				<p>
 					The definition of some constraints require access to a named graph represented with the variable <code>$shapesGraph</code>.
 					Not all implementations (such as those using SPARQL endpoints) may be able to provide this named graph in the same dataset as the executing query.
-					Such implementations may need to find alternative techniques (such as string insertion) leading to equivalent results. 
+					Such implementations may need to find alternative techniques (such as string insertion) leading to equivalent results.
+					Also note that the value of the variable <code>$shapesGraph</code> may be a "temporary" IRI that is only visible as part of the dataset for the duration of the validation process.
 				</p>
 				<p>
 					The definition of some constraints assume that SPARQL engines provide a function called <code>sh:hasShape</code> as elaborated in the <a href="#constraints">beginning of section 3</a>.
@@ -452,8 +474,27 @@ inst:User4
 				<img src="images/SHACL-Validation-Process.png" />
 				<figcaption>Illustration of the scoping and filtering process</figcaption>
 			</figure>
+			<p>
+				A SHACL validation engine takes two RDF graphs as input, a <span class="term">shapes graph</span> and a
+				<span class="term">data graph</span>, and validates the data graph against the shapes graph as described herein.
+				SHACL tools may provide other interfaces, e.g. one that takes an RDF graph in an RDF dataset,
+				adds other triples to that graph to produce the data graph, e.g. by using <code>owl:imports</code> triples,
+				and/or use triples in that graph to produce the shapes graph, e.g. using <code>sh:shapesGraph</code> triples
+				as described later.
+				A SHACL validation engine MUST implement all constructs in the core of SHACL (Sections 2, 3, 5).
+				A SHACL engine MAY not implement the other parts of SHACL.
+			</p>
+			<p>
+				Note that at validation time, both the shape definitions (represented in the <span class="term">shapes graph</span>)
+				and the <span class="term">data graph</span> must remain unchanged, i.e. both graphs at the end
+				of the validation must be identical to the graph at the beginning of validation.
+			</p>
 			<section id="scopes">
 				<h3>Scopes</h3>
+				<p>
+					The scope of a shape is a set of nodes.
+					It is not necessary that a node be present in the data graph to belong to a scope.
+				</p>
 				<p>
 					SHACL shapes can have three kinds of scopes:
 				</p>
@@ -463,15 +504,16 @@ inst:User4
 					<li><a href="#scope"><b>General scopes</b></a> define a flexible mechanism to produce arbitrary focus nodes for a given data graph.</li>
 				</ul>
 				<p>
-					If multiple scope definitions are present for a shape then a SHACL processor MUST use the union of the focus nodes produced by those scopes.
+					If multiple scope definitions are present for a shape then the scope is the union of the sets of nodes produced by these individual scopes.
 				</p>
 				
 				<section id="scopeNode">
 					<h4>Node scopes (sh:scopeNode)</h4>
 					<p>
-						Shapes can point at specific nodes that are supposed to be validated against the shape using the property <code>sh:scopeNode</code>.
-						At validation time, the <code>sh:scopeNode</code> triples are expected to be in the <span class="term">shapes graph</span>.
-						This pattern is illustrated in the following example. 				
+						Triples with predicate <code>sh:scopeNode</code> in the <span class="term">shapes graph</span>
+						from a shape to a node create a scope for the shape containing on the node.
+						SHACL implementations MAY produce a warning if this node is not present in the data graph.
+						<code>sh:scopeNode</code> is illustrated in the following example.
 					</p>
 					<pre class="example" title="Scope based on sh:scopeNode">
 ex:PersonShape
@@ -489,10 +531,10 @@ ex:Alice
 				<section id="scopeClass">
 					<h4>Class-based Scopes (sh:scopeClass and rdf:type)</h4>
 					<p>
-						RDF Schema provides a well-established framework to model domains in terms of classes and instances.
+						The RDF Schema vocabulary defines various terms to model domains in terms of classes and instances.
 						A lot of existing data is already represented this way.
 						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with an <code>rdfs:Class</code>.
-						The property <code>rdf:type</code> is used to determine which shapes a given node are expected to fulfill.
+						The properties <code>rdf:type</code> and <code>rdfs:subClassOf</code> are used to determine which shapes a given node will be validated against.
 						The scope includes all instances of the <code>sh:scopeClass</code> and its subclasses, by following <code>rdfs:subClassOf</code> triples.
 						To determine class membership, the <code>rdf:type</code> and <code>rdfs:subClassOf</code> triples are queried in the <span class="term">data graph</span>. 
 						This pattern is illustrated in the following example.
@@ -806,9 +848,9 @@ ex:FilteredShapeValidExampleInstance
 				The SPARQL definitions in this section assume the following variable bindings:
 			</p>
 			<ul>
-				<li>The variable <code>$this</code> is assumed to point at the current focus node.</li>
-				<li>The variable <code>$shapesGraph</code> points at the IRI of the <span class="term">shapes graph</span> in the current dataset.</li>
-				<li>The variable <code>$currentShape</code> points at the currently evaluated shape.</li>
+				<li>The value of the variable <code>$this</code> is the current focus node.</li>
+				<li>The value of the variable <code>$shapesGraph</code> is the IRI of the <span class="term">shapes graph</span> in the current dataset.</li>
+				<li>The value of the variable <code>$currentShape</code> is the currently evaluated shape.</li>
 			</ul>
 			<p>
 				Each row in the result set of the SPARQL queries in this document represents one <span class="term">validation result</span>.
@@ -2117,7 +2159,7 @@ WHERE {
 						relax the restrictions on recursion accordingly. 
 					</p>
 					<p>
-						In the following example, all values of the property <code>ex:someProperty</code> are supposed to validate with no results for the shape
+						In the following example, all values of the property <code>ex:someProperty</code> will validate with no results for the shape
 						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
 					</p>
 					<pre class="example" title="Shape with sh:valueShape constraint">
@@ -2408,7 +2450,7 @@ sh:property [
 						properties with smaller order are placed above (or to the left) of properties with larger order.
 					</p>
 					<p id="group">
-						Property constraints may point at an instance of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
+						Property constraints may link to an instance of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
 						the constraint belongs to a group of related property constraints.
 						Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
 						Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
@@ -2923,11 +2965,11 @@ ex:ExampleConstraintViolation
 			<section id="results-source">
 				<h4>sh:sourceConstraint, sh:sourceShape and sh:sourceTemplate</h4>
 				<p>
-					Validation results may point at one <code>sh:Constraint</code> that has caused
+					Validation results may link to one <code>sh:Constraint</code> that has caused
 					the result, specified via the property <code>sh:sourceConstraint</code>,
 					and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
 					Validation results that were produced by a <a href="#template-constraints">template call</a> may
-					point at the <code>sh:ConstraintTemplate</code> that caused the result.
+					link to the <code>sh:ConstraintTemplate</code> that caused the result.
 				</p>
 			</section>
 			<section id="results-detail">
@@ -2975,7 +3017,7 @@ ex:ExampleConstraintViolation
 				<h3>Declaring the Severity of a Constraint</h3>
 				<p>
 					Constraints can specify their severity level using the property <code>sh:severity</code>,
-					which must point at one of the severity types.  <code>sh:Violation</code> is the default if unspecified.
+					which must link to one of the severity types.  <code>sh:Violation</code> is the default if unspecified.
 					Constraints based on <a href="#template-constraints">templates</a> use the <code>sh:severity</code> declared at the template itself unless overridden at the constraint.
 					The following example clarifies this.
 				</p>
@@ -3041,7 +3083,7 @@ ex:InvalidCountry
 	ex:germanLabel "Spain"@en .</pre>
 				<p>
 					The following example illustrates the definition of a <span class="term">native constraint</span> based on a SPARQL query.
-					The property <code>sh:sparql</code> is used to point at a SELECT query as explained in a later <a href="#native-constraints-sparql">section</a>.
+					The value of the property <code>sh:sparql</code> is a SELECT query as explained in a later <a href="#native-constraints-sparql">section</a>.
 				</p>
 				<pre class="example" title="Example Shape with a native SPARQL constraint">
 ex:LanguageExampleShape
@@ -3526,7 +3568,7 @@ ex:TemplateLanguageWithPropertyConstraintExampleShape
 				<p>
 					Constraint templates that are instances of <code>sh:PropertyValueConstraintTemplate</code> or
 					<code>sh:InversePropertyValueConstraintTemplate</code> (which are subclasses of <code>sh:ConstraintTemplate</code>) do not require an executable body (such a <code>sh:sparql</code>)
-					if they instead point at a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
+					if they instead link to a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
 					These so called <span class="term">validation functions</span> must take an argument with the predicate <code>sh:value</code> as its first argument
 					and return either <code>true</code> or <code>false</code>.
 					This validation function must be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
