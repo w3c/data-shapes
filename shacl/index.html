@@ -144,6 +144,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-03-21</b>: Re-organized the sections on the various constraint properties, introducing the term constraint component</li>
 				<li><b>2016-03-21</b>: Updated the definition of pre-binding (<a href="http://www.w3.org/2014/data-shapes/track/issues/68">ISSUE-68</a>)</li>
 				<li><b>2016-03-14</b>: Added three new node kinds as resolved (<a href="http://www.w3.org/2014/data-shapes/track/issues/99">ISSUE-99</a>)</li>
 				<li><b>2016-03-12</b>: Added issue warning regarding recursion</li>
@@ -803,37 +804,94 @@ ex:FilteredShapeValidExampleInstance
 				<h3>Constraints</h3>
 				<p>
 					A shape defines a group of constraints.
-					SHACL includes a collection of Core constraint types that are covered in the next section.
-					Additional types of constraints can be added using the <a href="#template-constraints">extension mechanism</a>.
-				</p>
-				<p>
-					Shapes can be linked to their constraints via the following properties:
+					The SHACL RDF vocabulary defines a class <code>sh:Constraint</code> that serves as the superclass of various constraint types:
 				</p>
 				<ul>
 					<li>
-						<code>sh:property</code> links a shape with constraints about a given property of the focus node.
-						These constraints are called <a href="#constraints-property"><span class="term">property constraints</span></a>.
+						<code>sh:PropertyConstraint</code> represents <span class="term">property constraints</span>
+						which are about a given property of the focus node, with the focus node in the subject position of relevant triples.
+						Property constraints must have exactly one value of the property <code>sh:predicate</code>.
 					</li>
 					<li>
-						<code>sh:inverseProperty</code> links a shape with constraints about a given property traversed in the inverse direction of the focus node.
-						These constraints are called <a href="#constraints-inverse-property"><span class="term">inverse property constraints</span></a>.
+						<code>sh:InversePropertyConstraint</code> represents <span class="term">inverse property constraints</span>
+						which are about a given property of the focus node, but traversed in the inverse direction (with the focus node in the object position of relevant triples).
+						Inverse property constraints must have exactly one value of the property <code>sh:predicate</code>.
 					</li>
 					<li>
-						<code>sh:constraint</code> link a shape with constraints that do not involve just a single dedicated property.
-						SHACL includes several <a href="#constraints-other">built-in constraint types</a> such as logical operators.
+						<code>sh:NodeConstraint</code> represents constraints that are about a focus node only.
 					</li>
 				</ul>
+				<p>
+					Additional types of constraints can be added using the <a href="#native-constraints">extension mechanism</a>, called <span class="term">native constraints</span>.
+					The classes <code>sh:PropertyConstraint</code> and <code>sh:InversePropertyConstraint</code> are disjoint, i.e. it is illegal to have
+					shape definitions that use nodes that are instances of both classes - either explicitly stated via <code>rdf:type</code> or implicitly via their default value type.
+				</p>
+				<p>
+					Shapes can be linked to their constraints via the following properties.
+					Note that these properties have a <a href="#defaultValueType"><span class="term">default value type</span></a>,
+					which means that they do not need to carry an explicit <code>rdf:type</code> triple.
+				</p>
+				<ul>
+					<li>
+						<code>sh:property</code> links a shape with <span class="term">property constraints</span>.
+						The default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
+					</li>
+					<li>
+						<code>sh:inverseProperty</code> links a shape with <span class="term">inverse property constraints</span>.
+						The default value type of <code>sh:inverseProperty</code> is <code>sh:InversePropertyConstraint</code>.
+					</li>
+					<li>
+						<code>sh:constraint</code> links a shape with any type of constraints, in particular
+						<span class="term">node constraints</span> and <span class="term">native constraints</span>.
+						The default value type of <code>sh:constraint</code> is <code>sh:NodeConstraint</code>.
+					</li>
+				</ul>
+				<p>
+					Constraints can have various properties such as <code>sh:class</code> or <code>sh:minCount</code>
+					which represent <span class="term">parameters</span> of so-called <span class="term">constraint components</span>.
+					A <span class="term">constraint component</span> defines one or more parameter properties and validation instructions
+					(e.g. implemented via SPARQL queries) that can be used to perform the validation for the given focus node and parameter values.
+					The catalog of constraint components in the Core of SHACL is defined in the following section.
+				</p>
+				<p> 
+					The following examples illustrate two ways of using (property) constraints.
+					The first example uses a blank node:
+				</p>
+				<pre class="example" title="Property constraint represented by a blank node">
+ex:InlinePropertyConstraintExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:name "some property" ;
+		sh:description "Description of the role of ex:someProperty (in the context of the constraint)" ;
+		sh:minCount 1 ;
+		sh:class ex:SomeClass ;
+	] .</pre>
+				<p>
+					The second example defines a constraint as an IRI node, allowing it to be more easily referenced and shared across multiple shapes:
+				</p>
+				<pre class="example" title="Property constraint represented by a IRI">
+ex:StandAlonePropertyConstraintExampleShape
+	a sh:Shape ;
+	sh:property ex:StandAloneConstraint .
+
+ex:StandAloneConstraint
+	a sh:PropertyConstraint ;
+	sh:predicate ex:someProperty ;
+	sh:defaultValue ex:SomeInstance ;
+	sh:minCount 1 ;
+	sh:class ex:SomeClass .</pre>
 			</section>
 		</section>
 		
 		<section id="constraints">
-			<h2>Core Constraint Types</h2>
+			<h2>Core Constraint Components</h2>
 			<p>
-				The following sections define the constraint types built into the SHACL Core.
-				Compliant SHACL validation engines MUST support all of these constraints.
+				The following sections define the constraint components built into the SHACL Core.
+				Compliant SHACL validation engines MUST support all of these constraint components.
 			</p>
 			<p>
-				The choice of constraint types that are defined by the SHACL Core was made based on
+				The choice of constraint components that are defined by the SHACL Core was made based on
 				the requirements collected by the [[shacl-ucr]] document.
 				Special attention was paid to the balance between trying to cover as many common use cases as possible
 				and keeping the size of the core language under control.
@@ -862,211 +920,170 @@ ex:FilteredShapeValidExampleInstance
 			<p>
 				The SPARQL definitions in this section also assume the existence of a built-in SPARQL function <code>sh:hasShape</code>, which is described in the <a href="#hasShape">Appendix</a>.
 			</p>
+			<p class="todo">
+				Note that this chapter is work in progress to implement the resolution to ISSUE-98.
+				In a nutshell, these constraint components can be used either as part of a <code>sh:NodeConstraint</code> (NC, to apply to the focus node itself),
+				a <code>sh:PropertyConstraint</code> (PC, to apply to all values of a given property),
+				or a <code>sh:InversePropertyConstraint</code> (IPC, to apply to all inverse values of a given property).
+				Which combinations are supported is summarized in the following table.
+				The flow of the sub-sections needs to be adjusted and generalized accordingly.
+			</p>
+			<table class="term-table">
+				<tr>
+					<th>Parameters</th>
+					<th>NC</th>
+					<th>PC</th>
+					<th>IPC</th>
+					<th>Summary</th>
+				</tr>
+				<tr>
+					<td>
+						<a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a>,
+						<a href="#classIn"><code>sh:classIn</code></a> and
+						<a href="#AbstractDirectTypePropertyConstraint"><code>sh:directType</code></a>
+					</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Type, based on <code>rdf:type</code></td>
+				</tr>
+				<tr>
+					<td>
+						<a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a> and
+						<a href="#datatypeIn"><code>sh:datatypeIn</code></a>
+					</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Datatype, for literals</td>
+				</tr>
+				<tr>
+					<td><a href="#equals"><code>sh:equals</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Property with equal values</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractHasValuePropertyConstraint"><code>sh:hasValue</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>A specific required value</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractInPropertyConstraint"><code>sh:in</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Enumeration of allowed values</td>
+				</tr>
+				<tr>
+					<td><a href="#lessThan"><code>sh:lessThan</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Must have lesser values than another property</td>
+				</tr>
+				<tr>
+					<td><a href="#lessThan"><code>sh:lessThanOrEquals</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Must have lesser or equal values than another property</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractCountPropertyConstraint"><code>sh:minCount</code>, <code>sh:maxCount</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Minimum and maximum cardinality</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractLengthPropertyConstraint"><code>sh:minLength</code>, <code>sh:maxLength</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Minimum and maximum string length</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractMaxExclusivePropertyConstraint"><code>sh:maxExclusive</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Maximum exclusive value (&gt;)</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractMaxInclusivePropertyConstraint"><code>sh:maxInclusive</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Maximum inclusive value (&gt;=)</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractMinExclusivePropertyConstraint"><code>sh:minExclusive</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Minimum exclusive value (&lt;)</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractMinInclusivePropertyConstraint"><code>sh:minInclusive</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Minimum inclusive value (&lt;=)</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractNodeKindPropertyConstraint"><code>sh:nodeKind</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Node kind (IRI, blank node, or literal) of all values</td>
+				</tr>
+				<tr>
+					<td><a href="#notEquals"><code>sh:notEquals</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Property with unequal values</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractPatternPropertyConstraint"><code>sh:pattern</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>Regular expression string matching</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractUniqueLangPropertyConstraint"><code>sh:uniqueLang</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td></td>
+					<td>No duplicate language tags</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractValueShapePropertyConstraint"><code>sh:valueShape</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Nested shape of all values</td>
+				</tr>
+				<tr>
+					<td><a href="#AbstractQualifiedValueShapePropertyConstraint"><code>sh:qualifiedValueShape</code>, <code>sh:qualifiedMinCount</code>, <code>sh:qualifiedMaxCount</code></a></td>
+					<td></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Nested shape of a given minimum/maximum number of values</td>
+				</tr>
+			</table>
 
-			<section id="constraints-property">
-				<h3>Property Constraints (sh:property)</h3>
+			<section id="constraints-value-type">
+				<h3>Value Type Constraint Components</h3>
 				<p>
-					A <span class="term">property constraint</span> is a constraint that defines restrictions on the values of a given property in the context of the focus node.
-					Here, the focus node is the <span class="term">subject</span> and the property is the <span class="term">predicate</span> of relevant triples.
-					The property <code>sh:property</code> can be used to link a shape with its property constraints.
+					The constraint components in this section have in common that they define restrictions
+					on the type of the nodes.
 				</p>
-				<p>
-					In SHACL, property constraints are instances of the class <code>sh:PropertyConstraint</code>.
-					When used as values of <code>sh:property</code>, property constraints do not require an <code>rdf:type</code> triple.
-					However, if those values are IRIs, then they SHOULD have an <code>rdf:type</code> triple.
-					Note that <code>sh:property</code> may also have values that are sub-classes of <code>sh:PropertyConstraint</code>,
-					but in this case the <code>rdf:type</code> triple is required.
-					It is not valid to use <code>sh:property</code> for constraints that are not instance of <code>sh:PropertyConstraint</code>.
-				</p>
-				<p> 
-					The following examples illustrate two ways of using property constraints.
-					The first example uses a blank node:
-				</p>
-				<pre class="example" title="Property constraint represented by a blank node">
-ex:InlinePropertyConstraintExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:someProperty ;
-		sh:name "some property" ;
-		sh:description "Description of the role of ex:someProperty (in the context of the constraint)" ;
-		sh:minCount 1 ;
-		sh:class ex:SomeClass ;
-	] .</pre>
-				<p>
-					The second example defines a constraint as an IRI node, allowing it to be more easily referenced and shared across multiple shapes:
-				</p>
-				<pre class="example" title="Property constraint represented by a IRI">
-ex:StandAlonePropertyConstraintExampleShape
-	a sh:Shape ;
-	sh:property ex:StandAloneConstraint .
-
-ex:StandAloneConstraint
-	a sh:PropertyConstraint ;
-	sh:predicate ex:someProperty ;
-	sh:defaultValue ex:SomeInstance ;
-	sh:minCount 1 ;
-	sh:class ex:SomeClass .</pre>
-				<p>
-					The following sections provide details on the properties that may be used with <code>sh:PropertyConstraint</code>.
-					None of these properties can be repeated within the same <code>sh:PropertyConstraint</code>.
-					In order to define multiple constraints using the same predicate, such as multiple <code>sh:hasValue</code> constraints, the shape must use multiple <code>sh:property</code> definitions.
-				</p>
-				<p class="todo">
-					Note that this chapter is work in progress to implement the resolution to ISSUE-98.
-					In a nutshell, these constraint types can be used either at sh:constraint (to apply to the focus node itself),
-					at sh:property (to apply to all values of a given property), or at sh:inverseProperty (to apply to all inverse values of a given property).
-					Which combinations are supported is summarized in the following table.
-					The flow of the sub-sections needs to be adjusted and generalized accordingly.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Properties</th>
-						<th>sh:constraint</th>
-						<th>sh:property</th>
-						<th>sh:inverseProperty</th>
-						<th>Summary</th>
-					</tr>
-					<tr>
-						<td>
-							<a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a>,
-							<a href="#classIn"><code>sh:classIn</code></a> and
-							<a href="#AbstractDirectTypePropertyConstraint"><code>sh:directType</code></a>
-						</td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>Type, based on <code>rdf:type</code></td>
-					</tr>
-					<tr>
-						<td>
-							<a href="#AbstractDatatypePropertyConstraint"><code>sh:datatype</code></a> and
-							<a href="#datatypeIn"><code>sh:datatypeIn</code></a>
-						</td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Datatype, for literals</td>
-					</tr>
-					<tr>
-						<td><a href="#equals"><code>sh:equals</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Property with equal values</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractHasValuePropertyConstraint"><code>sh:hasValue</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>A specific required value</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractInPropertyConstraint"><code>sh:in</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>Enumeration of allowed values</td>
-					</tr>
-					<tr>
-						<td><a href="#lessThan"><code>sh:lessThan</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Must have lesser values than another property</td>
-					</tr>
-					<tr>
-						<td><a href="#lessThan"><code>sh:lessThanOrEquals</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Must have lesser or equal values than another property</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractCountPropertyConstraint"><code>sh:minCount</code>, <code>sh:maxCount</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>Minimum and maximum cardinality</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractLengthPropertyConstraint"><code>sh:minLength</code>, <code>sh:maxLength</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Minimum and maximum string length</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractMaxExclusivePropertyConstraint"><code>sh:maxExclusive</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Maximum exclusive value (&gt;)</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractMaxInclusivePropertyConstraint"><code>sh:maxInclusive</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Maximum inclusive value (&gt;=)</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractMinExclusivePropertyConstraint"><code>sh:minExclusive</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Minimum exclusive value (&lt;)</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractMinInclusivePropertyConstraint"><code>sh:minInclusive</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Minimum inclusive value (&lt;=)</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractNodeKindPropertyConstraint"><code>sh:nodeKind</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>Node kind (IRI, blank node, or literal) of all values</td>
-					</tr>
-					<tr>
-						<td><a href="#notEquals"><code>sh:notEquals</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Property with unequal values</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractPatternPropertyConstraint"><code>sh:pattern</code></a></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>Regular expression string matching</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractUniqueLangPropertyConstraint"><code>sh:uniqueLang</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td></td>
-						<td>No duplicate language tags</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractValueShapePropertyConstraint"><code>sh:valueShape</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>Nested shape of all values</td>
-					</tr>
-					<tr>
-						<td><a href="#AbstractQualifiedValueShapePropertyConstraint"><code>sh:qualifiedValueShape</code>, <code>sh:qualifiedMinCount</code>, <code>sh:qualifiedMaxCount</code></a></td>
-						<td></td>
-						<td>&#9745;</td>
-						<td>&#9745;</td>
-						<td>Nested shape of a given minimum/maximum number of values</td>
-					</tr>
-				</table>
 				<section id="AbstractClassPropertyConstraint">
 					<h4>sh:class</h4>
 					<p>
@@ -1342,10 +1359,10 @@ WHERE {
 }</pre>
 					</div>
 				</section>
-				<section id="equals">
-					<h3>sh:equals</h3>
+				<section id="AbstractNodeKindPropertyConstraint">
+					<h4>sh:nodeKind</h4>
 					<p>
-						<code>sh:equals</code> constrains a pair of properties so that the value sets of both properties at a given focus node must be equal.
+						The property <code>sh:nodeKind</code> can be used to restrict the RDF node kind of all values of the given property.
 					</p>
 					<table class="term-table">
 						<tr>
@@ -1354,135 +1371,26 @@ WHERE {
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:equals</code></td>
-							<td><code>rdfs:Resource</code></td>
-							<td>Property to compare with</td>
+							<td><code>sh:nodeKind</code></td>
+							<td><code>sh:NodeKind</code></td>
+							<td>Node kind (IRI, blank node, literal or combinations of these) of all values</td>
 						</tr>
 					</table>
+					<p>
+						The values of <code>sh:nodeKind</code> must be instances of the class <code>sh:NodeKind</code>.
+						The SHACL system vocabulary defines that <code>sh:NodeKind</code> has exactly 6 instances:
+						<code>sh:BlankNode</code>, <code>sh:IRI</code> and <code>sh:Literal</code> as well as the
+						following instances that represent combinations of the former three instances, i.e. either-or:
+						<code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.
+					</p>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced
-							for each value of <code>sh:predicate</code> that does not exist as value of <code>sh:equals</code> and
-							for each value of <code>sh:equals</code> that does not exist as value of <code>sh:predicate</code>
-							at the given <span class="term">focus node</span>.
-							The produced <span class="term">validation result</span> must have the corresponding values of the existing triple as <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?object
-WHERE {
-	{
-		$this $predicate ?object .
-		FILTER NOT EXISTS {
-			$this $equals ?object .
-		}
-	}
-	UNION
-	{
-		$this $equals ?object .
-		FILTER NOT EXISTS {
-			$this $predicate ?object .
-		}
-	}
-}</pre>
-					</div>
-					<p>
-						The following example illustrates the use of <code>sh:equals</code> in a shape to verify
-						that certain nodes must have the same value sets for <code>ex:firstName</code> and <code>ex:givenName</code>.
-					</p>
-					<pre class="example" title="Shape with an sh:equals constraint">
-ex:EqualExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:firstName ;
-		sh:equals ex:givenName ;
-	] .
-
-ex:ValidInstance1
-	ex:firstName "John" ;
-	ex:givenName "John" .</pre>
-				</section>
-				<section id="AbstractHasValuePropertyConstraint">
-					<h4>sh:hasValue</h4>
-					<p>
-						The property <code>sh:hasValue</code> can be used to verify
-						that the <span class="term">focus node</span> has a given RDF node among the values of the given
-						predicate.
-					</p>
-					<table class="term-table">
-						<tr>
-							<th>Property</th>
-							<th>Value Type</th>
-							<th>Summary</th>
-						</tr>
-						<tr>
-							<td><code>sh:hasValue</code></td>
-							<td>any</td>
-							<td>A specific required value</td>
-						</tr>
-					</table>
-					<div id="def-hasValue-text" class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if there is no triple that has
+							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and the <code>sh:hasValue</code> as its object.
+							as its predicate and where the object does not match the given node kind.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate
-WHERE {
-	FILTER NOT EXISTS {
-		$this $predicate $hasValue .
-	}
-}</pre>
-					</div>
-					<pre class="example" title="Shape with sh:hasValue constraint">
-ex:HasValueExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:property ;
-		sh:hasValue ex:Green ;
-	] .
-
-ex:HasValueExampleValidResource
-	ex:property ex:Green .</pre>
-				</section>
-				<section id="AbstractInPropertyConstraint">
-					<h4>sh:in</h4>
-					<p>
-						The property <code>sh:in</code> exclusively enumerates the values that a property may have.
-						When specified, each value of the given property must be a member of the specified list.
-					</p>
-					<table class="term-table">
-						<tr>
-							<th>Property</th>
-							<th>Value Type</th>
-							<th>Summary</th>
-						</tr>
-						<tr>
-							<td><code>sh:in</code></td>
-							<td><code>rdf:List</code></td>
-							<td>Enumeration of allowed values</td>
-						</tr>
-					</table>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							The values of <code>sh:in</code> must be well-formed instances of <code>rdf:List</code>.
-							The members of that <code>rdf:List</code> must not be blank nodes.
-							A <span class="term">validation result</span> must be produced for every triple that has the <span class="term">focus node</span> as its subject,
-							the <code>sh:predicate</code> as its predicate and an object that is not a member of the given list.
-							Matching of literals needs to be exact, e.g. <code>"04"^^xsd:byte</code> does not match <code>"4"^^xsd:integer</code>.
-							Each produced <span class="term">result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective invalid value as its <code>sh:object</code>.
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
@@ -1492,112 +1400,35 @@ SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
 	$this $predicate ?value .
 	FILTER NOT EXISTS {
-		GRAPH $shapesGraph {
-			$in (rdf:rest*)/rdf:first ?value .
-		}
+		FILTER ((isIRI($value) &amp;&amp; $nodeKind IN ( sh:IRI, sh:BlankNodeOrIRI, sh:IRIOrLiteral ) ) ||
+				(isLiteral($value) &amp;&amp; $nodeKind IN ( sh:Literal, sh:BlankNodeOrLiteral, sh:IRIOrLiteral ) ) ||
+				(isBlank($value)   &amp;&amp; $nodeKind IN ( sh:BlankNode, sh:BlankNodeOrIRI, sh:BlankNodeOrLiteral ) )) .
 	}
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:in constraint">
-ex:AllowedValuesExampleShape
+					<pre class="example" title="Shape with sh:nodeKind constraint">
+ex:NodeKindExampleShape
 	a sh:Shape ;
 	sh:property [
 		sh:predicate ex:someProperty ;
-		sh:in ( ex:Value1 ex:Value2 ex:Value3 ) ;
+		sh:nodeKind ex:IRI ;
 	] .
 
-ex:InExampleValidResource
-	ex:someProperty ex:Value2 .</pre>
+ex:NodeKindShapeExampleValidResource
+	ex:someProperty ex:SomeIRI .
+
+ex:NodeKindShapeExampleInvalidResource
+	ex:someProperty ex:SomeIRI ;
+	ex:someProperty "A literal" .</pre>
 				</section>
-				<section id="lessThan">
-					<h3>sh:lessThan</h3>
-					<p>
-						<code>sh:lessThan</code> constrains a pair of properties so that the values of the first property must be smaller than the values of the second property at a given focus node.
-					</p>
-					<table class="term-table">
-						<tr>
-							<th>Property</th>
-							<th>Value Type</th>
-							<th>Summary</th>
-						</tr>
-						<tr>
-							<td><code>sh:lessThan</code></td>
-							<td><code>rdfs:Resource</code></td>
-							<td>The property to compare the values with</td>
-						</tr>
-					</table>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate</code>
-							and <code>sh:lessThan</code> at the given <span class="term">focus node</span>, where
-							the first value is not less than the second value, based on SPARQL's <code>&lt;</code> operator.
-							A validation result must also be produced if the two values cannot be compared.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value of <code>sh:predicate</code> as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?object
-WHERE {
-	$this $predicate ?object .
-	$this $lessThan ?object2 .
-	FILTER (!(?object &lt; ?object2)) .
-}</pre>
-					</div>
-					<p>
-						The following example illustrates the use of <code>sh:lessThan</code> in a shape to verify
-						that all values of <code>ex:startDate</code> must "before" the values of <code>ex:endDate</code>.
-					</p>
-					<pre class="example" title="Shape with an sh:lessThan constraint">
-ex:LessThanExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:startDate ;
-		sh:lessThan ex:endDate ;
-	] .</pre>
-				</section>
-				<section id="LessThanOrEqualConstraint">
-					<h3>sh:lessThanOrEquals</h3>
-					<p>
-						<code>sh:lessThanOrEquals</code> constrains a pair of properties so that the values of the first property must be smaller than or equal to the values of the second property at a given focus node.
-					</p>
-					<table class="term-table">
-						<tr>
-							<th>Property</th>
-							<th>Value Type</th>
-							<th>Summary</th>
-						</tr>
-						<tr>
-							<td><code>sh:lessThanOrEquals</code></td>
-							<td><code>rdfs:Resource</code></td>
-							<td>The property to compare the values with</td>
-						</tr>
-					</table>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate</code>
-							and <code>sh:lessThanOrEquals</code> at the given <span class="term">focus node</span>, where
-							the first value is not less than or equal to the second value, based on SPARQL's <code>&lt;=</code> operator.
-							A validation result must also be produced if the two values cannot be compared.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value of the first predicate as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?object
-WHERE {
-	$this $predicate ?object .
-	$this $lessThanOrEquals ?object2 .
-	FILTER (!(?object &lt;= ?object2)) .
-}</pre>
-					</div>
-				</section>
+			</section>
+
+			<section id="constraints-count">
+				<h3>Cardinality Constraint Components</h3>
+				<p>
+					The constraint components in this section can be applied to either a property constraint or an inverse property
+					constraints, to represent restrictions on the number of values that the focus node may have for these properties.
+				</p>
 				<section id="AbstractCountPropertyConstraint">
 					<h4>sh:minCount, sh:maxCount</h4>
 					<p>
@@ -1684,84 +1515,14 @@ ex:CountExampleShape
 ex:CountExampleValidResource
 	ex:someProperty ex:OneValue .</pre>
 				</section>
-				<section id="AbstractLengthPropertyConstraint">
-					<h4>sh:minLength, sh:maxLength</h4>
-					<p>
-						The properties <code>sh:minLength</code> and <code>sh:maxLength</code>
-						restrict the string length of objects of triples with the <span class="term">focus node</span>
-						as the <span class="term">subject</span> and the given property as the <span class="term">predicate</span>.
-						This can be applied to any type of literal and IRIs, but not for blank nodes.
-					</p>
-					<table class="term-table">
-						<tr>
-							<th>Property</th>
-							<th>Value Type</th>
-							<th>Summary</th>
-						</tr>
-						<tr>
-							<td><code>sh:minLength</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The minimum length. If the value is 0 then there is no restriction on the string length but this constraint is still violated if the node is a blank node.</td>
-						</tr>
-						<tr>
-							<td><code>sh:maxLength</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The maximum length. If this constraint is omitted then there is no restriction on the string length and no requirement that the node is a literal or IRI.</td>
-						</tr>
-					</table>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION of sh:minLength</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the length of the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
-							of the object is less than the specified minimum length, or if the object is a blank node.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION of sh:minLength</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
-WHERE {
-	$this $predicate ?value .
-	FILTER (isBlank(?value) || STRLEN(str(?value)) &lt; $minLength) .
-}</pre>
-					</div>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION of sh:maxLength</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the length of the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
-							of the object is either more than the specified maximum length, or if the object is a blank node.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION of sh:maxLength</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
-WHERE {
-	$this $predicate ?value .
-	FILTER (isBlank(?value) || STRLEN(str(?value)) &gt; $maxLength) .
-}</pre>
-					</div>
-					<pre class="example" title="Shape with sh:minLength and sh:maxLength constraints">
-ex:PasswordExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:password ;
-		sh:minLength 8 ;
-		sh:maxLength 10 ;
-		rdfs:comment "Password must be between 8 and 10 characters long" ;
-	] .
-
-ex:PasswordExampleValidResource
-	ex:password "password" .</pre>
-				</section>
+			</section>
+			
+			<section id="constraints-range">
+				<h3>Value Range Constraint Components</h3>
+				<p>
+					The following constraint components represent range restrictions on node that are comparable
+					via operators such as <code>&lt;</code> and <code>&gt;</code>.
+				</p>
 				<section id="range-property-constraints">
 					<h4>sh:minExclusive, sh:minInclusive, sh:maxExclusive, sh:maxInclusive</h4>
 					<p>
@@ -1848,10 +1609,21 @@ ex:NumericExampleInvalidResource1
 ex:NumericExampleInvalidResource2
 	ex:someProperty "a string" .</pre>
 				</section>
-				<section id="AbstractNodeKindPropertyConstraint">
-					<h4>sh:nodeKind</h4>
+			</section>
+
+			<section id="constraints-string">
+				<h3>String-based Constraint Components</h3>
+				<p>
+					The constraint components in this section have in common that they are representing
+					restrictions on the string representation of certain nodes.
+				</p>
+				<section id="AbstractLengthPropertyConstraint">
+					<h4>sh:minLength, sh:maxLength</h4>
 					<p>
-						The property <code>sh:nodeKind</code> can be used to restrict the RDF node kind of all values of the given property.
+						The properties <code>sh:minLength</code> and <code>sh:maxLength</code>
+						restrict the string length of objects of triples with the <span class="term">focus node</span>
+						as the <span class="term">subject</span> and the given property as the <span class="term">predicate</span>.
+						This can be applied to any type of literal and IRIs, but not for blank nodes.
 					</p>
 					<table class="term-table">
 						<tr>
@@ -1860,98 +1632,68 @@ ex:NumericExampleInvalidResource2
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:nodeKind</code></td>
-							<td><code>sh:NodeKind</code></td>
-							<td>Node kind (IRI, blank node, literal or combinations of these) of all values</td>
+							<td><code>sh:minLength</code></td>
+							<td><code>xsd:integer</code></td>
+							<td>The minimum length. If the value is 0 then there is no restriction on the string length but this constraint is still violated if the node is a blank node.</td>
+						</tr>
+						<tr>
+							<td><code>sh:maxLength</code></td>
+							<td><code>xsd:integer</code></td>
+							<td>The maximum length. If this constraint is omitted then there is no restriction on the string length and no requirement that the node is a literal or IRI.</td>
 						</tr>
 					</table>
-					<p>
-						The values of <code>sh:nodeKind</code> must be instances of the class <code>sh:NodeKind</code>.
-						The SHACL system vocabulary defines that <code>sh:NodeKind</code> has exactly 6 instances:
-						<code>sh:BlankNode</code>, <code>sh:IRI</code> and <code>sh:Literal</code> as well as the
-						following instances that represent combinations of the former three instances, i.e. either-or:
-						<code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.
-					</p>
 					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-header">TEXTUAL DEFINITION of sh:minLength</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each triple that has
 							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object does not match the given node kind.
+							as its predicate and where the length of the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
+							of the object is less than the specified minimum length, or if the object is a blank node.
 							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION of sh:minLength</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
 	$this $predicate ?value .
-	FILTER NOT EXISTS {
-		FILTER ((isIRI($value) &amp;&amp; $nodeKind IN ( sh:IRI, sh:BlankNodeOrIRI, sh:IRIOrLiteral ) ) ||
-				(isLiteral($value) &amp;&amp; $nodeKind IN ( sh:Literal, sh:BlankNodeOrLiteral, sh:IRIOrLiteral ) ) ||
-				(isBlank($value)   &amp;&amp; $nodeKind IN ( sh:BlankNode, sh:BlankNodeOrIRI, sh:BlankNodeOrLiteral ) )) .
-	}
+	FILTER (isBlank(?value) || STRLEN(str(?value)) &lt; $minLength) .
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:nodeKind constraint">
-ex:NodeKindExampleShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:someProperty ;
-		sh:nodeKind ex:IRI ;
-	] .
-
-ex:NodeKindShapeExampleValidResource
-	ex:someProperty ex:SomeIRI .
-
-ex:NodeKindShapeExampleInvalidResource
-	ex:someProperty ex:SomeIRI ;
-	ex:someProperty "A literal" .</pre>
-				</section>
-				<section id="notEquals">
-					<h3>sh:notEquals</h3>
-					<p>
-						<code>sh:notEquals</code> constrains a pair of properties so that the value sets of both properties at a given focus node must not share any values.
-					</p>
 					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-header">TEXTUAL DEFINITION of sh:maxLength</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each value of <code>sh:predicate</code>
-							that also exists as value of <code>sh:notEquals</code> at the given <span class="term">focus node</span>.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value as its <code>sh:object</code>.
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where the length of the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
+							of the object is either more than the specified maximum length, or if the object is a blank node.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION of sh:maxLength</div>
 <pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?object
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
-	$this $predicate ?object .
-	$this $notEquals ?object .
+	$this $predicate ?value .
+	FILTER (isBlank(?value) || STRLEN(str(?value)) &gt; $maxLength) .
 }</pre>
 					</div>
-					<p>
-						The following example illustrates the use of <code>sh:notEquals</code> in a shape to verify
-						that certain nodes must not share any values for <code>ex:prefLabel</code> and <code>ex:altLabel</code>.
-					</p>
-					<pre class="example" title="Shape with an sh:notEquals constraint">
-ex:NotEqualsExampleShape
+					<pre class="example" title="Shape with sh:minLength and sh:maxLength constraints">
+ex:PasswordExampleShape
 	a sh:Shape ;
 	sh:property [
-		sh:predicate ex:prefLabel ;
-		sh:notEquals ex:altLabel ;
+		sh:predicate ex:password ;
+		sh:minLength 8 ;
+		sh:maxLength 10 ;
+		rdfs:comment "Password must be between 8 and 10 characters long" ;
 	] .
 
-ex:ValidInstance1
-	ex:prefLabel "USA" ;
-	ex:altLabel "United States" .
-
-ex:InvalidInstance1
-	ex:prefLabel "Germany" ;
-	ex:altLabel "Germany" .</pre>
+ex:PasswordExampleValidResource
+	ex:password "password" .</pre>
 				</section>
 				<section id="AbstractPatternPropertyConstraint">
 					<h4>sh:pattern</h4>
@@ -2073,11 +1815,19 @@ ex:UniqueLangShapeExampleInvalidResource
 	ex:someProperty "Me"@en ;
 	ex:someProperty "Myself"@en .</pre>
 				</section>
-				<section id="AbstractValueShapePropertyConstraint">
-					<h4>sh:valueShape</h4>
+			</section>
+			
+			<section id="constraints-property-pairs">
+				<h3>Property Pair Constraint Components</h3>
+				<p>
+					The constraint components in this section restrict the sets of values represented by
+					the <code>sh:predicate</code> used in the property constraint, and another property
+					that is specified as the value of the respective parameter such as <code>sh:equals</code>.
+				</p>
+				<section id="equals">
+					<h3>sh:equals</h3>
 					<p>
-						The property <code>sh:valueShape</code> can be used verify that all values of the given property must have a given shape.
-						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>, but the <code>rdf:type</code> triple of those shapes can be omitted.
+						<code>sh:equals</code> constrains a pair of properties so that the value sets of both properties at a given focus node must be equal.
 					</p>
 					<table class="term-table">
 						<tr>
@@ -2086,83 +1836,104 @@ ex:UniqueLangShapeExampleInvalidResource
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:valueShape</code></td>
-							<td><code>sh:Shape</code></td>
-							<td>The required shape of all values</td>
+							<td><code>sh:equals</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>Property to compare with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where validating the object against the shape specified by <code>sh:valueShape</code> 
-							produces any validation results with severity <code>sh:Violation</code> or a failure.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+							A <span class="term">validation result</span> must be produced
+							for each value of <code>sh:predicate</code> that does not exist as value of <code>sh:equals</code> and
+							for each value of <code>sh:equals</code> that does not exist as value of <code>sh:predicate</code>
+							at the given <span class="term">focus node</span>.
+							The produced <span class="term">validation result</span> must have the corresponding values of the existing triple as <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?object ?failure
+SELECT $this ($this AS ?subject) $predicate ?object
 WHERE {
-	$this $predicate ?object .
-	BIND (sh:hasShape(?object, $valueShape, $shapesGraph, false) AS ?hasShape) .
-	BIND (!bound(?hasShape) AS ?failure) .
-	FILTER (?failure || !?hasShape) .
+	{
+		$this $predicate ?object .
+		FILTER NOT EXISTS {
+			$this $equals ?object .
+		}
+	}
+	UNION
+	{
+		$this $equals ?object .
+		FILTER NOT EXISTS {
+			$this $predicate ?object .
+		}
+	}
 }</pre>
 					</div>
-					<p class="issue" data-number="22" title="Treatment of recursive shape definitions">
-						According to resolution <a href="https://www.w3.org/2015/12/16-shapes-minutes.html#resolution04">2015.12.16/04</a> shapes graphs with dependency loops are invalid and suitable limitations of this will be explored.
-						Until  issue 22 is closed, definitions regarding recursion are not endorsed by the WG.
-					</p>
 					<p>
-						A shape may refer to itself directly or indirectly via <code>sh:valueShape</code>, <code>sh:filterShape</code>, etc.
-						Such a shape is said to be <em>recursive</em>.
-						The meaning of non-recursive shapes is always well-founded.
-						In contrast, the meaning of a recursive shape may not be well-founded.
-						As a starting point, the SHACL specification only defines the meaning of non-recursive shapes.
-						However, there are use-cases where recursion is valuable, either for its inherent expressive power or because it makes the
-						intension of shapes clearer.
-						The Working Group will therefore explore conditions under which recursive shapes can be assigned a well-defined meaning and will
-						relax the restrictions on recursion accordingly. 
+						The following example illustrates the use of <code>sh:equals</code> in a shape to verify
+						that certain nodes must have the same value sets for <code>ex:firstName</code> and <code>ex:givenName</code>.
 					</p>
-					<p>
-						In the following example, all values of the property <code>ex:someProperty</code> will validate with no results for the shape
-						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
-					</p>
-					<pre class="example" title="Shape with sh:valueShape constraint">
-ex:ValueShapeExampleShape
+					<pre class="example" title="Shape with an sh:equals constraint">
+ex:EqualExampleShape
 	a sh:Shape ;
 	sh:property [
-		sh:predicate ex:someProperty ;
-		sh:valueShape [
-			a sh:Shape ;   # Optional
-			sh:predicate [
-				sh:predicate ex:nestedProperty ;
-				sh:minCount 1 ;
-			]
-		]
+		sh:predicate ex:firstName ;
+		sh:equals ex:givenName ;
 	] .
 
-ex:ValueShapeExampleValidResource
-	ex:someProperty [
-		ex:nestedProperty 42 ;
-	] .</pre>
+ex:ValidInstance1
+	ex:firstName "John" ;
+	ex:givenName "John" .</pre>
 				</section>
-				<section id="AbstractQualifiedValueShapePropertyConstraint">
-					<h4>sh:qualifiedValueShape, sh:qualifiedMinCount, sh:qualifiedMaxCount</h4>
-					<div class="issue" data-number="92" title="Relationship of QCRs with Partitions">
-						Feature at risk:
-						There is an ongoing proposal (see sh:partition) that strongly overlaps with the QCRs proposed here.
-						The WG may decide to support only one of these options, but not both.
+				<section id="notEquals">
+					<h3>sh:notEquals</h3>
+					<p>
+						<code>sh:notEquals</code> constrains a pair of properties so that the value sets of both properties at a given focus node must not share any values.
+					</p>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each value of <code>sh:predicate</code>
+							that also exists as value of <code>sh:notEquals</code> at the given <span class="term">focus node</span>.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object
+WHERE {
+	$this $predicate ?object .
+	$this $notEquals ?object .
+}</pre>
 					</div>
 					<p>
-						The property <code>sh:qualifiedValueShape</code> can be used verify that a certain number  of values of the given property must have a given shape.
-						The value type of <code>sh:qualifiedValueShape</code> is <code>sh:Shape</code>, and it needs to be accompanied by
-						a <code>sh:qualifiedMinCount</code> or a <code>sh:qualifiedMaxCount</code> (both typed <code>xsd:integer</code>), or both.
-						The <code>rdf:type</code> of the value shapes can be omitted.
+						The following example illustrates the use of <code>sh:notEquals</code> in a shape to verify
+						that certain nodes must not share any values for <code>ex:prefLabel</code> and <code>ex:altLabel</code>.
+					</p>
+					<pre class="example" title="Shape with an sh:notEquals constraint">
+ex:NotEqualsExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:prefLabel ;
+		sh:notEquals ex:altLabel ;
+	] .
+
+ex:ValidInstance1
+	ex:prefLabel "USA" ;
+	ex:altLabel "United States" .
+
+ex:InvalidInstance1
+	ex:prefLabel "Germany" ;
+	ex:altLabel "Germany" .</pre>
+				</section>
+				<section id="lessThan">
+					<h3>sh:lessThan</h3>
+					<p>
+						<code>sh:lessThan</code> constrains a pair of properties so that the values of the first property must be smaller than the values of the second property at a given focus node.
 					</p>
 					<table class="term-table">
 						<tr>
@@ -2171,373 +1942,90 @@ ex:ValueShapeExampleValidResource
 							<th>Summary</th>
 						</tr>
 						<tr>
-							<td><code>sh:qualifiedValueShape</code></td>
-							<td><code>sh:Shape</code></td>
-							<td>The required shape of the specified values</td>
-						</tr>
-						<tr>
-							<td><code>sh:qualifiedMinCount</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The minimum number of values that must have the shape. If this constraint is omitted then there is no minimum number of values required. </td>
-						</tr>
-						<tr>
-							<td><code>sh:qualifiedMaxCount</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The maximum number of values that can have the shape. If this constraint is omitted then there is no maximum number of values required.</td>
+							<td><code>sh:lessThan</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>The property to compare the values with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMinCount</div>
+						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the number of triples that have
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where validating the object against the shape specified by <code>sh:qualifiedValueShape</code>
-							produces no validation results with severity <code>sh:Violation</code> or a failure is less than
-							<code>sh:qualifiedMinCount</code>.
+							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate</code>
+							and <code>sh:lessThan</code> at the given <span class="term">focus node</span>, where
+							the first value is not less than the second value, based on SPARQL's <code>&lt;</code> operator.
+							A validation result must also be produced if the two values cannot be compared.
 							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value of <code>sh:predicate</code> as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMinCount</div>
+						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?failure
+SELECT $this ($this AS ?subject) $predicate ?object
 WHERE {
-	{
-		SELECT (SUM(?s) AS ?count)
-		WHERE {
-			{
-				FILTER NOT EXISTS { $this $predicate ?value } .
-				BIND (0 AS ?s) .
-			}
-			UNION
-			{
-				$this $predicate ?value .
-				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
-				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
-			}
-		}
-	}
-	BIND (!bound(?count) AS ?failure) .
-	FILTER IF(?failure, true, ?count &lt; $qualifiedMinCount) .
-}</pre>
-					</div>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMaxCount</div>
-						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the number of triples that have
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where validating the object against the shape specified by <code>sh:qualifiedValueShape</code>
-							produces no validation results with severity <code>sh:Violation</code> or a failure is greater than
-							<code>sh:qualifiedMaxCount</code>.
-							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
-						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMaxCount</div>
-<pre class="def-sparql-body">
-SELECT $this ($this AS ?subject) $predicate ?failure
-WHERE {
-	{
-		SELECT (SUM(?s) AS ?count)
-		WHERE {
-			{
-				FILTER NOT EXISTS { $this $predicate ?value } .
-				BIND (0 AS ?s) .
-			}
-			UNION
-			{
-				$this $predicate ?value .
-				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
-				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
-			}
-		}
-	}
-	BIND (!bound(?count) AS ?failure) .
-	FILTER IF(?failure, true, ?count &gt; $qualifiedMaxCount) .
+	$this $predicate ?object .
+	$this $lessThan ?object2 .
+	FILTER (!(?object &lt; ?object2)) .
 }</pre>
 					</div>
 					<p>
-						In the following example, the property <code>ex:parent</code> must have exactly two values,
-						and at least one of them needs to be female.
+						The following example illustrates the use of <code>sh:lessThan</code> in a shape to verify
+						that all values of <code>ex:startDate</code> must "before" the values of <code>ex:endDate</code>.
 					</p>
-					<pre class="example" title="Shape with sh:qualifiedValueShape constraint">
-ex:QualifiedValueShapeExampleShape
+					<pre class="example" title="Shape with an sh:lessThan constraint">
+ex:LessThanExampleShape
 	a sh:Shape ;
 	sh:property [
-		sh:predicate ex:parent ;
-		sh:minCount 2 ;
-		sh:maxCount 2 ;
-		sh:qualifiedValueShape [
-			a sh:Shape ;   # Optional
-			sh:property [
-				sh:predicate ex:gender ;
-				sh:hasValue ex:female ;
-			]
-		] ;
-		sh:qualifiedMinCount 1 ;
-	] .
-
-ex:QualifiedValueShapeExampleValidResource
-	ex:parent ex:John ;
-	ex:parent ex:Jane .
-
-ex:John
-	ex:gender ex:male .
-
-ex:Jane
-	ex:gender ex:female .</pre>
-				</section>
-
-				<section id="PartitionConstraint">
-					<h4>sh:partition</h4>
-					<div class="issue" data-number="92" title="Under Development">
-						This section is one proposal to resolve ISSUE-92.
-					</div>
-					<p>
-						In some cases a given property may be multi-valued and it may be required that the set of values
-						be partitioned into two or more subsets, each of which satisfies certain constraints.
-					</p>
-					<p>
-						For example, suppose that in the Library of Congress BIBFRAME (<code>bf:</code>) Cultural Heritage vocabulary each person (<code>bf:Person</code>) must be identified by 
-						(<code>bf:identifiedBy</code>) exactly one identifier from <code>id.loc.gov</code> and may have another identifier
-						from <code>viaf.org</code>. No other identifiers are allowed. Thus the set of all identifiers is partitioned into
-						two subsets, the first of which contains exactly one member and the second of which contains zero or one members.
-						The following example shows a snippet of some valid BIBFRAME data.
-					</p>
-					<pre class="example" title="Valid BIBFRAME Data">&lt;bf_Person1>
-  	bf:identifiedBy &lt;http://id.loc.gov/authorities/names/n80103961#RWO> ;
- 	bf:identifiedBy &lt;https://viaf.org/viaf/268367832/#Knape,_Joachim> .</pre>
-					<p>
-						The following example shows a snippet of some invalid BIBFRAME data.
-					</p>
-					<pre class="example" title="Invalid BIBFRAME Data">&lt;bf_Person1>
-  	bf:identifiedBy &lt;http://id.loc.gov/authorities/names/n80103961#RWO> ;
- 	bf:identifiedBy &lt;https://viaf.org/viaf/268367832/#Knape,_Joachim> ;
-	bf:identifiedBy "this is a mistake" . # should be an error</pre>
-					<p>
-						Qualified cardinality constraints provide a basis for expressing this type of partitioning requirement, but using them imposes a burden on the shapes author. In the BIBFRAME example the author would need to express the requirement that the set of all identifiers that are from neither <code>id.loc.gov</code> nor <code>viaf.org</code> is empty, i.e. it has a maximum cardinality of 0. Clearly, as more subsets of values are involved, the burden on the author increases.
-						The <code>sh:partition</code> constraint makes it easier to express this type of requirement than it would be to use 
-						multiple qualified cardinality constraints.
-						In effect, <code>sh:partition</code> chains together a sequence of qualified cardinality constraints and removes the set of context nodes matched by each from further consideration. If every context node gets matched in this process, then
-						the <code>sh:partition</code> constraint reports no violations. Otherwise, any context nodes remaining are reported as
-						violations of the constraint.
-						The BIBFRAME example constraint is expressed as follows.
-					</p>
-					<pre class="example" title="BIBFRAME constraint expressed using sh:partition">ex:BibframeShape a sh:Shape ;
-sh:property [
-	sh:predicate bf:identifiedBy ;
-	sh:partition (
-		[sh:minCount 1; sh:maxCount 1; sh:pattern "^http://id.loc.gov/"]
-		[sh:maxCount 1; sh:pattern "^https://viaf.org/"]
-	)
-] .</pre>
-					<p>
-						The value of the <code>sh:partition</code> constraint parameter MUST be an <code>rdf:List</code> that contains zero or more resources. 
-						Each resource in the list defines conditions on a subset of the context nodes and MAY contain the following parameters:
-					</p>
-					<ul>
-						<li>zero or one <code>sh:minCount</code>. This defines the minimum cardinality of the corresponding subset.</li>
-						<li>zero or one <code>sh:maxCount</code>. This defines the maximum cardinality of the corresponding subset.</li>
-						<li>any combination of parameters associated with node validation constraints. A node validation constraint
-							is any constraint defined by a boolean function on nodes. 
-							These include the built-in constraints defined by <code>sh:nodeKind</code>, <code>sh:partition</code>,
-							<code>sh:minExclusive</code>, etc.
-							The corresponding subset consists of those remaining nodes for which the boolean function is <code>true</code>.</li>
-					</ul>
-					<p>
-						Note that a resource that contains no parameters matches all nodes. Such a resource is useful as the last member of the list where it acts as a default matching rule in the case where nodes that do not match any of the preceeding constraints are allowed. 
-						Note also that a qualified cardinality constraint defined using <code>sh:qualifiedValueShape</code>,
-						<code>sh:qualifiedMinCount</code>, and <code>sh:qualifiedMaxCount</code> is equivalent to a <code>sh:partition</code> constraint that contains two resources with the first one containing the corresponding parameters and the last one being the default matching rule that matches any set of nodes.
-					</p>
-					<p>
-						Each member of the list is used by the SHACL processor to match a subset of the context nodes.
-						The SHACL processor matches as many nodes as possible and then compares the result with the specified
-						minimum and maximum cardinalities if specified. This is referred to as a <em>greedy</em> matching algorithm.
-						Greedy pattern matching is commonly used with textual regular expressions.
-						Nodes that match are removed from further matching. Thus the set of all context nodes becomes partitioned by 
-						the matching algorithm. The following paragraphs define this algorithm more precisely.
-					</p>
-					<p>
-						Let D be a data graph and let F be a focus node in D. Let S be a shapes graph, let T be a shape in S, 
-						and let C be a <code>sh:partition</code> constraint in T. 
-						Let N be the set of context nodes for C in D at F. Recall that N depends on how C is related to T. 
-					</p>
-					<ul>
-						<li>If (T, <code>sh:constraint</code>, C) is in S then N consists of just the node F.</li>
-						<li>If (T, <code>sh:property</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
-							then N consists of all the nodes X such that (F, P, X) is in D.</li>
-						<li>If (T, <code>sh:inverseProperty</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
-							then N consists of all the nodes X such that (X, P, F) is in D.</li>
-					</ul>
-					<p>
-						Let the value of the <code>sh:partition</code> parameter be the list (Q<sub>1</sub>, ..., Q<sub>n</sub>) of resources.
-						The SHACL validator MUST perform the following steps to validate the constraint C at F.
-					</p>
-					<ol>
-						<li>Let R denote the set of remaining context nodes. Initialize R to N.</li>
-						<li>Repeat the following for Q = Q<sub>1</sub>, ..., Q<sub>n</sub>
-						<ol>
-							<li>Let P be the conjunction of all the node validation constraints in Q.</li>
-							<li>Compute R' to be the set of all nodes in R that satisfy P, i.e. R' = {X in R | P(X) = true}</li>
-							<li>If Q contains a minimum cardinality m<sub>min</sub> and the number of nodes in R' is less than m<sub>min</sub>,
-							i.e. m<sub>min</sub> > #R', then report a constraint violation and exit the loop.</li>
-							<li>If Q contains a maximum cardinality m<sub>max</sub> and the number of nodes in R' is greater then m<sub>max</sub>,
-							i.e. m<sub>max</sub> &lt; #R', then report a constraint violation and exit the loop.</li>
-							<li>Remove R' from R, i.e. set R = R \ R'.</li>
-						</ol>
-						</li>
-						<li>If R is non-empty and no violations have been reported yet then report a violation.</li>
-					</ol>
-					<p>
-						Note that the order of resources within the list is significant. 
-						In general, if the members of the list are reordered then different context node sets will be matched
-						and different violation results will be reported.
-					</p>
-				</section>
-				
-				<section id="nonValidation">
-					<h4>Non-Validating Constraint Characteristics</h4>
-					<p>
-						While the previous sections introduced properties that represent validation conditions,
-						this section covers properties that are ignored by SHACL validation engines.
-						The use of these properties is entirely optional and not subject to formal interpretation contracts.
-						They may be used for purposes such as form building, predictable printing of RDF files, etc.
-					</p>
-					<p id="name">
-						Property constraints may have one or more values for <code>sh:name</code> to provide human-readable labels for the property in the scope where it appears.
-						If present, tools SHOULD prefer those locally defined labels over globally defined labels at the <code>rdf:Property</code> itself.
-						For example, if a form displays a resource that is in the scope of a given shape, and the shape defines a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
-						Similarly, property constraints may have an <code>sh:description</code> to provide a description of the property in the given context.
-						Both <code>sh:name</code> and <code>sh:description</code> may have multiple values, but SHOULD only have one value per language tag.
-					</p>
-					<p id="order">
-						Property constraints may have one value for the property <code>sh:order</code> to indicate the relative order of the property constraint for purposes such as form building.
-						The values of <code>sh:order</code> must be decimals.
-						<code>sh:order</code> is not used for validation purposes.
-						If present, the recommended use of <code>sh:order</code> is to sort the property constraints in an ascending order, for example so that
-						properties with smaller order are placed above (or to the left) of properties with larger order.
-					</p>
-					<p id="group">
-						Property constraints may link to an instance of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
-						the constraint belongs to a group of related property constraints.
-						Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
-						Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
-					</p>
-					<p id="defaultValue">
-						Property constraints may have a single value for <code>sh:defaultValue</code>.
-						The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
-						The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code>, <code>sh:directType</code> or <code>sh:class</code> of the same constraint.
-					</p>
-					<p>
-						The following example illustrates the use of these various features together.
-					</p>
-					<pre class="example" title="Shape with non-validating property characteristics">
-ex:PersonFormShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:firstName ;
-		sh:name "first name" ;
-		sh:description "The person's given name(s)" ;
-		sh:order 0 ;
-		sh:group ex:NameGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:lastName ;
-		sh:name "last name" ;
-		sh:description "The person's last name" ;
-		sh:order 1 ;
-		sh:group ex:NameGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:streetAddress ;
-		sh:name "street address" ;
-		sh:description "The street address including number" ;
-		sh:order 11 ;
-		sh:group ex:AddressGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:locality ;
-		sh:name "locality" ;
-		sh:description "The suburb, city or town of the address" ;
-		sh:order 12 ;
-		sh:group ex:AddressGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:postalCode ;
-		sh:name "postal code" ;
-		sh:name "zip code"@en-US ;
-		sh:description "The postal code of the locality" ;
-		sh:order 13 ;
-		sh:group ex:AddressGroup ;
-	] .
-	
-ex:NameGroup
-	a sh:PropertyGroup ;
-	sh:order 0 ;
-	rdfs:label "Name" .
-
-ex:AddressGroup
-	a sh:PropertyGroup ;
-	sh:order 1 ;
-	rdfs:label "Address" .</pre>
-					<p>
-						A form building application may use the information above to display instances as follows:
-					</p>
-					<div style="background: #f3f3f3; padding: 8px">
-						<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
-						<table>
-							<tr>
-								<td style="text-align: right; width: 160px"><b>first name:</b></td>
-								<td>John</td>
-							</tr>
-							<tr>
-								<td style="text-align: right"><b>last name:</b></td>
-								<td>Doe</td>
-							</tr>
-						</table>
-						<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
-						<table>
-							<tr>
-								<td style="text-align: right; width: 160px"><b>street address:</b></td>
-								<td>123 Silverado Ave</td>
-							</tr>
-							<tr>
-								<td style="text-align: right"><b>locality:</b></td>
-								<td>Cupertino</td>
-							</tr>
-							<tr>
-								<td style="text-align: right"><b>zip code:</b></td>
-								<td>54321</td>
-							</tr>
-						</table>
-					</div>
-				</section>
-			</section>
-			
-			<section id="constraints-inverse-property">
-				<h3>Inverse Property Constraints (sh:inverseProperty)</h3>
-				<p class="todo">
-					TODO: This section is quite similar to the one about sh:property, only in the inverse direction.
-					Before writing all this down, we'd rather wait until the forward direction has stabilized.
-					A quick example should suffice for now:
-				</p>
-				<pre class="example" title="Shape with an inverse property constraint">
-ex:InversePropertyConstraintExampleShape
-	a sh:Shape ;
-	sh:inverseProperty [
-		sh:predicate ex:someProperty ;  # e.g. "child"
-		sh:minCount 1 ;
-		sh:name "is someProperty of" ;  # e.g. "parent"
+		sh:predicate ex:startDate ;
+		sh:lessThan ex:endDate ;
 	] .</pre>
-			</section>
-			
-			<section id="constraints-other">
-				<h2>Other Core Constraints</h2>
+				</section>
+				<section id="LessThanOrEqualConstraint">
+					<h3>sh:lessThanOrEquals</h3>
+					<p>
+						<code>sh:lessThanOrEquals</code> constrains a pair of properties so that the values of the first property must be smaller than or equal to the values of the second property at a given focus node.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:lessThanOrEquals</code></td>
+							<td><code>rdfs:Resource</code></td>
+							<td>The property to compare the values with</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each pair of values of <code>sh:predicate</code>
+							and <code>sh:lessThanOrEquals</code> at the given <span class="term">focus node</span>, where
+							the first value is not less than or equal to the second value, based on SPARQL's <code>&lt;=</code> operator.
+							A validation result must also be produced if the two values cannot be compared.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the value of the first predicate as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object
+WHERE {
+	$this $predicate ?object .
+	$this $lessThanOrEquals ?object2 .
+	FILTER (!(?object &lt;= ?object2)) .
+}</pre>
+					</div>
+				</section>
+			</section>				
+	
+			<section id="constraints-logical">
+				<h3>Logical Constraint Components</h3>
 				<p>
-					While the previous sections have introduced constraints that focused on a single property within a shape,
-					this section introduces other constraint types that can be used with shapes.
+					The constraint components implement the common logical operators <span class="term">and</span>,
+					<span class="term">or</span> and <span class="term">not</span>.
 				</p>
 				<section id="not">
 					<h3>sh:not</h3>
@@ -2758,6 +2246,343 @@ ex:OrConstraintExampleShape
 ex:OrConstraintExampleValidResource
 	ex:exampleProperty1 ex:someValue .</pre>
 				</section>
+			</section>
+	
+			<section id="constraints-shape">
+				<h3>Shape-based Constraint Components</h3>
+				<p>
+					The constraint components in this section can be used to represent complex restrictions
+					based on applying shape definitions on the property values. 
+				</p>
+				<section id="AbstractValueShapePropertyConstraint">
+					<h4>sh:valueShape</h4>
+					<p>
+						The property <code>sh:valueShape</code> can be used verify that all values of the given property must have a given shape.
+						The value type of <code>sh:valueShape</code> is <code>sh:Shape</code>, but the <code>rdf:type</code> triple of those shapes can be omitted.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:valueShape</code></td>
+							<td><code>sh:Shape</code></td>
+							<td>The required shape of all values</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced for each triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where validating the object against the shape specified by <code>sh:valueShape</code> 
+							produces any validation results with severity <code>sh:Violation</code> or a failure.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?object ?failure
+WHERE {
+	$this $predicate ?object .
+	BIND (sh:hasShape(?object, $valueShape, $shapesGraph, false) AS ?hasShape) .
+	BIND (!bound(?hasShape) AS ?failure) .
+	FILTER (?failure || !?hasShape) .
+}</pre>
+					</div>
+					<p class="issue" data-number="22" title="Treatment of recursive shape definitions">
+						According to resolution <a href="https://www.w3.org/2015/12/16-shapes-minutes.html#resolution04">2015.12.16/04</a> shapes graphs with dependency loops are invalid and suitable limitations of this will be explored.
+						Until  issue 22 is closed, definitions regarding recursion are not endorsed by the WG.
+					</p>
+					<p>
+						A shape may refer to itself directly or indirectly via <code>sh:valueShape</code>, <code>sh:filterShape</code>, etc.
+						Such a shape is said to be <em>recursive</em>.
+						The meaning of non-recursive shapes is always well-founded.
+						In contrast, the meaning of a recursive shape may not be well-founded.
+						As a starting point, the SHACL specification only defines the meaning of non-recursive shapes.
+						However, there are use-cases where recursion is valuable, either for its inherent expressive power or because it makes the
+						intension of shapes clearer.
+						The Working Group will therefore explore conditions under which recursive shapes can be assigned a well-defined meaning and will
+						relax the restrictions on recursion accordingly. 
+					</p>
+					<p>
+						In the following example, all values of the property <code>ex:someProperty</code> will validate with no results for the shape
+						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
+					</p>
+					<pre class="example" title="Shape with sh:valueShape constraint">
+ex:ValueShapeExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:valueShape [
+			a sh:Shape ;   # Optional
+			sh:predicate [
+				sh:predicate ex:nestedProperty ;
+				sh:minCount 1 ;
+			]
+		]
+	] .
+
+ex:ValueShapeExampleValidResource
+	ex:someProperty [
+		ex:nestedProperty 42 ;
+	] .</pre>
+				</section>
+				<section id="AbstractQualifiedValueShapePropertyConstraint">
+					<h4>sh:qualifiedValueShape, sh:qualifiedMinCount, sh:qualifiedMaxCount</h4>
+					<div class="issue" data-number="92" title="Relationship of QCRs with Partitions">
+						Feature at risk:
+						There is an ongoing proposal (see sh:partition) that strongly overlaps with the QCRs proposed here.
+						The WG may decide to support only one of these options, but not both.
+					</div>
+					<p>
+						The property <code>sh:qualifiedValueShape</code> can be used verify that a certain number  of values of the given property must have a given shape.
+						The value type of <code>sh:qualifiedValueShape</code> is <code>sh:Shape</code>, and it needs to be accompanied by
+						a <code>sh:qualifiedMinCount</code> or a <code>sh:qualifiedMaxCount</code> (both typed <code>xsd:integer</code>), or both.
+						The <code>rdf:type</code> of the value shapes can be omitted.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:qualifiedValueShape</code></td>
+							<td><code>sh:Shape</code></td>
+							<td>The required shape of the specified values</td>
+						</tr>
+						<tr>
+							<td><code>sh:qualifiedMinCount</code></td>
+							<td><code>xsd:integer</code></td>
+							<td>The minimum number of values that must have the shape. If this constraint is omitted then there is no minimum number of values required. </td>
+						</tr>
+						<tr>
+							<td><code>sh:qualifiedMaxCount</code></td>
+							<td><code>xsd:integer</code></td>
+							<td>The maximum number of values that can have the shape. If this constraint is omitted then there is no maximum number of values required.</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMinCount</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced if the number of triples that have
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where validating the object against the shape specified by <code>sh:qualifiedValueShape</code>
+							produces no validation results with severity <code>sh:Violation</code> or a failure is less than
+							<code>sh:qualifiedMinCount</code>.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMinCount</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?failure
+WHERE {
+	{
+		SELECT (SUM(?s) AS ?count)
+		WHERE {
+			{
+				FILTER NOT EXISTS { $this $predicate ?value } .
+				BIND (0 AS ?s) .
+			}
+			UNION
+			{
+				$this $predicate ?value .
+				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
+				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
+			}
+		}
+	}
+	BIND (!bound(?count) AS ?failure) .
+	FILTER IF(?failure, true, ?count &lt; $qualifiedMinCount) .
+}</pre>
+					</div>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMaxCount</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced if the number of triples that have
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and where validating the object against the shape specified by <code>sh:qualifiedValueShape</code>
+							produces no validation results with severity <code>sh:Violation</code> or a failure is greater than
+							<code>sh:qualifiedMaxCount</code>.
+							The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMaxCount</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate ?failure
+WHERE {
+	{
+		SELECT (SUM(?s) AS ?count)
+		WHERE {
+			{
+				FILTER NOT EXISTS { $this $predicate ?value } .
+				BIND (0 AS ?s) .
+			}
+			UNION
+			{
+				$this $predicate ?value .
+				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
+				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
+			}
+		}
+	}
+	BIND (!bound(?count) AS ?failure) .
+	FILTER IF(?failure, true, ?count &gt; $qualifiedMaxCount) .
+}</pre>
+					</div>
+					<p>
+						In the following example, the property <code>ex:parent</code> must have exactly two values,
+						and at least one of them needs to be female.
+					</p>
+					<pre class="example" title="Shape with sh:qualifiedValueShape constraint">
+ex:QualifiedValueShapeExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:parent ;
+		sh:minCount 2 ;
+		sh:maxCount 2 ;
+		sh:qualifiedValueShape [
+			a sh:Shape ;   # Optional
+			sh:property [
+				sh:predicate ex:gender ;
+				sh:hasValue ex:female ;
+			]
+		] ;
+		sh:qualifiedMinCount 1 ;
+	] .
+
+ex:QualifiedValueShapeExampleValidResource
+	ex:parent ex:John ;
+	ex:parent ex:Jane .
+
+ex:John
+	ex:gender ex:male .
+
+ex:Jane
+	ex:gender ex:female .</pre>
+				</section>
+				<section id="PartitionConstraint">
+					<h4>sh:partition</h4>
+					<div class="issue" data-number="92" title="Under Development">
+						This section is one proposal to resolve ISSUE-92.
+					</div>
+					<p>
+						In some cases a given property may be multi-valued and it may be required that the set of values
+						be partitioned into two or more subsets, each of which satisfies certain constraints.
+					</p>
+					<p>
+						For example, suppose that in the Library of Congress BIBFRAME (<code>bf:</code>) Cultural Heritage vocabulary each person (<code>bf:Person</code>) must be identified by 
+						(<code>bf:identifiedBy</code>) exactly one identifier from <code>id.loc.gov</code> and may have another identifier
+						from <code>viaf.org</code>. No other identifiers are allowed. Thus the set of all identifiers is partitioned into
+						two subsets, the first of which contains exactly one member and the second of which contains zero or one members.
+						The following example shows a snippet of some valid BIBFRAME data.
+					</p>
+					<pre class="example" title="Valid BIBFRAME Data">&lt;bf_Person1>
+  	bf:identifiedBy &lt;http://id.loc.gov/authorities/names/n80103961#RWO> ;
+ 	bf:identifiedBy &lt;https://viaf.org/viaf/268367832/#Knape,_Joachim> .</pre>
+					<p>
+						The following example shows a snippet of some invalid BIBFRAME data.
+					</p>
+					<pre class="example" title="Invalid BIBFRAME Data">&lt;bf_Person1>
+  	bf:identifiedBy &lt;http://id.loc.gov/authorities/names/n80103961#RWO> ;
+ 	bf:identifiedBy &lt;https://viaf.org/viaf/268367832/#Knape,_Joachim> ;
+	bf:identifiedBy "this is a mistake" . # should be an error</pre>
+					<p>
+						Qualified cardinality constraints provide a basis for expressing this type of partitioning requirement, but using them imposes a burden on the shapes author. In the BIBFRAME example the author would need to express the requirement that the set of all identifiers that are from neither <code>id.loc.gov</code> nor <code>viaf.org</code> is empty, i.e. it has a maximum cardinality of 0. Clearly, as more subsets of values are involved, the burden on the author increases.
+						The <code>sh:partition</code> constraint makes it easier to express this type of requirement than it would be to use 
+						multiple qualified cardinality constraints.
+						In effect, <code>sh:partition</code> chains together a sequence of qualified cardinality constraints and removes the set of context nodes matched by each from further consideration. If every context node gets matched in this process, then
+						the <code>sh:partition</code> constraint reports no violations. Otherwise, any context nodes remaining are reported as
+						violations of the constraint.
+						The BIBFRAME example constraint is expressed as follows.
+					</p>
+					<pre class="example" title="BIBFRAME constraint expressed using sh:partition">ex:BibframeShape a sh:Shape ;
+sh:property [
+	sh:predicate bf:identifiedBy ;
+	sh:partition (
+		[sh:minCount 1; sh:maxCount 1; sh:pattern "^http://id.loc.gov/"]
+		[sh:maxCount 1; sh:pattern "^https://viaf.org/"]
+	)
+] .</pre>
+					<p>
+						The value of the <code>sh:partition</code> constraint parameter MUST be an <code>rdf:List</code> that contains zero or more resources. 
+						Each resource in the list defines conditions on a subset of the context nodes and MAY contain the following parameters:
+					</p>
+					<ul>
+						<li>zero or one <code>sh:minCount</code>. This defines the minimum cardinality of the corresponding subset.</li>
+						<li>zero or one <code>sh:maxCount</code>. This defines the maximum cardinality of the corresponding subset.</li>
+						<li>any combination of parameters associated with node validation constraints. A node validation constraint
+							is any constraint defined by a boolean function on nodes. 
+							These include the built-in constraints defined by <code>sh:nodeKind</code>, <code>sh:partition</code>,
+							<code>sh:minExclusive</code>, etc.
+							The corresponding subset consists of those remaining nodes for which the boolean function is <code>true</code>.</li>
+					</ul>
+					<p>
+						Note that a resource that contains no parameters matches all nodes. Such a resource is useful as the last member of the list where it acts as a default matching rule in the case where nodes that do not match any of the preceeding constraints are allowed. 
+						Note also that a qualified cardinality constraint defined using <code>sh:qualifiedValueShape</code>,
+						<code>sh:qualifiedMinCount</code>, and <code>sh:qualifiedMaxCount</code> is equivalent to a <code>sh:partition</code> constraint that contains two resources with the first one containing the corresponding parameters and the last one being the default matching rule that matches any set of nodes.
+					</p>
+					<p>
+						Each member of the list is used by the SHACL processor to match a subset of the context nodes.
+						The SHACL processor matches as many nodes as possible and then compares the result with the specified
+						minimum and maximum cardinalities if specified. This is referred to as a <em>greedy</em> matching algorithm.
+						Greedy pattern matching is commonly used with textual regular expressions.
+						Nodes that match are removed from further matching. Thus the set of all context nodes becomes partitioned by 
+						the matching algorithm. The following paragraphs define this algorithm more precisely.
+					</p>
+					<p>
+						Let D be a data graph and let F be a focus node in D. Let S be a shapes graph, let T be a shape in S, 
+						and let C be a <code>sh:partition</code> constraint in T. 
+						Let N be the set of context nodes for C in D at F. Recall that N depends on how C is related to T. 
+					</p>
+					<ul>
+						<li>If (T, <code>sh:constraint</code>, C) is in S then N consists of just the node F.</li>
+						<li>If (T, <code>sh:property</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
+							then N consists of all the nodes X such that (F, P, X) is in D.</li>
+						<li>If (T, <code>sh:inverseProperty</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
+							then N consists of all the nodes X such that (X, P, F) is in D.</li>
+					</ul>
+					<p>
+						Let the value of the <code>sh:partition</code> parameter be the list (Q<sub>1</sub>, ..., Q<sub>n</sub>) of resources.
+						The SHACL validator MUST perform the following steps to validate the constraint C at F.
+					</p>
+					<ol>
+						<li>Let R denote the set of remaining context nodes. Initialize R to N.</li>
+						<li>Repeat the following for Q = Q<sub>1</sub>, ..., Q<sub>n</sub>
+						<ol>
+							<li>Let P be the conjunction of all the node validation constraints in Q.</li>
+							<li>Compute R' to be the set of all nodes in R that satisfy P, i.e. R' = {X in R | P(X) = true}</li>
+							<li>If Q contains a minimum cardinality m<sub>min</sub> and the number of nodes in R' is less than m<sub>min</sub>,
+							i.e. m<sub>min</sub> > #R', then report a constraint violation and exit the loop.</li>
+							<li>If Q contains a maximum cardinality m<sub>max</sub> and the number of nodes in R' is greater then m<sub>max</sub>,
+							i.e. m<sub>max</sub> &lt; #R', then report a constraint violation and exit the loop.</li>
+							<li>Remove R' from R, i.e. set R = R \ R'.</li>
+						</ol>
+						</li>
+						<li>If R is non-empty and no violations have been reported yet then report a violation.</li>
+					</ol>
+					<p>
+						Note that the order of resources within the list is significant. 
+						In general, if the members of the list are reordered then different context node sets will be matched
+						and different violation results will be reported.
+					</p>
+				</section>
+			</section>
+			
+			<section id="constraints-others">
+				<h3>Other Constraint Components</h3>
+				<p>
+					This section enumerates core constraint components that did not fit into the other categories.
+				</p>
 				<section id="closed">
 					<h3>Closed Shapes (sh:closed, sh:ignoredProperties)</h3>
 					<p>
@@ -2860,6 +2685,228 @@ ex:ClosedShapeExampleShape
 		sh:predicate ex:exampleProperty2 ;
 	] .</pre>
 				</section>
+				<section id="AbstractHasValuePropertyConstraint">
+					<h4>sh:hasValue</h4>
+					<p>
+						The property <code>sh:hasValue</code> can be used to verify
+						that the <span class="term">focus node</span> has a given RDF node among the values of the given
+						predicate.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:hasValue</code></td>
+							<td>any</td>
+							<td>A specific required value</td>
+						</tr>
+					</table>
+					<div id="def-hasValue-text" class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <span class="term">validation result</span> must be produced if there is no triple that has
+							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
+							as its predicate and the <code>sh:hasValue</code> as its object.
+							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							and the <code>sh:predicate</code> as its <code>sh:predicate</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate
+WHERE {
+	FILTER NOT EXISTS {
+		$this $predicate $hasValue .
+	}
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:hasValue constraint">
+ex:HasValueExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:property ;
+		sh:hasValue ex:Green ;
+	] .
+
+ex:HasValueExampleValidResource
+	ex:property ex:Green .</pre>
+				</section>
+				<section id="AbstractInPropertyConstraint">
+					<h4>sh:in</h4>
+					<p>
+						The property <code>sh:in</code> exclusively enumerates the values that a property may have.
+						When specified, each value of the given property must be a member of the specified list.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:in</code></td>
+							<td><code>rdf:List</code></td>
+							<td>Enumeration of allowed values</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							The values of <code>sh:in</code> must be well-formed instances of <code>rdf:List</code>.
+							The members of that <code>rdf:List</code> must not be blank nodes.
+							A <span class="term">validation result</span> must be produced for every triple that has the <span class="term">focus node</span> as its subject,
+							the <code>sh:predicate</code> as its predicate and an object that is not a member of the given list.
+							Matching of literals needs to be exact, e.g. <code>"04"^^xsd:byte</code> does not match <code>"4"^^xsd:integer</code>.
+							Each produced <span class="term">result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective invalid value as its <code>sh:object</code>.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+WHERE {
+	$this $predicate ?value .
+	FILTER NOT EXISTS {
+		GRAPH $shapesGraph {
+			$in (rdf:rest*)/rdf:first ?value .
+		}
+	}
+}</pre>
+					</div>
+					<pre class="example" title="Shape with sh:in constraint">
+ex:AllowedValuesExampleShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:someProperty ;
+		sh:in ( ex:Value1 ex:Value2 ex:Value3 ) ;
+	] .
+
+ex:InExampleValidResource
+	ex:someProperty ex:Value2 .</pre>
+				</section>
+			</section>
+				
+			<section id="nonValidation">
+				<h4>Non-Validating Constraint Characteristics</h4>
+				<p>
+					While the previous sections introduced properties that represent validation conditions,
+					this section covers properties that are ignored by SHACL validation engines.
+					The use of these properties is entirely optional and not subject to formal interpretation contracts.
+					They may be used for purposes such as form building, predictable printing of RDF files, etc.
+				</p>
+				<p id="name">
+					Property constraints may have one or more values for <code>sh:name</code> to provide human-readable labels for the property in the scope where it appears.
+					If present, tools SHOULD prefer those locally defined labels over globally defined labels at the <code>rdf:Property</code> itself.
+					For example, if a form displays a resource that is in the scope of a given shape, and the shape defines a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
+					Similarly, property constraints may have an <code>sh:description</code> to provide a description of the property in the given context.
+					Both <code>sh:name</code> and <code>sh:description</code> may have multiple values, but SHOULD only have one value per language tag.
+				</p>
+				<p id="order">
+					Property constraints may have one value for the property <code>sh:order</code> to indicate the relative order of the property constraint for purposes such as form building.
+					The values of <code>sh:order</code> must be decimals.
+					<code>sh:order</code> is not used for validation purposes.
+					If present, the recommended use of <code>sh:order</code> is to sort the property constraints in an ascending order, for example so that
+					properties with smaller order are placed above (or to the left) of properties with larger order.
+				</p>
+				<p id="group">
+					Property constraints may link to an instance of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
+					the constraint belongs to a group of related property constraints.
+					Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
+					Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
+				</p>
+				<p id="defaultValue">
+					Property constraints may have a single value for <code>sh:defaultValue</code>.
+					The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
+					The value type of the <code>sh:defaultValue</code> SHOULD align with the specified <code>sh:datatype</code>, <code>sh:directType</code> or <code>sh:class</code> of the same constraint.
+				</p>
+				<p>
+					The following example illustrates the use of these various features together.
+				</p>
+				<pre class="example" title="Shape with non-validating property characteristics">
+ex:PersonFormShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:firstName ;
+		sh:name "first name" ;
+		sh:description "The person's given name(s)" ;
+		sh:order 0 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:lastName ;
+		sh:name "last name" ;
+		sh:description "The person's last name" ;
+		sh:order 1 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:streetAddress ;
+		sh:name "street address" ;
+		sh:description "The street address including number" ;
+		sh:order 11 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:locality ;
+		sh:name "locality" ;
+		sh:description "The suburb, city or town of the address" ;
+		sh:order 12 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:postalCode ;
+		sh:name "postal code" ;
+		sh:name "zip code"@en-US ;
+		sh:description "The postal code of the locality" ;
+		sh:order 13 ;
+		sh:group ex:AddressGroup ;
+	] .
+	
+ex:NameGroup
+	a sh:PropertyGroup ;
+	sh:order 0 ;
+	rdfs:label "Name" .
+
+ex:AddressGroup
+	a sh:PropertyGroup ;
+	sh:order 1 ;
+	rdfs:label "Address" .</pre>
+				<p>
+					A form building application may use the information above to display instances as follows:
+				</p>
+				<div style="background: #f3f3f3; padding: 8px">
+					<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
+					<table>
+						<tr>
+							<td style="text-align: right; width: 160px"><b>first name:</b></td>
+							<td>John</td>
+						</tr>
+						<tr>
+							<td style="text-align: right"><b>last name:</b></td>
+							<td>Doe</td>
+						</tr>
+					</table>
+					<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
+					<table>
+						<tr>
+							<td style="text-align: right; width: 160px"><b>street address:</b></td>
+							<td>123 Silverado Ave</td>
+						</tr>
+						<tr>
+							<td style="text-align: right"><b>locality:</b></td>
+							<td>Cupertino</td>
+						</tr>
+						<tr>
+							<td style="text-align: right"><b>zip code:</b></td>
+							<td>54321</td>
+						</tr>
+					</table>
+				</div>
 			</section>
 		</section>
 		
