@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/html">
+<html>
 	<head>
 		<title>Shapes Constraint Language (SHACL)</title>
 		<meta charset="utf-8">
@@ -159,6 +159,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-03-22</b>: Cleaned up generic mechanism to define constraint components applied to 3.1</li>
 				<li><b>2016-03-21</b>: SHACL does not assume that the data graph is an RDF dataset</li>
 				<li><b>2016-03-21</b>: updated some definitions for shapes, scopes and filters</li>
 				<li><b>2016-03-21</b>: Re-organized the sections on the various constraint properties, introducing the term constraint component</li>
@@ -497,6 +498,22 @@ inst:User4
 				<img src="images/SHACL-Validation-Process.png" />
 				<figcaption>Illustration of the scoping and filtering process</figcaption>
 			</figure>
+			<p>
+				<!-- DK: TODO: I think we should move this in a separate validation (sub)section-->
+				A SHACL validation engine takes two RDF graphs as input, a <span class="term">shapes graph</span> and a
+				<span class="term">data graph</span>, and validates the data graph against the shapes graph as described herein.
+				SHACL tools may provide other interfaces, e.g. one that takes an RDF graph in an RDF dataset,
+				adds other triples to that graph to produce the data graph, e.g. by using <code>owl:imports</code> triples,
+				and/or use triples in that graph to produce the shapes graph, e.g. using <code>sh:shapesGraph</code> triples
+				as described later.
+				A SHACL validation engine MUST implement all constructs in the core of SHACL (Sections 2, 3, 5).
+				A SHACL engine MAY implement the other parts of SHACL.
+			</p>
+			<p>
+				Note that at validation time, both the shape definitions (represented in the <span class="term">shapes graph</span>)
+				and the <span class="term">data graph</span> must remain unchanged, i.e. both graphs at the end
+				of the validation must be identical to the graph at the beginning of validation.
+			</p>
 
 			<section id="scopes">
 				<h3>Scopes</h3>
@@ -876,11 +893,36 @@ ex:StandAloneConstraint
 				It is the expectation of the Working Group that reusable libraries of SHACL extensions will be maintained by third parties.
 			</p>
 			<p>
-				Note that the textual definitions of the constraint types refer to the <a href="#results">Validation Results Vocabulary</a>
+				Note that the textual definitions of the constraint components refer to the <a href="#results">Validation Results Vocabulary</a>
 				introduced in a later section.
+				Each constraint component is identified by a URI that is referenced in the validation results via <code>sh:sourceTemplate</code>
+				<span class="todo">TODO: this is likely going to be renamed to another property name</span>.
 			</p>
 			<p>
-				The SPARQL definitions in this section assume the following variable bindings:
+				Many constraint components can be used in multiple contexts, e.g. both as a <span class="term">property constraint</span>
+				and an <span class="term">inverse property constraint</span>.
+				The textual descriptions of each component refer to the concept of <span class="term">value nodes</span>
+				which is defined as follows, including rules for the creation of validation results:
+			</p>
+			<ul>
+				<li>
+					For <span class="term">property constraints</span> the value nodes are the objects of the triples that have the <span class="term">focus node</span> as subject and the given property as predicate.
+					Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
+					the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value node as its <code>sh:object</code>.
+				</li>
+				<li>
+					For <span class="term">inverse property constraints</span> the value nodes are the subjects of the triples that have the <span class="term">focus node</span> as object and the given property as predicate.
+					Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:object</code>,
+					the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value node as its <code>sh:subject</code>.
+				</li>
+				<li>
+					For <span class="term">node constraints</span> the value nodes are the <span class="term">focus nodes</span>.
+				</li>
+			</ul>
+			<p>
+				The SPARQL definitions in this section may only be written for one of the tree possible contexts, for brevity.
+				Corresponding queries can be formulated for the other cases (such as the inverse direction) easily.
+				The SPARQL definitions also assume the following variable bindings:
 			</p>
 			<ul>
 				<li>The value of the variable <code>$this</code> is the current focus node.</li>
@@ -1063,19 +1105,16 @@ ex:StandAloneConstraint
 				<section id="AbstractClassPropertyConstraint">
 					<h4>sh:class</h4>
 					<p>
-						The property <code>sh:class</code> can be used to verify that each value is an instance of a given type. 
+						The property <code>sh:class</code> can be used to verify that each <span class="term">value node</span> is an instance of a given type.
 						The main difference with <a href="#AbstractDirectTypePropertyConstraint"><code>sh:directType</code></a> is that <code>sh:class</code> also includes subclasses of the type.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component:</span> <code>sh:ClassConstraintComponent</code>
 					</p>
-					<div class="parameter-context">Supported Constraint Types</div>
-					<ul>
-						<li><code>sh:NodeConstraint</code> to constrain the type of the <span class="term">focus node</span></li>
-						<li><code>sh:PropertyConstraint</code> to constrain the type of the values of the given property</li>
-						<li><code>sh:InversePropertyConstraint</code> to constrain the type of the values of the given inverse property</li>
-					</ul>
-					<div class="parameters">Parameters</div>
+					<p>
+						<span class="parameter-context">Supported Constraint Types:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
+					</p>
+					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
@@ -1088,23 +1127,16 @@ ex:StandAloneConstraint
 							<td>Type of all values</td>
 						</tr>
 					</table>
-					<p>
-						The following definitions assume this constraint component is used as a property constraint.
-						The other cases such as inverse property constraints are defined correspondingly.
-					</p>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
-							A non-literal matches a type if it has an <code>rdf:type</code> value that is the type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
+							that is either a literal or a non-literal without a matching <code>rdf:type</code>.
+							A non-literal matches a type if it has an <code>rdf:type</code> value that is the given type or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for property constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
@@ -1112,7 +1144,7 @@ WHERE {
 	FILTER NOT EXISTS { ?value rdf:type/rdfs:subClassOf* $class } .
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:class constraint">
+					<pre class="example" title="Shape with sh:class property constraint">
 ex:ClassExampleShape
 	a sh:Shape ;
 	sh:property [
@@ -1129,10 +1161,17 @@ ex:ClassExampleValidResource
 				<section id="classIn">
 					<h4>sh:classIn</h4>
 					<p>
-						The property <code>sh:classIn</code> can be used to verify that each value of the given property is an instance of a type from a given list. 
+						The property <code>sh:classIn</code> can be used to verify that each <span class="term">value node</span> is an instance of a type from a given list.
 						The values of <code>sh:classIn</code> must be lists of resources.
-						<code>sh:classIn</code> is a generalization of <code>sh:class</code> allowing users to state that the values must have one out of several types.
+						<code>sh:classIn</code> is a generalization of <code>sh:class</code> allowing users to state that the values must have at least one out of several types.
 					</p>
+					<p>
+						<span class="component-class">Constraint Component:</span> <code>sh:ClassInConstraintComponent</code>
+					</p>
+					<p>
+						<span class="parameter-context">Supported Constraint Types:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
+					</p>
+					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
@@ -1148,17 +1187,14 @@ ex:ClassExampleValidResource
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object is either a literal or a non-literal without a matching <code>rdf:type</code>.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
+							that is either a literal or a non-literal without a matching <code>rdf:type</code>.
 							A non-literal matches a type if it has an <code>rdf:type</code> value that is one of the types from the list or one of its (transitive) subclasses, via <code>rdfs:subClassOf</code>.
 							Each type from the list is tested using the same logic as <code>sh:class</code>.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for property constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
@@ -1171,7 +1207,7 @@ WHERE {
 		})
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:classIn constraint">
+					<pre class="example" title="Shape with sh:classIn property constraint">
 ex:ClassInExampleShape
 	a sh:Shape ;
 	sh:property [
@@ -1192,9 +1228,16 @@ ex:ClassExampleValidResource
 				<section id="AbstractDatatypePropertyConstraint">
 					<h4>sh:datatype</h4>
 					<p>
-						The property <code>sh:datatype</code> can be used to restrict the datatype of all values of the given property.
+						The property <code>sh:datatype</code> can be used to restrict the datatype of all <span class="term">value nodes</span>.
 						The values of <code>sh:datatype</code> must be resources representing datatypes, such as <code>xsd:string</code>.
 					</p>
+					<p>
+						<span class="component-class">Constraint Component:</span> <code>sh:DatatypeConstraintComponent</code>
+					</p>
+					<p>
+						<span class="parameter-context">Supported Constraint Types:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>
+					</p>
+					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
@@ -1204,22 +1247,19 @@ ex:ClassExampleValidResource
 						<tr>
 							<td><code>sh:datatype</code></td>
 							<td><code>rdfs:Resource</code></td>
-							<td>Datatype of all values (e.g., <code>xsd:integer</code>)</td>
+							<td>Datatype of all value nodes (e.g., <code>xsd:integer</code>)</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
+							that is not a literal, or is a literal with a mismatching datatype.
 							A literal matches a datatype if the literal's datatype has the same IRI.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for property constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
@@ -1233,7 +1273,7 @@ WHERE {
 	}
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:datatype constraint">
+					<pre class="example" title="Shape with sh:datatype property constraint">
 ex:DatatypeExampleShape
 	a sh:Shape ;
 	sh:property [
@@ -1251,10 +1291,17 @@ ex:DatatypeShapeExampleInvalidResource
 				<section id="datatypeIn">
 					<h4>sh:datatypeIn</h4>
 					<p>
-						The property <code>sh:datatypeIn</code> can be used to restrict the datatype of all values of the given property.
+						The property <code>sh:datatypeIn</code> can be used to restrict the datatype of all <span class="term">value nodes</span>.
 						The values of <code>sh:datatypeIn</code> must be lists of resources representing datatypes, such as <code>xsd:string</code>.
 						<code>sh:datatypeIn</code> is a generalization of <code>sh:datatype</code> allowing users to state that the values must have one out of several datatypes.
 					</p>
+					<p>
+						<span class="component-class">Constraint Component:</span> <code>sh:DatatypeInConstraintComponent</code>
+					</p>
+					<p>
+						<span class="parameter-context">Supported Constraint Types:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>
+					</p>
+					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
@@ -1264,22 +1311,19 @@ ex:DatatypeShapeExampleInvalidResource
 						<tr>
 							<td><code>sh:datatype</code></td>
 							<td><code>rdf:List</code> (members: <code>rdfs:Resource</code>)</td>
-							<td>Allowed datatypes of all values (e.g., <code>xsd:integer</code>)</td>
+							<td>Allowed datatypes of all value nodes (e.g., <code>xsd:integer</code>)</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object is not a literal, or is a literal with a mismatching datatype.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
+							that is not a literal, or is a literal with a mismatching datatype.
 							A literal matches if the literal's datatype is member of the provided datatypes list.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for property constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
@@ -1294,7 +1338,7 @@ WHERE {
 	}
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:datatypeIn constraint">
+					<pre class="example" title="Shape with sh:datatypeIn property constraint">
 ex:DatatypeInExampleShape
 	a sh:Shape ;
 	sh:property [
@@ -1312,9 +1356,16 @@ ex:DatatypeInShapeExampleInvalidResource
 				<section id="AbstractDirectTypePropertyConstraint">
 					<h4>sh:directType</h4>
 					<p>
-						The property <code>sh:directType</code> can be used to restrict the <code>rdf:type</code> of all values of the given property.
+						The property <code>sh:directType</code> can be used to restrict the <code>rdf:type</code> of all <span class="term">value nodes</span>.
 						The main difference with <a href="#AbstractClassPropertyConstraint"><code>sh:class</code></a> is that <code>sh:directType</code> does not include subclasses of the type.
 					</p>
+					<p>
+						<span class="component-class">Constraint Component:</span> <code>sh:DirectTypeConstraintComponent</code>
+					</p>
+					<p>
+						<span class="parameter-context">Supported Constraint Types:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
+					</p>
+					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
@@ -1324,21 +1375,18 @@ ex:DatatypeInShapeExampleInvalidResource
 						<tr>
 							<td><code>sh:directType</code></td>
 							<td><code>rdfs:Resource</code></td>
-							<td>Type of all values</td>
+							<td>Type of all value nodes</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object does not have an <code>rdf:type</code> triple with the given value type as object.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
+							that does not have an <code>rdf:type</code> triple with the given value type as object.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for property constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
@@ -1352,8 +1400,15 @@ WHERE {
 				<section id="AbstractNodeKindPropertyConstraint">
 					<h4>sh:nodeKind</h4>
 					<p>
-						The property <code>sh:nodeKind</code> can be used to restrict the RDF node kind of all values of the given property.
+						The property <code>sh:nodeKind</code> can be used to restrict the RDF node kind of all <span class="term">value nodes</span>.
 					</p>
+					<p>
+						<span class="component-class">Constraint Component:</span> <code>sh:NodeKindConstraintComponent</code>
+					</p>
+					<p>
+						<span class="parameter-context">Supported Constraint Types:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
+					</p>
+					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
@@ -1363,7 +1418,7 @@ WHERE {
 						<tr>
 							<td><code>sh:nodeKind</code></td>
 							<td><code>sh:NodeKind</code></td>
-							<td>Node kind (IRI, blank node, literal or combinations of these) of all values</td>
+							<td>Node kind (IRI, blank node, literal or combinations of these) of all value nodes</td>
 						</tr>
 					</table>
 					<p>
@@ -1376,15 +1431,12 @@ WHERE {
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced for each triple that has
-							the <span class="term">focus node</span> as its subject, the <code>sh:predicate</code>
-							as its predicate and where the object does not match the given node kind.
-							Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
-							the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value as its <code>sh:object</code>.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
+							that does not match the given node kind.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for property constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 WHERE {
@@ -1396,7 +1448,7 @@ WHERE {
 	}
 }</pre>
 					</div>
-					<pre class="example" title="Shape with sh:nodeKind constraint">
+					<pre class="example" title="Shape with sh:nodeKind property constraint">
 ex:NodeKindExampleShape
 	a sh:Shape ;
 	sh:property [
