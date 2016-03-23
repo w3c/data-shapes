@@ -517,97 +517,73 @@ inst:User4
 					<h4>Node scopes (sh:scopeNode)</h4>
 					<p>
 						Shapes define node scopes with the <code>sh:scopeNode</code> predicate.
-						The value can be an IRI or a Literal that SHOULD exist in the data graph.
-						<!-- TODO: do we need SHOULD here? and why is this different that other scopes-->
+						The value of a node scope can be an IRI or a Literal.
+						<!-- TODO: " that SHOULD exist in the data graph" do we need SHOULD here? and why is this different that other scopes-->
 						<!-- TODO: change examples and visually differentiate the shapes graph from the data graph-->
 					</p>
 					<pre class="example" title="Scope based on sh:scopeNode">
 ex:PersonShape
 	a sh:Shape ;
-	sh:scopeNode ex:Alice ;
-	sh:constraint [
-		...
-	] .
+	sh:scopeNode ex:Alice .
 
-ex:Alice
-	a rdfs:Resource ;
-	...</pre>
+<span style="color: green;">ex:Alice</span> a ex:Person .
+ex:Bob a ex:Person .</pre>
 				</section>
 				
 				<section id="scopeClass">
-					<h4>Class-based Scopes (sh:scopeClass and rdf:type)</h4>
+					<h4>Class-based Scopes (sh:scopeClass)</h4>
 					<p>
-						The RDF Schema vocabulary defines various terms to model domains in terms of classes and instances.
-						A lot of existing data is already represented this way.
-						The property <code>sh:scopeClass</code> can be used to link a <code>sh:Shape</code> with an <code>rdfs:Class</code>.
-						The properties <code>rdf:type</code> and <code>rdfs:subClassOf</code> are used to determine which shapes a given node will be validated against.
-						The scope includes all instances of the <code>sh:scopeClass</code> and its subclasses, by following <code>rdfs:subClassOf</code> triples.
-						To determine class membership, the <code>rdf:type</code> and <code>rdfs:subClassOf</code> triples are queried in the <span class="term">data graph</span>. 
-						This pattern is illustrated in the following example.
+						Shapes define class scopes with the <code>sh:scopeClass</code> predicate.
+						The value is an IRI that is assumed to be an instance of <code>rdfs:Class</code>.
+						It is of no concern to SHACL if the IRI is indeed an instance of <code>rdfs:Class</code> or where this definition exists.
+
+					</p>
+					<p>
+						A shape with a class-based scope selects all focus nodes that are <span class="term"><a href="#shacl-rdfs">instances</a></span> of the class IRI.
 					</p>
 					<pre class="example" title="Scope based on rdf:type and sh:scopeClass">
-foaf:Person
-	a rdfs:Class .
-
 ex:PersonShape
 	a sh:Shape ;
-	sh:scopeClass foaf:Person ;
-	sh:property [
-		sh:predicate foaf:name ;
-		sh:minCount 1
-	] .
+	sh:scopeClass ex:Person .
 
-ex:Alice
-	rdf:type foaf:Person .</pre>
-					<p id="implicit-scopeClass">
-						Shapes and classes are independent concepts in SHACL.
-						In many applications, classes and shapes are separate resources and are therefore given different IRIs.
-						However, some application designers may find it more convenient to tightly couple class and shape information
-						and use the same IRI for both.
-						In the following example, the IRI <code>ex:Person</code> identifies a resource that is 
-						both a class and a shape.
-						The <code>sh:scopeClass</code> triple explicitly instructs a SHACL engine to apply the constraints
-						of the shape <code>ex:Person</code> to all instances of the class <code>ex:Person</code>.
-					</p>
-					<pre class="example" title="Sharing of IRIs between classes and shapes">
+<span style="color: green;">ex:Alice</span> a ex:Person .
+<span style="color: green;">ex:Bob</span> a ex:Person .
+ex:NewYork a ex:Place .</pre>
+					<section id="implicit-scopeClass">
+						<h4>Implicit Class Scopes</h4>
+						<p>
+							Shapes and classes are independent concepts in SHACL.
+							In many applications, classes and shapes are separate resources and are therefore given different IRIs.
+							However, some application designers may find it more convenient to tightly couple class and shape information and use the same IRI for both.
+							In those cases, the shape is given an implicit class scope to the class IRI and the <code>sh:scopeClass</code> triple MAY be omitted.
+						</p>
+						<pre class="example" title="Sharing of IRIs between classes and shapes">
 ex:Person
-	a rdfs:Class, sh:Shape ;
-	sh:scopeClass ex:Person ;
-	sh:property [
-		...
-	] .
+	<span style="font-weight: bolder;">a rdfs:Class</span>, sh:Shape ;
+	<span style="color: grey;"># sh:scopeClass ex:Person ; this triple can be omitted</span>
+	.
 
-ex:Alice
-	rdf:type ex:Person .</pre>
-					<p>
-						In the case where a shape is also a class, a SHACL processor MUST include all the instances of the class in the scope
-						of the shape, exactly as if an explicit <code>sh:scopeClass</code> triple was present.
-						An explicit <code>sh:scopeClass</code> triple is not required but MAY be included for clarity.
-					</p>
-					<p id="definition-of-implicit-scopeClass">
-						A SHACL processor MUST recognize a resource <code>X</code> in the shapes graph as a shape if and only if the shapes graph contains 
-						a triple <code>X rdf:type S</code> where <code>S</code> is either <code>sh:Shape</code> or <code>S</code> is connected to <code>sh:Shape</code> by a property path from <code>S</code> to <code>sh:Shape</code> in the shapes graph consisting of one or more triples whose predicate is <code>rdfs:subClassOf</code>.
-						Similarly, a SHACL processor MUST recognize a resource <code>X</code> in the shapes graph as a class if and only if the shapes graph contains a triple <code>X rdf:type C</code> where <code>C</code> is either <code>rdfs:Class</code> or <code>C</code> is connected to <code>rdfs:Class</code> by a property path from <code>C</code> to <code>rdfs:Class</code> in the shapes graph consisting of one or more triples whose predicate is <code>rdfs:subClassOf</code>. If a SHACL processor recognizes a resource <code>X</code> in the shapes graph as both a shape and a class as defined here then all instances of
-						the class <code>X</code> in the data graph MUST be included in the scope of the shape <code>X</code>.
-						For the purposes of this definition, a resource <code>R</code> in the data graph is said to be an instance of the resource <code>X</code> if and only if
-						the data graph contains a triple <code>R rdf:type X</code> or the data graph contains a triple <code>R rdf:type Y</code>
-						and <code>Y</code> is connected to <code>X</code> by a property path from <code>Y</code> to <code>X</code> in the data graph consisting of one or more triples whose
-						predicate is <code>rdfs:subClassOf</code>.
-					</p>
-					<p>
-						The following SPARQL query, when run on a shapes graph, illustrates how a SHACL processor MUST recognize all resources 
-						<code>X</code> that are both shapes and classes for the purpose of computing class-based scopes.
-						The use of SPARQL here is for illustration purposes only.
-						A SHACL implementation MAY use any equivalent method.
-						
-					</p>
-				<pre class="algorithm">
-SELECT ?X
-WHERE {
-	?X rdf:type/rdfs:subClassOf* sh:Shape .
-	?X rdf:type/rdfs:subClassOf* rdfs:Class .
-}</pre>
-					<div class="issue" data-number="78" title="Abstract classes">
+<span style="color: green;">ex:Alice</span> a ex:Person .
+<span style="color: green;">ex:Bob</span> a ex:Person .
+ex:NewYork a ex:Place .</pre>
+						<span class="todo">maybe shorten the definition and refer to sec 1.2</span>
+						<div id="definition-of-implicit-scopeClass" class="def def-text">
+							<div class="def-header">IMPLICIT CLASS SCOPE DEFINITION</div>
+							<div class="def-text-body">
+								A SHACL processor MUST recognize a resource <code>X</code> in the shapes graph as a shape if and only if the shapes graph contains
+								a triple <code>X rdf:type S</code> where <code>S</code> is either <code>sh:Shape</code> or <code>S</code> is connected to <code>sh:Shape</code> by a property path from <code>S</code> to <code>sh:Shape</code> in the shapes graph consisting of one or more triples whose predicate is <code>rdfs:subClassOf</code>.
+								Similarly, a SHACL processor MUST recognize a resource <code>X</code> in the shapes graph as a class if and only if the shapes graph contains a triple <code>X rdf:type C</code> where <code>C</code> is either <code>rdfs:Class</code> or <code>C</code> is connected to <code>rdfs:Class</code> by a property path from <code>C</code> to <code>rdfs:Class</code> in the shapes graph consisting of one or more triples whose predicate is <code>rdfs:subClassOf</code>. If a SHACL processor recognizes a resource <code>X</code> in the shapes graph as both a shape and a class as defined here then all instances of
+								the class <code>X</code> in the data graph MUST be included in the scope of the shape <code>X</code>.
+								For the purposes of this definition, a resource <code>R</code> in the data graph is said to be an instance of the resource <code>X</code> if and only if
+								the data graph contains a triple <code>R rdf:type X</code> or the data graph contains a triple <code>R rdf:type Y</code>
+								and <code>Y</code> is connected to <code>X</code> by a property path from <code>Y</code> to <code>X</code> in the data graph consisting of one or more triples whose
+								predicate is <code>rdfs:subClassOf</code>.
+							</div>
+						</div>
+
+
+						<span class="todo">TODO: move this to "Non-Validating Constraint" section?</span>
+						<div class="issue" data-number="78" title="Abstract classes">
 						The following paragraph about <code>sh:abstract</code> is not yet approved by the WG.
 						Options include:
 						<ul>
@@ -622,6 +598,7 @@ WHERE {
 						Abstract classes SHOULD not be instantiated directly, i.e. every instance of an abstract class SHOULD also
 						have an <code>rdf:type</code> triple to a non-abstract subclass of the abstract class.
 					</p>
+					</section>
 				</section>
 				
 				<section id="scope">
