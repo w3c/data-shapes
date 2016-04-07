@@ -178,6 +178,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-04-08</b>: Updated the definition and use of sh:hasShape <a href="http://www.w3.org/2014/data-shapes/track/issues/131">ISSUE-131</a></li>
 				<li><b>2016-04-08</b>: Renamed sh:notEquals to sh:disjoint <a href="http://www.w3.org/2014/data-shapes/track/issues/136">ISSUE-136</a></li>
 				<li><b>2016-04-07</b>: Added section on Invalid Shapes Graphs for <a href="http://www.w3.org/2014/data-shapes/track/issues/134">ISSUE-134</a></li>
 				<li><b>2016-03-25</b>: rearrange cleanup sections 2 and 4, better definition of shape validation</li>
@@ -2275,7 +2276,7 @@ WHERE {
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
-	BIND (sh:hasShape($this, $not, $shapesGraph, true) AS ?hasShape) .
+	BIND (sh:hasShape($this, $not, $shapesGraph) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || ?hasShape) .
 }</pre>
@@ -2344,7 +2345,7 @@ WHERE {
 			GRAPH $shapesGraph {
 				$and rdf:rest*/rdf:first ?shape .
 			}
-			BIND (sh:hasShape($this, ?shape, $shapesGraph, true) AS ?hasShape) .
+			BIND (sh:hasShape($this, ?shape, $shapesGraph) AS ?hasShape) .
 			BIND (IF(bound(?hasShape), IF(!?hasShape, 1, 0), 'error') AS ?s) .
 		}
 	}
@@ -2438,7 +2439,7 @@ WHERE {
 			GRAPH $shapesGraph {
 				$or rdf:rest*/rdf:first ?shape .
 			}
-			BIND (sh:hasShape($this, ?shape, $shapesGraph, true) AS ?hasShape) .
+			BIND (sh:hasShape($this, ?shape, $shapesGraph) AS ?hasShape) .
 			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
 		}
 	}
@@ -2526,7 +2527,7 @@ ex:OrConstraintExampleValidResource
 SELECT $this ($this AS ?subject) $predicate ?object ?failure
 WHERE {
 	$this $predicate ?object .
-	BIND (sh:hasShape(?object, $valueShape, $shapesGraph, false) AS ?hasShape) .
+	BIND (sh:hasShape(?object, $valueShape, $shapesGraph) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || !?hasShape) .
 }</pre>
@@ -2639,7 +2640,7 @@ WHERE {
 			UNION
 			{
 				$this $predicate ?value .
-				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
+				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph) AS ?hasShape) .
 				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
 			}
 		}
@@ -2675,7 +2676,7 @@ WHERE {
 			UNION
 			{
 				$this $predicate ?value .
-				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph, true) AS ?hasShape) .
+				BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph) AS ?hasShape) .
 				BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
 			}
 		}
@@ -4356,8 +4357,7 @@ WHERE {
 		<section id="hasShape" class="appendix">
 			<h2>The Function sh:hasShape</h2>
 			<div class="issue" data-number="131" title="sh:hasShape">
-				The following definition is incomplete, pending for example a final resolution on
-				the treatment of recursion.
+				The following definition is under discussion.
 			</div>
 			<p>
 				SHACL implementations with full support of the SHACL SPARQL extension mechanism must implement
@@ -4370,37 +4370,37 @@ WHERE {
 					<th>Summary</th>
 				</tr>
 				<tr>
-					<td><code>$focusNode</code></td>
+					<td><code>focusNode</code></td>
 					<td><code>rdfs:Resource</code></td>
 					<td>The focus node to validate.</td>
 				</tr>
 				<tr>
-					<td><code>$shape</code></td>
-					<td><code>sh:Shape</code></td>
+					<td><code>shape</code></td>
+					<td><code>rdfs:Resource</code></td>
 					<td>The shape to validate the focus node against.</td>
 				</tr>
 				<tr>
-					<td><code>$shapesGraph</code></td>
+					<td><code>shapesGraph</code></td>
 					<td><code>rdfs:Resource</code></td>
 					<td>The current <span class="term">shapes graph</span>.</td>
 				</tr>
-				<tr>
-					<td><code>$recursionIsError</code></td>
-					<td><code>xsd:boolean</code></td>
-					<td>
-						If set to <code>true</code> then any recursive occurrence of the same resource against the same shape signals a failure,
-						with the function returning <span class="term">undefined</span>.
-						If not <code>true</code> then any recursive occurrence must return <code>true</code>.
-						<p class="issue" data-number="22" title="Treatment of recursive shape definitions">
-							According to resolution <a href="https://www.w3.org/2015/12/16-shapes-minutes.html#resolution04">2015.12.16/04</a> shapes graphs with dependency loops are invalid and suitable limitations of this will be explored.
-							Until issue 22 is closed, definitions regarding recursion are not endorsed by the WG.
-						</p>
-					</td>
-				</tr>
 			</table>
 			<p>
-				The result of the <code>sh:hasShape</code> function is either <code>true</code>, <code>false</code> or <span class="term">undefined</span>.
-				The function returns <code>true</code> if the validation of the <code>?focusNode</code> against the given <code>?shape</code> produces no validation results with severity <code>sh:Violation</code>.
+				An example call of this function is
+			</p>
+			<pre>
+				<code>BIND (sh:hasShape(ex:JohnDoe, ex:PersonShape, $shapesGraph) AS ?hasShape)</code>
+			</pre>
+			<p>
+				None of the arguments can be unbound.
+				The result of the <code>sh:hasShape</code> function is either <code>true</code>, <code>false</code> or <span class="term">undefined</span>:
+			</p>
+			<ul>
+				<li><span class="term">undefined</span> if during the execution, any call to <code>sh:hasShape</code> has recursively called <code>sh:hasShape</code> with exactly the same arguments, i.e. the same node/shape/shapesGraph combination. This result indicates a failure.</li>
+				<li><code>true</code> if the validation of the <code>focusNode</code> against the given <code>shape</code> produces no validation results with severity <code>sh:Violation</code>.</li>
+				<li><code>false</code> if the validation of the <code>focusNode</code> against the given <code>shape</code> produces at least one validation results with severity <code>sh:Violation</code>.</li>
+			</ul>
+			<p>
 				Note that any validation results produced inside of the <code>sh:hasShape</code> function are temporary, i.e. they are not added to the results graph of the surrounding execution environment.
 				However, some implementations may add those nested validation results as annotations to the surrounding validation results, via <a href="#results-detail"><code>sh:detail</code></a>.
 			</p>
