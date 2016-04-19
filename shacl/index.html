@@ -3659,6 +3659,10 @@ ex:LanguageExampleShape
 			<section id="sparql-constraints-variables">
 				<h4>Mapping of Result Variables to Validation Results</h4>
 				<p>
+					If one of the rows of the result set produces by a SELECT query contains the binding <code>true</code>
+					for the variable <code>?failure</code>, then the validation engine must signal an error.
+				</p>
+				<p>
 					Each row of the result set produced by a SELECT query must be converted into one validation result resource.
 					The properties of those resources are derived by the following rules, through a combination of result variables and the properties linked to the constraint itself.
 					The production rules are meant to be executed from top to bottom, so that the first bound value will be used.
@@ -3842,253 +3846,254 @@ ex:ExampleValueResource
 		</section>
 		
 		<section id="constraint-components">
-			<h2>Constraint Components</h2>
-			<p class="todo">THE REST OF THIS DOCUMENT IS WORK IN PROGRESS</p>
+			<h2>SPARQL-based Constraint Components</h2>
 			<p>
-				Native constraints in a language like SPARQL as introduced in the previous section typically provide a lot of flexibility.
+				SPARQL-based constraints as introduced in the previous section typically provide a lot of flexibility.
 				However, SPARQL-based constraints may also be hard to understand for some people, and may be repetitive.
-				<span class="term">Templates</span> can be used to encapsulate and parameterize such native queries.
-				<span class="term">Constraint templates</span> can be instantiated anywhere where a native constraint may appear (in particular, at <code>sh:constraint</code>).
-				<span class="term">Scope templates</span> can be instantiated anywhere where a native scope may appear, at <code>sh:scope</code>.
-				All of the constraint and scope types built into the SHACL Core are also represented as templates in the SHACL RDF vocabulary.
-				Such templates form a high-level vocabulary that may also be directly interpreted ("hard-coded") without reliance on the fact that they are templates.
+				<span class="term">Constraint components</span> (as already introduced in the section <a href="#constraints">Core Constraint Components</a>)
+				can be used to define higher level vocabularies using parameter properties such as <code>sh:class</code> and <code>sh:closed</code>.
+				The SHACL extension mechanism includes the capability for anyone to define additional <span class="term">constraint components</span>
+				that encapsulate and parameterize SPARQL queries, and thus hide the complexity of SPARQL from users.
+				The definitions of such constraint components can be represented in the SHACL RDF vocabulary and thus shared and reused.
 			</p>
 			<p>
-				Constraint templates are represented as IRI nodes that are instances of the class <code>sh:ConstraintTemplate</code>.
-				Scope templates are represented as IRI nodes that are instances of the class <code>sh:ScopeTemplate</code>.
-				SHACL also includes a more general superclass <code>sh:Template</code> that may be used for other kinds of templates (rules, stored queries etc).
-				Well-defined, non-abstract templates must provide at least one <span class="term">body</span> using a property such as <a href="#sparql-templates"><code>sh:sparql</code></a>.
+				Constraint components are represented as IRI nodes that are instances of the class <code>sh:ConstraintComponent</code>.
+				The class <code>sh:ConstraintComponent</code> is a subclass of the class <code>sh:Parameterizable</code>, which
+				declares a property <code>sh:parameter</code> pointing at declarations of parameters.
 			</p>
 			<section class="informative">
-				<h3>An Example Template Constraint</h3>
+				<h3>An Example Constraint Component</h3>
 				<p>
-					The following example illustrates the definition of a constraint template based on a SPARQL query.
-					It is a variation of the native example constraint from the previous section.
+					The following example illustrates the definition of a constraint component based on a SPARQL query.
+					It is a variation of the SPARQL-based example constraint from the previous section.
 					That SPARQL query included two constants: the specific property <code>ex:germanLabel</code> and the language tag <code>de</code>.
-					Templates make it possible to generalize such scenarios, so that constants get <a href="#pre-binding">pre-bound</a> with <span class="term">arguments</span>.
-					This allows the query logic to be reused in multiple places, without having to write any new SPARQL. 
+					Constraint components make it possible to generalize such scenarios, so that constants get <a href="#pre-binding">pre-bound</a> with <span class="term">parameters</span>.
+					This allows the query logic to be reused in multiple places, without having to write any new SPARQL.
 				</p>
-			<pre class="example-shapes" title="Constraint template based on SPARQL">
-ex:LanguageConstraint
-	a sh:ConstraintTemplate ;
-	rdfs:label "Language constraint" ;
-	rdfs:subClassOf sh:TemplateConstraint ;
-	sh:parameter [
-		sh:predicate ex:predicate ;
-		sh:class rdf:Property ;
-		sh:name "predicate" ;
-		sh:description "The property to validate the values of." ;
-    ] ;
+			<pre class="example-shapes" title="Constraint component based on SPARQL">
+ex:LanguageConstraintComponentUsingSELECT
+	a sh:ConstraintComponent ;
+	rdfs:label "Language constraint component" ;
+	sh:context sh:PropertyConstraint ;
 	sh:parameter [
 		sh:predicate ex:lang ;
 		sh:datatype xsd:string ;
+		sh:minLength 2 ;
 		sh:name "language" ;
 		sh:description "The language tag, e.g. \"de\"." ;
 	] ;
-	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
-	sh:message "Values must be literals with language \"{?lang}\"" ;
-	sh:sparql """
-		SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
-		WHERE {
-			$this $predicate ?value .
-			FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
-		}
-		""" .</pre>
+	sh:labelTemplate "Values of {$predicate} must be literals with language \"{$lang}\"" ;
+	sh:propertyValidator [
+		a sh:SPARQLSelectValidator ;
+		sh:message "Values must be literals with language \"{?lang}\"" ;
+		sh:sparql """
+			SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+			WHERE {
+				$this $predicate ?value .
+				FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
+			}
+			"""
+	] .</pre>
 				<p>
-					Once a template has been defined, it can be instantiated as a constraint, as illustrated in the following example:
+					Once a constraint component has been defined, its parameters can be used in the declared <span class="term">contexts</span>, as illustrated in the following example:
 				</p>
-				<pre id="TemplateLanguageExampleShape" class="example-shapes" title="Shape definition using ex:LanguageConstraint">
-ex:TemplateLanguageExampleShape
+				<pre id="TemplateLanguageExampleShape" class="example-shapes" title="Shape definition using ex:LanguageConstraintComponent">
+ex:LanguageExampleShape
 	a sh:Shape ;
 	sh:scopeClass ex:Country ;
-	sh:constraint [
-		a ex:LanguageConstraint ;
-		ex:predicate ex:germanLabel ;
+	sh:property [
+		sh:predicate ex:germanLabel ;
 		ex:lang "de" ;
 	] ;
-	sh:constraint [
-		a ex:LanguageConstraint ;
-		ex:predicate ex:englishLabel ;
+	sh:property [
+		sh:predicate ex:englishLabel ;
 		ex:lang "en" ;
 	] .</pre>
 				<p>
 					The example shape above specifies that all values of <code>ex:germanLabel</code> must carry the language tag <code>de</code>
 					while all values of <code>ex:englishLabel</code> must have <code>en</code> as their language.
-					These details are specified via two instances of <code>ex:LanguageConstraint</code> that provide values for the arguments required by the template.
+					These details are specified via two property constraints that provide values for the <code>ex:lang</code> parameter required by the constraint component.
 				</p>
 				<p>
-					The following sections introduce the properties that constraint templates may have.
-					All of these properties except for <code>sh:sparql</code> are independent of SPARQL-based execution and apply
-					to constraint templates based on other languages such as JavaScript too.
-					A later <a href="#sparql-templates">section</a> provides additional details for SPARQL-based SHACL templates.
+					The following sections introduce the properties that constraint components may have.
+					Some of these properties except are independent of SPARQL-based execution and apply
+					to constraint components based on other potential extension languages such as JavaScript too.
 				</p>
 			</section>
-			<section id="template-arguments">
-				<h3>Template Arguments</h3>
+			<section id="constraint-components-parameters">
+				<h3>Declaration of Parameters (sh:parameter)</h3>
 				<p>
-					The arguments of a template are linked via the property <code>sh:parameter</code>.
-					Each argument must be an instance of <code>sh:Parameter</code>, but the <code>rdf:type</code> triples of these instances can be omitted.
+					The parameters of a constraint components are declared via the property <code>sh:parameter</code>.
+					Each parameter must be an instance of <code>sh:Parameter</code>, but the <code>rdf:type</code> triples of these instances can be omitted.
+					It is invalid to declare parameters that also have <code>rdf:type</code> values of
+					<code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code> or <code>sh:NodeConstraint</code>.
 				</p>
 				<p>
 					Each <code>sh:Parameter</code> must have exactly one value for the property <code>sh:predicate</code>.
 					The values of <code>sh:predicate</code> must be IRIs.
-					<span id="def-local-name">The <span class="term">local name</span> of a IRI is defined as the longest <a href="http://www.w3.org/TR/REC-xml-names/#NT-NCName">NCNAME</a>
-					at the end of the IRI, not immediately preceeded by the first colon in the IRI.</span>
-					The local names of the values of <code>sh:predicate</code> must fulfill the following conditions (to ensure a correct mapping from arguments into SPARQL variables is possible):
+					<span id="def-local-name">The <span class="term">local name</span> of an IRI is defined as the longest <a href="http://www.w3.org/TR/REC-xml-names/#NT-NCName">NCNAME</a>
+					at the end of the IRI, not immediately preceded by the first colon in the IRI.</span>
+					The <span class="term">local names</span> of the values of <code>sh:predicate</code> must fulfill the following conditions (to ensure that a correct mapping from arguments into SPARQL variables is possible):
 				</p>
 				<ul>
 					<li>The <span class="term">local name</span> must be a valid <a href="http://www.w3.org/TR/sparql11-query/#rVARNAME">SPARQL VARNAME</a></li>
-					<li>There must not be any other declared <code>sh:Parameter</code> for the same template (and its transitive superclasses) that has a <code>sh:predicate</code> with the same <span class="term">local name</span></li>
+					<li>There must not be any other declared <code>sh:Parameter</code> for the same constraint component that has a <code>sh:predicate</code> with the same <span class="term">local name</span></li>
+					<li>The <span class="term">local name</span> must not be <code>predicate</code> if one of the <span class="term">contexts</span> of the constraint component is <code>sh:NodeConstraint</code>.</li>
+					<li>The <span class="term">local name</span> must not be <code>this</code>, <code>shapesGraph</code> or <code>currentShape</code>.</li>
 				</ul>
 				<p>
 					An <code>sh:Parameter</code> may have its property <code>sh:optional</code> set to <code>true</code>
-					to indicate that the argument is not mandatory.
+					to indicate that the parameter is not mandatory.
 				</p>
 				<p>
-					An <code>sh:Parameter</code> may declare a default value via <code>sh:defaultValue</code>.
-					For non-optional arguments, the validation engine must use the declared default value for template instances that do not define a value for this argument.
-					Template instances can have at most one value for each argument predicate.
-				</p>
-				<p>
-					An <code>sh:Parameter</code> may declare one value for the property <code>sh:class</code> or one value for
-					<code>sh:datatype</code>, similar to their counterparts in property constraints.
-					Likewise, an <code>sh:Parameter</code> may specify a <code>sh:NodeKind</code> via <code>sh:nodeKind</code>.
-					This can be used to communicate the expected value type of the argument in template instances.
-					Some implementations MAY use this information to prevent the execution of a template with invalid arguments.
+					The class <code>sh:Parameter</code> is defined as a subclass of <code>sh:PropertyConstraint</code>,
+					and all properties that are applicable to property constraints may also be used for parameters.
+					This includes descriptive properties such as <code>sh:name</code> and <code>sh:description</code>
+					but also constraint parameters such as <code>sh:class</code>.
+					Some implementations MAY use these constraint parameters to prevent the execution of constraint components with invalid parameter values.
 				</p>
 			</section>
-			<section id="template-instantiation">
-				<h3>Template Instantiation</h3>
+			<section id="constraint-components-context">
+				<h3>The Context of Constraint Components (sh:context)</h3>
 				<p>
-					<code>sh:Template</code> is subclass of <code>rdfs:Class</code>, which means that templates can be instantiated via <code>rdf:type</code>.
-					Such <span class="term">template instances</span> can be used as values of <code>sh:constraint</code>, among others, as demonstrated in an <a href="#TemplateLanguageExampleShape">example</a> above.
-				</p>
-				<p>
-					Template instances are called <span class="term">complete</span> when they have values for all non-optional arguments.
-					Only template instances that are complete will be used - incomplete templates will be (silently) ignored during constraint validation.
-				</p>
-				<p>
-					Constraint templates may be placed in a <code>rdfs:subClassOf</code> relationship with other templates.
-					The implication of doing this is that when an instance of the superclass template is validated, then all (transitive) superclass templates will also be validated,
-					assuming their arguments are <span class="term">complete</span>.
+					Each <code>sh:ConstraintComponent</code> can have multiple values for the property <code>sh:context</code>.
+					The only allowed values of that property are <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code> or <code>sh:InversePropertyConstraint</code>.
+					The interpretation of this is that, for example, if a constraint component has <code>sh:NodeConstraint</code>
+					among its values for <code>sh:context</code> then the parameters of the constraint component can be used in conjunction with <code>sh:constraint</code>.
+					A SHACL validation engine will evaluate all constraint components where all non-optional parameters have a value.
 				</p>
 			</section>
-			<section id="template-labelTemplate">
-				<h3>sh:labelTemplate</h3>
+			<section id="constraint-components-validators">
+				<h3>Validators</h3>
 				<p>
-					The property <code>sh:labelTemplate</code> can be used to suggest how instances of the template shall be rendered to humans.
-					The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
-					where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
-					At display time, these <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
+					In order to evaluate a constraint component in a given <span class="term">context</span>,
+					a constraint component needs to declare a suitable <span class="term">validator</span> with machine-readable instructions
+					on how to interpret the constraint's parameters to produce validation results.
 				</p>
-			</section>
-			<section id="template-property-constraints">
-				<h3>Property Constraint Templates</h3>
 				<p>
-					Some constraints are about a specific property only, and SHACL provides the system properties <code>sh:property</code> and <code>sh:inverseProperty</code> for those cases.
-					In order to define constraints that can be used similar to the built-in Core constraint properties such as <code>sh:minCount</code>,
-					a SHACL template needs to declared to be a subclass of <code>sh:PropertyConstraint</code> (for <code>sh:property</code>) or <code>sh:InversePropertyConstraint</code> (for <code>sh:inverseProperty</code>).
-					Such templates "inherit" the argument <code>sh:predicate</code>.
-					This is illustrated in the following example.
+					The following table defines the relationships between the values of <code>sh:context</code> and
+					corresponding properties in the SHACL RDF vocabularies that link to the validators.
+					For example, if a constraint component has <code>sh:context</code> <code>sh:PropertyConstraint</code>,
+					then it needs to point at a validator using <code>sh:propertyValidator</code>.
 				</p>
-				<pre class="example-shapes" title="An example property constraint template with a shape that uses it">
-ex:LanguagePropertyConstraint
-	a sh:ConstraintTemplate ;
-	rdfs:subClassOf sh:PropertyConstraint ;
+				<table class="term-table">
+					<tr>
+						<th>Context</th>
+						<th>Validator Property</th>
+					</tr>
+					<tr>
+						<td><code>sh:NodeConstraint</code></td>
+						<td><code>sh:nodeValidator</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:PropertyConstraint</code></td>
+						<td><code>sh:propertyValidator</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:InversePropertyConstraint</code></td>
+						<td><code>sh:inversePropertyValidator</code></td>
+					</tr>
+				</table>
+				<p>
+					SHACL includes two types of validators, based on either SPARQL <a href="#SPARQLSelectValidator">SELECT</a> or <a href="#SPARQLAskValidator">ASK</a> queries,
+					as explained by the following sub-sections.
+					Additional types of validators may be defined by extensions for languages like JavaScript.
+					A SHACL validation engine must use one of the supplied validators from the <span class="term">shapes graph</span>.
+					If none of the available validators are suitable (e.g because the engine only supports JavaScript but not SPARQL),
+					then the engine MUST report an error.
+				</p>
+				<section id="SPARQLSelectValidator">
+					<h3>Validators based on SPARQL SELECT Queries</h3>
+					<p>
+						Validators that have the <code>rdf:type</code> <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:sparql</code>.
+						The value of <code>sh:sparql</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
+					</p>
+					<p id="SPARQLSelectValidator-evaluation">
+						A SPARQL-based SHACL validation engine executes the provided SPARQL query with the same <a href="#pre-binding">pre-bound variables</a>
+						as outlined in the section for <a href="#sparql-constraints-prebound">SPARQL-based Constraints</a> (<code>$this</code> etc).
+						Additionally, the value of each declared <span class="term">parameter</span> of the constraint component needs to be pre-bound for
+						the variable derived by the <span class="term">local name</span> of the parameter's <code>sh:predicate</code>.
+						For example, if a parameter declares <code>sh:predicate ex:lang</code> then the variable <code>$lang</code> needs to be pre-bound.
+						The result set of the SELECT query is turned into validation results using the same rules as outlined in the section for <a href="#sparql-constraints-variables">SPARQL-based Constraints</a>.
+						In addition to the result properties listed in that section, the property <code>sh:sourceConstraintComponent</code> MUST point at the
+						IRI of the constraint component that has been evaluated.
+						Furthermore, a <code>sh:SPARQLSelectValidator</code> may declare additional <a href="#sparql-constraints-annotations">annotation properties</a> via <code>sh:resultAnnotation</code>.
+					</p>
+				</section>
+				<section id="SPARQLAskValidator">
+					<h3>Validators based on SPARQL ASK Queries</h3>
+					<p>
+						Validators that have the <code>rdf:type</code> <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:sparql</code>.
+						The value of <code>sh:sparql</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
+						The ASK queries are expected to return <code>true</code> if a given <span class="term">value node</span>
+						(represented by the pre-bound variable <code>?value</code>) is valid.
+					</p>
+					<p>
+						Prior to evaluation, a SHACL validation engine transforms the provided ASK query into a SELECT query using the following template.
+						The engine drops the ASK (and top-level WHERE) keywords, leaving only the fraction between the outermost <code>{...}</code> block.
+						This block then gets inserted into <code>...</code> in the template. 
+					</p>
+					<p>Template for <code>sh:NodeConstraint</code> context:</p>
+					<pre>
+	SELECT $this
+	WHERE {
+		BIND ($this AS ?value) .
+		FILTER NOT EXISTS ...
+	}</pre>
+					<p>Template for <code>sh:PropertyConstraint</code> context:</p>
+					<pre>
+	SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+	WHERE {
+		$this $predicate ?value .
+		FILTER NOT EXISTS ...
+	}</pre>
+					<p>Template for <code>sh:InversePropertyConstraint</code> context:</p>
+					<pre>
+	SELECT $this ($this AS ?object) $predicate (?value AS ?subject)
+	WHERE {
+		?value $predicate $this .
+		FILTER NOT EXISTS ...
+	}</pre>
+					<p>
+						The templates need to use a different variable than <code>?value</code> if the constraint component has a parameter that would cause <code>?value</code> to be a pre-bound variable.
+					</p>
+					<p>
+						Once the corresponding template has been applied, the resulting SELECT query will be evaluated using the same approach as outlined <a href="#SPARQLSelectValidator-evaluation">above</a>.
+					</p>
+					<p>
+						The following example defines a constraint component using an ASK query.
+						Note that the example represents the validator with an IRI node <code>ex:hasLang</code>
+						so that it becomes easier to reuse the same validator for both contexts.
+					</p>
+					<pre class="example-shapes" title="Constraint component based on SPARQL">
+ex:LanguageConstraintComponentUsingASK
+	a sh:ConstraintComponent ;
+	rdfs:label "Language constraint component" ;
+	sh:context sh:NodeConstraint, sh:PropertyConstraint ;
 	sh:parameter [
 		sh:predicate ex:lang ;
 		sh:datatype xsd:string ;
+		sh:minLength 2 ;
 		sh:name "language" ;
 		sh:description "The language tag, e.g. \"de\"." ;
 	] ;
-	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
-	sh:message "Values must be literals with language \"{?lang}\"" ;
+	sh:labelTemplate "Values of {$predicate} must be literals with language \"{$lang}\"" ;
+	sh:nodeValidator ex:hasLang ;
+	sh:propertyValidator ex:hasLang .
+	
+ex:hasLang
+	a sh:SPARQLAskValidator ;
+	sh:message "Values must be literals with language \"{$lang}\"" ;
 	sh:sparql """
-		SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
-		WHERE {
-			$this $predicate ?value .
-			FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
+		ASK {
+			FILTER (isLiteral($value) &amp;&amp; langMatches(lang($value), $lang))
 		}
-		""" .
-
-ex:TemplateLanguageWithPropertyConstraintExampleShape
-	a sh:Shape ;
-	sh:scopeClass ex:Country ;
-	sh:property [
-		a ex:LanguagePropertyConstraint ;
-		sh:predicate ex:germanLabel ;
-		sh:datatype rdf:langString ;
-		sh:maxCount 1 ;
-		ex:lang "de" ;
-	] .</pre>
-				<p>
-					As shown above, shapes can instantiate such templates via <code>sh:property</code>
-					and mix custom constraint properties such as <code>ex:lang</code> with those from the SHACL Core vocabulary, such as <code>sh:maxCount</code>.
-				</p>
-			</section>
-			<section id="template-validation-functions">
-				<h3>Templates with a sh:validationFunction</h3>
-				<p>
-					Constraint templates that are instances of <code>sh:PropertyValueConstraintTemplate</code> or
-					<code>sh:InversePropertyValueConstraintTemplate</code> (which are subclasses of <code>sh:ConstraintTemplate</code>) do not require an executable body (such a <code>sh:sparql</code>)
-					if they instead link to a <code>sh:Function</code> via the property <code>sh:validationFunction</code>.
-					These so called <span class="term">validation functions</span> must take an argument with the predicate <code>sh:value</code> as its first argument
-					and return either <code>true</code> or <code>false</code>.
-					This validation function must be used by a constraint validation engine to construct a procedure that iterates over all values of the (possibly inverse) property,
-					and then runs a filter test using the function.  If the filter returns <code>false</code> then a validation result must be produced.
-					Validation functions may take additional arguments, and the validation engine must fill them with the matching arguments from the surrounding template.
-					The SHACL system vocabulary contains several examples of such validation functions, e.g. <code>sh:AbstractDatatypePropertyConstraint</code>.
-				</p>
-				<p>
-					The following example defines a constraint template using a <span class="term">validation function</span> from a <a href="#ValidationFunctions">later section</a>.
-				</p>
-				<pre class="example-shapes" title="Template definition using a validation function">
-ex:LanguageConstraint
-	a sh:PropertyValueConstraintTemplate ;
-	rdfs:label "Language constraint" ;
-	rdfs:subClassOf sh:TemplateConstraint ;
-	sh:parameter [
-		sh:predicate ex:predicate ;
-		sh:class rdf:Property ;
-		sh:name "predicate" ;
-		sh:description "The property to validate the values of." ;
-    ] ;
-	sh:parameter [
-		sh:predicate ex:lang ;
-		sh:datatype xsd:string ;
-		sh:name "language" ;
-		sh:description "The language tag, e.g. \"de\"." ;
-	] ;
-	sh:labelTemplate "Values of {?predicate} must be literals with language \"{?lang}\"" ;
-	sh:message "Values must be literals with language \"{?lang}\"" ;
-	sh:validationFunction ex:hasLanguage .</pre>
-			</section>
-			<section id="sparql-templates">
-				<h3>SPARQL-based Constraint Templates</h3>
-				<p>
-					If a <code>sh:Template</code> has a value for <code>sh:sparql</code>, then the corresponding instances need to follow the same execution rules as outlined for <a href="#native-constraints-sparql">SPARQL-based Constraints</a> and <a href="#sparql-scopes">SPARQL-based Scopes</a>.
-					The only difference is that the SPARQL queries need to be executed with additional <span class="term">pre-bound</span> variables, derived from the arguments of the template.
-					The names of those variables must match the <a href="#def-local-name"><span class="term">local name</span></a> of the argument predicates, including the arguments defined by any (transitive) superclasses of the template.
-					For example, if an argument is represented with the predicate <code>ex:myArgument</code> then the variable <code>?myArgument</code> must be <span class="term">pre-bound</span> with the value of the argument in the template instance.
-				</p>
-				<p>
-					If a <code>sh:PropertyValueConstraintTemplate</code> has a value for <code>sh:validationFunction</code>, then the validation engine needs to produce a SPARQL query equivalent to the following pattern:
-				</p>
-				<pre class="algorithm">
-SELECT $this ($this AS ?subject) $predicate ?object
-WHERE {
-	$this $predicate ?object .
-	FILTER (!{validationFunction}(?object, {+ other matching arguments})) .
-}</pre>
-				<p>
-					If a <code>sh:InversePropertyValueConstraintTemplate</code> has a value for <code>sh:validationFunction</code>, then the validation engine needs to produce a SPARQL query equivalent to the following pattern:
-				</p>
-				<pre class="algorithm">
-SELECT $this ?subject $predicate ($this AS ?object)
-WHERE {
-	?subject $predicate $this .
-	FILTER (!{validationFunction}(?subject, {+ other matching arguments})) .
-}</pre>
+		""" .</pre>
+					<p class="todo">
+						The TopBraid SHACL API uses such ASK constraints to define new SPARQL functions.
+						Time permitting we could standardize that too, so that people can reuse the same business logic in the queries.
+					</p>
+				</section>
 			</section>
 		</section>
 		
@@ -4140,6 +4145,15 @@ ex:USCitizenShape
 				<p>
 					TODO
 				</p>
+				<section id="template-labelTemplate">
+					<h3>sh:labelTemplate</h3>
+					<p>
+						The property <code>sh:labelTemplate</code> can be used to suggest how instances of the template shall be rendered to humans.
+						The <code>sh:labelTemplate</code> must be a string that can reference the arguments using the syntax <code>{?varName}</code>,
+						where <code>varName</code> is the name of the SPARQL variable that corresponds to the argument.
+						At display time, these <code>{?...}</code> blocks SHOULD be substituted with the actual values used in the template instance.
+					</p>
+				</section>
 			</section>
 		</section>
 		
