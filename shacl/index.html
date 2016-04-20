@@ -185,6 +185,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-04-20</b>: Significant rework of the advanced sections, based on metamodel Proposal 3 (<a href="http://www.w3.org/2014/data-shapes/track/issues/95">ISSUE-95</a>)</li>
 				<li><b>2016-04-18</b>: sh:stem definition</li>
 				<li><b>2016-04-18</b>: Renamed sh:sourceTemplate to sh:sourceConstraintComponent</li>
 				<li><b>2016-04-18</b>: Updated the definition of pre-binding (<a href="http://www.w3.org/2014/data-shapes/track/issues/68">ISSUE-68</a>)</li>
@@ -279,7 +280,7 @@
 				The sections 6 onwards are about the advanced features of the SHACL language, including SPARQL-based constraint components, scopes and functions.
 			</p>
 			<p>
-				The Appendix provides a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
+				The Appendix includes a <a href="#terms">Glossary of Key Concepts</a> that may also serve as a quick overview of the language.
 			</p>
 			<p>
 				The examples in this document use Turtle [[!turtle]].
@@ -878,33 +879,35 @@ ex:FilteredExampleShape
 					</li>
 				</ul>
 				<p>
-					Additional types of constraints can be added using the <a href="#native-constraints">extension mechanism</a>, called <span class="term">native constraints</span>.
+					Additional types of constraints can be added using the extension mechanism,
+					including <a href="#sparql-constraints">SPARQL-based constraints</a> or
+					<a href="#constraint-components">SPARQL-based constraint components</a>.
 				</p>
 				<p>
 					Shapes link to their constraints via the following properties:
 				</p>
 				<ul>
 					<li>
-						<code>sh:property</code> links a shape to one or more <span class="term">property constraints</span>.
+						<code>sh:property</code> links a shape to <span class="term">property constraints</span>.
 						The <span class="term">default value type</span> of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
 					</li>
 					<li>
-						<code>sh:inverseProperty</code> links a shape to one or more <span class="term">inverse property constraints</span>.
+						<code>sh:inverseProperty</code> links a shape to <span class="term">inverse property constraints</span>.
 						The <span class="term">default value type</span> of <code>sh:inverseProperty</code> is <code>sh:InversePropertyConstraint</code>.
 					</li>
 					<li>
-						<code>sh:constraint</code> links a shape with one or more <span class="term">node constraints</span> or <span class="term">native constraints</span>.
+						<code>sh:constraint</code> links a shape to any type of <span class="term">constraints</span>, in particular <span class="term">node constraints</span> and <span class="term">SPARQL-based constraints</span> (which are an advanced topic).
 						The <span class="term">default value type</span> of <code>sh:constraint</code> is <code>sh:NodeConstraint</code>.
 					</li>
 				</ul>
 				<p id="default-value-types">
 					All three properties have a <a href="#defaultValueType"><span class="term">default value type</span></a> and thus, the <code>rdf:type</code> triple can be omitted.
 					<span class="term">Instances</span> of constraint types can be reused across the same shape or different shapes.
-					However, all constraint types are pairwise disjoint and no more than one property of <code>sh:property</code>, <code>sh:inverseProperty</code> and <code>sh:constraint</code> can link to the same RDF node.
+					However, all constraint types are pairwise disjoint and no more than one property of <code>sh:property</code>, <code>sh:inverseProperty</code> and <code>sh:constraint</code> can link to the same RDF node within the same <span class="term">shapes graph</span>.
 				</p>
 				<p>
 					Constraints may contain
-					<a href="#nonValidation">non-validating</a> properties (e.g. <code>sh:description</code>) or,
+					<a href="#nonValidation">non-validating</a> properties (e.g. <code>sh:description</code>) or
 					<span class="term">parameters</span> of <span class="term">constraint components</span> (e.g. <code>sh:minCount</code>).
 					<span class="term">Constraint components</span> define one or more parameter properties and validation instructions
 					(e.g. implemented via SPARQL queries) that can be used to perform the validation for the given focus node and parameter values.
@@ -912,7 +915,7 @@ ex:FilteredExampleShape
 					that it can be used with is called the <span class="term">context</span> of the component.
 					For example, the <span class="term">context</span> of the component defining the <code><a href="#ClosedConstraintComponent">sh:closed</a></code> property
 					is <code>sh:NodeConstraint</code>, i.e. <code>sh:closed</code> can only be used with <code>sh:constraint</code>.
-					The catalog of constraint components in the Core of SHACL is defined in the following section.
+					The catalog of constraint components in the Core of SHACL is defined in <a href="#constraints">section 3</a>.
 				</p>
 				<p> 
 					The following examples illustrate two ways of using (property) constraints.
@@ -977,7 +980,7 @@ ex:ShapeWithTwoClasses
 			<p>
 				Note that the textual definitions of the constraint components refer to the <a href="#results">Validation Results Vocabulary</a>
 				introduced in a later section.
-				Each constraint component is identified by a URI that is referenced in the validation results via <code>sh:sourceConstraintComponent</code>
+				Each constraint component is identified by a URI that is referenced in the validation results via <code>sh:sourceConstraintComponent</code>.
 			</p>
 			<p>
 				Many constraint components can be used in multiple contexts, e.g. both in a <span class="term">property constraint</span>
@@ -987,48 +990,35 @@ ex:ShapeWithTwoClasses
 			</p>
 			<ul>
 				<li>
-					For <span class="term">property constraints</span> the value nodes are the objects of the triples that have the <span class="term">focus node</span> as subject and the given property as predicate.
+					For <span class="term">property constraints</span> the <span class="term">value nodes</span> are the objects of the triples that have the <span class="term">focus node</span> as subject and the given property as predicate.
 					Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 					the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value node as its <code>sh:object</code>.
 				</li>
 				<li>
-					For <span class="term">inverse property constraints</span> the value nodes are the subjects of the triples that have the <span class="term">focus node</span> as object and the given property as predicate.
+					For <span class="term">inverse property constraints</span> the <span class="term">value nodes</span> are the subjects of the triples that have the <span class="term">focus node</span> as object and the given property as predicate.
 					Each produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:object</code>,
 					the <code>sh:predicate</code> as its <code>sh:predicate</code> and the respective violating value node as its <code>sh:subject</code>.
 				</li>
 				<li>
-					For <span class="term">node constraints</span> the value nodes are the <span class="term">focus nodes</span>.
+					For <span class="term">node constraints</span> the <span class="term">value nodes</span> are the individual <span class="term">focus nodes</span>, forming a set of exactly one node.
 				</li>
 			</ul>
 			<p>
 				The SPARQL definitions in this section may only be written for one of the three possible contexts, for brevity.
 				Corresponding queries can be formulated for the other cases (such as the inverse direction) easily.
-				The SPARQL definitions also assume the following variable bindings (see the <a href="#pre-binding">appendix</a> for a formal definition of variable binding):
+				The SPARQL definitions also assume the variable bindings and result variable mapping rules detailed in the
+				<a href="#sparql-constraints">section on SPARQL-based Constraints</a>.
+				In a nutshell, the variable <code>$this</code> represents the currently validated focus node.
+				In <code>sh:PropertyConstraint</code>s and <code>sh:InversePropertyConstraint</code>s,
+				the value of the variable <code>$predicate</code> is the value of <code>sh:predicate</code>
+				in the constraint.
 			</p>
-			<ul>
-				<li>The value of the variable <code>$this</code> is the current focus node.</li>
-				<li>The value of the variable <code>$shapesGraph</code> can be used to access the <span class="term">shapes graph</span> (used only to <a href="#shacl-sparql">simplify</a> the definitions).</li>
-				<li>The value of the variable <code>$currentShape</code> is the currently evaluated shape.</li>
-				<li>
-					In <code>sh:PropertyConstraint</code>s and <code>sh:InversePropertyConstraint</code>s,
-					the value of the variable <code>$predicate</code> is the value of <code>sh:predicate</code>
-					in the constraint.
-				</li>
-			</ul>
 			<p>
-				Additional variables (using the <code>$</code> syntax) must be bound using the provided constraint parameter values.
-				For example, the variable <code>$class</code> must be bound to the value of <code>sh:class</code> for class constraint components.
 				Note that the parameter tables in each of the following sections have a column called Value Type which indicates the expected
-				type of the parameter values for documentation purposes, without enforcing any formal restrictions. 
+				type of the parameter values for documentation purposes, without enforcing any formal restrictions.
 			</p>
 			<p>
-				Each row in the result set of the SPARQL queries in this document represents one <span class="term">validation result</span>.
-				The other variables in the SELECT clause are mapped to the details of each <a href="#results">validation result</a>, e.g. <code>?object</code> is mapped to <code>sh:object</code>.
-				<span class="todo">(Clarify what exact compliance level is required, e.g. do they need to produce focus nodes)</span>
-				If a row in a SPARQL result set produces <code>true</code> as value for the variable <code>?failure</code> then a <span class="term">failure</span> must be reported.
-			</p>
-			<p>
-				The SPARQL definitions in this section also assume the existence of a built-in SPARQL function <code>sh:hasShape</code>, which is described in the <a href="#hasShape">Appendix</a>.
+				The SPARQL definitions in this section also assume the existence of a built-in SPARQL function <a href="#hasShape"><code>sh:hasShape</code></a>.
 			</p>
 			<p>
 				The following table summarizes the parameters used by the core constraint components.
@@ -1172,6 +1162,13 @@ ex:ShapeWithTwoClasses
 					<td>&#9745;</td>
 					<td>&#9745;</td>
 					<td>Regular expression string matching</td>
+				</tr>
+				<tr>
+					<td><a href="#StemConstraintComponent"><code>sh:stem</code></a></td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>IRIs must start with the given string</td>
 				</tr>
 				<tr>
 					<td><a href="#UniqueLangConstraintComponent"><code>sh:uniqueLang</code></a></td>
@@ -1967,7 +1964,6 @@ ex:PatternShapeExampleInvalidResource
 					<h4>sh:stem</h4>
 					<p>
 						The property <code>sh:stem</code> validates whether all <span class="term">value nodes</span> are IRIs and the IRI starts with a given string value.
-						<code>sh:stem</code> is a shortcut for <code>sh:nodeKind sh:IRI</code> and <code>sh:pattern "^{stem value}"</code>.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component:</span> <code>sh:StemConstraintComponent</code>
@@ -1992,7 +1988,7 @@ ex:PatternShapeExampleInvalidResource
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
 							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span>
-							that is not an IRI and the <a href="https://www.w3.org/TR/sparql11-query/#func-str">string representation</a> of the IRI value does not <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#func-strstarts">start with</a> the given string.
+							that is not an IRI or the <a href="https://www.w3.org/TR/sparql11-query/#func-str">string representation</a> of the IRI value does not <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#func-strstarts">start with</a> the given string.
 						</div>
 					</div>
 					<div class="def def-sparql">
@@ -3542,8 +3538,8 @@ ex:MyShape
 				SHACL supports two types of general constraints:
 			</p>
 			<ul>
-				<li>Constraints based on a high-level vocabulary (<a href="#constraint-components">constraint components</a>)</li>
-				<li>Constraints based on a SPARQL query</li>
+				<li>Constraints based on a high-level vocabulary (<a href="#constraint-components">constraint components</a>), relying on a reusable SPARQL query in the background</li>
+				<li>Constraints directly based on a SPARQL query</li>
 			</ul>
 			<p>
 				The following sub-sections are about the latter.
@@ -3593,7 +3589,7 @@ ex:LanguageExampleShape
 					The scope of the shape above includes all instances of <code>ex:Country</code>.
 					For those instances (represented by the variable <code>$this</code>), the SPARQL query walks through the values of <code>ex:germanLabel</code>
 					and verifies that they are literals with a German language code.
-					The output of the graph validation for the instances above is shown in the next example: 
+					The output of the graph validation for the instances above is shown below: 
 				</p>
 				<pre class="example-results">
 [
@@ -3849,7 +3845,7 @@ ex:ExampleValueResource
 		<section id="constraint-components">
 			<h2>SPARQL-based Constraint Components</h2>
 			<p>
-				SPARQL-based constraints as introduced in the previous section typically provide a lot of flexibility.
+				SPARQL-based constraints as introduced in the previous section provide a lot of flexibility.
 				However, SPARQL-based constraints may also be hard to understand for some people, and may be repetitive.
 				<span class="term">Constraint components</span> (as already introduced in the section <a href="#constraints">Core Constraint Components</a>)
 				can be used to define higher level vocabularies using parameter properties such as <code>sh:class</code> and <code>sh:closed</code>.
@@ -3871,7 +3867,7 @@ ex:ExampleValueResource
 					Constraint components make it possible to generalize such scenarios, so that constants get <a href="#pre-binding">pre-bound</a> with <span class="term">parameters</span>.
 					This allows the query logic to be reused in multiple places, without having to write any new SPARQL.
 				</p>
-			<pre class="example-shapes" title="Constraint component based on SPARQL">
+				<pre class="example-shapes" title="Constraint component based on SPARQL">
 ex:LanguageConstraintComponentUsingSELECT
 	a sh:ConstraintComponent ;
 	rdfs:label "Language constraint component" ;
@@ -3928,8 +3924,8 @@ ex:LanguageExampleShape
 				<p>
 					The parameters of a constraint component are declared via the property <code>sh:parameter</code>.
 					Each parameter must be an instance of <code>sh:Parameter</code>, but the <code>rdf:type</code> triples of these instances can be omitted.
-					It is invalid to declare parameters that also have <code>rdf:type</code> values of
-					<code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code> or <code>sh:NodeConstraint</code>.
+					It is invalid to declare parameters that also have <code>rdf:type</code> values of any other executable constraint types including
+					<code>sh:InversePropertyConstraint</code>, <code>sh:NodeConstraint</code> and <code>sh:SPARQLConstraint</code>.
 				</p>
 				<p>
 					Each <code>sh:Parameter</code> must have exactly one value for the property <code>sh:predicate</code>.
@@ -4002,7 +3998,7 @@ ex:LanguageExampleShape
 					as explained by the following sub-sections.
 					Additional types of validators may be defined by extensions for languages like JavaScript.
 					A SHACL validation engine must use one of the supplied validators from the <span class="term">shapes graph</span>.
-					If none of the available validators are suitable (e.g because the engine only supports JavaScript but not SPARQL),
+					If none of the available validators are suitable (e.g., because the engine only supports JavaScript but not SPARQL),
 					then the engine MUST report an error.
 					Constraint components MAY define multiple validators of the same type, and supply them with additional attributes so that certain engines can pick the best possible validator.
 					However, all provided validators must produce exactly the same validation results, except for differences in the property <code>sh:message</code>.
@@ -4208,149 +4204,6 @@ ex:USCitizenShape
 			</section>
 		</section>
 		
-		<section id="sparql-functions">
-			<h2>SPARQL Functions</h2>
-			<p>
-				SHACL <span class="term">functions</span> define operations that produce an RDF node based on zero or more parameters and an input RDF Graph (or dataset).
-				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
-				However, the general declaration mechanism for SHACL functions is independent from SPARQL and may also be exploited by other environments.
-			</p>
-			<section id="sparql-functions-syntax">
-				<h3>Syntax of SPARQL Functions</h3>
-				<p>
-					Functions that encapsulate a SPARQL query must be instances of <code>sh:SPARQLFunction</code>, which is a subclass of the more general class <code>sh:Function</code>.
-					Such functions must provide exactly one value of <code>sh:sparql</code>, linking to a SPARQL query.
-				</p>
-				<p>
-					The following example illustrates the definition of a <span class="term">function</span> based on a SPARQL query.
-				</p>
-				<pre class="example-shapes" title="SHACL function with a SPARQL body">
-ex:exampleFunction
-	a sh:SPARQLFunction ;
-	rdfs:comment "Computes the sum of its two arguments ?arg1 and ?arg2." ;
-	sh:parameter [
-		sh:predicate sh:arg1 ;
-		sh:datatype xsd:integer ;
-		sh:description "The first operand" ;
-	] ;
-	sh:parameter [
-		sh:predicate sh:arg2 ;
-		sh:datatype xsd:integer ;
-		sh:description "The second operand" ;
-	] ;
-	sh:returnType xsd:integer ;
-	sh:sparql """
-		SELECT ($arg1 + $arg2 AS ?result)
-		WHERE {
-		}
-		""" .</pre>
-				<p>
-					Using the declaration above, SPARQL engines with full SHACL support can install a new SPARQL function based on the SPARQL 1.1 <a href="http://www.w3.org/TR/sparql11-query/#extensionFunctions">Extensible Value Testing</a> mechanism.
-					Such engines are then able to handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>, as illustrated in the following SPARQL query.
-				</p>
-				<pre class="example-shapes" title="Call of a SHACL function in a SPARQL query">
-SELECT ?subject
-WHERE {
-	?subject ex:myProperty ?value .
-	FILTER (ex:exampleFunction(?value, 2) = 42) .
-}</pre>
-				<p>
-					The following sections introduce the properties that all such functions may have.
-					A later <a href="#sparql-functions">section</a> provides additional details for SPARQL-based SHACL functions.
-				</p>
-			</section>
-			<section id="sparql-function-parameters">
-				<h3>Function Parameters</h3>
-				<p>
-					The parameters of a function are linked to its <code>sh:Function</code> via the property <code>sh:parameter</code>.
-					Each parameter must be an instance of <code>sh:Parameter</code>, but their <code>rdf:type</code> triple can be omitted.
-				</p>
-				<p>
-					Each <code>sh:Parameter</code> must have exactly one value for the property <code>sh:predicate</code>.
-					The values of <code>sh:predicate</code> must be IRIs, and follow the same restrictions as outlined for <a href="#template-arguments">Template Arguments</a>.
-				</p>
-				<p id="function-arguments-ordering">
-					Parameters are ordered, corresponding to the notation of function calls in SPARQL such as
-					<code>ex:exampleFunction(?arg1, ?arg2)</code>.
-					The ordering of function parameters (e.g. for printing in SPARQL strings) is determined by their <span class="term">index</span>.
-					For each function, the indices must be 0, 1, 2 etc.  The index of each declared <code>sh:Parameter</code>
-					is determined as follows:
-				</p>
-				<ol>
-					<li>The index of the built-in argument predicates <code>sh:arg1</code>, <code>sh:arg2</code> etc is their numeric name part minus 1, e.g. <code>sh:arg1</code> has index 0.</li>
-					<li>The index of other argument predicates is the value of the property <code>sh:order</code> at the surrounding <code>sh:Parameter</code>.</li>
-					<li>Arguments that are neither of the form <code>sh:argX</code> nor have an <code>sh:order</code> are place at the end, whereby arguments that have <code>sh:optional</code> set to <code>true</code> get a higher index than non-optional arguments.</li>
-				</ol>
-				<p>
-					Each <code>sh:Parameter</code> may have its property <code>sh:optional</code> set to <code>true</code>
-					to indicate that the parameter is not mandatory.
-					If a parameter has been declared optional, then all succeeding parameters must also be declared optional.
-				</p>
-				<p>
-					Similar to <a href="#constraints-property">Property Constraints</a>, each <code>sh:Parameter</code> may declare one value for the property <code>sh:datatype</code> or one value for the property <code>sh:class</code>.
-					This can be used to communicate the expected value type of the argument in function calls.
-					Some implementations MAY use this information to prevent the execution of a function with invalid arguments.
-				</p>
-			</section>
-			<section id="function-returnType">
-				<h3>sh:returnType</h3>
-				<p>
-					A function may declare a single return type via <code>sh:returnType</code>.
-					This information may serve for documentation purposes, only.
-					However, in some execution languages such as JavaScript, the declared <code>sh:returnType</code> may inform
-					a processor how to cast a native value into an RDF value type.
-				</p>
-			</section>
-			<section id="ValidationFunctions">
-				<h3>Validation Functions</h3>
-				<p>
-					It is a common design pattern for functions to take a value as input and validate whether that value fulfills certain conditions or not.
-					In support of this pattern, SHACL supports <span class="term">validation functions</span>, which are instances of <code>sh:Function</code> that are also subclasses of <code>sh:ValidationFunctions</code>.
-					From that superclass, these functions "inherit" the (first) argument <code>sh:value</code>.
-					Validation functions may define additional arguments with <code>sh:order</code> values larger than 1.
-					The following example illustrates a validation function for the running example of the <a href="#template-validation-functions">section on constraint templates</a>.
-				</p>
-				<pre class="example-shapes" title="A validation function">
-ex:hasLanguage
-	a sh:SPARQLAskValidator ;
-	sh:sparql """
-  		ASK {
-  			FILTER (isLiteral($value) &amp;&amp; langMatches(lang($value), $lang)) .
-		}
-		""" .</pre>
-				<p>
-					An example invocation of the function above is: <code>ex:hasLanguage("Spain"@en, "en")</code>, producing <code>true</code>.
-				</p>
-			</section>
-			<section id="sparql-functions">
-				<h3>SPARQL-based Functions</h3>
-				<p>
-					If a <code>sh:Function</code> has a value for <code>sh:sparql</code> then it can be regarded as a <span class="term">SPARQL-based function</span>.
-					In the SPARQL query, the SPARQL processor needs to <span class="term">pre-bind</span> variables based on the provided arguments of the function call.
-					The SPARQL query must be of type ASK or SELECT.
-					For ASK queries, the function's return value is the result of the ASK query execution.
-					For SELECT queries, the function's return value is the first binding of the first result variable in the result set.
-					Since all other bindings will be ignored, such SELECT queries SHOULD only return a single result variable and at most one row.
-				</p>
-				<p class="issue" data-number="22" title="Treatment of recursive shape definitions">
-					According to resolution <a href="https://www.w3.org/2015/12/16-shapes-minutes.html#resolution04">2015.12.16/04</a> shapes graphs with dependency loops are invalid and suitable limitations of this will be explored.
-					Until  issue 22 is closed, definitions regarding recursion are not endorsed by the WG.
-				</p>
-				<p>
-					<em>Recursive use of functions is undefined:</em>
-					If a SPARQL-based function contains calls to other functions so that the same function with the same combination of arguments would be visited twice
-					then the result of the function call is undefined.
-					An implementation may either return no result (unbound) or terminate the surrounding SPARQL query with an error.
-				</p>
-				<p>
-					Some validation engines may ignore the specified <code>sh:sparql</code> query and rely on an alternative (possibly native) implementation instead,
-					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
-					This can be used to optimize frequently needed functions.
-					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
-				</p>
-			</section>
-		</section>
-		
 		<section id="derivedValues">
 			<h2>Derived Values Constraints</h2>
 			<p>
@@ -4362,7 +4215,7 @@ ex:hasLanguage
 				<span class="component-class">Constraint Component:</span> <code>sh:DerivedValuesConstraintComponent</code>
 			</p>
 			<p>
-				<span class="parameter-context">Supported Constraint Types:</span> <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>.
+				<span class="parameter-context">Supported Context Properties:</span> <code>sh:property</code>, <code>sh:inverseProperty</code>.
 			</p>
 			<div class="parameters">Parameters:</div>
 			<table class="term-table">
@@ -4384,6 +4237,7 @@ ex:hasLanguage
 				The values of <code>sh:sparql</code> must be SPARQL fragments that can be turned into a valid SPARQL query by surrounding them
 				with the prefix declarations from the shapes graph and <code>SELECT ?value WHERE { ... }</code>.
 				These fragments can access the current focus node via the variable <code>$this</code> and must produce bindings for the variable <code>?value</code> for all derived values.
+				<span class="todo">TODO: Maybe make them also SELECT queries, for consistency?</span>
 			</p>
 			<div class="def def-text">
 				<div class="def-header">TEXTUAL DEFINITION</div>
@@ -4426,35 +4280,124 @@ ex:RectangleShape
 		] ;
 	] .</pre>
 		</section>
-
-		<section id="defaultValueType">
-			<h2>Validation of shapes graphs and the sh:defaultValueType property</h2>
+		
+		<section id="functions">
+			<h2>SPARQL Functions</h2>
 			<p>
-				The SHACL system vocabulary itself is using shapes, allowing SHACL constraint validation to be executed on shapes graphs, e.g. to validate the syntax of shape definitions.
-				However, some system properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:parameter</code> may have untyped blank nodes or IRIs as their values.
-				If, for example, a value of <code>sh:property</code> is a blank node that does not have any <code>rdf:type</code>, then the assumption is that the blank node has type <code>sh:PropertyConstraint</code>.
-				Unless these implicit triples are present in the data graph, constraint validation will not apply the constraints defined for <code>sh:PropertyConstraint</code>.
+				SHACL <span class="term">functions</span> define operations that produce an RDF node based on zero or more parameters and an input RDF Graph (or dataset).
+				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
+				However, the general declaration mechanism for SHACL functions is independent from SPARQL and may also be exploited by other environments.
 			</p>
-			<p>
-				If a validation engine intends to validate the syntax of a SHACL shapes graph itself, it should (temporarily) add the missing <code>rdf:type</code> triples.
-				The SHACL system vocabulary includes some helper triples using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
-				For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
-				These triples can be queried by a pre-processor to construct the missing type triples for the affected nodes.
-				SHACL includes a template <code>sh:DefaultValueTypeRule</code> which encapsulates a SPARQL query that can be used for that purpose:
-			</p>
-			<pre class="algorithm">
-CONSTRUCT {
-	?node a ?defaultValueType .
-}
+			<section id="sparql-functions-syntax">
+				<h3>Syntax of SPARQL Functions</h3>
+				<p>
+					Functions that encapsulate a SPARQL query must be instances of <code>sh:SPARQLFunction</code>, which is a subclass of the more general class <code>sh:Function</code>.
+					Such functions must provide exactly one value of <code>sh:sparql</code>, linking to a SPARQL query.
+				</p>
+				<p>
+					The following example illustrates the definition of a <span class="term">function</span> based on a simple mathematical SPARQL query.
+				</p>
+				<pre class="example-shapes" title="SHACL function with a SPARQL body">
+ex:exampleFunction
+	a sh:SPARQLFunction ;
+	rdfs:comment "Computes the sum of its two arguments ?arg1 and ?arg2." ;
+	sh:parameter [
+		sh:predicate ex:op1 ;
+		sh:datatype xsd:integer ;
+		sh:description "The first operand" ;
+	] ;
+	sh:parameter [
+		sh:predicate ex:op2 ;
+		sh:datatype xsd:integer ;
+		sh:description "The second operand" ;
+	] ;
+	sh:returnType xsd:integer ;
+	sh:sparql """
+		SELECT ($op1 + $op2 AS ?result)
+		WHERE {
+		}
+		""" .</pre>
+				<p>
+					Using the declaration above, SPARQL engines with full SHACL support can install a new SPARQL function based on the SPARQL 1.1 <a href="http://www.w3.org/TR/sparql11-query/#extensionFunctions">Extensible Value Testing</a> mechanism.
+					Such engines are then able to handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>, as illustrated in the following SPARQL query.
+				</p>
+				<pre class="example-shapes" title="Call of a SHACL function in a SPARQL query">
+SELECT ?subject
 WHERE {
-	?predicate sh:defaultValueType ?defaultValueType .
-	?anySubject ?predicate ?node .
-	FILTER (NOT EXISTS { ?node a ?anyType }) .
+	?subject ex:myProperty ?value .
+	FILTER (ex:exampleFunction(?value, 2) = 42) .
 }</pre>
-			<p>
-				The operations in this section assume that these default value types are present in the shapes graph, e.g.
-				simplifying the test whether a given node is a <code>sh:PropertyConstraint</code>.
-			</p>
+				<p>
+					The following sections introduce the properties that such functions may have.
+				</p>
+			</section>
+			<section id="function-parameters">
+				<h3>Function Parameters</h3>
+				<p>
+					The parameters of a function are linked to its <code>sh:Function</code> via the property <code>sh:parameter</code>.
+					Each parameter must be an instance of <code>sh:Parameter</code>, but their <code>rdf:type</code> triple can be omitted.
+				</p>
+				<p>
+					Each <code>sh:Parameter</code> must have exactly one value for the property <code>sh:predicate</code>.
+					The values of <code>sh:predicate</code> must be IRIs, and follow the following restrictions:
+				</p>
+				<ul>
+					<li>The <span class="term">local name</span> must be a valid <a href="http://www.w3.org/TR/sparql11-query/#rVARNAME">SPARQL VARNAME</a></li>
+					<li>There must not be any other declared <code>sh:Parameter</code> for the same function that has a <code>sh:predicate</code> with the same <span class="term">local name</span></li>
+				</ul>
+				<p id="parameters-ordering">
+					Parameters are ordered, corresponding to the notation of function calls in SPARQL such as
+					<code>ex:exampleFunction(?param1, ?param2)</code>.
+					The ordering of function parameters is determined as follows:
+				</p>
+				<ol>
+					<li>Parameters are ordered in ascending order by the numeric values of <code>sh:order</code>.</li>
+					<li>Parameters that do not declare an <code>sh:order</code> are placed after those that have.</li>
+					<li>Parameters that do not declare an <code>sh:order</code> are ordered by the <span class="term">local names</span> of their declared <code>sh:predicate</code>s.</li>
+				</ol>
+				<p>
+					Each <code>sh:Parameter</code> may have its property <code>sh:optional</code> set to <code>true</code>
+					to indicate that the parameter is not mandatory.
+				</p>
+			</section>
+			<section id="function-returnType">
+				<h3>sh:returnType</h3>
+				<p>
+					A function may declare a single return type via <code>sh:returnType</code>.
+					This information may serve for documentation purposes, only.
+					However, in some execution languages such as JavaScript, the declared <code>sh:returnType</code> may inform
+					a processor how to cast a native value into an RDF value type.
+				</p>
+			</section>
+			<section id="function-evaluation">
+				<h3>Evaluation of Functions</h3>
+				<p>
+					Instances of <code>sh:SPARQLFunction</code> must have exactly one value for the property <code>sh:sparql</code>.
+					The values of this property must be strings that can be parsed into SPARQL queries of type ASK or SELECT.
+					SELECT queries must project exactly one result variable and SHOULD not use the <code>SELECT *</code> syntax.
+					In the SPARQL query, the SPARQL processor needs to <span class="term">pre-bind</span> variables based on the provided parameters of the function call.
+					For ASK queries, the function's return value is the result of the ASK query execution, i.e. <code>true</code> or <code>false</code>.
+					For SELECT queries, the function's return value is the binding of the (single) result variable of the first row in the result set.
+					Since all other bindings will be ignored, such SELECT queries SHOULD only return a single result variable and at most one row.
+					Also note that the result variable may be unbound, making the return value of the function <span class="term">undefined</span>.
+				</p>
+				<p class="issue" data-number="22" title="Treatment of recursive shape definitions">
+					According to resolution <a href="https://www.w3.org/2015/12/16-shapes-minutes.html#resolution04">2015.12.16/04</a> shapes graphs with dependency loops are invalid and suitable limitations of this will be explored.
+					Until issue 22 is closed, definitions regarding recursion are not endorsed by the WG.
+				</p>
+				<p>
+					<em>Recursive use of functions is undefined:</em>
+					If a SPARQL-based function contains calls to other functions so that the same function with the same combination of arguments would be visited twice
+					then the result of the function call is undefined.
+					An implementation may either return no result (unbound) or terminate the surrounding SPARQL query with an error.
+				</p>
+				<p>
+					Some processors may ignore the specified <code>sh:sparql</code> query and rely on an alternative (possibly native) implementation instead,
+					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
+					This can be used to optimize frequently needed functions.
+					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
+				</p>
+			</section>
 		</section>
 
 		<section id="entailment">
@@ -4556,7 +4499,7 @@ WHERE {
 			</p>
 			<table class="term-table">
 				<tr>
-					<th style="min-width: 200px">Argument</th>
+					<th style="min-width: 200px">Parameter</th>
 					<th>Value Type</th>
 					<th>Summary</th>
 				</tr>
@@ -4616,6 +4559,26 @@ WHERE {
 				so that they have the provided value.
 				In other words, whenever a SPARQL processor evaluates a pre-bound variable, it must use the given value.
  			</p>
+		</section>
+
+		<section id="defaultValueType" class="appendix">
+			<h2>Default value types (sh:defaultValueType)</h2>
+			<p>
+				Some SHACL properties such as <code>sh:property</code>, <code>sh:filterShape</code> and <code>sh:parameter</code> may have untyped blank nodes or IRIs as their values.
+				If, for example, a value of <code>sh:property</code> is a blank node that does not have any <code>rdf:type</code>, then the assumption is that the blank node has type <code>sh:PropertyConstraint</code>.
+				The SHACL system vocabulary includes some helper triples using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
+				For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
+				SHACL includes a resource <code>sh:DefaultValueTypeRule</code> that encapsulates a SPARQL query via <code>sh:sparql</code> that can be used for that purpose:
+			</p>
+			<pre class="algorithm">
+CONSTRUCT {
+	?node a ?defaultValueType .
+}
+WHERE {
+	?predicate sh:defaultValueType ?defaultValueType .
+	?anySubject ?predicate ?node .
+	FILTER (NOT EXISTS { ?node a ?anyType }) .
+}</pre>
 		</section>
 		
 		<section id="ack" class="appendix informative">
