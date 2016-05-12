@@ -218,7 +218,8 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
-				<li><b>2016-05-12</b>: remove sh:abstract</li>
+				<li><b>2016-05-12</b>: sh:and,or,not now also apply to property/inverseProperty constraints (<a href="http://www.w3.org/2014/data-shapes/track/issues/135">ISSUE-135</a>)</li>
+				<li><b>2016-05-12</b>: Remove sh:abstract  (<a href="http://www.w3.org/2014/data-shapes/track/issues/78">ISSUE-78</a>)</li>
 				<li><b>2016-05-09</b>: SPARQL query at sh:derivedValues must now be proper SELECT queries, to allow PREFIX declarations</li>
 				<li><b>2016-05-06</b>: Deleted sh:directType (<a href="http://www.w3.org/2014/data-shapes/track/issues/123">ISSUE-123</a>)</li>
 				<li><b>2016-04-22</b>: Switched from graph-based prefixes to sh:prefix (this is a proposal only!) (<a href="http://www.w3.org/2014/data-shapes/track/issues/105">ISSUE-105</a>)</li>
@@ -1206,7 +1207,7 @@ ex:ShapeWithTwoClasses
 				introduced in a later section.
 				Each constraint component is identified by a IRI that is referenced in the validation results via <code>sh:sourceConstraintComponent</code>.
 			</p>
-			<p>
+			<p id="dfn-value-node">
 				Many constraint components can be used in multiple contexts, e.g. both in a <span class="term">property constraint</span> context
 				and an <span class="term">inverse property constraint</span> context.
 				The textual description of each component refers to the concept of <span class="term">value nodes</span>
@@ -1378,6 +1379,17 @@ ex:ShapeWithTwoClasses
 					<td>&#9745;</td>
 					<td>&#9745;</td>
 					<td>Node kind (IRI, blank node, or literal) of all values</td>
+				</tr>
+				<tr>
+					<td>
+						<a href="#NotConstraintComponent"><code>sh:not</code></a>,
+						<a href="#AndConstraintComponent"><code>sh:and</code></a> and
+						<a href="#OrConstraintComponent"><code>sh:or</code></a>
+					</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>&#9745;</td>
+					<td>Logical operators on shapes</td>
 				</tr>
 				<tr>
 					<td><a href="#PatternConstraintComponent"><code>sh:pattern</code></a></td>
@@ -2525,7 +2537,7 @@ WHERE {
 						<span class="component-class">Constraint Component:</span> <code>sh:NotConstraintComponent</code>
 					</p>
 					<p>
-						<span class="parameter-context">Supported Contexts:</span> <code>sh:NodeConstraint</code>
+						<span class="parameter-context">Supported Contexts:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
 					</p>
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
@@ -2543,12 +2555,12 @@ WHERE {
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the <span class="term">focus node</span> produces no validation results with severity <code>sh:Violation</code> for the shape given via <code>sh:not</code>.
+							A <span class="term">validation result</span> must be produced for each <span class="term">value node</span> that produces no validation results with severity <code>sh:Violation</code> for the shape given via <code>sh:not</code>.
 							A <span class="term">failure</span> must be reported if the validation of the shape produces a failure.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for node constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
@@ -2587,7 +2599,7 @@ ex:InvalidInstance1
 						<span class="component-class">Constraint Component:</span> <code>sh:AndConstraintComponent</code>
 					</p>
 					<p>
-						<span class="parameter-context">Supported Contexts:</span> <code>sh:NodeConstraint</code>
+						<span class="parameter-context">Supported Contexts:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
 					</p>
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
@@ -2599,19 +2611,19 @@ ex:InvalidInstance1
 						<tr>
 							<td><code>sh:and</code></td>
 							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
-							<td>List of shapes to validate the focus node against</td>
+							<td>List of shapes to validate the value nodes against</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the following condition is false:
-							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:and</code> list produces a validation result with severity <code>sh:Violation</code> for at least one shape.
+							A <span class="term">validation result</span> must be produced for each <a term="value-node">value node</a> if the following condition is false:
+							The validation of the <a term="value-node">value node</a> against all of the shapes in the <code>sh:and</code> list produces a validation result with severity <code>sh:Violation</code> for at least one shape.
 							A <span class="term">failure</span> must be produced if the validation of one of the shapes fails.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for node constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
@@ -2682,7 +2694,7 @@ ex:InvalidInstance2
 						<span class="component-class">Constraint Component:</span> <code>sh:OrConstraintComponent</code>
 					</p>
 					<p>
-						<span class="parameter-context">Supported Contexts:</span> <code>sh:NodeConstraint</code>
+						<span class="parameter-context">Supported Contexts:</span> <code>sh:NodeConstraint</code>, <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>
 					</p>
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
@@ -2694,19 +2706,19 @@ ex:InvalidInstance2
 						<tr>
 							<td><code>sh:or</code></td>
 							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
-							<td>List of shapes to validate the focus node against</td>
+							<td>List of shapes to validate the value nodes against</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							A <span class="term">validation result</span> must be produced if the following condition is false:
-							The validation of the <span class="term">focus node</span> against all of the shapes in the <code>sh:or</code> list produces no validation results with severity <code>sh:Violation</code> for at least one shape.
+							A <span class="term">validation result</span> must be produced for each <a term="value-node">value node</a> if the following condition is false:
+							The validation of the <a term="value-node">value node</a> against all of the shapes in the <code>sh:or</code> list produces no validation results with severity <code>sh:Violation</code> for at least one shape.
 							A <span class="term">failure</span> must be produced if the validation of one of the shapes fails.
 						</div>
 					</div>
 					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
+						<div class="def-header">SPARQL DEFINITION (for node constraints)</div>
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
