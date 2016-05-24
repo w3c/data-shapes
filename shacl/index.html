@@ -1192,13 +1192,13 @@ ex:ShapeWithTwoClasses
 			</div>
 
 			<p>
-				The validation process returns a <span class="term"><a href="#results-graph">results graph</a></span> containing all validation results.
-				By default, the results graph contains validation results of all <a href="#results-severity">severity</a> levels
+				The validation process returns a <a>validation report</a> containing all <a>validation results</a>.
+				By default, the validation report contains validation results of all <a href="#results-severity">severity</a> levels
 				but the user can request validation results with a custom minimum severity (i.e. <code>sh:Warning</code>).
-				According to the definition of validation, a results graph may contain validation results but as long as none is of severity <code>sh:Violation</code> the data graph is considered valid.
+				According to the definition of validation, a <a>validation report</a> may contain <a>validation results</a> but as long as none is of severity <code>sh:Violation</code> the data graph is considered valid.
 				For simpler validation scenarios, SHACL validation engines SHOULD provide an additional validation interface that returns only <span class="term">VALID</span> or <span class="term">INVALID</span>.
 			<p>
-				During validation, the <a>data graph</a> and the <a>shapes graph</a> must remain unchanged, i.e. both graphs at the end of the validation must be identical to the graph at the beginning of validation.
+				During validation, the <a>data graph</a> and the <a>shapes graph</a> must remain immutable, i.e. both graphs at the end of the validation must be identical to the graph at the beginning of validation.
 			</p>
 			<p>
 				A SHACL validation engine MUST implement all constructs in the core of SHACL (Sections 2, 3, 4, 5).
@@ -1209,13 +1209,16 @@ ex:ShapeWithTwoClasses
 			<section id="shapes-graph">
 				<h3>Shapes Graph</h3>
 				<p>
-					The <span class="term">shapes graph</span> contains shape definitions that a <a>data graph</a> can be tested against.
+					The <a>shapes graph</a> contains shape definitions that a <a>data graph</a> can be tested against.
 					Shape definitions can be reusable validation components.
 					Importing multiple shapes graphs can be achieved with the predicate predicate <a href="http://www.w3.org/TR/owl2-syntax/#Imports"><code>owl:imports</code></a>.
 					SHACL validation engines SHOULD transitively follow all <a>values</a> of <a href="http://www.w3.org/TR/owl2-syntax/#Imports"><code>owl:imports</code></a> to other graphs and use the resulting union graph as <a>shapes graph</a> to the <a>validation</a> process.
 				</p>
 				<p>
 					In addition to shape definitions, the shapes graph may contain additional information for the validation engine such as <a href="#entailment">entailment</a> directives and namespace prefix declarations.
+				</p>
+				<p class="issue" data-number="105" title="SHACL SPARQL constraints depend on namespaces in a graph, which is not defined">
+					It is an open issue if and how to declare SPARQL query namespace prefixes.
 				</p>
 
 			</section>
@@ -1244,9 +1247,143 @@ ex:ShapeWithTwoClasses
 	sh:shapesGraph ex:graph-shapes2 .</pre>
 			</section>
 
-			<section id="results-graph">
-				<h3>Results Graph</h3>
-				<span class="todo">TODO talk about the results in a higher level than sec 5</span>
+			<section id="validation-report">
+				<h3>Validation report</h3>
+				<p>
+					The <a>validation report</a> is the result of the validation process and includes a set of zero or more <a>validation results</a>.
+					Each validation result is assigned a <dfn>severity</dfn> that can be informative, non-critical (warning) or violation.
+					A validation process is considered successful when the validation report contains only informative or non-critical results.
+					In addition to severities, each <a>validation results</a> contains a set of required or optional values that are described in the SHACL <span class="term">Validation Results Vocabulary</span>.
+				</p>
+				<p>
+					The validation results produced by a SHACL validation engine MUST be the product of validation of the <span class="term">data graph</span> only.
+					Some engines MAY also report errors in the <span class="term">shapes graph</span>, but those errors MUST NOT be mixed with the data validation results using the same results vocabulary.
+				</p>
+
+				<section id="results">
+					<h4>Validation Results Vocabulary</h4>
+					<p>
+						The output of a SHACL constraint validation process is a set of <span class="term">validation results</span>.
+						SHACL includes an RDF vocabulary to represent <a>validation results</a> together with
+						structural information that may provide guidance on how to identify or fix a violation.
+					</p>
+
+					<p>
+						The following code snippet represents a syntactically correct result that may have been produced by a constraint validation engine:
+					</p>
+			<pre class="example-results">
+ex:ExampleConstraintViolation
+	a sh:ValidationResult ;
+	sh:severity sh:Violation ;
+	sh:focusNode ex:MyCurrentNode ;
+	sh:subject ex:MyCurrentNode ;
+	sh:predicate ex:someProperty ;
+	sh:object ex:someInvalidValue ;
+	sh:message "Incorrect value: expected something else here." .</pre>
+					<p>
+						Validation results must be <a>SHACL instances</a> of the class <code>sh:ValidationResult</code>.
+						Its <a>SHACL superclass</a>, <code>sh:AbstractResult</code>, defines the properties described in the following sub-sections.
+						SHACL implementations may produce <a>SHACL instances</a> of other <a>SHACL subclasses</a> of <code>sh:AbstractResult</code>, for example
+						to report successfully completed constraint checks or accumulated results.
+					</p>
+					<section id="results-focus-node">
+						<h5>Focus node (sh:focusNode)</h5>
+						<p>
+							Validation results may have a single value for the property <code>sh:focusNode</code> to point to an
+							IRI or blank node that has caused the result.
+							This represents the <span class="term">focus node</span> that was validated when the validation result was produced.
+						</p>
+					</section>
+					<section id="results-triple">
+						<h5>Triple (sh:subject, sh:predicate and sh:object)</h5>
+						<p>
+							Validation results are often caused by a single RDF triple, or a predicate in the context of a given subject or object.
+							This information can be encoded via the properties <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>,
+							each of which can have at most one value.
+							<code>sh:predicate</code> can only be present if either <code>sh:subject</code> or <code>sh:object</code> have also been specified.
+							If <code>sh:object</code> is unspecified, then the interpretation is that the result is caused by the subject/predicate combination.
+							If <code>sh:subject</code> is unspecified, then the interpretation is that the result is caused by the object/predicate combination.
+						</p>
+					</section>
+					<section id="results-source">
+						<h5>Source (sh:sourceConstraint, sh:sourceShape and sh:sourceConstraintComponent)</h5>
+						<p>
+							Validation results may link to one <code>sh:Constraint</code> that has caused
+							the result, specified via the property <code>sh:sourceConstraint</code>,
+							and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
+							Validation results may link to the <span class="term">constraint component</span> that caused the result
+							via <code>sh:sourceConstraintComponent</code>.
+						</p>
+					</section>
+					<section id="results-detail">
+						<h5>Detail (sh:detail)</h5>
+						<p>
+							The property <code>sh:detail</code> may link a (parent) result with one or more other
+							(child) results that provide further details about the cause of the (parent) result.
+							Depending on the capabilities of the constraint validation engine, this may include failures of
+							nested constraints that have been evaluated via <code>sh:valueShape</code>.
+						</p>
+					</section>
+					<section id="results-message">
+						<h5>Message (sh:message)</h5>
+						<p>
+							Validation results may have values for the property <code>sh:message</code> to communicate
+							additional textual details to humans.
+							While <code>sh:message</code> may have multiple values, there SHOULD not be two values with the same language tag.
+						</p>
+					</section>
+					<section id="results-severity">
+						<h5>Severity (sh:severity)</h5>
+						<p>
+							Each validation result must have exactly one of the following values for the property <code>sh:severity</code>.
+						</p>
+						<table class="term-table">
+							<tr>
+								<th>Severity</th>
+								<th>Description</th>
+							</tr>
+							<tr>
+								<td><code>sh:Info</code></td>
+								<td>An informative message, not a violation.</td>
+							</tr>
+							<tr>
+								<td><code>sh:Warning</code></td>
+								<td>A non-critical constraint violation indicating a warning.</td>
+							</tr>
+							<tr>
+								<td><code>sh:Violation</code></td>
+								<td>A constraint violation that should be fixed.</td>
+							</tr>
+						</table>
+					</section>
+					<section id="severity">
+						<h3>Declaring the Severity of a Constraint</h3>
+						<p>
+							Constraints can specify their severity level using the property <code>sh:severity</code>,
+							which must link to one of the severity types.  <code>sh:Violation</code> is the default if unspecified.
+							Constraints based on <a href="#constraint-components">constraint components</a> use the <code>sh:severity</code> declared at the component IRI unless overridden at the constraint.
+							The following example clarifies this.
+						</p>
+				<pre class="example-shapes">
+ex:MyShape
+	a sh:Shape ;
+	sh:property [
+		# Violations of either minCount and datatype are produced as warnings
+		sh:predicate ex:myProperty ;
+		sh:minCount 1 ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Warning ;
+	] ;
+	sh:property [
+		# The default severity for sh:maxCount is sh:Violation
+		sh:predicate ex:myProperty ;
+		sh:maxCount 1 ;
+	] ;
+.</pre>
+					</section>
+				</section>
+
+
 			</section>
 		</section>
 
@@ -3529,133 +3666,6 @@ ex:AddressGroup
 			</section>
 		</section>
 
-		<section id="results">
-			<h2>Validation Results Vocabulary</h2>
-			<p>
-				The output of a SHACL constraint validation process is a set of <span class="term">validation results</span>.
-				SHACL includes an RDF vocabulary to represent such results together with
-				structural information that may provide guidance on how to fix a violation, as well as
-				human-readable messages.
-			</p>
-			<p>
-				The validation results produced by a standards-compliant SHACL validation engine MUST be the product of validation of the <span class="term">data graph</span> only.
-				Some engines MAY also report errors in the <span class="term">shapes graph</span>, but those errors MUST NOT be mixed with the data validation results using the same results vocabulary.
-			</p>
-			<p>
-				The following code snippet represents a syntactically correct result that may have been produced by a constraint validation engine:
-			</p>
-			<pre class="example-results">
-ex:ExampleConstraintViolation
-	a sh:ValidationResult ;
-	sh:severity sh:Violation ;
-	sh:focusNode ex:MyCurrentNode ;
-	sh:subject ex:MyCurrentNode ;
-	sh:predicate ex:someProperty ;
-	sh:object ex:someInvalidValue ;
-	sh:message "Incorrect value: expected something else here." .</pre>
-			<p>
-				Validation results must be <a>SHACL instances</a> of the class <code>sh:ValidationResult</code>.
-				Its <a>SHACL superclass</a>, <code>sh:AbstractResult</code>, defines the properties described in the following sub-sections.
-				SHACL implementations may produce <a>SHACL instances</a> of other <a>SHACL subclasses</a> of <code>sh:AbstractResult</code>, for example
-				to report successfully completed constraint checks or accumulated results.
-			</p>
-			<section id="results-focus-node">
-				<h4>sh:focusNode</h4>
-				<p>
-					Validation results may have a single value for the property <code>sh:focusNode</code> to point to an
-					IRI or blank node that has caused the result.
-					This represents the <span class="term">focus node</span> that was validated when the validation result was produced.
-				</p>
-			</section>
-			<section id="results-triple">
-				<h4>sh:subject, sh:predicate and sh:object</h4>
-				<p>
-					Validation results are often caused by a single RDF triple, or a predicate in the context of a given subject or object.
-					This information can be encoded via the properties <code>sh:subject</code>, <code>sh:predicate</code> and <code>sh:object</code>,
-					each of which can have at most one value.
-					<code>sh:predicate</code> can only be present if either <code>sh:subject</code> or <code>sh:object</code> have also been specified.
-					If <code>sh:object</code> is unspecified, then the interpretation is that the result is caused by the subject/predicate combination.
-					If <code>sh:subject</code> is unspecified, then the interpretation is that the result is caused by the object/predicate combination.
-				</p>
-			</section>
-			<section id="results-source">
-				<h4>sh:sourceConstraint, sh:sourceShape and sh:sourceConstraintComponent</h4>
-				<p>
-					Validation results may link to one <code>sh:Constraint</code> that has caused
-					the result, specified via the property <code>sh:sourceConstraint</code>,
-					and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
-					Validation results may link to the <span class="term">constraint component</span> that caused the result
-					via <code>sh:sourceConstraintComponent</code>.
-				</p>
-			</section>
-			<section id="results-detail">
-				<h4>sh:detail</h4>
-				<p>
-					The property <code>sh:detail</code> may link a (parent) result with one or more other
-					(child) results that provide further details about the cause of the (parent) result.
-					Depending on the capabilities of the constraint validation engine, this may include failures of
-					nested constraints that have been evaluated via <code>sh:valueShape</code>.
-				</p>
-			</section>
-			<section id="results-message">
-				<h3>sh:message</h3>
-				<p>
-					Validation results may have values for the property <code>sh:message</code> to communicate
-					additional textual details to humans.
-					While <code>sh:message</code> may have multiple values, there SHOULD not be two values with the same language tag.
-				</p>
-			</section>
-			<section id="results-severity">
-				<h3>sh:severity</h3>
-				<p>
-					Each validation result must have exactly one of the following values for the property <code>sh:severity</code>.
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Severity</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td><code>sh:Info</code></td>
-						<td>An informative message, not a violation.</td>
-					</tr>
-					<tr>
-						<td><code>sh:Warning</code></td>
-						<td>A non-critical constraint violation indicating a warning.</td>
-					</tr>
-					<tr>
-						<td><code>sh:Violation</code></td>
-						<td>A constraint violation that should be fixed.</td>
-					</tr>
-				</table>
-			</section>
-			<section id="severity">
-				<h3>Declaring the Severity of a Constraint</h3>
-				<p>
-					Constraints can specify their severity level using the property <code>sh:severity</code>,
-					which must link to one of the severity types.  <code>sh:Violation</code> is the default if unspecified.
-					Constraints based on <a href="#constraint-components">constraint components</a> use the <code>sh:severity</code> declared at the component IRI unless overridden at the constraint.
-					The following example clarifies this.
-				</p>
-				<pre class="example-shapes">
-ex:MyShape
-	a sh:Shape ;
-	sh:property [
-		# Violations of either minCount and datatype are produced as warnings
-		sh:predicate ex:myProperty ;
-		sh:minCount 1 ;
-		sh:datatype xsd:string ;
-		sh:severity sh:Warning ;
-	] ;
-	sh:property [
-		# The default severity for sh:maxCount is sh:Violation
-		sh:predicate ex:myProperty ;
-		sh:maxCount 1 ;
-	] ;
-.</pre>
-			</section>
-		</section>
-		
 		<div style="padding-top: 30px">
 			<h1 id="part2" style="font-size: 160%; font-weight: bold">Part 2: Advanced Features</h1>
 			<p>
