@@ -198,6 +198,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-05-27</b>: Renamed sh:sparql into sh:ask and sh:select. Spawned off sh:sparql from sh:constraint. sh:constraint is now for node constraints only (<a href="http://www.w3.org/2014/data-shapes/track/issues/133">ISSUE-133</a>)</li>
 				<li><b>2016-05-27</b>: Changed syntax of property scopes to sh:scopeProperty and sh:scopeInverseProperty (<a href="http://www.w3.org/2014/data-shapes/track/issues/148">ISSUE-148</a>)</li>
 				<li><b>2016-05-27</b>: Generalized sh:valueShape into sh:shape (<a href="http://www.w3.org/2014/data-shapes/track/issues/160">ISSUE-160</a>)</li>
 				<li><b>2016-05-17</b>: New example in section 1.3</li>
@@ -1095,7 +1096,7 @@ ex:FilteredExampleShape
 						The <span class="term">default value type</span> of <code>sh:inverseProperty</code> is <code>sh:InversePropertyConstraint</code>.
 					</li>
 					<li>
-						<code>sh:constraint</code> links shapes to any type of <span class="term">constraints</span>, in particular <span class="term">node constraints</span> and <span class="term">SPARQL-based constraints</span> (which are an advanced topic).
+						<code>sh:constraint</code> links shapes to <span class="term">node constraints</span>.
 						The <span class="term">default value type</span> of <code>sh:constraint</code> is <code>sh:NodeConstraint</code>.
 					</li>
 				</ul>
@@ -1142,9 +1143,9 @@ ex:InlinePropertyConstraintExampleShape
 				<pre class="example-shapes">
 ex:StandAlonePropertyConstraintExampleShape
 	a sh:Shape ;
-	sh:property StandAlonePropertyConstraintExampleShape.someProperty .
+	sh:property StandAlonePropertyConstraintExampleShape_someProperty .
 
-ex:StandAlonePropertyConstraintExampleShape.someProperty
+ex:StandAlonePropertyConstraintExampleShape_someProperty
 	a sh:PropertyConstraint ;
 	sh:predicate ex:someProperty ;
 	sh:defaultValue ex:SomeInstance ;
@@ -1618,7 +1619,7 @@ ex:MyShape
 				</tr>
 				<tr>
 					<td><a href="#ShapeConstraintComponent"><code>sh:shape</code></a></td>
-					<td></td>
+					<td>&#9745;</td>
 					<td>&#9745;</td>
 					<td>&#9745;</td>
 					<td>Nested shape of all values</td>
@@ -3661,11 +3662,7 @@ ex:AddressGroup
 		<section id="sparql-constraints">
 			<h2>SPARQL-based Constraints</h2>
 			<p>
-				The property <code>sh:constraint</code> provides the most general mechanism to associate a constraint with a shape.
-				The values of this property must be <a>SHACL instances</a> of the class <code>sh:Constraint</code>.
-			</p>
-			<p>
-				SHACL supports two general types of constraints:
+				SHACL supports two mechanisms to define constraints using SPARQL:
 			</p>
 			<ul>
 				<li>Constraints based on a high-level vocabulary (<a href="#constraint-components">constraint components</a>), relying on a reusable SPARQL query in the background</li>
@@ -3678,22 +3675,22 @@ ex:AddressGroup
 				<h3>Syntax of SPARQL-based Constraints</h3>
 				<p>
 					<code>sh:SPARQLConstraint</code> is a <a>SHACL subclass</a> of <code>sh:Constraint</code> and is the class of all SPARQL-based constraints.
-					SPARQL-based constraints must have exactly one value for the property <code>sh:sparql</code>.
-					The SPARQL queries linked to a <span class="term">constraint</span> via <code>sh:sparql</code> must be string literals that can be parsed into legal SPARQL 1.1 queries	of the query form <code>SELECT</code>.
+					SPARQL-based constraints must have exactly one value for the property <code>sh:select</code>.
+					The SPARQL queries linked to a <span class="term">constraint</span> via <code>sh:select</code> must be string literals that can be parsed into legal SPARQL 1.1 queries	of the query form <code>SELECT</code>.
 				</p>
 				<p class="issue" data-number="105" title="Defined prefixes">
 					There is an ongoing discussion about whether and how to inject prefixes into SPARQL queries,
 					so the following paragraph may change.
 				</p>
 				<p id="sparql-prefixes">
-					Before parsing the values of <code>sh:sparql</code>, a SHACL processor must prepend <a href="https://www.w3.org/TR/sparql11-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
+					Before parsing the values of <code>sh:select</code>, a SHACL processor must prepend <a href="https://www.w3.org/TR/sparql11-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
 					for all namespace prefixes declared via the property <code>sh:prefix</code> in the current <span class="term">shapes graph</span>.
 					The subjects of <code>sh:prefix</code> triples must be IRIs, which become the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
 					The objects of <code>sh:prefix</code> triples must be string literals, which become the <code>PNAME_NS</code> in the <code>PREFIX</code> declaration.
 					For the example shapes graph below, a SHACL processor would produce the line <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
 					No such <code>PREFIX</code> must be generated if the SPARQL string already contains a <code>PREFIX</code> statement for the same <span class="term">prefix</span> at the top-level query
 					(ignoring prefixes from nested SELECT queries).
-					The SHACL processor must produce an <span class="term">error</span> if the <span class="term">shapes graph</span> contains multiple <code>sh:prefix</code> triples with the same object.
+					The SHACL processor must produce an <a>failure</a> if the <span class="term">shapes graph</span> contains multiple <code>sh:prefix</code> triples with the same object.
 					Since the use of <code>sh:prefix</code> triples may lead to conflicts, it is recommended to only use them in closed and controlled environments or for well-established prefixes.
 					In the rest of this document, the <code>sh:prefix</code> statements may have been omitted for brevity.
 				</p>
@@ -3712,10 +3709,10 @@ ex:ValidCountry a ex:Country ;
 ex:LanguageExampleShape
 	a sh:Shape ;
 	sh:scopeClass ex:Country ;
-	sh:constraint [
+	sh:sparql [
 		a sh:SPARQLConstraint ;
 		sh:message "Values must be literals with German language tag." ;
-		sh:sparql """
+		sh:select """
 			SELECT $this ($this AS ?subject) (ex:germanLabel AS ?predicate) (?value AS ?object)
 			WHERE {
 				$this ex:germanLabel ?value .
@@ -3854,7 +3851,7 @@ ex:LanguageExampleShape
 							<ol>
 								<li>The value of the variable <code>?message</code></li>
 								<li>
-									The values of <code>sh:message</code> of the subject of the <code>sh:sparql</code> triple.
+									The values of <code>sh:message</code> of the subject of the <code>sh:select</code> or <code>sh:ask</code> triple.
 									These values may reference any variable from the SELECT result variables via <code>{?varName}</code>.
 									If the constraint is based on a <a href="#constraint-components">constraint component</a>, then the component's parameter variables can also be used.
 									The <code>{?varName}</code> blocks SHOULD be substituted with suitable string representations of the values of said variables.
@@ -3884,7 +3881,7 @@ ex:LanguageExampleShape
 				<h4>Injecting Annotation Properties into Validation Results</h4>
 				<p>
 					It is possible to inject additional <span class="term">annotation properties</span> into the validation result resources created for each row of the SELECT result sets.
-					Any such property needs to be declared via a value of <code>sh:resultAnnotation</code> at the subject holding the <code>sh:sparql</code> triple.
+					Any such property needs to be declared via a value of <code>sh:resultAnnotation</code> at the subject holding the <code>sh:select</code> or <code>sh:ask</code> triple.
 					The values of <code>sh:resultAnnotation</code> must be IRIs or blank nodes with the following properties:
 				</p>
 				<table class="term-table">
@@ -3935,13 +3932,12 @@ ex:LanguageExampleShape
 ex:ShapeWithPathViolationExample
 	a sh:Shape ;
 	sh:scopeNode ex:ExampleRootResource ;
-	sh:constraint [
-		a sh:SPARQLConstraint ;
+	sh:sparql [
 		sh:resultAnnotation [
 			sh:annotationProperty ex:time ;
 			sh:annotationVarName "time"
 		] ;
-		sh:sparql """
+		sh:select """
 			SELECT $this ?subject (ex:property2 AS ?predicate) (?first AS ?object) ?message ?time
 			WHERE {
 				$this ex:property1 ?first .
@@ -4004,7 +4000,7 @@ ex:ExampleValueResource
 					Note that this is only an example implementation and should not be considered normative.
 				</p>
 				<pre class="example-shapes" title="Constraint component based on SPARQL">
-ex:PatternConstraintComponent
+sh:PatternConstraintComponent
 	a sh:ConstraintComponent ;
 	sh:context sh:NodeConstraint, sh:PropertyConstraint, sh:InversePropertyConstraint ;
 	sh:parameter [
@@ -4020,10 +4016,10 @@ ex:PatternConstraintComponent
 	sh:propertyValidator shimpl:hasPattern ;
 	sh:inversePropertyValidator shimpl:hasPattern .
 
-ex:hasPattern
+shimpl:hasPattern
 	a sh:SPARQLAskValidator ;
 	sh:message "Value does not match pattern {$pattern}" ;
-	sh:sparql "ASK { FILTER (!isBlank($value) &amp;&amp; IF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern))) }" .</pre>
+	sh:ask "ASK { FILTER (!isBlank($value) &amp;&amp; IF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern))) }" .</pre>
 				<p>
 					The following sections introduce the properties that constraint components may have.
 					Some of these properties are independent of SPARQL-based execution and apply
@@ -4120,8 +4116,8 @@ ex:hasPattern
 				<section id="SPARQLSelectValidator">
 					<h3>Validators based on SPARQL SELECT Queries</h3>
 					<p>
-						Validators that have the <code>rdf:type</code> <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:sparql</code>.
-						The value of <code>sh:sparql</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
+						Validators that have the <code>rdf:type</code> <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:select</code>.
+						The value of <code>sh:select</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
 					</p>
 					<p>
 						The following example illustrates the definition of a constraint component based on a SPARQL SELECT query.
@@ -4146,7 +4142,7 @@ ex:LanguageConstraintComponentUsingSELECT
 	sh:propertyValidator [
 		a sh:SPARQLSelectValidator ;
 		sh:message "Values must be literals with language \"{?lang}\"" ;
-		sh:sparql """
+		sh:select """
 			SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
 			WHERE {
 				$this $predicate ?value .
@@ -4196,8 +4192,8 @@ ex:LanguageExampleShape
 						SHACL provides an alternative, more compact syntax for validators based on ASK queries.
 					</p>
 					<p>
-						Validators that have the <code>rdf:type</code> <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:sparql</code>.
-						The value of <code>sh:sparql</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
+						Validators that have the <code>rdf:type</code> <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:ask</code>.
+						The value of <code>sh:ask</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
 						The ASK queries are expected to return <code>true</code> if a given <span class="term">value node</span>
 						(represented by the pre-bound variable <code>?value</code>) is valid.
 					</p>
@@ -4258,7 +4254,7 @@ ex:LanguageConstraintComponentUsingASK
 ex:hasLang
 	a sh:SPARQLAskValidator ;
 	sh:message "Values must be literals with language \"{$lang}\"" ;
-	sh:sparql """
+	sh:ask """
 		ASK {
 			FILTER (isLiteral($value) &amp;&amp; langMatches(lang($value), $lang))
 		}
@@ -4292,7 +4288,7 @@ ex:hasLang
 				<h3>Scopes using sh:SPARQLScope</h3>
 				<p>
 					SPARQL-based scopes must be <a>SHACL instances</a> of <code>sh:SPARQLScope</code>, which is a <a>SHACL subclass</a> of <code>sh:Scope</code>.
-					The SPARQL queries linked to a <span class="term">scope</span> via <code>sh:sparql</code> must be of the query form <code>SELECT</code>.
+					The SPARQL queries linked to a <span class="term">scope</span> via <code>sh:select</code> must be of the query form <code>SELECT</code>.
 					The SELECT queries must project to the result variable <code>?this</code>.
 					The resulting scope consists of all distinct bindings for the variable <code>?this</code>.
 				</p>
@@ -4309,7 +4305,7 @@ ex:USCitizenShape
 	a sh:Shape ;
 	sh:scope [
 		a sh:SPARQLScope ;
-		sh:sparql """
+		sh:select """
 			SELECT ?this
 			WHERE {
 				?this a ex:Person .
@@ -4324,7 +4320,7 @@ ex:USCitizenShape
 				<p>
 					The class <code>sh:ScopeType</code> can be used to define high-level vocabularies for scopes.
 					Similar to constraint components, such scopes take <span class="term">parameters</span> that are interpreted when the scope is evaluated.
-					The class <code>sh:SPARQLScopeType</code> is a <a>SHACL subclass</a> of <code>sh:ScopeType</code> for scope types that define a SPARQL SELECT query via the property <code>sh:sparql</code>.
+					The class <code>sh:SPARQLScopeType</code> is a <a>SHACL subclass</a> of <code>sh:ScopeType</code> for scope types that define a SPARQL SELECT query via the property <code>sh:select</code>.
 					Similar to constraint components, the parameter values become <span class="term">pre-bound variables</span> in such SPARQL queries.
 					The parameter values of such scopes must not be blank nodes.
 					All parameters of scope types are expected to have <code>sh:maxCount 1</code>.
@@ -4348,7 +4344,7 @@ ex:PeopleBornInCountryScope
 		sh:maxCount 1 ;
 		sh:nodeKind sh:IRI ;
 	] ;
-	sh:sparql """
+	sh:select """
 		SELECT ?this
 		WHERE {
 			?this a ex:Person .
@@ -4399,8 +4395,8 @@ ex:USCitizenShape
 			<p>
 				The values of <code>sh:derivedValues</code> must be <a>SHACL instances</a> of a <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code>.
 				<code>sh:SPARQLValuesDeriver</code> is the only <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code> defined by SHACL.
-				Each <code>sh:SPARQLValuesDeriver</code> must have exactly one value for the property <code>sh:sparql</code> that can be used to produce the values that the property is expected to have.
-				The values of <code>sh:sparql</code> must be SPARQL SELECT queries that project into the variable <code>?value</code> only.
+				Each <code>sh:SPARQLValuesDeriver</code> must have exactly one value for the property <code>sh:select</code> that can be used to produce the values that the property is expected to have.
+				The values of <code>sh:select</code> must be SPARQL SELECT queries that project into the variable <code>?value</code> only.
 				These queries can access the current focus node via the variable <code>$this</code> and must produce bindings for the variable <code>?value</code> for all derived values.
 			</p>
 			<div class="def def-text">
@@ -4436,7 +4432,7 @@ ex:RectangleShape
 		sh:datatype xsd:integer ;
 		sh:derivedValues [
 			a sh:SPARQLValuesDeriver ;
-			sh:sparql """
+			sh:select """
 				SELECT ?value
 				WHERE {
 					$this ex:width ?width .
@@ -4459,7 +4455,7 @@ ex:RectangleShape
 				<h3>Syntax of SPARQL Functions</h3>
 				<p>
 					Functions that encapsulate a SPARQL query must be <a>SHACL instances</a> of <code>sh:SPARQLFunction</code>, which is a <a>SHACL subclass</a> of the more general class <code>sh:Function</code>.
-					Such functions must provide exactly one value of <code>sh:sparql</code>, linking to a SPARQL query.
+					Such functions must provide exactly one value for either <code>sh:ask</code> or <code>sh:select</code>, linking to a SPARQL query.
 				</p>
 				<p>
 					The following example illustrates the definition of a function based on a simple mathematical SPARQL query.
@@ -4479,7 +4475,7 @@ ex:exampleFunction
 		sh:description "The second operand" ;
 	] ;
 	sh:returnType xsd:integer ;
-	sh:sparql """
+	sh:select """
 		SELECT ($op1 + $op2 AS ?result)
 		WHERE {
 		}
@@ -4539,8 +4535,8 @@ WHERE {
 			<section id="function-evaluation">
 				<h3>Evaluation of Functions</h3>
 				<p>
-					<a>SHACL instances</a> of <code>sh:SPARQLFunction</code> must have exactly one <a>value</a> for the property <code>sh:sparql</code>.
-					The <a>values</a> of this property must be strings that can be parsed into SPARQL queries of type ASK or SELECT.
+					<a>SHACL instances</a> of <code>sh:SPARQLFunction</code> must have exactly one <a>value</a> for either <code>sh:ask</code> or <code>sh:select</code>.
+					The <a>values</a> of this property must be strings that can be parsed into SPARQL queries of type ASK (for <code>sh:ask</code>) or SELECT (for <code>sh:select</code>).
 					SELECT queries must project exactly one result variable and SHOULD not use the <code>SELECT *</code> syntax.
 					In the SPARQL query, the SPARQL processor needs to <a>pre-bind</a> variables based on the provided parameters of the function call.
 					For ASK queries, the function's return value is the result of the ASK query execution, i.e. <code>true</code> or <code>false</code>.
@@ -4559,10 +4555,10 @@ WHERE {
 					An implementation may either return no result (unbound) or terminate the surrounding SPARQL query with an error.
 				</p>
 				<p>
-					Some processors may ignore the specified <code>sh:sparql</code> query and rely on an alternative (possibly native) implementation instead,
-					as long as the functions return the same values as the specified <code>sh:sparql</code> query.
+					Some processors may ignore the specified SPARQL query and rely on an alternative (possibly native) implementation instead,
+					as long as the functions return the same values as the specified SPARQL query.
 					This can be used to optimize frequently needed functions.
-					Some processors may even use the <code>sh:sparql</code> query to rewrite other SPARQL queries via inlining techniques.
+					Some processors may even use the SPARQL query to rewrite other SPARQL queries via inlining techniques.
 				</p>
 			</section>
 		</section>
@@ -4666,7 +4662,7 @@ WHERE {
 				If, for example, a <a>value</a> of <code>sh:property</code> is a <a>blank node</a> that does not have any <code>rdf:type</code>, then the assumption is that the <a>blank node</a> has <a>type</a> <code>sh:PropertyConstraint</code>.
 				The SHACL system vocabulary includes some helper <a>triples</a> using the predicate <code>sh:defaultValueType</code> to specify the default <code>rdf:type</code> for certain properties.
 				For example, the default value type of <code>sh:property</code> is <code>sh:PropertyConstraint</code>.
-				SHACL includes a resource <code>sh:DefaultValueTypeRule</code> that encapsulates a SPARQL query via <code>sh:sparql</code> that can be used for that purpose:
+				SHACL includes a resource <code>sh:DefaultValueTypeRule</code> that encapsulates a SPARQL query via <code>sh:construct</code> that can be used for that purpose:
 			</p>
 			<pre class="algorithm">
 CONSTRUCT {
