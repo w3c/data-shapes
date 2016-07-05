@@ -4061,10 +4061,10 @@ shimpl:hasPattern
 				<ol>
 					<li>For <a>node constraints</a>, use one of the values of <code>sh:nodeValidator</code>, if present.</li>
 					<li>For <a>property constraints</a>, use one of the values of <code>sh:propertyValidator</code>, if present.</li>
-					<li>Use one of the values of <code>sh:validator</code>.
+					<li>Otherwise, use one of the values of <code>sh:validator</code>.
 				</ol>
 				<p>
-					SHACL includes two types of validators, based on <a href="#SPARQLSelectValidator">SPARQL SELECT</a> (for <code>sh:nodeValidator</code> or <code>sh:propertyValidator</code>) 
+					SHACL includes two types of validators, based on <a href="#SPARQLSelectValidator">SPARQL SELECT</a> (for <code>sh:nodeValidator</code> and <code>sh:propertyValidator</code>) 
 					or <a href="#SPARQLAskValidator">SPARQL ASK</a> queries (for <code>sh:validator</code>).
 				</p>
 				<section id="SPARQLSelectValidator">
@@ -4072,6 +4072,7 @@ shimpl:hasPattern
 					<p>
 						Validators that have the <code>rdf:type</code> <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:select</code>.
 						The value of <code>sh:select</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
+						This type of validators can be used as values of <code>sh:nodeValidator</code> or <code>sh:propertyValidator</code>.
 					</p>
 					<p>
 						The following example illustrates the definition of a constraint component based on a SPARQL SELECT query.
@@ -4107,7 +4108,6 @@ ex:LanguageConstraintComponentUsingSELECT
 					<p>
 						Once a constraint component has been defined, its parameters can be used in the declared <span class="term">contexts</span>, as illustrated in the following example.
 						The <code>sh:context</code> of the given constraint component includes <code>sh:PropertyConstraint</code> which means that the new parameter <code>ex:lang</code> can be used in values of <code>sh:property</code>.
-						Furthermore, the SPARQL query will have the variable <code>$PATH</code> substituted with either the provided <code>sh:predicate</code> or <code>$path</code> of the constraint.
 					</p>
 					<pre class="example-shapes" title="Shape definition using ex:LanguageConstraintComponent">
 ex:LanguageExampleShape
@@ -4126,8 +4126,19 @@ ex:LanguageExampleShape
 						while all values of <code>ex:englishLabel</code> must have <code>en</code> as their language.
 						These details are specified via two property constraints that provide values for the <code>ex:lang</code> parameter required by the constraint component.
 					</p>
+					<p>
+						SELECT queries used in the context of <a>property constraints</a> must use a special variable named <code>$PATH</code> as a placeholder for the predicate or path
+						used by the constraint.
+						The only legal use of this variable is in the <a>predicate</a> position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>.
+						A query that uses the variable <code>$PATH</code> in any other position is invalid.
+						Furthermore, any query that uses the values of the variable <code>$this</code> in an <a href="https://www.w3.org/TR/sparql11-query/#aggregates">aggregation</a>
+						is invalid. <!-- HK: This is because otherwise this would prevent implementations from injecting a loop over all scope nodes into the beginning of the query -->
+					</p>
 					<p id="SPARQLSelectValidator-evaluation">
-						A SPARQL-based SHACL validation engine executes the provided SPARQL query with the same <a>pre-bound variables</a>
+						A SPARQL-based SHACL validation engine executes the provided SPARQL query to produce validation results.
+						In the context of <a>property constraints</a>, the engine will first substitute all occurrences of the variable <code>$PATH</code>
+						with the provided <a>property path</a> derived from the value of either <code>sh:predicate</code> or <code>sh:path</code> in the constraint.
+						The resulting SPARQL query is then evaluatyed with the same <a>pre-bound variables</a>
 						as outlined in the section for <a href="#sparql-constraints-prebound">SPARQL-based Constraints</a> (<code>$this</code> etc).
 						Additionally, the value of each declared <span class="term">parameter</span> of the constraint component needs to be pre-bound for
 						the variable derived by the <span class="term">local name</span> of the parameter's <code>sh:predicate</code>.
@@ -4144,6 +4155,7 @@ ex:LanguageExampleShape
 						Many constraint components are of the form in which all <a>value nodes</a> are tested individually against some boolean condition.
 						Writing SELECT queries for these becomes burdensome, especially if a constraint component can be used in multiple contexts.
 						SHACL provides an alternative, more compact syntax for validators based on ASK queries.
+						Only this type of validators can be used as values of <code>sh:validator</code>.
 					</p>
 					<p>
 						Validators that have the <code>rdf:type</code> <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:ask</code>.
@@ -4153,6 +4165,7 @@ ex:LanguageExampleShape
 					</p>
 					<p>
 						Prior to evaluation, a SHACL validation engine transforms the provided ASK query into a SELECT query using the following templates.
+						The resulting SELECT query can then be evaluated using the same algorithm as for <a href="#SPARQLSelectValidator-evaluation">SELECT-based validators</a>.
 						The engine drops the ASK keyword, leaving only the fraction between the outermost <code>{...}</code> pair.
 						This block then substitutes <code>...</code> in the template.
 					</p>
