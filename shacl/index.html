@@ -1918,8 +1918,8 @@ ex:Bob ex:knows ex:Alice .
 			<section id="constraints-count">
 				<h3>Cardinality Constraint Components</h3>
 				<p>
-					The <a>constraint components</a> in this section can be applied to either a <a>property constraint</a> or an <a>inverse property constraint</a>,
-					to represent restrictions on the number of <a>values</a> that the <a>focus node</a> may have for these properties.
+					The <a>constraint components</a> in this section can be applied to a <a>property constraint</a>,
+					to represent restrictions on the number of <a>values</a> that the <a>focus node</a> may have for the given property or property path.
 				</p>
 				<section id="MinCountConstraintComponent">
 					<h4>sh:minCount</h4>
@@ -3248,8 +3248,6 @@ ex:BibframeShape a sh:Shape ;
 						<li>If (T, <code>sh:constraint</code>, C) is in S then N consists of just the node F.</li>
 						<li>If (T, <code>sh:property</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
 							then N consists of all the nodes X such that (F, P, X) is in D.</li>
-						<li>If (T, <code>sh:inverseProperty</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
-							then N consists of all the nodes X such that (X, P, F) is in D.</li>
 					</ul>
 					<p>
 						Let the value of the <code>sh:partition</code> parameter be the list (Q<sub>1</sub>, ..., Q<sub>n</sub>) of resources.
@@ -3696,7 +3694,7 @@ ex:LanguageExampleShape
 		a sh:SPARQLConstraint ;
 		sh:message "Values must be literals with German language tag." ;
 		sh:select """
-			SELECT $this ($this AS ?subject) (ex:germanLabel AS ?predicate) (?value AS ?object)
+			SELECT $this (ex:germanLabel AS ?path) ?value
 			WHERE {
 				$this ex:germanLabel ?value .
 				FILTER (!isLiteral(?value) || !langMatches(lang(?value), "de"))
@@ -3714,9 +3712,8 @@ ex:LanguageExampleShape
 	a sh:ValidationResult ;
 	sh:severity sh:Violation ;
 	sh:focusNode ex:InvalidCountry ;
-	sh:subject ex:InvalidCountry ;
-	sh:predicate ex:germanLabel ;
-	sh:object "Spain"@en ;
+	sh:path ex:germanLabel ;
+	sh:value "Spain"@en ;
 	sh:sourceShape ex:LanguageExampleShape ;
 	...
 ]
@@ -3805,26 +3802,18 @@ ex:LanguageExampleShape
 						</td>
 					</tr>
 					<tr>
-						<td><code>sh:subject</code></td>
+						<td><code>sh:path</code></td>
 						<td>
 							<ol>
-								<li>The value of the variable <code>?subject</code></li>
+								<li>The value of the variable <code>?path</code></li>
 							</ol>
 						</td>
 					</tr>
 					<tr>
-						<td><code>sh:predicate</code></td>
+						<td><code>sh:value</code></td>
 						<td>
 							<ol>
-								<li>The value of the variable <code>?predicate</code></li>
-							</ol>
-						</td>
-					</tr>
-					<tr>
-						<td><code>sh:object</code></td>
-						<td>
-							<ol>
-								<li>The value of the variable <code>?object</code></li>
+								<li>The value of the variable <code>?value</code></li>
 							</ol>
 						</td>
 					</tr>
@@ -3921,7 +3910,7 @@ ex:ShapeWithPathViolationExample
 			sh:annotationVarName "time"
 		] ;
 		sh:select """
-			SELECT $this ?subject (ex:property2 AS ?predicate) (?first AS ?object) ?message ?time
+			SELECT $this (ex:property1 AS ?path) (?first AS ?value) ?message ?time
 			WHERE {
 				$this ex:property1 ?first .
 				?subject ex:property2 ?first .
@@ -3947,9 +3936,8 @@ ex:ExampleValueResource
 	a sh:ValidationResult ;
 	sh:severity sh:Violation ;
 	sh:focusNode ex:ExampleRootResource ;
-	sh:subject ex:ExampleValueResource ;
-	sh:predicate ex:property2 ;
-	sh:object ex:ExampleIntermediateResource ;
+	sh:path ex:property1 ;
+	sh:value ex:ExampleIntermediateResource ;
 	sh:message "The message." ;
 	sh:sourceConstraint [ the blank node of the sh:constraint above ] ;
 	sh:sourceShape ex:ShapeWithPathViolationExample ;
@@ -3972,8 +3960,8 @@ ex:ExampleValueResource
 			</p>
 			<ul>
 				<li>one or more <a href="#constraint-components-parameters">parameters</a> (e.g. <code>sh:class</code>, <code>sh:stem</code>)</li>
-				<li>one or more <a href="#constraint-components-context">contexts</a></li>
-				<li>one <a href="#constraint-components-validators">validator</a> for each defined context</li>
+				<li>one or two <a href="#constraint-components-context">contexts</a></li>
+				<li>one <a href="#constraint-components-validators">validator</a> that can be applied for each defined context</li>
 			</ul>
 			<section class="informative">
 				<h3>An Example Constraint Component</h3>
@@ -3985,7 +3973,7 @@ ex:ExampleValueResource
 				<pre class="example-shapes" title="Constraint component based on SPARQL">
 sh:PatternConstraintComponent
 	a sh:ConstraintComponent ;
-	sh:context sh:NodeConstraint, sh:PropertyConstraint, sh:InversePropertyConstraint ;
+	sh:context sh:NodeConstraint, sh:PropertyConstraint ;
 	sh:parameter [
 		sh:predicate sh:pattern ;
 		sh:order 0 ;
@@ -3995,9 +3983,7 @@ sh:PatternConstraintComponent
 		sh:optional true ;
 		sh:order 1 ;
 	] ;
-	sh:nodeValidator shimpl:hasPattern ;
-	sh:propertyValidator shimpl:hasPattern ;
-	sh:inversePropertyValidator shimpl:hasPattern .
+	sh:validator shimpl:hasPattern .
 
 shimpl:hasPattern
 	a sh:SPARQLAskValidator ;
@@ -4062,7 +4048,6 @@ shimpl:hasPattern
 				</p>
 				<ul>
 			    	<li><code>sh:PropertyConstraint</code>, to allow the constraint component parameters in <code>sh:property</code> definitions.</li>
-					<li><code>sh:InversePropertyConstraint</code>, to allow the constraint component parameters in <code>sh:inverseProperty</code> definitions.</li>
 					<li><code>sh:NodeConstraint</code>, to allow the constraint component parameters in <code>sh:constraint</code> definitions.</li>
 				</ul>
 			</section>
@@ -4071,30 +4056,16 @@ shimpl:hasPattern
 				<p>
 					For every provided <span class="term">context</span> in the constraint component,
 					a suitable <span class="term">validator</span> must be declared.
-					Each context defines a dedicated property that links to a validator according to the following table.
+					For a given constraint, a validator is selected from the constraint component using the following rules:
 				</p>
-				<table class="term-table">
-					<tr>
-						<th>Context</th>
-						<th>Validator Property</th>
-					</tr>
-					<tr>
-						<td><code>sh:NodeConstraint</code></td>
-						<td><code>sh:nodeValidator</code></td>
-					</tr>
-					<tr>
-						<td><code>sh:PropertyConstraint</code></td>
-						<td><code>sh:propertyValidator</code></td>
-					</tr>
-					<tr>
-						<td><code>sh:InversePropertyConstraint</code></td>
-						<td><code>sh:inversePropertyValidator</code></td>
-					</tr>
-				</table>
+				<ol>
+					<li>For <a>node constraints</a>, use one of the values of <code>sh:nodeValidator</code>, if present.</li>
+					<li>For <a>property constraints</a>, use one of the values of <code>sh:propertyValidator</code>, if present.</li>
+					<li>Use one of the values of <code>sh:validator</code>.
+				</ol>
 				<p>
-					SHACL includes two types of validators, based on <a href="#SPARQLSelectValidator">SPARQL SELECT</a> or <a href="#SPARQLAskValidator">SPARQL ASK</a> queries.
-					For each provided context, one <span class="term">validator</span> must be defined  in the shapes graph.
-
+					SHACL includes two types of validators, based on <a href="#SPARQLSelectValidator">SPARQL SELECT</a> (for <code>sh:nodeValidator</code> or <code>sh:propertyValidator</code>) 
+					or <a href="#SPARQLAskValidator">SPARQL ASK</a> queries (for <code>sh:validator</code>).
 				</p>
 				<section id="SPARQLSelectValidator">
 					<h3>Validators based on SPARQL SELECT Queries</h3>
@@ -4126,9 +4097,9 @@ ex:LanguageConstraintComponentUsingSELECT
 		a sh:SPARQLSelectValidator ;
 		sh:message "Values must be literals with language \"{?lang}\"" ;
 		sh:select """
-			SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+			SELECT $this ?value
 			WHERE {
-				$this $predicate ?value .
+				$this $PATH ?value .
 				FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
 			}
 			"""
@@ -4136,7 +4107,7 @@ ex:LanguageConstraintComponentUsingSELECT
 					<p>
 						Once a constraint component has been defined, its parameters can be used in the declared <span class="term">contexts</span>, as illustrated in the following example.
 						The <code>sh:context</code> of the given constraint component includes <code>sh:PropertyConstraint</code> which means that the new parameter <code>ex:lang</code> can be used in values of <code>sh:property</code>.
-						Furthermore, the SPARQL query can access the provided <code>sh:predicate</code> using the variable <code>$predicate</code>.
+						Furthermore, the SPARQL query will have the variable <code>$PATH</code> substituted with either the provided <code>sh:predicate</code> or <code>$path</code> of the constraint.
 					</p>
 					<pre class="example-shapes" title="Shape definition using ex:LanguageConstraintComponent">
 ex:LanguageExampleShape
@@ -4187,23 +4158,16 @@ ex:LanguageExampleShape
 					</p>
 					<p>Template for <code>sh:NodeConstraint</code> context:</p>
 					<pre>
-	SELECT $this
+	SELECT $this ?value
 	WHERE {
 		BIND ($this AS ?value) .
 		FILTER NOT EXISTS ...
 	}</pre>
 					<p>Template for <code>sh:PropertyConstraint</code> context:</p>
 					<pre>
-	SELECT $this ($this AS ?subject) $predicate (?value AS ?object)
+	SELECT $this ?value
 	WHERE {
-		$this $predicate ?value .
-		FILTER NOT EXISTS ...
-	}</pre>
-					<p>Template for <code>sh:InversePropertyConstraint</code> context:</p>
-					<pre>
-	SELECT $this ($this AS ?object) $predicate (?value AS ?subject)
-	WHERE {
-		?value $predicate $this .
+		$this $PATH ?value .
 		FILTER NOT EXISTS ...
 	}</pre>
 					<p>
@@ -4231,8 +4195,7 @@ ex:LanguageConstraintComponentUsingASK
 		sh:description "The language tag, e.g. \"de\"." ;
 	] ;
 	sh:labelTemplate "Values must be literals with language \"{$lang}\"" ;
-	sh:nodeValidator ex:hasLang ;
-	sh:propertyValidator ex:hasLang .
+	sh:validator ex:hasLang .
 	
 ex:hasLang
 	a sh:SPARQLAskValidator ;
@@ -4354,13 +4317,13 @@ ex:USCitizenShape
 			<p>
 				It is a common scenario that certain property values are derived from other values.
 				For example, the area of a rectangle must be the product of width and height, or an uncle of a person is a male sibling of a parent.
-				SHACL includes a constraint parameter <code>sh:derivedValues</code> that can be used with property and inverse property constraints to define such constraints.
+				SHACL includes a constraint parameter <code>sh:derivedValues</code> that can be used with property constraints to define such constraints.
 			</p>
 			<p>
 				<span class="component-class">Constraint Component:</span> <code>sh:DerivedValuesConstraintComponent</code>
 			</p>
 			<p>
-				<span class="parameter-context">Supported Contexts:</span> <code>sh:PropertyConstraint</code>, <code>sh:InversePropertyConstraint</code>.
+				<span class="parameter-context">Supported Contexts:</span> <code>sh:PropertyConstraint</code>
 			</p>
 			<div class="parameters">Parameters:</div>
 			<table class="term-table">
@@ -4390,7 +4353,6 @@ ex:USCitizenShape
 					that is not in S, and for every member of S that is not a property value.
 					The produced <span class="term">validation result</span> must have the <span class="term">focus node</span> as its <code>sh:subject</code>,
 					the <code>sh:predicate</code> as its <code>sh:predicate</code>, and the missing or extra value as its <code>sh:object</code>.
-					(The same definition applies in the inverse direction if <code>sh:derivedValues</code> is used in an inverse property constraint.)
 				</div>
 			</div>
 			<p>
