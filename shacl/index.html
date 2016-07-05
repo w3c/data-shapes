@@ -79,11 +79,15 @@
 			.def-sparql {
 			}
 			
+			.def-sparql-body {
+				margin-top: 0px;
+				margin-bottom: 0px;
+			}
+			
 			.def-text {
 			}
 			
 			.def-text-body {
-				margin-left: 2em;
 			}
 			
 			.def-header {
@@ -198,7 +202,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
-				<li><b>2016-07-05</b>: Generalized inverseProperty into property paths, generalized sh:validator <a href="http://www.w3.org/2014/data-shapes/track/issues/41">ISSUE-41</a>)</li>
+				<li><b>2016-07-05</b>: Generalized inverseProperty into property paths, added generalized sh:validator <a href="http://www.w3.org/2014/data-shapes/track/issues/41">ISSUE-41</a>)</li>
 				<li><b>2016-06-17</b>: Applied resolution that SHACL leaves recursion to implementations (<a href="http://www.w3.org/2014/data-shapes/track/issues/22">ISSUE-22</a>)</li>
 				<li><b>2016-06-12</b>: added explanations of sh:shapesGraph for ontologies / vocabularies</li>
 				<li><b>2016-06-03</b>: Removed sh:AllObjectsScope and sh:AllSubjectsScope (<a href="http://www.w3.org/2014/data-shapes/track/issues/148">ISSUE-148</a>)</li>
@@ -1036,7 +1040,7 @@ ex:FilteredExampleShape
 					either <a>predicate</a> <code>sh:predicate</code> or <code>sh:path</code>.
 					The <a>values</a> of <code>sh:predicate</code> must be <a>IRIs</a>.
 					The <a>values</a> of <code>sh:path</code> must be well-formed <a>property paths</a> following the syntax rules
-					specified in the section <a href="#path-syntax">Path Syntax</a>.
+					specified in the section <a href="#path-syntax">Property Paths</a>.
 				</p>
 				<p>
 					Note that the values of <code>sh:property</code> and <code>sh:constraint</code> do not require any <code>rdf:type</code> triple.
@@ -1432,7 +1436,7 @@ ex:MyShape
 				the <a href="#SPARQLAskValidator">section on ASK-based validators</a>.
 				Constraint components that are described using a SELECT query are interpreted based on the rules outlined in
 				the <a href="#SPARQLSelectValidator">section on SELECT-based validators</a>.
-				In particular, for <code>sh:PropertyConstraint</code>s,	the value of the variable <code>$PATH</code> is substituted with a <a>path</a> expression
+				In particular, for <code>sh:PropertyConstraint</code>s,	the variable <code>$PATH</code> is substituted with a <a>path</a> expression
 				based on the values of either <code>sh:predicate</code> or <code>sh:path</code> in the constraint.
 				All SPARQL queries also assume the variable bindings and result variable mapping rules detailed in the
 				<a href="#sparql-constraints">section on SPARQL-based Constraints</a>.
@@ -2091,7 +2095,9 @@ ex:Bob ex:birthDate "May 5th 1990" .</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-ASK { FILTER ($minExclusive &lt; $value) }</pre>
+ASK {
+	FILTER ($minExclusive &lt; $value)
+}</pre>
 					</div>
 					<pre class="example-shapes">
 ex:NumericRangeExampleShape
@@ -2153,8 +2159,7 @@ ex:Bob ex:age 23 .
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
 ASK {
-	BIND (STRLEN(str($value)) AS ?valueLength) .
-	FILTER (bound(?valueLength) &amp;&amp; ?valueLength >= $minLength) .
+	FILTER (STRLEN(str($value)) >= $minLength) .
 }</pre>
 					</div>
 				</section>
@@ -2196,8 +2201,7 @@ ASK {
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
 ASK {
-	BIND (STRLEN(str($value)) AS ?valueLength) .
-	FILTER (bound(?valueLength) &amp;&amp; ?valueLength &lt;= $maxLength) .
+	FILTER (STRLEN(str($value)) &lt;= $maxLength) .
 }</pre>
 					</div>
 					<pre class="example-shapes">
@@ -2257,7 +2261,9 @@ ex:Bob ex:password "123456789" .
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-ASK { FILTER (!isBlank($value) &amp;&amp; IF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern))) }</pre>
+ASK {
+	FILTER (!isBlank($value) &amp;&amp; IF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern)))
+}</pre>
 					</div>
 					<pre class="example-shapes">
 ex:PatternExampleShape
@@ -2308,7 +2314,9 @@ ex:Alice ex:bCode "B102" .
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-ASK { FILTER (isIRI($value) &amp;&amp; STRSTARTS(str($value), $stem)) }</pre>
+ASK {
+	FILTER (isIRI($value) &amp;&amp; STRSTARTS(str($value), $stem))
+}</pre>
 					</div>
 					<pre class="example-shapes">
 ex:StemExampleShape
@@ -2761,25 +2769,6 @@ ex:NotExampleShape
 							A <a>failure</a> must be produced if the validation of one of the shapes produces a <a>failure</a>.
 						</div>
 					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION (for node constraints)</div>
-<pre class="def-sparql-body">
-SELECT $this ?failure
-WHERE {
-	{
-		SELECT (SUM(?s) AS ?count)
-		WHERE {
-			GRAPH $shapesGraph {
-				$and rdf:rest*/rdf:first ?shape .
-			}
-			BIND (sh:hasShape($this, ?shape, $shapesGraph) AS ?hasShape) .
-			BIND (IF(bound(?hasShape), IF(!?hasShape, 1, 0), 'error') AS ?s) .
-		}
-	}
-	BIND (!bound(?count) AS ?failure) .
-	FILTER IF(?failure, true, ?count &gt; 0) .
-}</pre>
-					</div>
 					<p>
 						Note that although <code>sh:and</code> has an <code>rdf:List</code> of shapes as its value,
 						the order of those shapes does not impact the validation results.
@@ -2857,25 +2846,6 @@ ex:ValidInstance
 							The validation of the <a>value node</a> against all of the <a>shapes</a> in the <code>sh:or</code> list produces no <a>validation results</a> with severity <code>sh:Violation</code> for at least one shape.
 							A <a>failure</a> must be produced if the <a>validation</a> of one of the shapes produces a <a>failure</a>.
 						</div>
-					</div>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION (for node constraints)</div>
-<pre class="def-sparql-body">
-SELECT $this ?failure
-WHERE {
-	{
-		SELECT (SUM(?s) AS ?count)
-		WHERE {
-			GRAPH $shapesGraph {
-				$or rdf:rest*/rdf:first ?shape .
-			}
-			BIND (sh:hasShape($this, ?shape, $shapesGraph) AS ?hasShape) .
-			BIND (IF(bound(?hasShape), IF(?hasShape, 1, 0), 'error') AS ?s) .
-		}
-	}
-	BIND (!bound(?count) AS ?failure) .
-	FILTER IF(?failure, true, ?count = 0) .
-}</pre>
 					</div>
 					<p>
 						Note that although <code>sh:or</code> has an <code>rdf:List</code> of shapes as its value,
@@ -3768,7 +3738,7 @@ ex:LanguageExampleShape
 						<td><code>sh:path</code></td>
 						<td>
 							<ol>
-								<li>The value of the variable <code>?path</code></li>
+								<li>The value of the variable <code>?path</code> (only supports property IRIs, no complex paths)</li>
 							</ol>
 						</td>
 					</tr>
@@ -3924,7 +3894,7 @@ ex:ExampleValueResource
 			<ul>
 				<li>one or more <a href="#constraint-components-parameters">parameters</a> (e.g. <code>sh:class</code>, <code>sh:stem</code>)</li>
 				<li>one or two <a href="#constraint-components-context">contexts</a></li>
-				<li>one <a href="#constraint-components-validators">validator</a> that can be applied for each defined context</li>
+				<li>at least one <a href="#constraint-components-validators">validator</a> that can be applied for each defined context</li>
 			</ul>
 			<section class="informative">
 				<h3>An Example Constraint Component</h3>
@@ -4035,7 +4005,7 @@ shimpl:hasPattern
 					<p>
 						Validators that have the <code>rdf:type</code> <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:select</code>.
 						The value of <code>sh:select</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
-						This type of validators can be used as values of <code>sh:nodeValidator</code> or <code>sh:propertyValidator</code>.
+						This type of validator can be used as values of <code>sh:nodeValidator</code> or <code>sh:propertyValidator</code>.
 					</p>
 					<p>
 						The following example illustrates the definition of a constraint component based on a SPARQL SELECT query.
@@ -4094,7 +4064,7 @@ ex:LanguageExampleShape
 						used by the constraint.
 						The only legal use of this variable is in the <a>predicate</a> position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>.
 						A query that uses the variable <code>$PATH</code> in any other position is invalid.
-						Furthermore, any query that uses the values of the variable <code>$this</code> in an <a href="https://www.w3.org/TR/sparql11-query/#aggregates">aggregation</a>
+						Furthermore, any query that uses the variable <code>$this</code> in an <a href="https://www.w3.org/TR/sparql11-query/#aggregates">aggregation</a>
 						is invalid. <!-- HK: This is because otherwise this would prevent implementations from injecting a loop over all scope nodes into the beginning of the query -->
 					</p>
 					<p id="SPARQLSelectValidator-evaluation">
@@ -4118,13 +4088,13 @@ ex:LanguageExampleShape
 						Many constraint components are of the form in which all <a>value nodes</a> are tested individually against some boolean condition.
 						Writing SELECT queries for these becomes burdensome, especially if a constraint component can be used in multiple contexts.
 						SHACL provides an alternative, more compact syntax for validators based on ASK queries.
-						Only this type of validators can be used as values of <code>sh:validator</code>.
+						This type of validators can be used as values of the property <code>sh:validator</code>.
 					</p>
 					<p>
 						Validators that have the <code>rdf:type</code> <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:ask</code>.
 						The value of <code>sh:ask</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
 						The ASK queries are expected to return <code>true</code> if a given <a>value node</a>
-						(represented by the pre-bound variable <code>?value</code>) is valid.
+						(represented by the pre-bound variable <code>$value</code>) is valid.
 					</p>
 					<p>
 						Prior to evaluation, a SHACL validation engine transforms the provided ASK query into a SELECT query using the following templates.
@@ -4155,8 +4125,6 @@ ex:LanguageExampleShape
 					</p>
 					<p>
 						The following example defines a constraint component using an ASK query.
-						Note that the example represents the validator with an IRI node <code>ex:hasLang</code>
-						so that it becomes easier to reuse the same validator for both contexts.
 					</p>
 					<pre class="example-shapes" title="Constraint component based on SPARQL">
 ex:LanguageConstraintComponentUsingASK
@@ -4182,7 +4150,7 @@ ex:hasLang
 		}
 		""" .</pre>
 					<p>
-						Note that the validation condition implemented by an ASK query is "in the inverse direction" from its SELECT counter-part:
+						Note that the validation condition implemented by an ASK query is "in the inverse direction" from its SELECT counterpart:
 						ASK queries return <code>true</code> for valid value nodes, while SELECT queries return the invalid value nodes.
 					</p>
 					<p class="todo">
@@ -4194,7 +4162,10 @@ ex:hasLang
 
 			<section>
 				<h3>Evaluation</h3>
-				A constraint component is triggered for every <a>SHACL instance</a> of a context that defines all non-optional parameters.
+				<p>
+					A constraint component is triggered for every <a>SHACL instance</a> of a context that defines all non-optional parameters.
+					<span class="todo">TODO: This is unclear.</span>
+				</p>
 			</section>
 		</section>
 
