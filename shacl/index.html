@@ -314,14 +314,14 @@
 				The introduction includes a <a href="#terminology">Terminology</a> section that may also serve as a quick overview of the language.
 			</p>
 			<p>
-				The sections 2 - 4 cover the <span class="term">SHACL Core Profile</span> and may be read independently from the later sections.
+				The sections 2 - 4 cover the <span class="term">SHACL Core</span> language and may be read independently from the later sections.
 			</p>
 			<p>
 				The sections 5 onwards are about the advanced features of the SHACL language, including SPARQL-based constraint components, targets and functions.
 			</p>
 			<p>
 				The examples in this document use Turtle [[!turtle]].
-				The reader should be familiar with basic RDF concepts [[!rdf11-concepts]] such as triples and (for the advanced concepts of SHACL) with SPARQL [[!sparql11-overview]].			<p>
+				The reader should be familiar with basic RDF concepts [[!rdf11-concepts]] such as triples and, for the advanced concepts of SHACL, with SPARQL [[!sparql11-overview]].			<p>
 			</p>
 		</section>
 
@@ -363,7 +363,7 @@
 						The <dfn data-lt="value|property value|property values">values</dfn> of (or for) a property <code>p</code> for a <a>node</a> <code>n</code> in an <a>RDF graph</a> are the
 						<a>objects</a> of the <a>triples</a> in the <a>graph</a> that have <code>n</code> as <a>subject</a> and <code>p</code> as <a>predicate</a>.
 						A <dfn data-lt="path|property paths">property path</dfn> is a possible route in a <a>graph</a> between two graph <a>nodes</a>.
-						SHACL supports most of the property path syntax from <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1</a>,
+						SHACL supports a subset of the property path syntax from <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1</a>,
 						including inverse paths and sequences.
 					</div>
 				</div>
@@ -419,7 +419,7 @@
 						<a>focus nodes</a> based on the <a>values</a> of properties and other characteristics of the <a>node</a>.
 						Constraints can, for example, require that a focus node be an IRI or that a focus node has a particular value for a property and also a minimum number of values for the property.
 						Constraints that are about a particular property or <a>path</a> and its <a>values</a> for the focus node are called <dfn data-lt="property constraint">property constraints</dfn>.
-						Constraints that are about the <a>focus node</a> in general are represented using <a>shapes</a>.
+						Constraints that are about the <a>focus node</a> itself are called <dfn>focus node constraints</dfn>.
 						Constraints can also have <dfn data-lt="non-validating property">non-validating properties</dfn> (such as names and default values) that do not lead to <a>validation results</a>.
 					</div>
 				</div>
@@ -427,7 +427,7 @@
 					<div class="term-def-header">Constraint Component, Parameter</div>
 					<div>
 						A <dfn data-lt="constraint component|constraint components|components|component">constraint component</dfn> represents a part of a <a>constraint</a> that is determined
-						by the <a>values</a> one or more properties.
+						by the <a>values</a> of one or more properties.
 						These properties are called <dfn data-lt="parameter">parameters</dfn>.
 						For example, <code>sh:minCount</code> is a parameter for the component that checks whether the <a>focus node</a> has at least a minimum number of <a>values</a> for a
 						particular property.
@@ -563,7 +563,7 @@ ex:Calvin
 	a ex:Person ;
 	ex:school ex:TrinityAnglicanSchool .</pre>
 				<p>
-					This example uses SHACL to define the following <a>constraints</a>:
+					SHACL can be used to define the following example <a>constraints</a>:
 				<p>
 				<ul>
 					<li>
@@ -773,7 +773,10 @@ ex:PersonShape
 				<p>
 					Targets specify which <a>nodes</a> in the <a>data graph</a> are validated against a <a>shape</a>.
 					While targets define the starting points of the validation process,
-					some shapes may validate additional nodes against different shapes, for example referenced via <a href="#ShapeConstraintComponent">sh:shape</a> and <a href="#OrConstraintComponent">sh:or</a>.
+					some shapes may validate
+					a) less target nodes when a shapes defines <a>filters</a> or
+					b) additional nodes against different shapes, for example referenced via <a href="#ShapeConstraintComponent">sh:shape</a> and <a href="#OrConstraintComponent">sh:or</a>.
+
 				</p>
 				<p>
 					The Core of SHACL includes four Core target types:
@@ -1027,7 +1030,7 @@ ex:FilteredExampleShape
 	] .
 </pre>
 				<p>
-					Note that filter shapes are <em>always</em> validated prior to applying their associated shape or constraint.
+					Filter shapes MUST be evaluated before validating the associated shapes or constraints.
 					This includes scenarios such as <a href="#ShapeConstraintComponent"><code>sh:shape</code></a> where a shape is explicitly referenced by another constraint.
 					However, during the validation of a shape referenced via <code>sh:shape</code>, the declared <a>targets</a> of these shapes are not used to limit the set of focus nodes.
 				</p>
@@ -1038,35 +1041,18 @@ ex:FilteredExampleShape
 			<section id="shape-constraints">
 				<h3>Constraints</h3>
 				<p>
-					A shape defines constraints and <code>sh:Constraint</code> is the <a>SHACL superclass</a> of all constraint types.
-					The SHACL Core language defines the following two <span class="term">constraint types</span>:
+					Constraints are defined within a shape and <code>sh:Constraint</code> is the <a>SHACL superclass</a> of all constraint types.
+					The SHACL Core language defines two types of constraints:
+					a) constraints about a particular property or <a>path</a> and its <a>values</a> for the focus node (<a>property constraints</a>) and
+					b) constraints about the <a>focus node</a> itself (<a>focus node constraints</a>).
 				</p>
-				<ul>
-					<li>
-						<code>sh:PropertyConstraint</code> is the class of <a>property constraints</a> that specify conditions
-						that must be met with respect to <a>nodes</a> that can be reached from the <a>focus node</a> either by directly following a given
-						property (specified using <code>sh:predicate</code>) or a given <a>property path</a> (specified using <code>sh:path</code>).
-						<a>Property constraints</a> are linked to a <a>shape</a> using the property <code>sh:property</code>.
-						The values of <code>sh:property</code> must be <a>IRIs</a> or <a>blank nodes</a>
-						that are the <a>subject</a> of precisely one <a>triple</a> with
-						either <a>predicate</a> <code>sh:predicate</code> or <code>sh:path</code>.
-						The <a>values</a> of <code>sh:predicate</code> must be <a>IRIs</a>.
-						The <a>values</a> of <code>sh:path</code> must be well-formed <a>property paths</a> following the syntax rules
-						specified in the section <a href="#path-syntax">Property Paths</a>.
-						Note that the values of <code>sh:property</code> do not require any <code>rdf:type</code> triple.
-						A SHACL validation engine treats all values of <code>sh:property</code> as <a>property constraints</a>.
-					</li>
-					<li>
-						<code>sh:Shape</code> is the class of <a>shapes</a> that specify arbitrary conditions
-						that must be met with respect to the <a>focus node</a>.
-						<code>sh:Shape</code> is <code>rdfs:subClassOf</code> <code>sh:Constraint</code>.
-					</li>
-				</ul>
+
 				<p>
 					Additional types of constraints can be added using the extension mechanism,
-					either <a href="#sparql-constraints">SPARQL-based constraints</a> or
+					as <a href="#sparql-constraints">SPARQL-based constraints</a> or
 					<a href="#constraint-components">SPARQL-based constraint components</a>.
 				</p>
+
 				<p>
 					Constraints may contain
 					<a href="#nonValidation">non-validating</a> properties (such as <code>sh:description</code>) or
@@ -1079,41 +1065,82 @@ ex:FilteredExampleShape
 					This means that the property <code>sh:closed</code> can only be used in <a>SHACL instances</a> of <code>sh:NodeConstraint</code>.-->
 					The catalog of constraint components in the Core of SHACL is defined in <a href="#constraints">section 4</a>.
 				</p>
-				<p> 
-					The following examples illustrate two ways of using (property) constraints.
-					The first example uses a blank node:
-				</p>
-				<pre class="example-shapes">
-ex:InlinePropertyConstraintExampleShape
+
+
+				<section id="property-constraints-section">
+					<h4>Property Constraints (sh:predicate or sh:path)</h4>
+
+					<p>
+						<a>Property constraints</a> specify conditions that must be met with respect to <a>nodes</a> that can be reached from the
+						<a>focus node</a> either by directly following a given property (specified using <code>sh:predicate</code>) or a given <a>property path</a> (specified using <code>sh:path</code>).
+						<a>Property constraints</a> are linked from a <a>shape</a> with the property <code>sh:property</code>.
+						The values of <code>sh:property</code> must be <a>IRIs</a> or <a>blank nodes</a>
+						that are the <a>subject</a> of precisely one <a>triple</a> with
+						either <a>predicate</a> <code>sh:predicate</code> or <code>sh:path</code>.
+						The <a>values</a> of <code>sh:predicate</code> must be <a>IRIs</a>.
+						The <a>values</a> of <code>sh:path</code> must be well-formed <a>property paths</a> following the <a href="#path-syntax">SHACL property path syntax rules</a>.
+					</p>
+					<pre class="example-shapes">
+ex:ExamplePropertyConstraint
 	a sh:Shape ;
 	sh:property [
-		sh:predicate ex:someProperty ;
-		sh:name "some property" ;
-		sh:description "Description of the role of ex:someProperty (in the context of the constraint)" ;
+		sh:predicate ex:email ;
+		sh:name "e-mail" ;
+		sh:description "We need at least one email value" ;
 		sh:minCount 1 ;
-		sh:class ex:SomeClass ;
+	] ;
+    sh:property [
+		sh:path (ex:knows ex:email) ;
+		sh:name "Friend's e-mail" ;
+		sh:description "We need at least one email for everyone you know" ;
+		sh:minCount 1 ;
 	] .</pre>
-				<p>
-					The second example defines a constraint as an IRI node, allowing it to be more easily referenced and shared across multiple shapes:
-				</p>
-				<pre class="example-shapes">
-ex:StandAlonePropertyConstraintExampleShape
-	a sh:Shape ;
-	sh:property ex:StandAlonePropertyConstraintExampleShape_someProperty .
+					<p>
+						<code>sh:PropertyConstraint</code> is the class of property constraints.
+						A SHACL validation engine treats all values of <code>sh:property</code> as <a>property constraints</a>.
+						Thus, the values of <code>sh:property</code> do not require the <code>rdf:type sh:PropertyConstraint</code> triple.
+					</p>
 
-ex:StandAlonePropertyConstraintExampleShape_someProperty
-	a sh:PropertyConstraint ;
-	sh:predicate ex:someProperty ;
-	sh:defaultValue ex:SomeInstance ;
-	sh:minCount 1 ;
-	sh:class ex:SomeClass .</pre>
-				<p>
-					Parameters of constraint components that only declare one parameter (such as <code>sh:class</code>)
-					may be used multiple times within the same constraint node.
-					In the following example this technique is used to restrict the values of a property to be <a>SHACL instances</a> of both
-					<code>ex:Customer</code> and <code>ex:MalePerson</code>.
-				</p>
-				<pre class="example-shapes">
+				</section>
+
+				<section id="focus-node-constraints-section">
+					<h4>Focus Node Constraints</h4>
+
+					<p>
+						<a>Focus node constraints</a> define constraints about the <a>focus node</a> itself.
+						Since focus node constraints operate directly on the input focus nodes they impose some limitations in comparison to <a>property constraints</a>.
+						In particular, constraints that operate on value sets, such as <code>sh:hasValue</code> and <code>sh:equals</code>, are not applicable to focus node constraints.
+						For simplification, focus node constraints are attached directly to <a>Shapes</a> and <code>sh:shape</code> can be used to group focus node constraints.
+					</p>
+
+
+					<pre class="example-shapes">
+ex:ExampleFocusNodeConstraint
+	a sh:Shape ;
+	sh:targetClass ex:Person ;
+	sh:stem "https://www.w3.org/People/" .</pre>
+
+					<p>
+						<code>sh:Constraint</code> is the class of all focus node constraints and <code>sh:Shape</code> is defined as <code>rdfs:subClassOf sh:Constraint</code>.
+					</p>
+
+
+				</section>
+
+				<section id="multiple-parameter-constraints-section">
+					<h4>Multiple Parameters</h4>
+
+
+
+					<p>
+						Parameters of constraint components that only declare one parameter,  such as <code>sh:class</code>,
+						may be used multiple times within the same constraint node.
+						The interpretation of such declarations is conjunction, i.e. all constraints must validate.
+						Constraints that declare more than one parameters, such as <code>sh:pattern</code>, are not allowed to be declared more than once in the same constraint.
+						In the following example this technique is used to restrict the values of a property to be <a>SHACL instances</a> of both
+						<code>ex:Customer</code> and <code>ex:MalePerson</code>.
+					</p>
+					<pre class="example-shapes">
 ex:ShapeWithTwoClasses
 	a sh:Shape ;
 	sh:property [
@@ -1121,7 +1148,9 @@ ex:ShapeWithTwoClasses
 		sh:class ex:Customer ;
 		sh:class ex:MalePerson ;
 	] .</pre>
-			
+
+				</section>
+
 				<section id="path-syntax">
 					<h4>Property Paths</h4>
 					<p>
