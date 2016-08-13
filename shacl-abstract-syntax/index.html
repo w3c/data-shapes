@@ -190,8 +190,8 @@
       table th { text-align: center; }
       table { border-collapse: collapse; }
       td, th { border-style: solid; }
-      tr.pass { background-color: #cfc; }
-      tr.fail { background-color: #fcc; }
+      .pass { background-color: #cfc; }
+      .fail { background-color: #fcc; }
       span.fail { background-color: #fcc; }
 
       .param { color: #3500c8; }
@@ -287,8 +287,9 @@
       </p>
  
       <div class="abstrsynt">
-        <span class="math" id="dfn-Schema">Schema        := shapes:Set[<a href="#dfn-Shape">Shape</a>]</span><br/>
-        <span class="math" id="dfn-Shape">Shape         := <code class="param">label</code>:IRI|BNode, <code class="param">targets</code>:Set[<a href="#dfn-Target">Target</a>], <code class="param">filters</code>:Set[<a href="#dfn-Shape">Shape</a>], <code class="param">constraints</code>:Set[<a href="#dfn-Constraint">Constraint</a>]</span>
+        <span class="math" id="dfn-Schema">Schema        := <code class="param">shapes</code>:Set[<a href="#dfn-Shape">Shape</a>]</span><br/>
+        <span class="math" id="dfn-Shape">Shape         := <code class="param">label</code>:IRI|BNode, <code class="param">targets</code>:Set[<a href="#dfn-Target">Target</a>], <code class="param">filters</code>:Set[<a href="#dfn-Shape">Shape</a>], <code class="param">constraints</code>:Set[<a href="#dfn-Test">Test</a>]</span><br/>
+        <span class="math" id="dfn-Test">Test          := <a href="#dfn-Constraint">Constraint</a>|<a href="#dfn-Algebraic">Algebraic</a></span>
       </div>
       <div class="rdf">
       <p>
@@ -315,9 +316,11 @@
         <li>pass all of the filter Shapes. [deal with this somewhere (Targets in filter Shapes have no effect.)]</li>
       </ol>
       <p>
-      	The output of comparison of a SHACL graph to a data graph is called a "validation" result.
-        Matching returns the set of errors returned from comparing each constraint against each "focus node" in the data graph.
+        While SHACL can be used for documenting data structures or the input and output of processes, driving user interface generation or navigation, these processes all require testing some nodes in a graph against shapes.
+        This process is called "validation" and the result is called a "validation result".
+        The validation result is <span class="fail">fail</span> if validating any Test against each "focus node" returned <span class="fail">fail</span>, otherwise <span class="pass">pass</span>.
       </p>
+
     </section>
 
     <section>
@@ -326,22 +329,19 @@
         <span class="math" id="dfn-Constraint">Constraint    := <a href="#dfn-NodeConstraint">NodeConstraint</a>|<a href="#dfn-PathConstraint">PathConstraint</a><!-- <a href="#dfn-PropertyConstraint">PropertyConstraint</a>|<a href="#dfn-InversePropertyConstraint">InversePropertyConstraint</a> --></span>
       </div>
       <p>
-      	Constraints in the Shapes graph define the conditions that will be compared against the node in the data graph identified as the focus node.
-      	Each type of Constraint selects a value node (the object or objects of the focus node) and tests it against a set of Paramenters in the Shapes graph.
-        Parameters take one or more arguments.
-        </p>
-        <p>
-          A Constraint is either PathConstraint <!-- PropertyConstraint or InversePropertyConstraint --> or a NodeConstraint. 
-        </p>
-        <p>
-          Note that the Paramenter arguments include "numeric" which is the set of SPARQL numeric types enumerated in SPARQL Operand Data Types <a href="http://www.w3.org/TR/sparql11-query/#operandDataTypes">SPARQL Operand Data Types</a>.
-      </p>
-      <p class="note" title="Exceptions">
-        There are three exceptions: <a href="#dfn-MinCount">MinCount</a>, <a href="#dfn-MaxCount">MaxCount</a>, and <a href="#dfn-UniqueLang">UniqueLang</a> are evaluated against the set of all value nodes identified for testing by PropertyConstraint <!-- PropertyConstraint or InversePropertyConstraint. -->
+        Both PathConstraints <!-- PropertyConstraint or InversePropertyConstraint --> and NodeConstraints include a set of <a href="#dfn-Parameter">Parameters</a>s.
+        Constraints select a set of "value nodes" and then test the conformance of the value nodes against each Parameter.
       </p>
 
       <p>
-        Three other Parameters, <a href="#dfn-QualifiedMinCount">QualifiedMinCount</a>, <a href="#dfn-QualifiedMaxCount">QualifiedMaxCount</a>, and <a href="#dfn-QualifiedValueShape">QualifiedValueShape</a>, are evaluated against the set of all value nodes identified for testing by PathConstraint <!-- PropertyConstraint or InversePropertyConstraint --> and for which the evaluation of all other Parameters returned no errors.
+        Parameters are either unary or n-ary.
+        Validation of a unary Parameter can be performed on each value node individually.
+        The result of validating a set of value nodes against a set of unary parameters is <span class="fail">fail</span> if any individual value node failed any Parameter, otherwise <span class="pass">pass</span>.
+        The result of validating a set of value nodes against a set of n-ary parameters is <span class="fail">fail</span> if the set of value nodes failed any Parameter, otherwise <span class="pass">pass</span>.
+      </p>
+
+      <p>
+        Note that the Paramenter arguments include "numeric" which is the set of SPARQL numeric types enumerated in SPARQL Operand Data Types <a href="http://www.w3.org/TR/sparql11-query/#operandDataTypes">SPARQL Operand Data Types</a>.
       </p>
 
       <div class="abstrsynt">
@@ -383,7 +383,8 @@
       <h2 id="Parameters">Parameters</h2>
       <p>
         The specific ways a value or value set can be constrained are called <code>Parameters</code>.
-        They are grouped below into unary and n-ary parameters.
+        They are grouped below into unary and n-ary parameters depending on whether they evaluate a value node or a set of value nodes.
+        Parameters take one or more arguments.
       </p>
       <p id="PC">
         Note that RDF graphs do not include triples with a literal subject so tests of literal values can only succeed if applied to <a href="#dfn-PathConstraint">PathConstraint</a> with a final path component with is not inverse.
@@ -403,7 +404,7 @@
             <span class="math" id="dfn-NodeKind">NodeKind      := <code class="param">kind</code>:"IRI"|"blank node"|"literal"</span>
           </div>
           <p>
-            Testing a NodeKind parameter against a value node returns an error if
+            Testing a NodeKind parameter against a value node returns <span class="fail">fail</span> if
           </p>
           <ul>
             <li><code class="param">kind</code> = "IRI" and value node is not an IRI</li>
@@ -439,7 +440,7 @@
             <span class="math" id="dfn-HasValue">HasValue      := <code class="param">val</code>:RDF term</span>
           </div>
           <p>
-            Testing a HasValue parameter against a value node returns an error if
+            Testing a HasValue parameter against a value node returns <span class="fail">fail</span> if
             the value node is a different RDF term than <code class="param">val</code>.
           </p>
           <p class="rdf">
@@ -460,12 +461,13 @@
               <tr class="fail"><td>&lt;ResolvedIssueShape&gt;</td><td>&lt;issue3&gt;</td><td>fail</td><td class="fail"><code>ex:state</code> expected to be <code>ex:Resolved</code>, <code>ex:Unresolved</code> found.</td></tr>
             </table>
           </div>
+          <p class="issue">Why have a special property for singleton value sets given <a class="math" href="#dfn-In">In</a> (below)?</p>
 
           <div class="abstrsynt">
             <span class="math" id="dfn-In">In            := <code class="param">vals</code>:Set[RDF term]</span>
           </div>
           <p>
-            Testing a In parameter against a value node returns an error if the value node is not in the set <code class="param">vals</code>.
+            Testing a In parameter against a value node returns <span class="fail">fail</span> if the value node is not in the set <code class="param">vals</code>.
           </p>
           <p class="rdf">
             An In parameter in RDF is represented as an RDF collection connected to a constraint by the <code>sh:in</code> predicate.
@@ -485,7 +487,13 @@
               <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue3&gt;</td><td>fail</td><td class="fail"><code>ex:state</code> expected to be <code>ex:Resolved</code>, <code>ex:Unresolved</code> found.</td></tr>
             </table>
           </div>
-          <p class="issue">Why have a special property for singleton value sets?</p>
+
+          <div class="abstrsynt">
+            <span class="math" id="dfn-Class">Class         := t:IRI</span>
+          </div>
+          <p>
+            Testing a Class parameter against a value node returns <span class="fail">fail</span> if there is no triple <code>(focus node, rdf:type, X)</code> where X is the subject of any triple matched by the <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL1.1 path expression</a> <code>(X, rdf:subClassOf*, /<code class="param">t</code>)</code> matches 0 triples.
+          </p>
         </section>
 
         <section>
@@ -495,7 +503,7 @@
             <span class="math" id="dfn-Datatype">Datatype      := <code class="param">dt</code>:IRI</span>
           </div>
           <p>
-            Testing a Datatype parameter against a value node returns an error if the value node is not an RDFLiteral or of the datatype of the value node is not the same RDF term as <code class="param">dt</code>.
+            Testing a Datatype parameter against a value node returns <span class="fail">fail</span> if the value node is not an RDFLiteral or of the datatype of the value node is not the same RDF term as <code class="param">dt</code>.
           </p>
           <p class="rdf">
             A Datatype parameter is connected to a constraint by the <code>sh:datatype</code> predicate.
@@ -516,14 +524,15 @@
             </table>
           </div>
 
+          <!-- 
           <div class="abstrsynt">
             <span class="math" id="dfn-DatatypeIn">DatatypeIn    := <code class="param">dts</code>:Set[IRI]</span>
           </div>
           <p>
-            Testing a Datatype parameter against a value node returns an error if the value node is not an RDFLiteral or of the datatype of the value node is not the set <code class="param">dts</code>.
+            Testing a Datatype parameter against a value node returns <span class="fail">fail</span> if the value node is not an RDFLiteral or of the datatype of the value node is not the set <code class="param">dts</code>.
           </p>
-          <p class="issue">Does DatatypeIn have enough use cases to warrant a special property rather than an <a href="#dfn-Or">or</a> of multiple <a href="#dfn-Datatype"></a> constraints?</p>
-
+          <p class="issue">Does DatatypeIn have enough use cases to warrant a special property rather than an <a href="#dfn-Or">or</a> of multiple <a href="#dfn-Datatype">Datatype</a> constraints?</p>
+          -->
         </section>
 
         <section>
@@ -532,7 +541,7 @@
             <span class="math" id="dfn-MinLength">MinLength     := <code class="param">ref</code>:numeric</span>
           </div>
           <p>
-            Testing a MinLength paramenter against a value node returns an error if the lexical form of the value node is longer than <code class="param">ref</code>.
+            Testing a MinLength paramenter against a value node returns <span class="fail">fail</span> if the lexical form of the value node is longer than <code class="param">ref</code>.
           </p>
           <p class="rdf">
             A MinLength parameter is connected to a constraint by the <code>sh:minLength</code> predicate.
@@ -557,7 +566,7 @@
             <span class="math" id="dfn-MaxLength">MaxLength     := <code class="param">ref</code>:numeric</span>
           </div>
           <p>
-            Testing a MaxLength paramenter against a value node returns an error if the lexical form of the value node is shorter than <code class="param">ref</code>.
+            Testing a MaxLength paramenter against a value node returns <span class="fail">fail</span> if the lexical form of the value node is shorter than <code class="param">ref</code>.
           </p>
           <p class="rdf">
             A MaxLength parameter is connected to a constraint by the <code>sh:maxLength</code> predicate.
@@ -568,7 +577,7 @@
           </div>
           <p>            
             A Pattern parameter is evaluated against the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL regex function</a> with the lexical form of value node as the <code class="param">text</code> parameter, <code class="param">pat</code> as the <code class="param">pattern</code> parameter and <code class="param">flagstr</code> as the <code class="param">flags</code> parameter.
-            The test returns an error is the result is false or produces a type error.
+            The test returns <span class="fail">fail</span> is the result is false or produces an XPath type error.
           </p>
           <p class="rdf">
             A Pattern parameter is connected to a constraint by the <code>sh:pattern</code> predicate.
@@ -598,7 +607,7 @@
             <span class="math" id="dfn-Stem">Stem          := <code class="param">str</code>:RDFLiteral</span>
           </div>
           <p>
-            Testing a Stem parameter against a value node returns an error if the value node is not an IRI or the lexical form of the value node does not start with <code class="param">str</code>.
+            Testing a Stem parameter against a value node returns <span class="fail">fail</span> if the value node is not an IRI or the lexical form of the value node does not start with <code class="param">str</code>.
           </p>
 
         </section>
@@ -609,7 +618,7 @@
             <span class="math" id="dfn-MinInclusive">MinInclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            Testing a MinInclusive parameter against a value node returns an error if the evaluation of (value node &gt;= <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing a MinInclusive parameter against a value node returns <span class="fail">fail</span> if the evaluation of (value node &gt;= <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A MinInclusive parameter is connected to a constraint by the <code>sh:minInclusive</code> predicate.
@@ -634,7 +643,7 @@
             <span class="math" id="dfn-MinExclusive">MinExclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            Testing a MinExclusive parameter against a value node returns an error if the evaluation of (value node &gt; <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing a MinExclusive parameter against a value node returns <span class="fail">fail</span> if the evaluation of (value node &gt; <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A MinExclusive parameter is connected to a constraint by the <code>sh:minExclusive</code> predicate.
@@ -644,7 +653,7 @@
             <span class="math" id="dfn-MaxInclusive">MaxInclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            Testing a MaxInclusive parameter against a value node returns an error if the evaluation of (value node &lt;= <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing a MaxInclusive parameter against a value node returns <span class="fail">fail</span> if the evaluation of (value node &lt;= <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>         
           <p class="rdf">
             A MaxInclusive parameter is connected to a constraint by the <code>sh:maxInclusive</code> predicate.
@@ -654,7 +663,7 @@
             <span class="math" id="dfn-MaxExclusive">MaxExclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            Testing a MaxExclusive parameter against a value node returns an error if the evaluation of (value node &lt; <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing a MaxExclusive parameter against a value node returns <span class="fail">fail</span> if the evaluation of (value node &lt; <code class="param">ref</code>) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A MaxExclusive parameter is connected to a constraint by the <code>sh:maxExclusive</code> predicate.
@@ -672,7 +681,7 @@
             <span class="math" id="dfn-LessThan">LessThan      := <code class="param">sibling</code>:RDFLiteral</span> <sup><a href="#PC">PC</a></sup>
           </div>
           <p>
-            Testing a LessThan parameter against a value node returns an error if there is no node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node &lt; v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing a LessThan parameter against a value node returns <span class="fail">fail</span> if there is no node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node &lt; v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A LessThan's <code class="param">sibling</code> parameter is connected to a constraint by the <code>sh:lessThan</code> predicate.
@@ -700,7 +709,7 @@
             <span class="math" id="dfn-Equals">Equals        := <code class="param">sibling</code>:RDFLiteral</span> <sup><a href="#PC">PC</a></sup>
           </div>
           <p>
-            Testing an Equals parameter against a value node returns an error if there is no node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node = v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing an Equals parameter against a value node returns <span class="fail">fail</span> if there is no node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node = v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A Equal's <code class="param">sibling</code> parameter is connected to a constraint by the <code>sh:equals</code> predicate.
@@ -710,7 +719,7 @@
             <span class="math" id="dfn-LessThanOrEquals">LessThanEquals := <code class="param">sibling</code>:RDFLiteral</span> <sup><a href="#PC">PC</a></sup>
           </div>
           <p>
-            Testing a LessThanOrEquals parameter against a value node returns an error if there is no node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node &lt;= v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing a LessThanOrEquals parameter against a value node returns <span class="fail">fail</span> if there is no node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node &lt;= v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A LessThanOrEqual's <code class="param">sibling</code> parameter is connected to a constraint by the <code>sh:lessThanOrEquals</code> predicate.
@@ -720,7 +729,7 @@
             <span class="math" id="dfn-Disjoint">Disjoint      := <code class="param">sibling</code>:RDFLiteral</span>
           </div>
           <p>
-            Testing an Disjoint parameter against a value node returns an error if any node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node &lt; v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
+            Testing an Disjoint parameter against a value node returns <span class="fail">fail</span> if any node v in <code>(focus node, <code class="param">sibling</code>, v)</code> in the data graph or the evaluation of (value node &lt; v) in <a href="http://www.w3.org/TR/sparql11-query/#OperatorMapping">SPARQL1.1 Operator Mapping</a> returns false or results in a type error.
           </p>
           <p class="rdf">
             A Disjoint's <code class="param">sibling</code> parameter is connected to a constraint by the <code>sh:disjoint</code> predicate.
@@ -728,57 +737,8 @@
 
         </section>
 
+        <!-- 
         <section>
-          <h4 id="Logicaloperators">Logical operators<!-- : NC, PC, IPC --></h4>
-
-          <div class="abstrsynt">
-            <span class="math" id="dfn-And">And           := <code class="param">shapes</code>:Set[Shape]</span>
-          </div>
-          <p>
-            Testing an And parameter against a value node returns the errors from testing each member of the set <code class="param">shapes</code> against the value node.
-          </p>
-          <p class="rdf">
-            An And parameter is an RDF Collection of <code class="param">shapes</code> connected to a constraint by the <code>sh:and</code> predicate.
-          </p>
-          <div class="example">
-            <div class="example-title marker"><span>Parameters example 8</span></div>
-            <pre class="schema">
-&lt;Person&gt; sh:property [ sh:predicate foaf:name; sh:nodeKind sh:Literal ] .
-&lt;Customer&gt; sh:property [ sh:predicate corp:custId; sh:datatype xsd:integer ] .
-&lt;User&gt; sh:constraint [ sh:and (&lt;Person&gt; &lt;Customer&gt;) ] .</pre>
-            <pre class="data">
-&lt;user1&gt; foaf:name "Alice"; corp:custId 1234 .
-<span class="fail">&lt;user2&gt; foaf:givenName "Alice"; corp:custId 1234.0 .</span></pre>
-            <table>
-              <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
-              <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user1&gt;</td><td>pass</td></tr>
-              <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user2&gt;</td><td>fail</td><td class="fail">no foaf:name supplied.<br/>"12345.0" is an xsd:double.</td></tr>
-            </table>
-          </div>
-
-          <div class="abstrsynt">
-            <span class="math" id="dfn-Or">Or            := <code class="param">shapes</code>:Set[Shape]</span>
-          </div>
-          <p>
-            Testing an Or parameter against a value node returns an unspecified error if testing each member of the set <code class="param">shapes</code> against the value node returned an error.
-          </p>
-          <p class="rdf">
-            An Or parameter is an RDF Collection of <code class="param">shapes</code> connected to a constraint by the <code>sh:or</code> predicate.
-          </p>
-
-          <div class="abstrsynt">
-            <span class="math" id="dfn-Not">Not           := <code class="param">shape</code>:Shape</span>
-          </div>
-          <p>
-            Testing a Not parameter against a value node returns an unspecified error if testing <code class="param">shape</code> against the value node returned no error.
-          </p>
-          <p class="rdf">
-            A Not parameter is a single <code class="param">shape</code> connected to a constraint by the <code>sh:not</code> predicate.
-          </p>
-
-        </section>
-        <section>
-          <!-- 
           <h4 id="Nestedshapeconstraints">Nested shape constraints<!-\- : PC, IPC -\-></h4>
           <div class="abstrsynt">
             <span class="math" id="dfn-Shape">Shape         := nested:Shape</span>
@@ -786,27 +746,22 @@
           <p>
             Testing a Shape parameter against a value node returns any errors returned when validating the value node as nested (c.f. definition of Shape above).
           </p>
-          -->
-          <div class="abstrsynt">
-            <span class="math" id="dfn-QualifiedValueShape">QualifiedValueShape := nested:Shape <sup><a href="#PC">PC</a></sup></span>
-          </div>
-          <p>
-            As noted above, QualifiedValueShape takes a set of value nodes that have passed all non-cardinality tests. Its evaluation is the same as the evaluation of Shape.
-          </p>
-
-          <div class="abstrsynt">
-            <span class="math" id="dfn-Class">Class         := t:IRI</span>
-          </div>
-          <p>
-            Testing a Class parameter against a value node returns an error if there is no triple <code>(focus node, rdf:type, X)</code> where X is the subject of any triple matched by the <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL1.1 path expression</a> <code>(X, rdf:subClassOf*, /<code class="param">t</code>)</code> matches 0 triples.
-          </p>
         </section>
+        -->
       </section>
       <section>
         <h3 id="N-aryParameters">N-ary Parameters</h3>
         <p>
           N-ary Parameters evaluate the set of value nodes which were selected by the <a href="#dfn-Constraint">Constraints</a>.
         </p>
+
+        <div class="abstrsynt">
+          <span class="math" id="dfn-UniqueLang">UniqueLang    := <code class="param">b</code>:boolean <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <p>
+          Testing a UniqueLang parameter against a set of value nodes returns <span class="fail">fail</span> if <code class="param">b</code> is <code>true</code> and two or more of the value nodes are RDFLiterals with the same language tag.
+        </p>
+
         <section>
           <h4 id="Cardinality">Cardinality<!-- : PC, IPC --></h4>
 
@@ -814,42 +769,90 @@
             <span class="math" id="dfn-MinCount">MinCount      := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            Testing a MinCount parameter against a set of value nodes returns an error if the number of value nodes is less than <code class="param">ref</code>.
+            Testing a MinCount parameter against a set of value nodes returns <span class="fail">fail</span> if the number of value nodes is less than <code class="param">ref</code>.
           </p>
           
-          <div class="abstrsynt">
-            <span class="math" id="dfn-QualifiedMinCount">QualifiedMinCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
-          </div>
-          <p>
-            As noted above, QualifiedMinCount takes a set of value nodes that have passed all non-cardinality tests.
-            It's evaluation is the same as the evaluation of MinCount.
-          </p>
-
           <div class="abstrsynt">
             <span class="math" id="dfn-MaxCount">MaxCount      := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            Testing a MaxCount parameter against a set of value nodes returns an error if the number of value nodes is greater than <code class="param">ref</code>.
+            Testing a MaxCount parameter against a set of value nodes returns <span class="fail">fail</span> if the number of value nodes is greater than <code class="param">ref</code>.
           </p>
 
           <div class="abstrsynt">
-            <span class="math" id="dfn-QualifiedMaxCount">QualifiedMaxCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
+            <span class="math" id="dfn-QualifiedMinCount">QualifiedMinCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span><br/>
+            <span class="math" id="dfn-QualifiedMaxCount">QualifiedMaxCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span><br/>
+            <span class="math" id="dfn-QualifiedValueShape">QualifiedValueShape := nested:Shape <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            As noted above, QualifiedMaxCount takes a set of value nodes that
-            have passed all non-cardinality tests. It's evaluation is the same
-            as the evaluation of MaxCount.
+            QualifiedMinCount and QualifiedMaxCount take a set of value nodes that have passed the QualifiedValueShape.
+            Their evaluation is the same as the evaluation of MinCount and MaxCount respecctively.
           </p>
 
-          <div class="abstrsynt">
-            <span class="math" id="dfn-UniqueLang">UniqueLang    := <code class="param">b</code>:boolean <sup><a href="#PC">PC</a></sup></span>
-          </div>
           <p>
-            Testing a UniqueLang parameter against a set of value nodes returns an error if <code class="param">b</code> is <code>true</code> and two or more of the value nodes are RDFLiterals with the same language tag.
+            Three other Parameters, <a href="#dfn-QualifiedMinCount">QualifiedMinCount</a>, <a href="#dfn-QualifiedMaxCount">QualifiedMaxCount</a>, and <a href="#dfn-QualifiedValueShape">QualifiedValueShape</a>, are evaluated against the set of all value nodes identified for testing by PathConstraint <!-- PropertyConstraint or InversePropertyConstraint --> and for which the evaluation of all other Parameters returned no errors.
           </p>
 
         </section>
       </section>
+    </section>
+
+
+    <section>
+      <h4 id="Logicaloperators">Logical operators<!-- : NC, PC, IPC --></h4>
+
+      <div class="abstrsynt">
+        <span class="math" id="dfn-Algebraic">Algebraic      := <a href="#dfn-And">And</a>|<a href="#dfn-Or">Or</a>|<a href="#dfn-Not">Not</a></span>
+      </div>
+      <p>
+        Algabraic operators provide logical combinations of shapes.
+      </p>
+
+      <div class="abstrsynt">
+        <span class="math" id="dfn-And">And           := <code class="param">shapes</code>:Set[<a href="#dfn-Shape">Shape</a>]</span>
+      </div>
+      <p>
+        Testing an And parameter against a value node returns <span class="pass">pass</span> if validating each member of the set <code class="param">shapes</code> against the value node returned <span class="pass">pass</span>, otherwise <span class="fail">fail</span>.
+      </p>
+      <p class="rdf">
+        An And parameter is an RDF Collection of <code class="param">shapes</code> connected to a constraint by the <code>sh:and</code> predicate.
+      </p>
+      <div class="example">
+        <div class="example-title marker"><span>Parameters example 8</span></div>
+        <pre class="schema">
+&lt;Person&gt; sh:property [ sh:predicate foaf:name; sh:nodeKind sh:Literal ] .
+&lt;Customer&gt; sh:property [ sh:predicate corp:custId; sh:datatype xsd:integer ] .
+&lt;User&gt; sh:constraint [ <span style="font-weight: bold;">sh:and</span> (&lt;Person&gt; &lt;Customer&gt;) ] .</pre>
+        <pre class="data">
+&lt;user1&gt; foaf:name "Alice"; corp:custId 1234 .
+<span class="fail">&lt;user2&gt; foaf:givenName "Alice"; corp:custId 1234.0 .</span></pre>
+        <table>
+          <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+          <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user1&gt;</td><td>pass</td></tr>
+          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user2&gt;</td><td>fail</td><td class="fail">no foaf:name supplied.<br/>"12345.0" is an xsd:double.</td></tr>
+        </table>
+      </div>
+
+      <div class="abstrsynt">
+        <span class="math" id="dfn-Or">Or            := <code class="param">shapes</code>:Set[<a href="#dfn-Shape">Shape</a>]</span>
+      </div>
+      <p>
+        Testing an Or parameter against a value node returns <span class="fail">fail</span> if validating each member of the set <code class="param">shapes</code> against the value node returned <span class="fail">fail</span>, otherwise <span class="pass">pass</span>.
+      </p>
+      <p class="rdf">
+        An Or parameter is an RDF Collection of <code class="param">shapes</code> connected to a constraint by the <code>sh:or</code> predicate.
+      </p>
+
+      <div class="abstrsynt">
+        <span class="math" id="dfn-Not">Not           := <code class="param">shape</code>:<a href="#dfn-Shape">Shape</a></span>
+      </div>
+      <p>
+        Testing a Not parameter against a value node returns <span class="pass">pass</span> if validating <code class="param">shape</code> against the value node returned <span class="fail">fail</span>, otherwise <span class="fail">fail</span>.
+      </p>
+      <p class="rdf">
+        A Not parameter is a single <code class="param">shape</code> connected to a constraint by the <code>sh:not</code> predicate.
+      </p>
+
     </section>
 
     <section>
@@ -871,7 +874,7 @@
       </div>
       <p class="issue">
         BNodes as TargetNodes depends on being able to name a blank node in an RDF graph.
-        SPARQL1.1 had this as a proposed feature but did not implement it (see <a href="https://lists.w3.org/Archives/Public/public-rdf-dawg/2005OctDec/thread#msg149">discussion</a>).
+        SPARQL1.1 had this as a proposed feature but did not implement it (see <a href="https://lists.w3.org/Archives/Public/public-rdf-dawg/2005OctDec/thread#msg149">some of the SPARQL discussion</a>).
       </p>
       <p>
         A TargetNode matches <code class="param">node</code> if <code class="param">node</code> appears as a node (any subject or object in a triple) in the data graph.
