@@ -329,8 +329,13 @@
         <span class="math" id="dfn-Constraint">Constraint    := <a href="#dfn-NodeConstraint">NodeConstraint</a>|<a href="#dfn-PathConstraint">PathConstraint</a><!-- <a href="#dfn-PropertyConstraint">PropertyConstraint</a>|<a href="#dfn-InversePropertyConstraint">InversePropertyConstraint</a> --></span>
       </div>
       <p>
-        Both PathConstraints <!-- PropertyConstraint or InversePropertyConstraint --> and NodeConstraints include a set of <a href="#dfn-Parameter">Parameters</a>s.
+        Both PathConstraints <!-- PropertyConstraint or InversePropertyConstraint --> and NodeConstraints include a set of <a href="#dfn-Parameter">Parameters</a>.
         Constraints select a set of "value nodes" and then test the conformance of the value nodes against each Parameter.
+      </p>
+
+      <p class="issue">
+        It's possible that renaming Constraints to Selectors and Parameters to Constraints would clarify this specification.
+        Please send feedback to <a href="mailto:public-rdf-shapes@w3.org">public-rdf-shapes</a>.
       </p>
 
       <p>
@@ -687,7 +692,7 @@
             A LessThan's <code class="param">sibling</code> parameter is connected to a constraint by the <code>sh:lessThan</code> predicate.
           </p>
           <div class="example">
-            <div class="example-title marker"><span>Parameters example 4</span></div>
+            <div class="example-title marker"><span>Parameters example 8</span></div>
             <pre class="schema">
 &lt;IssueShape&gt; sh:property [ sh:predicate ex:submittedOn; sh:lessThan ex:reproducedOn ] .</pre>
             <pre class="data">
@@ -761,9 +766,37 @@
         <p>
           Testing a UniqueLang parameter against a set of value nodes returns <span class="fail">fail</span> if <code class="param">b</code> is <code>true</code> and two or more of the value nodes are RDFLiterals with the same language tag.
         </p>
+        <div class="example">
+          <div class="example-title marker"><span>Parameters example 9</span></div>
+          <pre class="schema">
+&lt;IssueShape&gt; sh:property [ sh:predicate ex:label; sh:uniqueLang true ] ;
+             sh:property [ sh:predicate ex:description; sh:uniqueLang false ] ;
+             sh:property [ sh:predicate ex:notes; sh:nodeKind sh:literal ] .</pre>
+          <pre class="data">
+&lt;issue2&gt; ex:description "no Save As support"@en", "pas de Sauvegarder Sous""@fr ;
+         ex:description "there's no way to save a document under another filename"@en" ;
+         ex:notes "Shouldn't ADB take care of this?"@en .
+&lt;issue2&gt; <span class="fail">ex:label "grammar conflict"@en, "conflit analyse"@en</span> ;
+         ex:description "shift/reduce confict"@en", "reduce/reuse/recycle conflict"@en ;
+         ex:notes "tried left factor"@en, "tried substitution"@en .
+&lt;issue3&gt;
+         ex:description "vague reports of random crashes"@en .
+</pre>
+          <table>
+            <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+            <tr class="pass"><td>&lt;IssueShape&gt;</td><td>&lt;issue1&gt;</td><td>pass</td></tr>
+            <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue2&gt;</td><td>fail</td><td class="fail">multiple <code>ex:label</code> values with same language tag.</td></tr>
+            <tr class="pass"><td>&lt;IssueShape&gt;</td><td>&lt;issue3&gt;</td><td>pass</td></tr>
+          </table>
+        </div>
 
         <section>
           <h4 id="Cardinality">Cardinality<!-- : PC, IPC --></h4>
+
+          <p>
+            The MinCount and MaxCount Parameters on a Constraint with property P identify the minimum and maximum number of triples <code>(value node, <code class="param">P</code>, _)</code> may exist in the instance data.
+            Unless provided, the MinCount is 0 and the MaxCount in infinite.
+          </p>
 
           <div class="abstrsynt">
             <span class="math" id="dfn-MinCount">MinCount      := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
@@ -778,6 +811,28 @@
           <p>
             Testing a MaxCount parameter against a set of value nodes returns <span class="fail">fail</span> if the number of value nodes is greater than <code class="param">ref</code>.
           </p>
+
+          <div class="example">
+            <div class="example-title marker"><span>Parameters example 10</span></div>
+            <pre class="schema">
+&lt;IssueShape&gt; sh:property [ sh:predicate ex:status; sh:minCount 1; sh:maxCount 1 ] ;
+             sh:property [ sh:predicate ex:notes; sh:nodeKind sh:literal ] .</pre>
+            <pre class="data">
+&lt;issue2&gt; ex:status ex:Confirmed .
+&lt;issue2&gt; <span class="fail">ex:status ex:Confirmed, ex:Assigned</span> .
+&lt;issue3&gt;
+         ex:notes "shouldn't QC have caught this?" .
+</pre>
+            <table>
+              <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+              <tr class="pass"><td>&lt;IssueShape&gt;</td><td>&lt;issue1&gt;</td><td>pass</td></tr>
+              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue2&gt;</td><td>fail</td><td class="fail">expected at most 1 <code>ex:status</code>.</td></tr>
+              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue3&gt;</td><td>pass</td><td class="fail">expected at least 1 <code>ex:status</code>.</td></tr>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h4 id="QualifiedCardinality">QualifiedCardinality<!-- : PC, IPC --></h4>
 
           <div class="abstrsynt">
             <span class="math" id="dfn-QualifiedMinCount">QualifiedMinCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span><br/>
@@ -818,18 +873,18 @@
         An And parameter is an RDF Collection of <code class="param">shapes</code> connected to a constraint by the <code>sh:and</code> predicate.
       </p>
       <div class="example">
-        <div class="example-title marker"><span>Parameters example 8</span></div>
+        <div class="example-title marker"><span>Algebraics example 1</span></div>
         <pre class="schema">
 &lt;Person&gt; sh:property [ sh:predicate foaf:name; sh:nodeKind sh:Literal ] .
 &lt;Customer&gt; sh:property [ sh:predicate corp:custId; sh:datatype xsd:integer ] .
 &lt;User&gt; sh:constraint [ <span style="font-weight: bold;">sh:and</span> (&lt;Person&gt; &lt;Customer&gt;) ] .</pre>
         <pre class="data">
 &lt;user1&gt; foaf:name "Alice"; corp:custId 1234 .
-<span class="fail">&lt;user2&gt; foaf:givenName "Alice"; corp:custId 1234.0 .</span></pre>
+<span class="fail">&lt;user2&gt; foaf:name "Bob"; corp:custId <span style="border-bottom: thin solid red;">1234.0</span> .</span></pre>
         <table>
           <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
           <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user1&gt;</td><td>pass</td></tr>
-          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user2&gt;</td><td>fail</td><td class="fail">no foaf:name supplied.<br/>"12345.0" is an xsd:double.</td></tr>
+          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user2&gt;</td><td>fail</td><td class="fail">"1234.0" is an xsd:double.</td></tr>
         </table>
       </div>
 
@@ -842,6 +897,25 @@
       <p class="rdf">
         An Or parameter is an RDF Collection of <code class="param">shapes</code> connected to a constraint by the <code>sh:or</code> predicate.
       </p>
+      <div class="example">
+        <div class="example-title marker"><span>Algebraics example 2</span></div>
+        <pre class="schema">
+&lt;Person&gt; sh:property [ sh:predicate foaf:name; sh:nodeKind sh:Literal ] .
+&lt;Customer&gt; sh:property [ sh:predicate corp:custId; sh:datatype xsd:integer ] .
+&lt;User&gt; sh:constraint [ <span style="font-weight: bold;">sh:or</span> (&lt;Person&gt; &lt;Customer&gt;) ] .</pre>
+        <pre class="data">
+&lt;user1&gt; foaf:name "Alice"; corp:custId 12 .
+&lt;user2&gt; <span style="border-bottom: thin solid red;">foaf:givenName</span> "Bob"; corp:custId 34 .
+&lt;user2&gt; foaf:name "Eve"; corp:custId <span style="border-bottom: thin solid red;">56.0</span> .
+<span class="fail">&lt;user2&gt; foaf:name <span style="border-bottom: thin solid red;">[ rdfs:value "Bob" ]</span>; corp:customerId <span style="border-bottom: thin solid red;">78.0</span> .</span></pre>
+        <table>
+          <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+          <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user1&gt;</td><td>pass</td></tr>
+          <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user2&gt;</td><td>pass</td></tr>
+          <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user3&gt;</td><td>pass</td></tr>
+          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user4&gt;</td><td>fail</td><td class="fail">no foaf:name supplied <span  style="font-weight: bold;">and</span><br/>"78.0" is an xsd:double.</td></tr>
+        </table>
+      </div>
 
       <div class="abstrsynt">
         <span class="math" id="dfn-Not">Not           := <code class="param">shape</code>:<a href="#dfn-Shape">Shape</a></span>
@@ -852,6 +926,28 @@
       <p class="rdf">
         A Not parameter is a single <code class="param">shape</code> connected to a constraint by the <code>sh:not</code> predicate.
       </p>
+      <p>
+        In this example, the <span style="font-weight: bold;">not</span> inverts the truth values of the <span style="font-weight: bold;">or</span> example above.
+      </p>
+      <div class="example">
+        <div class="example-title marker"><span>Algebraics example 3</span></div>
+        <pre class="schema">
+&lt;Person&gt; sh:property [ sh:predicate foaf:name; sh:nodeKind sh:Literal ] .
+&lt;Customer&gt; sh:property [ sh:predicate corp:custId; sh:datatype xsd:integer ] .
+&lt;User&gt; sh:constraint [ <span style="font-weight: bold;">sh:not</span> [ sh:or (&lt;Person&gt; &lt;Customer&gt;) ] ] .</pre>
+        <pre class="data">
+<span class="fail">&lt;user1&gt; foaf:name "Alice"; corp:custId 12 .</span>
+<span class="fail">&lt;user2&gt; <span style="border-bottom: thin solid red;">foaf:givenName</span> "Bob"; corp:custId 34 .</span>
+<span class="fail">&lt;user2&gt; foaf:name "Eve"; corp:custId <span style="border-bottom: thin solid red;">56.0</span> .</span>
+&lt;user2&gt; foaf:name <span style="border-bottom: thin solid red;">[ rdfs:value "Bob" ]</span>; corp:customerId <span style="border-bottom: thin solid red;">78.0</span> .</pre>
+        <table>
+          <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user1&gt;</td><td>pass</td><td class="fail">foaf:name is an RDFLiteral <span  style="font-weight: bold;">and</span><br/>"12" is an xsd:integer.</td></tr>
+          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user2&gt;</td><td>pass</td><td class="fail">"34" is an xsd:integer.</td></tr>
+          <tr class="fail"><td>&lt;User&gt;</td><td>&lt;user3&gt;</td><td>pass</td><td class="fail">foaf:name is an RDFLiteral</td></tr>
+          <tr class="pass"><td>&lt;User&gt;</td><td>&lt;user4&gt;</td><td>fail</td></tr>
+        </table>
+      </div>
 
     </section>
 
