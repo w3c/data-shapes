@@ -818,16 +818,15 @@
 &lt;IssueShape&gt; sh:property [ sh:predicate ex:status; sh:minCount 1; sh:maxCount 1 ] ;
              sh:property [ sh:predicate ex:notes; sh:nodeKind sh:literal ] .</pre>
             <pre class="data">
-&lt;issue2&gt; ex:status ex:Confirmed .
-&lt;issue2&gt; <span class="fail">ex:status ex:Confirmed, ex:Assigned</span> .
-<span class="fail">&lt;issue3&gt;</span>
-         ex:notes "shouldn't QC have caught this?" .
+&lt;issue1&gt; ex:status ex:Confirmed .
+<span class="fail">&lt;issue2&gt; ex:status ex:Confirmed, ex:Assigned</span> .
+<span class="fail">&lt;issue3&gt;</span> ex:notes "shouldn't QC have caught this?" .
 </pre>
             <table>
               <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
               <tr class="pass"><td>&lt;IssueShape&gt;</td><td>&lt;issue1&gt;</td><td>pass</td></tr>
               <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue2&gt;</td><td>fail</td><td class="fail">expected at most 1 <code>ex:status</code>.</td></tr>
-              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue3&gt;</td><td>pass</td><td class="fail">expected at least 1 <code>ex:status</code>.</td></tr>
+              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue3&gt;</td><td>fail</td><td class="fail">expected at least 1 <code>ex:status</code>.</td></tr>
             </table>
           </div>
         </section>
@@ -840,13 +839,42 @@
             <span class="math" id="dfn-QualifiedValueShape">QualifiedValueShape := nested:Shape <sup><a href="#PC">PC</a></sup></span>
           </div>
           <p>
-            QualifiedMinCount and QualifiedMaxCount take a set of value nodes that have passed the QualifiedValueShape.
-            Their evaluation is the same as the evaluation of MinCount and MaxCount respecctively.
+            QualifiedMinCount and QualifiedMaxCount restrict the set of value nodes to those that pass the Shape QualifiedValueShape.
+            Once the value set is restricted, their evaluation is the same as the evaluation of MinCount and MaxCount respecctively.
           </p>
 
+          <div class="example">
+            <div class="example-title marker"><span>Parameters example 11</span></div>
+            <p>
+              Every approved issue must be signed by one person from<br/>engineering and at least one from quality assurance:
+            </p>
+            <pre class="schema">
+&lt;ApprovedIssueShape&gt;
+  sh:sh:property [
+    sh:predicate ex:approvedBy; sh:qualifiedShape [
+        sh:pattern "^mailto:.*?@engineering.example" ] ;
+    sh:qualifiedMinCount 1; sh:qualifiedMaxCount 1 ] ,
+  sh:sh:property [
+    sh:predicate ex:approvedBy; sh:qualifiedShape [
+        sh:pattern "^mailto:.*?@qa.example" ] ;
+    sh:qualifiedMinCount 1 ] .
+</pre>
+            <pre class="data">
+&lt;issue1&gt; ex:approvedBy &lt;mailto:alice@engineering.example&gt;, &lt;mailto:pat@admin.example&gt;,
+    &lt;mailto:bob@qa.example&gt;, &lt;mailto:eve@qa.example&gt; .
+<span class="fail">&lt;issue2&gt; ex:approvedBy <span style="border-bottom: thin solid red;">&lt;mailto:amy@engineering.example&gt;</span>,
+    <span style="border-bottom: thin solid red;">&lt;mailto:brett@engeering.example&gt;</span>, &lt;mailto:cynthia@qa.example&gt;</span> .
+<span class="fail">&lt;issue3&gt;</span> ex:approvedBy &lt;mailto:angel@engineering.example&gt; .</pre>
+            <table>
+              <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+              <tr class="pass"><td>&lt;IssueShape&gt;</td><td>&lt;issue1&gt;</td><td>pass</td></tr>
+              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue2&gt;</td><td>fail</td><td class="fail">expected at most 1 <code>ex:approvedBy</code> matching<br/> <code>"^mailto:.*?@engineering.example"</code>.</td></tr>
+              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue3&gt;</td><td>fail</td><td class="fail">expected at least 1 <code>ex:approvedBy</code> matching<br/> <code>"^mailto:.*?@qa.example"</code>.</td></tr>
+            </table>
           <p>
-            Three other Parameters, <a href="#dfn-QualifiedMinCount">QualifiedMinCount</a>, <a href="#dfn-QualifiedMaxCount">QualifiedMaxCount</a>, and <a href="#dfn-QualifiedValueShape">QualifiedValueShape</a>, are evaluated against the set of all value nodes identified for testing by PathConstraint <!-- PropertyConstraint or InversePropertyConstraint --> and for which the evaluation of all other Parameters returned no errors.
+            Additional <code>ex:approvedBy</code> matching neither "^mailto:.*?@engineering.example" nor "^mailto:.*?@qa.example" are not constrainted, c.f. <code>&lt;mailto:amy@engineering.example&gt;</code> on <code>&lt;Issue1&gt;</code>.
           </p>
+          </div>
 
         </section>
       </section>
