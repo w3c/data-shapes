@@ -204,6 +204,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-09-15</b>: Added sh:languageIn (<a href="http://www.w3.org/2014/data-shapes/track/issues/137">ISSUE-137</a>)</li>
 				<li><b>2016-08-26</b>: Remove special treatment of sh:Violation (<a href="http://www.w3.org/2014/data-shapes/track/issues/150">ISSUE-150</a>)</li>
 				<li><b>2016-08-23</b>: Added Appendix enumerating the optional features of SHACL</li>
 				<li><b>2016-08-05</b>: Renamed scope to target, sh:scopeProperty -> sh:scopeSubjectsOf, etc <a href="http://www.w3.org/2014/data-shapes/track/issues/175">ISSUE-175</a>)</li>
@@ -2162,6 +2163,78 @@ ex:Alice ex:w3cHomepage &lt;https://www.w3.org/People/Alice&gt; .
 <span class="focus-node-error">ex:Bob</span> ex:w3cHomepage &lt;https://example.com/People/Bob&gt; .
 <span class="focus-node-error">ex:Carol</span> ex:w3cHomepage "https://www.w3.org/People/Carol" .</pre>
 				</section>
+				
+				<section id="LanguageInConstraintComponent">
+					<h4>sh:languageIn</h4>
+					<p>
+						The property <code>sh:languageIn</code> can be used to enumerate language tags that all <a>value nodes</a> must have.
+					</p>
+					<p>
+						<span class="component-class">Constraint Component:</span> <code>sh:LanguageInConstraintComponent</code>
+					</p>
+
+					<div class="parameters">Parameters:</div>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Value Type</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:languageIn</code></td>
+							<td><code>rdf:List</code></td>
+							<td>A list of language ranges (list members are <code>xsd:string</code>)</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							A <a>validation result</a> must be produced for each <a>value node</a>
+							that is either not a <a>literal</a> or that does not have a language tag
+							matching any of the provided language ranges following the filtering schema defined by
+							the <a href="https://www.w3.org/TR/sparql11-query/#func-langMatches">SPARQL langMatches</a> function.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION (Must evaluate to true for each value node $value)</div>
+<pre class="def-sparql-body">
+ASK {
+	BIND (lang($value) AS ?valueLang) .
+	FILTER (bound(?valueLang) &amp;&amp; EXISTS {
+			GRAPH $shapesGraph {
+				$languageIn (rdf:rest*)/rdf:first ?lang .
+				FILTER (langMatches(?valueLang, ?lang))
+			} 
+		} )
+}</pre>
+					</div>
+					<p>
+						The following example shape states that all values of <code>ex:prefLabel</code>
+						must be either in English or Māori.
+					</p>
+					<pre class="example-shapes">
+ex:NewZealandLanguagesShape
+	a sh:Shape ;
+	sh:targetNode ex:Mountain, ex:Berg ;
+	sh:property [
+		sh:predicate ex:prefLabel ;
+		sh:languageIn ( "en" "mi" ) ;
+	] .</pre>
+					<p>
+						From the example instances, <code>ex:Berg</code> will lead to constraint violations for all
+						of its labels.
+					</p>
+					<pre class="example-data">
+ex:Mountain
+	ex:prefLabel "Mountain"@en ;
+	ex:prefLabel "Maunga"@mi .
+
+<span class="focus-node-error">ex:Berg</span>
+	ex:prefLabel "Berg" ;
+	ex:prefLabel "Berg"@de ;
+	ex:prefLabel ex:BergLabel .</pre>
+				</section>
+			</section>
 				
 				<section id="UniqueLangConstraintComponent">
 					<h4>sh:uniqueLang</h4>
