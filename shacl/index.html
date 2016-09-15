@@ -204,6 +204,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-09-15</b>: Added proposed SPARQL prefix handling section (<a href="http://www.w3.org/2014/data-shapes/track/issues/105">ISSUE-105</a>)</li>
 				<li><b>2016-09-15</b>: Added sh:languageIn (<a href="http://www.w3.org/2014/data-shapes/track/issues/137">ISSUE-137</a>)</li>
 				<li><b>2016-08-26</b>: Remove special treatment of sh:Violation (<a href="http://www.w3.org/2014/data-shapes/track/issues/150">ISSUE-150</a>)</li>
 				<li><b>2016-08-23</b>: Added Appendix enumerating the optional features of SHACL</li>
@@ -3455,23 +3456,8 @@ ex:AddressGroup
 				<p>
 					<code>sh:SPARQLConstraint</code> is an <code>rdfs:subClassOf sh:Constraint</code> and is the class of all SPARQL-based constraints.
 					SPARQL-based constraints must have exactly one value for the property <code>sh:select</code>.
-					The SPARQL queries linked to a <a>constraint</a> via <code>sh:select</code> must be string literals that can be parsed into legal SPARQL 1.1 queries	of the query form <code>SELECT</code>.
-				</p>
-				<p class="issue" data-number="105" title="Defined prefixes">
-					There is an ongoing discussion about whether and how to inject prefixes into SPARQL queries,
-					so the following paragraph may change.
-				</p>
-				<p id="sparql-prefixes">
-					Before parsing the values of <code>sh:select</code>, a SHACL processor must prepend <a href="https://www.w3.org/TR/sparql11-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
-					for all namespace prefixes declared via the property <code>sh:prefix</code> in the current <a>shapes graph</a>.
-					The subjects of <code>sh:prefix</code> triples must be IRIs, which become the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
-					The objects of <code>sh:prefix</code> triples must be string literals, which become the <code>PNAME_NS</code> in the <code>PREFIX</code> declaration.
-					For the example shapes graph below, a SHACL processor would produce the line <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
-					No such <code>PREFIX</code> must be generated if the SPARQL string already contains a <code>PREFIX</code> statement for the same <span class="term">prefix</span> at the top-level query
-					(ignoring prefixes from nested SELECT queries).
-					The SHACL processor must produce a <a>failure</a> if the <a>shapes graph</a> contains multiple <code>sh:prefix</code> triples with the same object.
-					Since the use of <code>sh:prefix</code> triples may lead to conflicts, it is recommended to only use them in closed and controlled environments or for well-established prefixes.
-					In the rest of this document, the <code>sh:prefix</code> statements may have been omitted for brevity.
+					The SPARQL queries linked to a <a>constraint</a> via <code>sh:select</code> must be string literals that can be parsed into legal SPARQL 1.1 queries
+					of the query form <code>SELECT</code> after they have been treated with the <a href="#sparql-prefixes">prefix handling rules</a> outlined later.
 				</p>
 				<p>
 					The following example illustrates the definition of a SPARQL-based constraint.
@@ -3483,14 +3469,13 @@ ex:ValidCountry a ex:Country ;
 <span class="focus-node-error">ex:InvalidCountry</span> a ex:Country ;
 	ex:germanLabel "Spain"@en .</pre>
 				<pre class="example-shapes" id="example-sparql-constraint">
-&lt;http://example.com/ns#&gt; sh:prefix "ex" .
-
 ex:LanguageExampleShape
 	a sh:Shape ;
 	sh:targetClass ex:Country ;
 	sh:sparql [
 		a sh:SPARQLConstraint ;   # This triple is optional
 		sh:message "Values must be literals with German language tag." ;
+		sh:prefixes ex: ;
 		sh:select """
 			SELECT $this (ex:germanLabel AS ?path) ?value
 			WHERE {
@@ -3527,6 +3512,62 @@ ex:LanguageExampleShape
 					Additional executable languages such as JavaScript may be provided based on other sets of properties like <code>ex:javaScript</code>,
 					but that is outside of the target of this specification.
 				</p-->
+			</section>
+			<section id="sparql-prefixes">
+				<h4>Prefix Declarations for SPARQL Queries</h4>
+				<p class="issue" data-number="105" title="Defined prefixes">
+					There is an ongoing discussion about whether and how to inject prefixes into SPARQL queries,
+					so this section proposed just one possible syntax.
+				</p>
+				<p>
+					Before parsing the values of <code>sh:select</code> (or similar properties such as <code>sh:ask</code>),
+					a SHACL processor must prepend <a href="https://www.w3.org/TR/sparql11-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
+					for all namespace prefixes that are linked to the <a>subject</a> of the <code>sh:select</code> triple
+					via the property <code>sh:prefixes</code> in the current <a>shapes graph</a>.
+					An example use of the <code>sh:prefixes</code> property can be found in the
+					<a href="#example-sparql-constraint">example</a> above.
+					The syntax of such prefix declarations is illustrated by the following example.
+				</p>
+				<pre class="example-shapes">
+ex:
+	a owl:Ontology ;
+	owl:imports sh: ;
+	sh:declare [
+		sh:prefix "ex" ;
+		sh:namespace ex: ;   # or: &lt;http://example.com/ns#&gt;
+	] ;
+	sh:declare [
+		sh:prefix "schema" ;
+		sh:namespace &lt;http://schema.org/&gt; ;
+	] .</pre>
+				<p>
+					The values of <code>sh:prefixes</code> must be <a>IRIs</a> or <a>blank nodes</a>.
+					Each value of <code>sh:prefixes</code> may have values for the property <code>sh:declare</code>
+					to point at an IRI or blank node that defines a prefix for a given namespace IRI.
+					The values of <code>sh:declare</code> must have
+					exactly one value for the property <code>sh:prefix</code> (<a>literals</a> of type <code>xsd:string</code>) and
+					exactly one value for the property <code>sh:namespace</code> (<a>IRIs</a>).
+				</p>
+				<p>
+					The recommended <a>subject</a> for values of <code>sh:declare</code> is the IRI of the graph defining the shapes that use the prefixes.
+					These IRIs are often declared as an instance of <code>owl:Ontology</code>, but this is not required.
+					The <a>subjects</a> of <code>sh:declare</code> triples may link to other prefix declarations using
+					the property <code>owl:imports</code>.
+					By transitively following the <code>owl:imports</code> links from a node containing prefix declarations,
+					SHACL engines can collect pairs of prefix/namespace declarations, reusing declarations from other sub-graphs.
+					If such a collection of prefix declarations contains multiple namespaces for the same <code>sh:prefix</code>,
+					then the <a>shapes graph</a> is invalid.
+				</p>
+				<p>
+					Before a SHACL engine parses a SPARQL query string, it MUST prepend any <code>PREFIX</code> declarations based on
+					the collection of prefixes that is retrieved from all values of <code>sh:prefixes</code> and their transitive <code>owl:imports</code>.
+					Each value of <code>sh:prefix</code> is turned into the <code>PNAME_NS</code>, while each value of <code>sh:namespace</code> is turned
+					into the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
+					For the example shapes graph above, a SHACL processor would produce lines such as <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
+					The resulting list of <code>PREFIX</code> declarations must be inserted before the SPARQL fragments (e.g. values of <code>sh:select</code>).
+					The SHACL processor must produce a <a>failure</a> if the resulting SPARQL query string cannot be parsed into a valid SPARQL 1.1 query.
+					In the rest of this document, the <code>sh:prefixes</code> statements may have been omitted for brevity.
+				</p>
 			</section>
 			<section id="sparql-constraints-prebound">
 				<h4>Pre-bound Variables in SPARQL Constraints ($this, $shapesGraph, $currentShape)</h4>
