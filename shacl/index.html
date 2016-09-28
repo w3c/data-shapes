@@ -204,7 +204,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
-				<li><b>2016-09-27</b>: Change sh:minCount / sh:maxCount to operate on value node sets because property paths may return duplicates</li>
+				<li><b>2016-09-27</b>: Change several constraint components such as sh:minCount / sh:maxCount and ASK-based validators to operate on value node sets because property paths may return duplicates</li>
 				<li><b>2016-09-27</b>: Removed shapesGraph argument from sh:hasShape</li>
 				<li><b>2016-09-15</b>: Added proposed SPARQL prefix handling section (<a href="http://www.w3.org/2014/data-shapes/track/issues/105">ISSUE-105</a>)</li>
 				<li><b>2016-09-15</b>: Added sh:languageIn (<a href="http://www.w3.org/2014/data-shapes/track/issues/137">ISSUE-137</a>)</li>
@@ -2366,7 +2366,7 @@ ex:Alice
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	{
 		$this $PATH ?value .
@@ -2433,7 +2433,7 @@ ex:Bob
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	$this $PATH ?value .
 	$this $disjoint ?value .
@@ -2495,7 +2495,7 @@ ex:USA
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	$this $PATH ?value .
 	$this $lessThan ?otherValue .
@@ -2550,7 +2550,7 @@ ex:LessThanExampleShape
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	$this $PATH ?value .
 	$this $lessThan ?otherValue .
@@ -2609,7 +2609,7 @@ WHERE {
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (for property constraints, must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value ?failure
+SELECT DISTINCT $this ?value ?failure
 WHERE {
 	$this $PATH ?value .
 	BIND (sh:hasShape($this, $not) AS ?hasShape) .
@@ -2847,7 +2847,7 @@ WHERE {
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (for property constraints, must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value ?failure
+SELECT DISTINCT $this ?value ?failure
 WHERE {
 	$this $PATH ?value .
 	BIND (sh:hasShape(?value, $shape) AS ?hasShape) .
@@ -2934,7 +2934,7 @@ ex:ShapeExampleValidResource
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMinCount (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this (SUM(?failed)>0 AS ?failure)
+SELECT DISTINCT $this (SUM(?failed)>0 AS ?failure)
 WHERE {
 	{
 		$this $PATH ?value .
@@ -2966,7 +2966,7 @@ HAVING ((COUNT(?value) &lt; $qualifiedMinCount) || (SUM(?failed) > 0))</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMaxCount (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this (SUM(?failed)>0 AS ?failure)
+SELECT DISTINCT $this (SUM(?failed)>0 AS ?failure)
 WHERE {
 	{
 		$this $PATH ?value .
@@ -3944,7 +3944,7 @@ ex:LanguageConstraintComponentUsingSELECT
 		a sh:SPARQLSelectValidator ;
 		sh:message "Values must be literals with language \"{?lang}\"" ;
 		sh:select """
-			SELECT $this ?value
+			SELECT DISTINCT $this ?value
 			WHERE {
 				$this $PATH ?value .
 				FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
@@ -4023,11 +4023,15 @@ ex:LanguageExampleShape
 	}</pre>
 					<p>Template for <code>sh:PropertyConstraint</code> context:</p>
 					<pre>
-	SELECT $this ?value
+	SELECT DISTINCT $this ?value
 	WHERE {
 		$this $PATH ?value .
 		FILTER NOT EXISTS ...
 	}</pre>
+					<p>
+						Note that the template above includes a <code>DISTINCT</code> keyword because a SPARQL path expression may
+						return the same <code>?value</code> multiple times, yet each <a>value node</a> is only validated once.
+					</p>
 					<p>
 						Once the corresponding template has been applied, the resulting SELECT query will be evaluated using the same approach as outlined <a href="#SPARQLSelectValidator-evaluation">above</a>.
 						Actual SHACL implementations may of course use a different approach internally, as long as the results are equivalent to the described approach.
