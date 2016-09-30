@@ -1292,19 +1292,19 @@ ex:parent sh:alternativePath ( ex:father ex:mother  ) .</pre>
 		<section id="validation">
 			<h2>Validation and Graphs</h2>
 			<p>
-				The definitions for validating a <a>data graph</a> against a <a>shapes graph</a> as well as a <a>node</a> from the data graph against a <a>shape</a> from the shapes graph are provided below:
+				The definitions for validating a <a>data graph</a> against a <a>shapes graph</a> as well as a <a>focus node</a> from the data graph against a <a>shape</a> from the shapes graph are provided below:
 			</p>
 
 			<div id="def-validation" class="def def-text">
 				<div class="def-header">VALIDATION DEFINITION</div>
 				<div class="def-text-body">
 					<ul>
-						<li>A <a>node</a> validates against a <a>shape</a> iff
+						<li>A <a>focus node</a> validates against a <a>shape</a> iff
 							either it does not validate against some <a>filter</a> of the shape
 							or none of the <a>constraints</a> in the shape produce a <a>validation result</a> or a <a>failure</a> for the node.
 						</li>
 						<li>A <a>data graph</a> validates against a <a>shape</a> iff
-							each node that is in any of the <a>targets</a> of the shape validates against the shape.
+							each <a>focus node</a> that is in any of the <a>targets</a> of the shape validates against the shape.
 						</li>
 						<li>A <a>data graph</a> validates against a <a>shapes graph</a> iff
 							the data graph validates against each <a>shape</a> in the shapes graph.
@@ -1317,6 +1317,7 @@ ex:parent sh:alternativePath ( ex:father ex:mother  ) .</pre>
 				The validation process returns a <a>validation report</a> containing all <a>validation results</a>.
 				For simpler validation scenarios, SHACL processors SHOULD provide an additional validation interface that returns only
 				<code>true</code> for valid or <code>false</code> for invalid.
+				Only SHACL implementations that can return all of the mandatory properties of the <a>Validation Results Vocabulary</a> are standards-compliant.
 			</p>
 			<p>
 				To validate a data graph against the shapes graph, a SHACL processor requires the shapes graph and the data graph as arguments for the validation process.
@@ -1422,6 +1423,8 @@ ex:ExampleConstraintViolation
 					Its <a>SHACL superclass</a>, <code>sh:AbstractResult</code>, defines the properties described in the following sub-sections.
 					SHACL implementations may produce <a>SHACL instances</a> of other <a>SHACL subclasses</a> of <code>sh:AbstractResult</code>, for example
 					to report successfully completed constraint checks or accumulated results.
+					The properties <code>sh:focusNode</code> and <code>sh:severity</code> are the only mandatory properties of all validation results.
+					The property <code>sh:sourceConstraintComponent</code> is mandatory for validation results produced by violations of <a>constraint components</a>.
 				</p>
 				<section id="results-focus-node">
 					<h4>Focus node (sh:focusNode)</h4>
@@ -1442,16 +1445,24 @@ ex:ExampleConstraintViolation
 					<h4>Value (sh:value)</h4>
 					<p>
 						Validation results may have a value for the property <code>sh:value</code> pointing at a specific <a>node</a> that has caused the result.
+						For example, validation results produced as a result of a <code>sh:nodeKind</code> constraint use <code>sh:value</code> to point at the <a>value node</a> that does not have the correct node kind,
+						while results produced due to a <code>sh:minCount</code> violation do not use <code>sh:value</code> because there is no individual node that could be mentioned.
 					</p>
 				</section>
 				<section id="results-source">
-					<h4>Source (sh:sourceConstraint, sh:sourceShape and sh:sourceConstraintComponent)</h4>
+					<h4>Source (sh:sourceConstraint, sh:sourceShape)</h4>
 					<p>
-						Validation results may link to one <code>sh:Constraint</code> that has caused
+						Validation results may link to one <a>constraint</a> that has caused
 						the result, specified via the property <code>sh:sourceConstraint</code>,
 						and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
-						Validation results may link to the <a>constraint component</a> that caused the result
-						via <code>sh:sourceConstraintComponent</code>.
+					</p>
+				</section>
+				<section id="results-source">
+					<h4>Constraint Component (sh:sourceConstraintComponent)</h4>
+					<p>
+						For validation results produced as a result of a <a>constraint component</a>,
+						the property <code>sh:sourceConstraintComponent</code> must point at the <a>constraint component</a> that caused the result.
+						For example, results produced due to a violation of a <code>sh:minCount</code> constraint need to point at <code>sh:MinCountConstraintComponent</code>.
 					</p>
 				</section>
 				<section id="results-detail">
@@ -1475,7 +1486,8 @@ ex:ExampleConstraintViolation
 					<h4>Severity (sh:severity)</h4>
 					<p>
 						Each validation result must have exactly one value for the property <code>sh:severity</code>.
-						SHACL includes the following three pre-defined <dfn data-lt="severity">severities</dfn>.
+						SHACL includes the following three pre-defined <dfn data-lt="severity">severities</dfn>,
+						which are defined in the SHACL vocabulary as SHACL instances of <a>sh:Severity</a>.
 					</p>
 					<table class="term-table">
 						<tr>
@@ -1499,13 +1511,13 @@ ex:ExampleConstraintViolation
 				<section id="severity">
 					<h4>Declaring the Severity of a Constraint</h4>
 					<p>
-						Constraints can specify their severity level using the property <code>sh:severity</code>,
-						which must link to one of the severities.
+						Constraints may specify their severity level in the <a>shapes graph</a> using the property <code>sh:severity</code>,
+						which must link to one of the pre-defined severities such as <code>sh:Warning</code> or any other IRI.
 						In the context of constraints, <code>sh:Violation</code> is the default if <code>sh:severity</code> is unspecified.
 						Constraints based on <a href="#constraint-components">constraint components</a> use the <code>sh:severity</code> declared at the component IRI unless overridden at the constraint.
 						The following example clarifies this.
 					</p>
-			<pre class="example-shapes">
+					<pre class="example-shapes">
 ex:MyShape
 	a sh:Shape ;
 	sh:property [
