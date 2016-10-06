@@ -639,7 +639,8 @@ ex:PersonShape
 					to suggest a human-readable name for the property when used in the inverse direction.
 				</p>
 				<p>
-					SHACL <a>validation</a> based on the provided <a>data graph</a> and <a>shapes graph</a> would produce the following <a>validation results</a>:
+					SHACL <a>validation</a> based on the provided <a>data graph</a> and <a>shapes graph</a> would produce the following <a>validation results</a>.
+					See the section <a href="#validation-report">Validation Report</a> for details on the format including the property <code>sh:severity</code>.
 				</p>
 				<pre class="example-results">
 [	a sh:ValidationResult ;
@@ -649,14 +650,14 @@ ex:PersonShape
 	sh:path ex:ssn ;
 	sh:value "987-65-432A" ;
 	sh:severity sh:Violation ;
-] ;
+] .
 [	a sh:ValidationResult ;
 	sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
 	sh:sourceShape ex:PersonShape ;
 	sh:focusNode ex:Bob ;
 	sh:path ex:ssn ;
 	sh:severity sh:Violation ;
-] ;
+] .
 [	a sh:ValidationResult ;
 	sh:sourceConstraintComponent sh:ClosedConstraintComponent ;
 	sh:sourceShape ex:PersonShape ;
@@ -760,17 +761,17 @@ ex:PersonShape
 				A <a>node</a> in the <a>data graph</a> that is validated against a <a>shape</a> is called a <dfn data-lt="focus node|focus nodes">focus node</dfn>.
 			</p>
 			<p>
-
 				The set of <a>focus nodes</a> for a <a>shape</a> may be:
-				<ul>
-			    	<li>defined explicitly in a <a>shape</a> using <a>targets</a> and <a>filters</a>,</li>
-					<li>determined as part of the <a>validation</a> of <a>constraints</a> that include references to <a>shapes</a>
-						from <a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>) or
-						<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),</li>
-					<li>provided as input to the SHACL processor for validating specific nodes from the <a>data graph</a> against the shape, or</li>
-					<li>computed through the evaluation of the <code>sh:hasShape</code> SPARQL function.</li>
-				</ul>
-
+			</p>
+			<ul>
+		    	<li>defined explicitly in a <a>shape</a> using <a>targets</a> and <a>filters</a>,</li>
+				<li>determined as part of the <a>validation</a> of <a>constraints</a> that include references to <a>shapes</a>
+					from <a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>) or
+					<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),</li>
+				<li>provided as input to the SHACL processor for validating specific nodes from the <a>data graph</a> against the shape, or</li>
+				<li>computed through the evaluation of the <code>sh:hasShape</code> SPARQL function.</li>
+			</ul>
+			<p>
 				<!--Shape targets define the selection criteria for the targetted nodes.
 				Shapes with targets MAY additionally provide <a>filters</a>.
 				Filter shapes further refine the focus nodes to the ones that conform to a set of filter shapes.-->
@@ -808,13 +809,11 @@ ex:PersonShape
 				<p>
 					While targets define the starting points of the validation process,
 					some shapes may validate
-					<ul>
-						<li>less focus nodes when a shapes defines <a>filters</a>, or</li>
-						<li>additional focus nodes against different shapes, for example when referenced via <a href="#ShapeConstraintComponent">sh:shape</a> and <a href="#OrConstraintComponent">sh:or</a>.</li>
-					</ul>
-
-
 				</p>
+				<ul>
+					<li>less focus nodes when a shapes defines <a>filters</a>, or</li>
+					<li>additional focus nodes against different shapes, for example when referenced via <a href="#ShapeConstraintComponent">sh:shape</a> and <a href="#OrConstraintComponent">sh:or</a>.</li>
+				</ul>
 
 				<p>
 					When multiple <a>targets</a> are provided in a <a>shape</a>, the target of a shape is the union of all nodes produced by these individual targets.
@@ -1439,8 +1438,9 @@ ex:ExampleConstraintViolation
 				<section id="results-value">
 					<h4>Value (sh:value)</h4>
 					<p>
-						Validation results may have a value for the property <code>sh:value</code> pointing at a specific <a>node</a> that has caused the result.
-						For example, validation results produced as a result of a <code>sh:nodeKind</code> constraint use <code>sh:value</code> to point at the <a>value node</a> that does not have the correct node kind,
+						Validation results may have zero or one values for the property <code>sh:value</code>.
+						The <a>object</a> of a <a>triple</a> that has <code>sh:value</code> as its <a>predicate</a> and a validation result as its <a>subject</a> is the specific <a>node</a> that has caused the result.
+						For example, validation results produced as a result of a <code>sh:nodeKind</code> constraint use <code>sh:value</code> with the <a>value node</a> that does not have the correct node kind as its <a>object</a>,
 						while results produced due to a <code>sh:minCount</code> violation do not use <code>sh:value</code> because there is no individual node that could be mentioned.
 					</p>
 				</section>
@@ -1514,6 +1514,7 @@ ex:ExampleConstraintViolation
 					<pre class="example-shapes">
 ex:MyShape
 	a sh:Shape ;
+	sh:targetNode ex:MyInstance ;
 	sh:property [
 		# Violations of either minCount and datatype are produced as warnings
 		sh:predicate ex:myProperty ;
@@ -1522,10 +1523,32 @@ ex:MyShape
 		sh:severity sh:Warning ;
 	] ;
 	sh:property [
-		# The default severity is sh:Violation
+		# The default severity here is sh:Violation
 		sh:predicate ex:myProperty ;
-		sh:maxCount 1 ;
+		sh:maxLength 10 ;
 	] .</pre>
+					<pre class="example-data">
+ex:MyInstance
+	ex:myProperty "http://toomanycharacters"^^xsd:anyURI .</pre>
+					<pre class="example-results">
+[
+	a sh:ValidationResult ;
+	sh:focusNode ex:MyInstance ;
+	sh:path ex:myProperty ;
+	sh:severity sh:Warning ;
+	sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+	sh:sourceShape ex:MyShape ;
+	sh:value "http://toomanycharacters"^^xsd:anyURI ;
+] .
+[
+	a sh:ValidationResult ;
+	sh:focusNode ex:MyInstance ;
+	sh:path ex:myProperty ;
+	sh:severity sh:Violation ;
+	sh:sourceConstraintComponent sh:MaxLengthConstraintComponent ;
+	sh:sourceShape ex:MyShape ;
+	sh:value "http://toomanycharacters"^^xsd:anyURI ;
+] .</pre>
 				</section>
 			</section>
 		</section>
