@@ -35,7 +35,6 @@
 				noHighlightCSS: true
 			};
 		</script>
-		<!-- script src="https://www.w3.org/scripts/jquery/2.1/jquery.min.js"></script--> 
 		<style>
 
 			pre {
@@ -191,7 +190,7 @@
 				the RDF graphs that are validated against a shapes graph are called "data graphs".
 				As SHACL shape graphs are used to validate that data graphs satisfy a set of conditions
 				they can also be viewed as a description of the data graphs that do satisfy these conditions.
-				Such descriptions may be used for a variety of purposed beside validation, including
+				Such descriptions may be used for a variety of purposes beside validation, including
 				user interface building, code generation and data integration.
 			</p>
 		</section>
@@ -204,6 +203,11 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2016-10-12</b>: Generalized sh:message so that it can also be used in constraint (instances) (<a href="http://www.w3.org/2014/data-shapes/track/issues/178">ISSUE-178</a>)</li>
+				<li><b>2016-09-27</b>: Change several constraint components such as sh:minCount / sh:maxCount and ASK-based validators to operate on value node sets because property paths may return duplicates</li>
+				<li><b>2016-09-27</b>: Removed shapesGraph argument from sh:hasShape</li>
+				<li><b>2016-09-15</b>: Added proposed SPARQL prefix handling section (<a href="http://www.w3.org/2014/data-shapes/track/issues/105">ISSUE-105</a>)</li>
+				<li><b>2016-09-15</b>: Added sh:languageIn (<a href="http://www.w3.org/2014/data-shapes/track/issues/137">ISSUE-137</a>)</li>
 				<li><b>2016-08-26</b>: Remove special treatment of sh:Violation (<a href="http://www.w3.org/2014/data-shapes/track/issues/150">ISSUE-150</a>)</li>
 				<li><b>2016-08-23</b>: Added Appendix enumerating the optional features of SHACL</li>
 				<li><b>2016-08-05</b>: Renamed scope to target, sh:scopeProperty -> sh:scopeSubjectsOf, etc <a href="http://www.w3.org/2014/data-shapes/track/issues/175">ISSUE-175</a>)</li>
@@ -315,14 +319,14 @@
 		<section class="introductory">
 			<h2>Document Outline</h2>
 			<p>
-				The introduction includes a <a href="#terminology">Terminology</a> section that may also serve as a quick overview of the language.
+				The introduction includes a <a href="#terminology">Terminology</a> section.
 			</p>
 			<p>
-				The sections 2 - 4 cover the <span class="term">SHACL Core</span> language and may be read independently from the later sections.
+				The sections 2 - 4 cover the <a>SHACL Core</a> language and may be read independently from the later sections.
 			</p>
 			<p>
-				The sections 5 onwards are about the advanced features of the SHACL language, including SPARQL-based constraint components, targets and functions.
-				A summary of these advanced and optional features can be found in the <a href="#optional-features">Appendix</a>.
+				The sections 5 onwards are about the additional features that <a>SHACL Full</a> has in addition to the Core language.
+				These advanced features include SPARQL-based constraints, constraint components, targets and functions.
 			</p>
 			<p>
 				The examples in this document use Turtle [[!turtle]].
@@ -356,24 +360,47 @@
 						<a href="http://www.w3.org/TR/rdf11-concepts/#dfn-rdf-term"><dfn>RDF term</dfn></a>, and
 						<a href="https://www.w3.org/TR/rdf11-concepts/#dfn-subject"><dfn data-lt="subject|subjects">subject</dfn></a>,
 						<a href="https://www.w3.org/TR/rdf11-concepts/#dfn-predicate"><dfn data-lt="predicate|predicates">predicate</dfn></a>, and
-						<a href="https://www.w3.org/TR/rdf11-concepts/#dfn-object"><dfn data-lt="object|objects">object</dfn></a> of RDF triples
+						<a href="https://www.w3.org/TR/rdf11-concepts/#dfn-object"><dfn data-lt="object|objects">object</dfn></a> of RDF triples, and
+						<a href="https://www.w3.org/TR/rdf11-concepts/#dfn-datatype"><dfn data-lt="datatypes">datatype</dfn></a>
 						as defined in RDF 1.1 Concepts and Abstract Syntax [[!rdf11-concepts]].
 						SHACL can be used with RDF graphs that are obtained by any means, e.g. from the file system, HTTP requests, or <a href="http://www.w3.org/TR/rdf11-concepts/#section-dataset">RDF datasets</a>.
 						SHACL makes no assumptions about whether a graph contains triples that are entailed from the graph under any RDF entailment regime.
 					</div>
 				</div>
 				<div class="def">
-					<div class="term-def-header">Property Values and Paths</div>
+					<div class="term-def-header">Property Value and Path</div>
 					<div>
-						The <dfn data-lt="value|property value|property values">values</dfn> of (or for) a property <code>p</code> for a <a>node</a> <code>n</code> in an <a>RDF graph</a> are the
+						The <dfn data-lt="value|property value|property values">values</dfn> of a property <code>p</code> for a <a>node</a> <code>n</code> in an <a>RDF graph</a> are the
 						<a>objects</a> of the <a>triples</a> in the <a>graph</a> that have <code>n</code> as <a>subject</a> and <code>p</code> as <a>predicate</a>.
 						A <dfn data-lt="path|property paths">property path</dfn> is a possible route in a <a>graph</a> between two graph <a>nodes</a>.
 						SHACL supports a subset of the property path syntax from <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1</a>,
 						including inverse paths and sequences.
+						The values of a property path <code>path</code> for a given node <code>s</code> are the distinct bindings produced by a SPARQL processor for the variable <code>o</code> from a
+						<a href="https://www.w3.org/TR/sparql11-query/#rTriplesBlock"><code>TriplesBlock</code></a> of the form <code>s path ?o</code>.
 					</div>
 				</div>
 				<div class="def">
-					<div class="term-def-header">SHACL Subclass, SHACL superclass</div>
+					<div class="term-def-header">RDF Lists</div>
+					<div>
+						In this document, an <dfn data-lt="RDF lists">RDF list</dfn> is an <a>IRI</a> or <a>blank node</a>
+						that is either <code>rdf:nil</code>, or has exactly one <a>value</a> for the property <code>rdf:first</code>
+						and exactly one <a>value</a> for the property <code>rdf:rest</code> that is also an RDF list.
+						<code>rdf:nil</code> cannot have any value for either <code>rdf:first</code> or <code>rdf:rest</code>.
+						The <a>values</a> of the <a>path</a> <code>rdf:rest*/rdf:first</code> starting from a given list node
+						are called the <dfn data-lt="member">members</dfn> of the list.
+					</div>
+				</div>
+				<div class="def">
+					<div class="term-def-header">Binding, Solution</div>
+					<div>
+						In this document, a <dfn data-lt="bindings">binding</dfn> is a pair (<a href="https://www.w3.org/TR/sparql11-query/#defn_QueryVariable">variable</a>, <a>RDF term</a>), consistent with the term's use in <a href="https://www.w3.org/TR/sparql11-query/">SPARQL</a>.
+					    A <dfn data-lt="solutions">solution</dfn> is a set of bindings, one row in the body of the result table of a SPARQL query.
+					    Variables are not required to be bound in a solution.
+					    The results table is a <a href="https://www.w3.org/TR/sparql11-query/#defn_sparqlSolutionSequence">SolutionSequence</a>, a list of solutions, possibly unordered.
+					</div>
+				</div>
+				<div class="def">
+				<div class="term-def-header">SHACL Subclass, SHACL superclass</div>
 					<div>
 						A <a>node</a> <code>Sub</code> in an <a>RDF graph</a> is a <dfn data-lt="subclasses|subclass|SHACL subclasses">SHACL subclass</dfn> of another <a>node</a> <code>Super</code>
 						in the <a>graph</a> if there is a sequence of <a>triples</a> in the <a>graph</a> each with predicate <code>rdfs:subClassOf</code> such that the <a>subject</a> of the first <a>triple</a> is <code>Sub</code>,
@@ -397,57 +424,19 @@
 					</div>
 				</div>
 				<div class="def">
-					<div class="term-def-header">SHACL Instance</div>
+					<div class="term-def-header">SHACL Class Instance</div>
 					<div>
 						A <a>node</a> in an <a>RDF graph</a> is a <dfn data-lt="SHACL instance|SHACL instances">SHACL instance</dfn> of a <a>SHACL class</a> in the <a>graph</a>
-						if one of its <a>SHACL types</a> is the given <a>class</a>.
+						if one of its <a>SHACL types</a> is the <a>class</a>.
 					</div>
 				</div>
 				<div class="def">
-					<div class="term-def-header">Data Graph, Shapes Graph, Validation, Report, Result, Violation, Failure</div>
+					<div class="term-def-header">Expected Type</div>
 					<div>
-						SHACL defines what it means for an <a>RDF graph</a>, referred to as the <dfn data-lt="data graphs">data graph</dfn>,
-						to <dfn data-lt="validation|validates|validated">validate</dfn> against an <a>RDF graph</a> containing <a>shapes</a>, referred to as the <dfn data-lt="shapes graphs">shapes graph</dfn>.
-						The result of validation is a <dfn data-lt="validation report|report">validation report</dfn> including
-						<dfn data-lt="validation result|result">validation results</dfn> such as informational results, warnings and violations.
-						Validation may also result in a <dfn>failure</dfn>, which is reported by a SHACL validation engine to indicate that a request could not be handled.
-						Failures are not represented as part of the validation report, but through implementation-specific channels.
-						Validation of a <a>shapes graph</a> against a <a>data graph</a> involves validating each <a>shape</a> in the <a>shapes graph</a> against the <a>data graph</a>.
-						A <a>node</a> in a <a>data graph</a> is said to validate against a <a>shape</a> if validation of that <a>node</a>
-						against the <a>shape</a> neither produces any <a>validation results</a> nor results in a <a>failure</a>.
-					</div>
-				</div>
-				<div class="def">
-					<div class="term-def-header">Shape</div>
-					<div>
-						A <dfn data-lt="shape|shapes">shape</dfn> is represented by a <a>node</a> in a <a>shapes graph</a> that is typically a <a>SHACL instance</a> of <code>sh:Shape</code>.
-						A shape provides a collection of <a>targets</a>, <a>filters</a>, <a>constraints</a> and <a>parameters</a> of <a>constraint components</a> that specify how a <a>data graph</a> is
-						validated against the shape.
-						Shapes can also provide non-validating information, such as labels and comments.
-					</div>
-				</div>
-				<div class="def">
-					<div class="term-def-header">Focus Node</div>
-					<div>
-						A <a>node</a> in the <a>data graph</a> that is validated against a <a>shape</a> is called a <dfn data-lt="focus node|focus nodes">focus node</dfn>.
-					</div>
-				</div>
-				<div class="def">
-					<div class="term-def-header">Target</div>
-					<div>
-						A <dfn data-lt="target|targets">target</dfn> relates a <a>shape</a> with its <a>focus nodes</a>.
-						SHACL provides several different kinds of targets, most notably the <a>SHACL instances</a> of a given <a>class</a>,
-						specifically enumerated <a>nodes</a>, or all <a>objects</a> or <a>subjects</a> of a given <a>predicate</a>.
-						Targets are represented by triples in the <a>shapes graph</a>, for example using the property <code>sh:targetClass</code>.
-						Validating a <a>data graph</a> against a <a>shape</a> involves validating the target nodes for all targets of the shape.
-					</div>
-				</div>
-				<div class="def">
-					<div class="term-def-header">Filter</div>
-					<div>
-						A <dfn data-lt="filter shape|filter shapes|filters">filter</dfn> is a <a>shape</a> in the <a>shapes graph</a> that limits the <a>nodes</a> that are
-						validated against the constraints of another shape.
-						Only those <a>nodes</a> that validate against all the filters of a shape are validated against its constraints.
+						In a <a>shapes graph</a>, the non-lieral <a>values</a> of a property or a property path can have an <dfn>expected type</dfn>.
+						These nodes are treated as <a href="https://www.w3.org/TR/rdf-schema/#ch_classes">RDFS instances</a> of specific classes, even when these nodes are not <a>SHACL instances</a> of these classes.
+						For example, the objects of triples with <code>sh:shape</code> as predicate have <code>sh:Shape</code> as expected type and
+						there does not need to be a triple with the object node as the subject, <code>rdf:type</code> as predicate and <code>sh:Shape</code> as object in the shapes graph.
 					</div>
 				</div>
 				<div class="def">
@@ -464,12 +453,23 @@
 				<div class="def">
 					<div class="term-def-header">Constraint Component, Parameter</div>
 					<div>
-						A <dfn data-lt="constraint component|constraint components|components|component">constraint component</dfn> represents a part of a <a>constraint</a> that is determined
-						by the <a>values</a> of one or more properties.
-						These properties are called <dfn data-lt="parameter">parameters</dfn>.
-						For example, <code>sh:minCount</code> is a parameter for the component that checks whether the <a>focus node</a> has at least a minimum number of <a>values</a> for a
-						particular property.
-						Validating a <a>node</a> against a <a>constraint</a> involves validating the node against each of its <a>components</a>.
+						A <dfn data-lt="constraint component|constraint components|components|component">constraint component</dfn> is an <a>IRI</a> in the <a>shapes graph</a>.
+						Constraint components define one or more properties, called <dfn data-lt="parameter">parameters</dfn>, and define so-called <dfn data-lt="validator">validators</dfn>,
+						which provide instructions (for example expressed via SPARQL queries) on how the parameters are used to validate data.
+						For example, <code>sh:minCount</code> is a parameter for the component <code>sh:MinCountConstraintComponent</code> that represents the restriction
+						that the <a>focus node</a> has at least a minimum number of <a>values</a> for a	particular property.
+						Validating a <a>node</a> against a <a>constraint</a> involves validating the node against each of the <a>components</a> for which the constraint has parameter values for.
+					</div>
+				</div>
+				<div class="def">
+					<div class="term-def-header">SHACL Core and SHACL Full</div>
+					<div>
+						The SHACL specification is divided into SHACL Core and SHACL Full.
+						<dfn>SHACL Core</dfn> consists of frequently needed features for the representation of shapes, constraints and targets.
+						All SHACL implementations must at least cover the Core.
+						<dfn>SHACL Full</dfn> consists of all features of SHACL Core plus a collection of advanced features
+						including SPARQL-based constraints, extension mechanisms to define new constraint components and target types,
+						user-defined functions and derived properties.
 					</div>
 				</div>
 
@@ -555,13 +555,13 @@
 					This specification describes conformance criteria for:
 				</p>
 				<ul>
-					<li><strong>SHACL Core Language</strong> as described in Part A of this document</li>
-					<li><strong>SHACL Extension Language</strong> as described in Part B of this document</li>
-					<li>SHACL Shapes Graphs</li>
-					<li>Validation of an RDF node against a shape</li>
-					<li>Validation of a data graph against a shapes graph</li>
+					<li><strong>SHACL Core</strong> language, also referred to as just <strong>SHACL</strong>, as described in Part A of this document</li>
+					<li><strong>SHACL Full</strong> language that extends SHACL Core with constructs described in Part B of this document</li>
+					<li>SHACL Shapes Graphs, as defined in <a href="#shapes-graph">section 3</a></li>
+					<li>Validation of a data graph against a shapes graph, as defined in <a href="#validation">section 3</a></li>
+					<li>Validation of an RDF node from a data graph against a shape from the shapes graph, as defined in <a href="#validation">section 3</a></li>
 					<li><strong>SHACL Core processors</strong> as processors that support validation with the SHACL Core Language</li>
-					<li><strong>SHACL Full processors</strong> as processors that support validation with the SHACL Core Language and the the SHACL Extension Language</li>
+					<li><strong>SHACL Full processors</strong> as processors that support validation with the SHACL Full Language</li>
 				</ul>
 
 				<p>
@@ -572,7 +572,7 @@
 			<section>
 				<h3>SHACL Example</h3>
 				<p>
-					The following example <a>data graph</a> contains eight total <a>nodes</a>, out of which three <a>nodes</a> are <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
+					The following example <a>data graph</a> contains nine total <a>nodes</a>, out of which three <a>nodes</a> are <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
 				</p>
 				<pre class="example-data">
 ex:Alice
@@ -620,7 +620,7 @@ ex:PersonShape
 	a sh:Shape ;
 	sh:targetClass ex:Person ;    # Applies to all persons
 	sh:property [
-		sh:predicate ex:ssn ;     # Constrains the values of the ex:ssn property
+		sh:predicate ex:ssn ;     # Validates the values of the ex:ssn property
 		sh:maxCount 1 ;
 		sh:datatype xsd:string ;
 		sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
@@ -639,25 +639,26 @@ ex:PersonShape
 	sh:closed true ;
 	sh:ignoredProperties ( rdf:type ) .</pre>
 				<p>
-					We can use the shape definition above to skim through some of the key terminology used by SHACL.
+					We can use the shape definition above to illustrate some of the key terminology used by SHACL.
 					The <a>focus nodes</a> for the <a>shape</a> <code>ex:PersonShape</code> are all <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
 					These <a>focus nodes</a> are the <a>targets</a> of the <a>shape</a> and are defined using the property <code>sh:targetClass</code>.
-					The <a>shape</a> has three <a>property constraints</a>, linked to the shape using the property <code>sh:property</code>,
+					The <a>shape</a> defines three <a>property constraints</a> with the property <code>sh:property</code>,
 					one of which uses a <a>path</a> expression.
-					The <a>shape</a> furthermore defines a constraint on the <a>focus nodes</a> themselves using the <a>parameters</a> <code>sh:closed</code> and <code>sh:ignoredProperties</code>.
+					The <a>shape</a> defines a further constraint on the <a>focus nodes</a> using the <a>parameters</a> <code>sh:closed</code> and <code>sh:ignoredProperties</code>.
 				</p>
 				<p>
-					Some of the <a>property constraints</a> specify multiple <a>constraint components</a> in order to
+					Some of the <a>property constraints</a> specify parameters from multiple <a>constraint components</a> in order to
 					restrict multiple aspects of the <a>property values</a>.
-					For example, in the <a>property constraint</a> for <code>ex:ssn</code>, three <a>constraint components</a> are used.
-					These <a>constraint components</a> are identified by their <a>parameters</a> <code>sh:datatype</code>, <code>sh:pattern</code> and <code>sh:maxCount</code>.
+					For example, in the <a>property constraint</a> for <code>ex:ssn</code>, parameters from three <a>constraint components</a> are used.
+					The <a>parameters</a> of these <a>constraint components</a> are <code>sh:datatype</code>, <code>sh:pattern</code> and <code>sh:maxCount</code>.
 					For each <a>focus node</a> the <a>property values</a> of <code>ex:ssn</code> will be validated against all three components.
-					The constraint on the inverse property values of <code>sh:child</code> has only one <a>constraint component</a> identified by the <code>sh:maxCount</code> <a>parameter</a>.
+					The constraint on the inverse property values of <code>sh:child</code> uses only one <a>constraint component</a> identified by the <code>sh:maxCount</code> <a>parameter</a>.
 					Note that this <a>constraint</a> uses the <a>non-validating property</a> <code>sh:name</code>
 					to suggest a human-readable name for the property when used in the inverse direction.
 				</p>
 				<p>
-					SHACL <a>validation</a> based on the provided <a>data graph</a> and <a>shapes graph</a> would produce the following <a>validation results</a>:
+					SHACL <a>validation</a> based on the provided <a>data graph</a> and <a>shapes graph</a> would produce the following <a>validation results</a>.
+					See the section <a href="#validation-report">Validation Report</a> for details on the format.
 				</p>
 				<pre class="example-results">
 [	a sh:ValidationResult ;
@@ -667,14 +668,14 @@ ex:PersonShape
 	sh:path ex:ssn ;
 	sh:value "987-65-432A" ;
 	sh:severity sh:Violation ;
-] ;
+] .
 [	a sh:ValidationResult ;
 	sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
 	sh:sourceShape ex:PersonShape ;
 	sh:focusNode ex:Bob ;
 	sh:path ex:ssn ;
 	sh:severity sh:Violation ;
-] ;
+] .
 [	a sh:ValidationResult ;
 	sh:sourceConstraintComponent sh:ClosedConstraintComponent ;
 	sh:sourceShape ex:PersonShape ;
@@ -690,7 +691,7 @@ ex:PersonShape
 					for the property <code>ex:ssn</code> as specified by the <code>sh:maxCount</code> of 1.
 					The third <a>validation result</a> is produced because the <a>shape</a> <code>ex:PersonShape</code> has the	the property <code>sh:closed</code> set to <code>true</code>
 					but <code>ex:Calvin</code> uses the property <code>ex:school</code> which is neither one of the predicates from any of the 
-					<a>property constraints</a> at the shape, nor one of the properties listed using <code>sh:ignoredProperties</code>.
+					<a>property constraints</a> of the shape, nor one of the properties listed using <code>sh:ignoredProperties</code>.
 				</p>
 			</section>
 			
@@ -717,7 +718,7 @@ ex:PersonShape
 					These design decisions mean that SHACL processors do not have to natively support full RDFS inferencing. -->
 				<p>
 					SHACL uses the RDF and RDFS vocabularies, but full RDFS inferencing is not required.
-					However, SHACL processors MUST identify <a>SHACL instances</a> of a class both in the <a>data graph</a> and the <a>shapes graph</a> without mutating either graph during the <a href="#validation">validation process</a>.
+					However, SHACL processors MUST identify <a>SHACL instances</a> of a class both in the <a>data graph</a> and the <a>shapes graph</a> without modifying either graph during the <a href="#validation">validation process</a>.
 					Furthermore, SHACL processors may operate on RDF graphs that include entailments - either pre-computed before being submitted to a SHACL processor or performed on the fly as part of SHACL processing.
 					To support processing of entailments, SHACL includes the property <a href="#entailment"><code>sh:entailment</code></a> to indicate what inferencing is required by a given <a>shapes graph</a>.
 					SHACL implementations may, but are not required to, support entailment regimes.
@@ -731,7 +732,7 @@ ex:PersonShape
 					However, SPARQL is not required for the implementation of the SHACL Core language.
 				</p>
 				<p>
-					SPARQL variables using the <code>$</code> marker represent external values that must be <a>pre-bound</a> or (in the case of <code>$PATH</code>) substituted in the SPARQL query before execution.
+					SPARQL variables using the <code>$</code> marker represent external <a>bindings</a> that must be <a>pre-bound</a> or, in the case of <code>$PATH</code>, substituted in the SPARQL query before execution.
 				</p>
 				<p>
 					In some places, the specification assumes that the provided SPARQL engines are preserving the identity of <a>blank nodes</a>,
@@ -739,15 +740,15 @@ ex:PersonShape
 				</p>
 				<p>
 					The definition of some <a>constraints</a> requires or is simplified through access to the <a>shapes graph</a> during query execution.
-					SHACL validation engines MAY <a>pre-bind</a> the variable <code>shapesGraph</code> to provide access to the <a>shapes graph</a>.
+					SHACL Full processors MAY <a>pre-bind</a> the variable <code>shapesGraph</code> to provide access to the <a>shapes graph</a>.
 					Access to the <a>shapes graph</a> is not a requirement for supporting the SHACL Core language.
-					The variable <code>shapesGraph</code> can also be used in user-defined <a href="#sparql-constraints">SPARQL constraints</a> and <a href="#constraint-components">SPARQL-based constraint components</a>.
-					However, such <a>constraints</a> may not be interoperable across different SHACL validation engines or not applicable to remote RDF datasets.
+					The variable <code>shapesGraph</code> can also be used in <a href="#sparql-constraints">SPARQL-based constraints</a> and <a href="#constraint-components">SPARQL-based constraint components</a>.
+					However, such <a>constraints</a> may not be interoperable across different SHACL Full processors or not applicable to remote RDF datasets.
 				</p>
 				<p>
 					Some SHACL <a>constraints</a> are defined with the use of the <a href="#hasShape"><code>sh:hasShape</code></a> function.
 					SHACL additionally introduces mechanisms to define <a>constraints</a>, <a>targets</a>, <a href="#derivedValues">derived values</a> and new functions in SPARQL.
-					Implementations that cover only the the SHACL Core features are not required to implement these mechanisms or the <code>sh:hasShape</code> function.
+					Implementations that cover only the SHACL Core features are not required to implement these mechanisms or the <code>sh:hasShape</code> function.
 				</p>
 				<div class="syntaxmenu">
 					<p>The button below can be used to show or hide the SPARQL definitions.</p>
@@ -769,56 +770,82 @@ ex:PersonShape
 		<section id="shapes">
 			<h2>Shapes</h2>
 			<p>
-				<a>Shapes</a> are <a>SHACL instances</a> of <code>sh:Shape</code> and define <a>constraints</a> that a set of <a>focus nodes</a> can be validated against.
-				The set of <a>focus nodes</a> for a <a>shape</a> may be defined explicitly in a <a>shape</a> using <a>targets</a> and <a>filters</a>.
-				The <a>focus nodes</a> may also be determined as part of the <a>validation</a> of <a>constraints</a> that include references to <a>shapes</a>
-				using properties such as <a href="#ShapeConstraintComponent"><code>sh:shape</code></a> and <a href="#OrConstraintComponent"><code>sh:or</code></a>.
+				A <dfn data-lt="shape|shapes">shape</dfn> is a <a>node</a> in a <a>shapes graph</a> that is
+				a <a>SHACL instance</a> of <code>sh:Shape</code> or
+				the <a>expected type</a> of the node is <code>sh:Shape</code>, or
+				is provided as input in the second argument of the <code>sh:hasShape</code> function through the evaluation of a constraint.
+			</p>
+			<p>
+				A shape provides a set of zero or more <a>targets</a>, <a>filters</a>, <a>constraints</a> and <a>parameters</a> of <a>constraint components</a>
+				that specify how a set of nodes from the <a>data graph</a> are validated against the shape.
+			</p>
+			<p>
+				A <a>node</a> in the <a>data graph</a> that is <a>validated</a> against a <a>shape</a> is called a <dfn data-lt="focus node|focus nodes">focus node</dfn>.
+			</p>
+			<p>
+				The set of <a>focus nodes</a> for a <a>shape</a> may be identified as follows:
+			</p>
+			<ul>
+		    	<li>specified in a <a>shape</a> using <a>targets</a> and <a>filters</a>,</li>
+				<li>specified in any <a>constraint</a> that references a <a>shape</a>
+					in parameters of <a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>) or
+					<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),</li>
+				<li>specified as input to the SHACL processor for validating specific nodes from the <a>data graph</a> against the shape, or</li>
+			</ul>
+			<p>
+				Note that for SHACL Full, focus nodes are also computed through the evaluation of the <code>sh:hasShape</code> SPARQL function.
+			</p>
+			<p>
 				<!--Shape targets define the selection criteria for the targetted nodes.
 				Shapes with targets MAY additionally provide <a>filters</a>.
 				Filter shapes further refine the focus nodes to the ones that conform to a set of filter shapes.-->
 
-				Shapes can also provide <a href="#nonValidation">non-validating information</a>, such as labels and names.
+				Shapes can also provide <a href="#nonValidation">non-validating information</a>, such as labels and comments.
 
-				The following figure depicts a workflow of the targeting and filtering process.
 				<!-- SHACL <a>validation</a> engines MAY alter the order of the depicted steps as long as the returned <a>validation results</a> are correct.-->
 				<!--DK: TODO check term correct -->
 
 			</p>
-			<figure>
-				<img src="images/SHACL-Validation-Process.png" />
-				<figcaption>Illustration of the targeting and filtering process</figcaption>
-			</figure>
 
 			<section id="targets">
 				<h3>Targets</h3>
+
 				<p>
-					Targets specify which <a>nodes</a> in the <a>data graph</a> are validated against a <a>shape</a>.
-					While targets define the starting points of the validation process,
-					some shapes may validate
-					a) less target nodes when a shapes defines <a>filters</a> or
-					b) additional nodes against different shapes, for example referenced via <a href="#ShapeConstraintComponent">sh:shape</a> and <a href="#OrConstraintComponent">sh:or</a>.
+					A <dfn data-lt="target|targets">target</dfn> provides one way to specify potential <a>focus nodes</a> for a <a>shape</a>.
 
 				</p>
+
 				<p>
-					The Core of SHACL includes four Core target types:
+					SHACL Core includes four kinds of targets:
 					<a href="#targetNode">node targets</a>,
 					<a href="#targetClass">class-based targets</a>,
 					<a href="#targetSubjectsOf">subjects-of targets</a>, and
 					<a href="#targetObjectsOf">objects-of targets</a>.
+
+					The SHACL Full language additionally defines an advanced <a href="#sparql-targets">general target mechanism based on SPARQL</a>.
 				</p>
 				<p>
-					The SHACL language additionally defines an advanced <a href="#sparql-targets">general target mechanism based on SPARQL</a>.
+					Not all target nodes become focus nodes.
+					When a shape includes <a>filters</a>, filters can remove nodes specified by targets from the set of the shape’s focus nodes.
 				</p>
+
 				<p>
 					When multiple <a>targets</a> are provided in a <a>shape</a>, the target of a shape is the union of all nodes produced by these individual targets.
 					Nodes specified by targets are not required to exist in the <a>data graph</a>.
+				</p>
+				<p>
+					Targets are ignored when a shape is processed as a referenced shape in parameters of
+					<a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>),
+					<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),
+					<a href="#filterShape">filter shapes</a> (<code>sh:filterShape</code>) or, for SHACL Full,
+					in the evaluation of the <a href="#hasShape"><code>sh:hasShape</code></a> SPARQL function.
 				</p>
 				
 				<section id="targetNode">
 					<h4>Node targets (sh:targetNode)</h4>
 					<p>
 						A <dfn>node target</dfn> is defined with the <code>sh:targetNode</code> predicate.
-						The <a>values</a> of <code>sh:targetNode</code> can be <a>IRIs</a> or <a>literals</a>.
+						Each <a>value</a> of <code>sh:targetNode</code> can be an <a>IRI</a> or a <a>literal</a>.
 						Each value of a node target defines a node to validate in the data graph.
 					</p>
 
@@ -841,9 +868,9 @@ ex:Bob a ex:Person .</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT DISTINCT ?this
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
 WHERE {
-	BIND ($targetNode AS ?this)
+	BIND ($targetNode AS ?this)    <span class="triple-can-be-skipped"># $targetnote is <a href="#pre-binding">pre-bound</a> to ex:Alice</span>
 }</pre>
 					</div>
 				</section>
@@ -852,7 +879,7 @@ WHERE {
 					<h4>Class-based Targets (sh:targetClass)</h4>
 					<p>
 						A <dfn>class target</dfn> is defined with the <code>sh:targetClass</code> predicate.
-						Each value of <code>sh:targetClass</code> must be an <a>IRI</a> that is expected to be a <a>SHACL class</a>.
+						Each value of <code>sh:targetClass</code> must be an <a>IRI</a>.
 						For every value <code>c</code> of a class target, all <a>SHACL instances</a> of <code>c</code> in the data graph are validated
 						against the <a>subject</a> of the <code>sh:targetClass</code> triple.
 					</p>
@@ -867,7 +894,7 @@ ex:PersonShape
 <span class="focus-node-selected">ex:Bob</span> a ex:Person .
 ex:NewYork a ex:Place .</pre>
 					<p>
-						In this example, only <code>ex:Alice</code> and <code>ex:Bob</code> are validated.
+						In this example, only <code>ex:Alice</code> and <code>ex:Bob</code> are focus nodes.
 						Note that, according to the <a>SHACL instance</a> definition, all the <code>rdfs:subClassOf</code> declarations needed to walk the class hierarchy must exist in the <a>data graph</a>.
 						However, the <code>ex:Person a rdfs:Class</code> triple is not required to exist in either graphs.
 					</p>
@@ -886,9 +913,9 @@ ex:House a ex:Nephrologist .</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT DISTINCT ?this
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
 WHERE {
-	?this rdf:type/rdfs:subClassOf* $targetClass
+	?this rdf:type/rdfs:subClassOf* $targetClass .    <span class="triple-can-be-skipped"># $targetClass is <a href="#pre-binding">pre-bound</a> to ex:Person</span>
 }</pre>
 					</div>
 
@@ -902,9 +929,10 @@ WHERE {
 ex:Person
 	<b>a rdfs:Class</b>, sh:Shape .</pre>
 						<pre class="example-data">
-<span class="focus-node-selected">ex:Alice</span> a ex:Person .</pre>
+<span class="focus-node-selected">ex:Alice</span> a ex:Person .
+ex:NewYork a ex:Place .</pre>
 						<p>
-							In this example, only <code>ex:Alice</code> is validated, because it is a <a>SHACL instance</a> of
+							In this example, only <code>ex:Alice</code> is a focus nodes, because it is a <a>SHACL instance</a> of
 							<code>ex:Person</code> which is both a class and a shape in the <a>shapes graph</a>.
 						</p>
 					</section>
@@ -917,10 +945,6 @@ ex:Person
 						the <a>values</a> of which must be <a>IRIs</a>.
 						For every value <code>p</code> of such a target, the validated nodes are defined as
 						the set of <a>subjects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
-					</p>
-					<p>
-						In other words, this type of target can be used to state that a shape applies to all nodes in the <a>data graph</a>
-						that have at least one <a>value</a> of the given property.
 					</p>
 
 					<pre class="example-shapes">
@@ -942,9 +966,9 @@ ex:Bob ex:livesIn ex:NewYork .</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT DISTINCT ?this
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
 WHERE {
-	?this $targetSubjectsOf ?any .
+	?this $targetSubjectsOf ?any .    <span class="triple-can-be-skipped"># $targetSubjectsOf is <a href="#pre-binding">pre-bound</a>to ex:knows</span>
 }</pre>
 					</div>
 				</section>
@@ -977,9 +1001,9 @@ ex:Bob ex:livesIn ex:NewYork .</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION</div>
 <pre class="def-sparql-body">
-SELECT DISTINCT ?this
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
 WHERE {
-	?any $targetObjectsOf ?this .
+	?any $targetObjectsOf ?this .    <span class="triple-can-be-skipped"># $targetObjectsOf is <a href="#pre-binding">pre-bound</a> to ex:knows</span>
 }</pre>
 					</div>
 				</section>
@@ -988,9 +1012,11 @@ WHERE {
 			<section id="filterShape">
 				<h3>Filter Shapes</h3>
 				<p>
-					A <a>filter</a> is a <a>shape</a> in a <a>shapes graph</a> that limits the nodes that are validated against a given <a>constraint</a> or <a>shape</a>.
-					Only those nodes that validate against all the filters are validated.
-					A filter is specified with the <code>sh:filterShape</code> predicate.
+					A <dfn data-lt="filter shape|filter shapes|filters">filter</dfn> is a <a>shape</a> in the <a>shapes graph</a>
+					that further refines the <a>focus nodes</a> in the data graph that are validated against a <a>constraint</a> or all the constraints of a <a>shape</a>.
+					A filter is specified as an object in a triple with <code>sh:filterShape</code> as the predicate.
+					The subjects of these triples can be constraints or shapes.
+					Only those <a>nodes</a> that successfully validate against all the filters of a constraint or a shape become focus nodes for the constraint or the constraints of the shape.
 				</p>
 				<p>
 					The following example states that the <code>sh:minCount</code> constraint on <code>ex:email</code> is filtered to include only <a>SHACL instances</a> of <code>ex:Person</code> that are <code>ex:member</code>s of <code>ex:W3c</code>.
@@ -1031,7 +1057,7 @@ ex:Bob a ex:Person ;
 ] . </pre>
 
 				<p>
-					The following example shows a <code>sh:filterShape</code> that is defined on a specific <a>property constraint</a>, instead of the whole <a>shape</a>.
+					The following example shows a <code>sh:filterShape</code> that is defined for a specific <a>property constraint</a>, instead of the whole <a>shape</a>.
 					In this scenario, the <code>sh:minCount</code> constraint is only applied to persons that are also member of <code>ex:W3c</code>.
 				</p>
 
@@ -1050,43 +1076,34 @@ ex:FilteredExampleShape
 		] ;
 	] .
 </pre>
-				<p>
-					Filter shapes MUST be evaluated before validating the associated shapes or constraints.
-					This includes scenarios such as <a href="#ShapeConstraintComponent"><code>sh:shape</code></a> where a shape is explicitly referenced by another constraint.
-					However, during the validation of a shape referenced via <code>sh:shape</code>, the declared <a>targets</a> of these shapes are not used to limit the set of focus nodes.
-				</p>
-				<!-- span class="todo">TODO: say anything about filters and severities?</span><br/
-				HK: What would that potentially be? -->
+
 			</section>
 			
 			<section id="shape-constraints">
 				<h3>Constraints</h3>
 				<p>
-					Constraints are defined within a shape and <code>sh:Constraint</code> is the <a>SHACL superclass</a> of all constraint types.
 					The SHACL Core language defines two types of constraints:
 					a) constraints about a particular property or <a>path</a> and its <a>values</a> for the focus node (<a>property constraints</a>) and
 					b) constraints about the <a>focus node</a> itself (<a>focus node constraints</a>).
-				</p>
-
-				<p>
-					Additional types of constraints can be added using the extension mechanism,
-					as <a href="#sparql-constraints">SPARQL-based constraints</a> or
+					In addition to those, SHACL Full can be used to define
+					<a href="#sparql-constraints">SPARQL-based constraints</a> or
 					<a href="#constraint-components">SPARQL-based constraint components</a>.
+					SHACL constraints are declared within shapes as specified by each constraint type.
+					<code>sh:Constraint</code> is the <a>SHACL superclass</a> of all SHACL constraint types.
 				</p>
 
 				<p>
 					Constraints may contain
 					<a href="#nonValidation">non-validating</a> properties (such as <code>sh:description</code>) or
 					<a>parameters</a> of <a>constraint components</a> (e.g. <code>sh:minCount</code>).
-					<a>Constraint components</a> define one or more <a>parameter</a> properties and <a>validation</a> instructions
+					<a>Constraint components</a> declare one or more <a>parameter</a> properties and <a>validation</a> instructions
 					(such as those implemented as SPARQL queries) that can be used to perform the <a>validation</a> for the given <a>focus node</a> and parameter <a>values</a>.
 					<!-- The relationship between a <a>constraint component</a> and the <span class="term">constraint types</span>
 					that it can be used with is called the <dfn data-lt="contexts">context</dfn> of the component.
 					For example, the <span class="term">context</span> of the component defining the <code><a href="#ClosedConstraintComponent">sh:closed</a></code> property is <code>sh:NodeConstraint</code>.
 					This means that the property <code>sh:closed</code> can only be used in <a>SHACL instances</a> of <code>sh:NodeConstraint</code>.-->
-					The catalog of constraint components in the Core of SHACL is defined in <a href="#constraints">section 4</a>.
+					The catalog of predefined constraint components in SHACL Core is described in <a href="#constraints">section 4</a>.
 				</p>
-
 
 				<section id="property-constraints-section">
 					<h4>Property Constraints (sh:predicate or sh:path)</h4>
@@ -1121,8 +1138,7 @@ ex:ExampleShapeWithPropertyConstraints
 	] .</pre>
 					<p>
 						<code>sh:PropertyConstraint</code> is the class of property constraints.
-						A SHACL validation engine treats all values of <code>sh:property</code> as <a>property constraints</a>.
-						Thus, the values of <code>sh:property</code> do not require the <code>rdf:type sh:PropertyConstraint</code> triple.
+						The objects of triples with <code>sh:property</code> as predicate have <code>sh:PropertyConstraint</code> as <a>expected type</a>.
 					</p>
 
 				</section>
@@ -1131,10 +1147,13 @@ ex:ExampleShapeWithPropertyConstraints
 					<h4>Focus Node Constraints</h4>
 
 					<p>
-						<a>Focus node constraints</a> define constraints about the <a>focus node</a> itself.
+						<a>Focus node constraints</a> specify conditions that must be met by the <a>focus node</a> itself.
 						Since focus node constraints operate directly on the input focus nodes they impose some limitations in comparison to <a>property constraints</a>.
-						In particular, constraints that operate on value sets, such as <code>sh:hasValue</code> and <code>sh:equals</code>, are not applicable to focus node constraints.
-						Focus node constraints are attached directly to <a>Shapes</a> and <code>sh:shape</code> can be used to group focus node constraints.
+						In particular, constraint <a>parameters</a> that operate on value sets, such as <code>sh:hasValue</code> and <code>sh:equals</code>, are not applicable to focus node constraints.
+					</p>
+					<p>
+						The class <code>sh:Shape</code> is defined as <code>rdfs:subClassOf sh:Constraint</code>.
+						Thus, every shape is also a focus node constraint.
 					</p>
 
 					<pre class="example-shapes">
@@ -1143,32 +1162,30 @@ ex:ExampleShapeWithFocusNodeConstraint
 	sh:targetClass ex:Person ;
 	sh:stem "https://www.w3.org/People/" .</pre>
 
-					<p>
-						The class <code>sh:Shape</code> is defined as <code>rdfs:subClassOf sh:Constraint</code>.
-					</p>
-
 				</section>
 
 				<section id="multiple-parameter-constraints-section">
 					<h4>Multiple Parameters</h4>
-
 					<p>
-						Parameters of constraint components that only declare one parameter,  such as <code>sh:class</code>,
-						may be used multiple times within the same constraint node.
-						The interpretation of such declarations is conjunction, i.e. all constraints must validate.
-						Constraints that declare more than one parameters, such as <code>sh:pattern</code>, are not allowed to be declared more than once in the same constraint.
-						In the following example this technique is used to restrict the values of a property to be <a>SHACL instances</a> of both
-						<code>ex:Customer</code> and <code>ex:MalePerson</code>.
+						Some constraint components declare only a single parameter.
+						For example <a href="#ClassConstraintComponent"><code>sh:ClassConstraintComponent</code></a> has the single parameter <code>sh:class</code>.
+						These parameters may be used multiple times in the same constraint node.
+						The interpretation of such declarations is conjunction, i.e. all constraints apply.
+						In the following example this technique is used to restrict the values of <code>ex:customer</code> to be <a>SHACL instances</a> of both
+						<code>ex:Customer</code> and <code>ex:Person</code>.
 					</p>
 					<pre class="example-shapes">
-ex:ShapeWithTwoClasses
+ex:InvoiceShape
 	a sh:Shape ;
 	sh:property [
-		sh:predicate ex:someProperty ;
+		sh:predicate ex:customer ;
 		sh:class ex:Customer ;
-		sh:class ex:MalePerson ;
+		sh:class ex:Person ;
 	] .</pre>
-
+					<p>
+						Some constraint components such as <a href="#PatternConstraintComponent"><code>sh:PatternConstaintComponent</code></a> declare more than one parameter.
+						Constraints are not allowed to have more than one value for any of the parameters of such components.
+					</p>
 				</section>
 
 				<section id="path-syntax">
@@ -1179,7 +1196,7 @@ ex:ShapeWithTwoClasses
 						<code>PredicatePath</code>, <code>InversePath</code>, <code>SequencePath</code>, <code>AlternativePath</code>,
 						<code>ZeroOrMorePath</code>, <code>OneOrMorePath</code> and <code>ZeroOrOnePath</code>.
 
-						A valid SHACL property path <code>p</code> is represented by an <a>IRI</a> or a <a>blank node</a> that can be
+						A valid <dfn>SHACL property path</dfn> <code>p</code> is an <a>IRI</a> or a <a>blank node</a> that can be
 						correctly traversed recursively using the following rules.
 					</p>
 					<ol>
@@ -1193,12 +1210,12 @@ ex:ShapeWithTwoClasses
 						</li>
 						<li>
 							If the graph contains a <a>triple</a> of the form <code>p rdf:first elt</code>,
-							the path must be a well-formed RDF list with a at least two members.
+							the path must be an <a>RDF list</a> with a at least two <a>members</a>.
 							Each member must be valid SHACL property path that is converted into a sequence of either <code>SequencePath</code> or <code>AlternativePath</code> elements.
 						</li>
 						<li>
 							If the graph contains a <a>triple</a> of the form <code>p sh:alternativePath elt</code>,
-							the value of path must be a well-formed RDF list with a at least two members.
+							the value of path must be an <a>RDF list</a> with a at least two <a>members</a>.
 							All members must be valid SHACL property paths that become a series of <code>AlternativePath</code> elements.
 						</li>
 						<li>
@@ -1247,7 +1264,7 @@ ex:ShapeWithTwoClasses
 					</p>
 					<pre class="example-shapes">
 ex:ShapeWithIdenticalPath
-	a sh:shape ;
+	a sh:Shape ;
 	sh:property [
 		sh:predicate ex:mother .
 	]
@@ -1256,7 +1273,7 @@ ex:ShapeWithIdenticalPath
 	] .
 
 ex:ShapeWithDifferentPath
-	a sh:shape ;
+	a sh:Shape ;
 	sh:property [
 		sh:predicate ex:parent .
 	]
@@ -1271,30 +1288,125 @@ ex:parent sh:alternativePath ( ex:father ex:mother  ) .</pre>
 						The property constraint with <code>sh:predicate</code> denotes <code>ex:parent</code> while the property constraint with <code>sh:path</code> denotes the property path <code>(ex:father|ex:mother)</code>.
 					</p>
 				</section>
-
-
+				<section id="severity">
+					<h4>Declaring the Severity of a Constraint</h4>
+					<p>
+						Constraints may specify a <a>value</a> for the property <code>sh:severity</code> in the <a>shapes graph</a>.
+						The values of this property must be <a>IRIs</a>.
+						SHACL includes the three pre-defined IRIs to represent <dfn data-lt="severity">severities</dfn> listed in the table below.
+						These are defined in the SHACL vocabulary as SHACL instances of <code>sh:Severity</code>.
+					</p>
+					<table class="term-table">
+						<tr>
+							<th>Severity</th>
+							<th>Description</th>
+						</tr>
+						<tr>
+							<td><code>sh:Info</code></td>
+							<td>A non-critical constraint violation indicating an informative message.</td>
+						</tr>
+						<tr>
+							<td><code>sh:Warning</code></td>
+							<td>A non-critical constraint violation indicating a warning.</td>
+						</tr>
+						<tr>
+							<td><code>sh:Violation</code></td>
+							<td>A constraint violation that should be fixed.</td>
+						</tr>
+					</table>
+					<p>
+						The specific values of <code>sh:severity</code> have no impact on the validation,
+						but MAY be, for example, used by user interface tools to categorize validation results.
+						The values of <code>sh:severity</code> are used by SHACL processors to populate the <code>sh:severity</code> field of
+						validation results, see <a href="#results-severity">section on severity in validation results</a>.
+						In the context of constraints, <code>sh:Violation</code> is the default if <code>sh:severity</code> is unspecified.
+						The following example clarifies this.
+					</p>
+					<pre class="example-shapes">
+ex:MyShape
+	a sh:Shape ;
+	sh:targetNode ex:MyInstance ;
+	sh:property [
+		# Violations of either minCount and datatype are produced as warnings
+		sh:predicate ex:myProperty ;
+		sh:minCount 1 ;
+		sh:datatype xsd:string ;
+		sh:severity sh:Warning ;
+	] ;
+	sh:property [
+		# The default severity here is sh:Violation
+		sh:predicate ex:myProperty ;
+		sh:maxLength 10 ;
+		sh:message "Too many characters"@en ;
+		sh:message "Zu viele Zeichen"@de ;
+	] .</pre>
+					<pre class="example-data">
+ex:MyInstance
+	ex:myProperty "http://toomanycharacters"^^xsd:anyURI .</pre>
+					<pre class="example-results">
+[
+	a sh:ValidationResult ;
+	sh:focusNode ex:MyInstance ;
+	sh:path ex:myProperty ;
+	sh:severity sh:Warning ;
+	sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+	sh:sourceShape ex:MyShape ;
+	sh:value "http://toomanycharacters"^^xsd:anyURI ;
+] .
+[
+	a sh:ValidationResult ;
+	sh:focusNode ex:MyInstance ;
+	sh:message "Too many characters"@en ;
+	sh:message "Zu viele Zeichen"@de ;
+	sh:path ex:myProperty ;
+	sh:severity sh:Violation ;
+	sh:sourceConstraintComponent sh:MaxLengthConstraintComponent ;
+	sh:sourceShape ex:MyShape ;
+	sh:value "http://toomanycharacters"^^xsd:anyURI ;
+] .</pre>
+				</section>
+				<section id="message-constraint">
+					<h4>Defining Messages for a Constraint</h4>
+					<p>
+						Constraints may have values for the property <code>sh:message</code>, and
+						these values must be <code>xsd:string</code> literals or literals with a language tag.
+						If a constraint has at least one value for <code>sh:message</code> in the shapes graph, then
+						all validation results produced as a result of the constraint will have exactly these messages
+						as their value of <code>sh:message</code>, i.e. the values will be copied from the shapes graph
+						into the results graph.
+						A constraint SHOULD NOT have more than one value for <code>sh:message</code> with the same language tag.
+					</p>
+					<p>
+						The example from the previous section uses this mechanism to supply the second validation result
+						with two messages.
+						See the <a href="#results-message">section on <code>sh:message</code> in the validation results</a>
+						on further details on how the values of <code>sh:message</code> are populated.
+					</p>
+				</section>
+				
 			</section>
 		</section>
 
 		<section id="validation">
 			<h2>Validation and Graphs</h2>
 			<p>
-				A SHACL validation engine takes two immutable RDF graphs as input, a valid <a>shapes graph</a> and a
-				<a>data graph</a>, and validates the <a>data graph</a> against the <a>shapes graph</a> as described herein.
+				The definition for <dfn data-lt="validation|validates|validated|validate">validating</dfn> a <a>data graph</a>
+				against a <a>shapes graph</a> as well as a <a>node</a> from the data graph against a <a>shape</a> from the shapes graph is provided below:
 			</p>
 
 			<div id="def-validation" class="def def-text">
 				<div class="def-header">VALIDATION DEFINITION</div>
 				<div class="def-text-body">
+					Validation is the process of determining whether a <a>data graph</a>, or <a>nodes</a> in the <a>data graph</a>, validate against a <a>shapes graph</a>.
 					<ul>
-						<li>A <a>node</a> validates against a <a>shape</a> iff
+						<li>A <a>node</a> validates against a <a>shape</a> if and only if
 							either it does not validate against some <a>filter</a> of the shape
-							or none of the <a>constraints</a> in the shape produce a <a>validation result</a> or a <a>failure</a> for the node.
+							or none of the <a>constraints</a> in the shape produce a <a>validation result</a> or a <a>failure</a> for the focus node.
 						</li>
-						<li>A <a>data graph</a> validates against a <a>shape</a> iff
+						<li>A <a>data graph</a> validates against a <a>shape</a> if and only if
 							each node that is in any of the <a>targets</a> of the shape validates against the shape.
 						</li>
-						<li>A <a>data graph</a> validates against a <a>shapes graph</a> iff
+						<li>A <a>data graph</a> validates against a <a>shapes graph</a> if and only if
 							the data graph validates against each <a>shape</a> in the shapes graph.
 						</li>
 					</ul>
@@ -1302,38 +1414,60 @@ ex:parent sh:alternativePath ( ex:father ex:mother  ) .</pre>
 			</div>
 
 			<p>
-				The validation process returns a <a>validation report</a> containing all <a>validation results</a>.
-				By default, the validation report contains validation results of all <a>severity</a> levels
-				but the user can request validation results with a custom minimum severity.
-				For simpler validation scenarios, SHACL validation engines SHOULD provide an additional validation interface that returns only <span class="term">VALID</span> or <span class="term">INVALID</span>.
+				After validation, SHACL processors MUST return a <a>validation report</a> containing all <a>validation results</a>.
+				For simpler validation scenarios, SHACL processors SHOULD provide an additional validation interface that returns only
+				<code>true</code> for valid or <code>false</code> for invalid.
+				Only SHACL implementations that can return all of the mandatory properties of the <a>Validation Results Vocabulary</a> are standards-compliant.
 			</p>
 			<p>
-				During validation, the <a>data graph</a> and the <a>shapes graph</a> must remain immutable, i.e. both graphs at the end of the validation must be identical to the graph at the beginning of validation.
+				A validation may also result in a <dfn>failure</dfn>, which is reported by a SHACL processor to indicate that a request could not be handled.
+				Failures are not represented as part of the validation report but through implementation-specific channels.
 			</p>
 			<p>
-				A SHACL validation engine MUST implement all constructs in the Core of SHACL (Sections 2, 3, 4).
-				A SHACL engine does not have to implement the other parts of SHACL.
+				To validate a data graph against the shapes graph, a SHACL processor requires the shapes graph and the data graph as arguments for the validation process.
+				Optionally, two additional arguments may be provided for validating a specific node from the data graph against a specific shape from the shapes graph.
+			</p>
+			<p>
+				During validation, the <a>data graph</a> and the <a>shapes graph</a> MUST remain immutable, i.e. both graphs at the end of the validation must be identical to the graph at the beginning of validation.
+				SHACL processors MUST NOT change the graphs that they use to construct the shapes graph or the data graph,
+				even if these graphs are part of an RDF store that allows changes to its stored graphs.
+				SHACL processors MAY store the graphs that they create, such as a graph containing validation results,
+				and this operation MAY change existing graphs in an RDF store, but not any of the graphs that were used to construct the shapes graph or the data graph.
+				SHACL processing is thus idempotent.
 			</p>
 
 			<section id="shapes-graph">
 				<h3>Shapes Graph</h3>
 				<p>
-					The <a>shapes graph</a> contains shape definitions that a <a>data graph</a> can be tested against.
+					The <dfn data-lt="shapes graphs">shapes graph</dfn> is an RDF graph that contains shape definitions that a <a>data graph</a> can be tested against.
 					Shapes graphs can be reusable validation modules that can be cross-referenced with the predicate <a href="http://www.w3.org/TR/owl2-syntax/#Imports"><code>owl:imports</code></a>.
-					Prior to validation, SHACL validation engines SHOULD extend the originally provided <a>shapes graph</a> by transitively following and importing all referenced <a>shapes graphs</a>
+					As a pre-validation step, SHACL processors SHOULD extend the originally provided <a>shapes graph</a> by transitively following and importing all referenced <a>shapes graphs</a>
 					through the <a href="http://www.w3.org/TR/owl2-syntax/#Imports"><code>owl:imports</code></a> predicate.
+					The resulting graph forms the input <a>shapes graph</a> for validation and MUST NOT be further modified during the validation process.
 				</p>
 				<p>
-					In addition to shape definitions, the shapes graph may contain additional information for the validation engine such as <a href="#entailment">entailment</a> directives.
+					In addition to shape definitions, the shapes graph may contain additional information for the SHACL processor such as <a href="#entailment">entailment</a> directives.
 				</p>
+				<section id="shapes-recursion">
+					<h4>Recursive shapes</h4>
+					<p id="recursion">
+						A <dfn>recursive shape</dfn> is a shape that its constraints refer to the shape directly or transitively via the parameters of
+						<a href="#constraints-shape">shape-based constraint components</a> (e.g. <code>sh:shape</code>),
+						<a href="#constraints-logical">logical constraint components</a> (e.g. <code>sh:or</code>),
+						<a href="#filterShape">filter shapes</a> (<code>sh:filterShape</code>) or
+						the <a href="#hasShape"><code>sh:hasShape</code></a> SPARQL function.
+
+						The handling of recursive shapes is not defined in SHACL and is left to SHACL processor implementations.
+					</p>
+				</section>
+
 			</section>
 			
 			<section id="data-graph">
 				<h3>Data Graph</h3>
 				<p>
-					The <a>data graph</a> contains the RDF data that a SHACL engine can <a>validate</a>.
+					The <dfn data-lt="data graphs">data graph</dfn> is an RDF graph that a SHACL processor can <a>validate</a>.
 					SHACL treats it as a general RDF graph and makes no assumption if it is e.g. an RDF dataset, an in-memory graph or a named graph in a remote SPARQL endpoint.
-					<!-- TODO: say something about datasets / $shapesGraph -->
 				</p>
 				<p>
 					The data graph is expected to include all the ontology axioms related to the data and especially all the <code>rdfs:subClassOf</code> triples in order for SHACL to correctly identify class targets and validate Core SHACL constraints.
@@ -1343,7 +1477,7 @@ ex:parent sh:alternativePath ( ex:father ex:mother  ) .</pre>
 			<section id="sh-shapes-graph">
 				<h3>Linking to shapes graphs (sh:shapesGraph)</h3>
 				<p>
-					A <a>data graph</a> or a <a>shapes graph</a> can include triples used to suggest one or more graphs to a SHACL validation engine with the predicate <code>sh:shapesGraph</code>.
+					A <a>data graph</a> can include triples used to suggest one or more graphs to a SHACL processor with the predicate <code>sh:shapesGraph</code>.
 					Every <a>value</a> of this property is an <a>IRI</a> representing a graph that should be included into the <a>shapes graph</a> used to validate the <a>data graph</a>.
 				</p>
 				<p>
@@ -1356,34 +1490,30 @@ ex:parent sh:alternativePath ( ex:father ex:mother  ) .</pre>
 	sh:shapesGraph ex:graph-shapes2 .</pre>
 
 				<p>
-					The same mechanism applies for ontologies or vocabularies.
-					The ontology or the vocabulary IRI can point to one or more graphs with the predicate <code>sh:shapesGraph</code>.
-					A SHACL validation engine MAY take this information into account to determine which <a>shapes graph</a> to use for validating a <a>data graph</a> that uses that ontology or vocabulary.
+					SHACL provides a way for schema (i.e. ontology or vocabulary) creators to suggest a set of <a>shapes graphs</a> for validating <a>data graphs</a> that uses that schema.
+					These suggestions MAY be taken into account by users for specifying a shapes graph in order to validate a data graph.
+					The suggestions are instantiated in the <a href="https://www.w3.org/TR/owl2-syntax/#Ontology_Documents">schema documents</a>
+					where every value for the property <code>sh:shapesGraph</code> denotes a suggested <a>shapes graph</a>.
+					When the schema is identified by a <a href="https://www.w3.org/TR/owl2-syntax/#Ontology_IRI_and_Version_IRI">schema IRI or a version IRI</a>,
+					this IRI SHOULD be the subject of these triples.
 				</p>
 			</section>
 
 			<section id="validation-report">
 				<h3>Validation report</h3>
 				<p>
-					The <a>validation report</a> is the result of the validation process and includes a set of zero or more <a>validation results</a>.
-					Each <a>validation result</a> contains a set of required or optional values that are described in the SHACL <span class="term">Validation Results Vocabulary</span>.
+					The <dfn data-lt="validation report|report">validation report</dfn> is the result of the validation process and includes a set of zero or more <dfn data-lt="validation result|result">validation results</dfn>.
+					Each <a>validation result</a> contains a set of required or optional values that are described in the SHACL <dfn>Validation Results Vocabulary</dfn> which is defined in this section.
+					This vocabulary defines the RDF terminology to represent structural information that may provide guidance on how to identify or fix a violation.
 				</p>
 				<p>
-					The validation results produced by a SHACL validation engine MUST be the product of validation of the <a>data graph</a> only.
-					Some engines MAY also report errors in the <a>shapes graph</a>, but those errors MUST NOT be mixed with the data validation results using the same results vocabulary.
+					The validation results produced by a SHACL processor MUST be the product of validation of the <a>data graph</a> only.
+					Some SHACL processors MAY also report errors in the <a>shapes graph</a>, but those errors MUST NOT be mixed with the data validation results using the same results vocabulary.
 				</p>
-
-				<section id="results">
-					<h4>Validation Results</h4>
-					<p>
-						SHACL includes an RDF vocabulary to represent <a>validation results</a> together with
-						structural information that may provide guidance on how to identify or fix a violation.
-					</p>
-
-					<p>
-						The following graph represents a example validation result.
-						Note that the produced values of <code>sh:message</code> are implementation-specific and not prescribed by the SHACL language.
-					</p>
+				<p>
+					The following graph represents a example validation result.
+					Note that the specific value of <code>sh:message</code> is not mandated by SHACL and considered implementation-specific.
+				</p>
 			<pre class="example-results">
 ex:ExampleConstraintViolation
 	a sh:ValidationResult ;
@@ -1394,109 +1524,93 @@ ex:ExampleConstraintViolation
 	sh:message "ex:age expects a literal of datatype xsd:integer." ;
 	sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
 	sh:sourceShape ex:PersonShape .</pre>
+				<p>
+					Validation results must be <a>SHACL instances</a> of the class <code>sh:ValidationResult</code>.
+					Its <a>SHACL superclass</a>, <code>sh:AbstractResult</code>, defines the properties described in the following sub-sections.
+					SHACL implementations may produce <a>SHACL instances</a> of other <a>SHACL subclasses</a> of <code>sh:AbstractResult</code>, for example
+					to report successfully completed constraint checks or accumulated results.
+					The properties <code>sh:focusNode</code> and <code>sh:severity</code> are the only mandatory properties of all validation results.
+					The property <code>sh:sourceConstraintComponent</code> is mandatory for validation results produced by violations of <a>constraint components</a>.
+				</p>
+				<section id="results-focus-node">
+					<h4>Focus node (sh:focusNode)</h4>
 					<p>
-						Validation results must be <a>SHACL instances</a> of the class <code>sh:ValidationResult</code>.
-						Its <a>SHACL superclass</a>, <code>sh:AbstractResult</code>, defines the properties described in the following sub-sections.
-						SHACL implementations may produce <a>SHACL instances</a> of other <a>SHACL subclasses</a> of <code>sh:AbstractResult</code>, for example
-						to report successfully completed constraint checks or accumulated results.
+						Validation results must have a single value for the property <code>sh:focusNode</code> to point to a
+						<a>node</a> that has caused the result.
+						This represents the <a>focus node</a> that was validated when the validation result was produced.
 					</p>
-					<section id="results-focus-node">
-						<h5>Focus node (sh:focusNode)</h5>
-						<p>
-							Validation results must have a single value for the property <code>sh:focusNode</code> to point to a
-							<a>node</a> that has caused the result.
-							This represents the <a>focus node</a> that was validated when the validation result was produced.
-						</p>
-					</section>
-					<section id="results-path">
-						<h5>Path (sh:path)</h5>
-						<p>
-							Validation results can have one value for the property <code>sh:path</code> pointing at a well-formed <a>property path</a> starting with the given <code>sh:focusNode</code>.
-							For results produced by a <a>property constraint</a>, this <a>path</a> is always identical to either the <code>sh:predicate</code> or <code>sh:path</code> of the constraint.
-						</p>
-					</section>
-					<section id="results-value">
-						<h5>Value (sh:value)</h5>
-						<p>
-							Validation results can have one value for the property <code>sh:value</code> pointing at a specific <a>node</a> that has caused the result.
-						</p>
-					</section>
-					<section id="results-source">
-						<h5>Source (sh:sourceConstraint, sh:sourceShape and sh:sourceConstraintComponent)</h5>
-						<p>
-							Validation results may link to one <code>sh:Constraint</code> that has caused
-							the result, specified via the property <code>sh:sourceConstraint</code>,
-							and at the <code>sh:Shape</code> defining the constraint, via <code>sh:sourceShape</code>.
-							Validation results may link to the <a>constraint component</a> that caused the result
-							via <code>sh:sourceConstraintComponent</code>.
-						</p>
-					</section>
-					<section id="results-detail">
-						<h5>Detail (sh:detail)</h5>
-						<p>
-							The property <code>sh:detail</code> may link a (parent) result with one or more other
-							(child) results that provide further details about the cause of the (parent) result.
-							Depending on the capabilities of the constraint validation engine, this may include violations of
-							nested constraints that have been evaluated via <code>sh:shape</code>.
-						</p>
-					</section>
-					<section id="results-message">
-						<h5>Message (sh:message)</h5>
-						<p>
-							Validation results may have values for the property <code>sh:message</code> to communicate
-							additional textual details to humans.
-							While <code>sh:message</code> may have multiple values, there SHOULD not be two values with the same language tag.
-						</p>
-					</section>
-					<section id="results-severity">
-						<h5>Severity (sh:severity)</h5>
-						<p>
-							Each validation result must have exactly one value for the property <code>sh:severity</code>.
-							SHACL includes the following three pre-defined <dfn data-lt="severity">severities</dfn>.
-						</p>
-						<table class="term-table">
-							<tr>
-								<th>Severity</th>
-								<th>Description</th>
-							</tr>
-							<tr>
-								<td><code>sh:Info</code></td>
-								<td>A non-critical constraint violation indicating an informative message.</td>
-							</tr>
-							<tr>
-								<td><code>sh:Warning</code></td>
-								<td>A non-critical constraint violation indicating a warning.</td>
-							</tr>
-							<tr>
-								<td><code>sh:Violation</code></td>
-								<td>A constraint violation that should be fixed.</td>
-							</tr>
-						</table>
-					</section>
-					<section id="severity">
-						<h3>Declaring the Severity of a Constraint</h3>
-						<p>
-							Constraints can specify their severity level using the property <code>sh:severity</code>,
-							which must link to one of the severities.  <code>sh:Violation</code> is the default if unspecified.
-							Constraints based on <a href="#constraint-components">constraint components</a> use the <code>sh:severity</code> declared at the component IRI unless overridden at the constraint.
-							The following example clarifies this.
-						</p>
-				<pre class="example-shapes">
-ex:MyShape
-	a sh:Shape ;
-	sh:property [
-		# Violations of either minCount and datatype are produced as warnings
-		sh:predicate ex:myProperty ;
-		sh:minCount 1 ;
-		sh:datatype xsd:string ;
-		sh:severity sh:Warning ;
-	] ;
-	sh:property [
-		# The default severity for sh:maxCount is sh:Violation
-		sh:predicate ex:myProperty ;
-		sh:maxCount 1 ;
-	] .</pre>
-					</section>
+				</section>
+				<section id="results-path">
+					<h4>Path (sh:path)</h4>
+					<p>
+						Validation results may have a value for the property <code>sh:path</code> pointing at a well-formed <a>property path</a> starting with the given <code>sh:focusNode</code>.
+						For results produced by a <a>property constraint</a>, this <a>path</a> is always identical to either the <code>sh:predicate</code> or <code>sh:path</code> of the constraint.
+					</p>
+				</section>
+				<section id="results-value">
+					<h4>Value (sh:value)</h4>
+					<p>
+						Validation results may include, as a <a>value</a> of the property <code>sh:value</code>,
+						a specific node that has caused the result.
+						The values of <code>sh:value</code> are populated by a SHACL processor based on the rules
+						outlined in the section on <a href="#constraints">Core Constraint Components</a>.
+						In most of these cases, the values of <code>sh:value</code> are the <a>value nodes</a> that have violated a constraint.
+						For SPARQL-based constraints, the values of <code>sh:value</code> are derived using a <a href="#sparql-constraints-variables">Mapping of SPARQL Result Variables</a>.
+					</p>
+				</section>
+				<section id="results-source-shape">
+					<h4>Source (sh:sourceConstraint, sh:sourceShape)</h4>
+					<p>
+						Validation results may link to the IRI of the <a>constraint</a> that has caused
+						the result, specified via the property <code>sh:sourceConstraint</code>,
+						and at the IRI of the shape defining the constraint, via <code>sh:sourceShape</code>.
+					</p>
+				</section>
+				<section id="results-source-constraint-component">
+					<h4>Constraint Component (sh:sourceConstraintComponent)</h4>
+					<p>
+						For validation results produced as a result of a <a>constraint component</a>,
+						the property <code>sh:sourceConstraintComponent</code> must point at the IRI of the <a>constraint component</a> that caused the result.
+						For example, results produced due to a violation of a constraint based on a value of <code>sh:minCount</code> need to point at <code>sh:MinCountConstraintComponent</code>.
+					</p>
+				</section>
+				<section id="results-detail">
+					<h4>Detail (sh:detail)</h4>
+					<p>
+						The property <code>sh:detail</code> may link a (parent) result with one or more other
+						(child) results that provide further details about the cause of the (parent) result.
+						Depending on the capabilities of the SHACL processor, this may include violations of
+						nested constraints that have been evaluated via <code>sh:shape</code>.
+					</p>
+				</section>
+				<section id="results-message">
+					<h4>Message (sh:message)</h4>
+					<p>
+						Validation results may have values for the property <code>sh:message</code> to communicate
+						additional textual details to humans.
+						While <code>sh:message</code> may have multiple values, there SHOULD not be two values with the same language tag.
+						These values are produced by a validation engine based on the values of <code>sh:message</code> of the constraints
+						in the shapes graph, see <a href="#message-constraint">Defining Messages for a Constraint</a>.
+						In cases where a constraint does not define any values of <code>sh:message</code> in the shapes graph the
+						following policy applies:
+					</p>
+					<ul>
+						<li>
+							For validation results produced as a result of SPARQL-based constraints and constraint components,
+							the messages are derived from a <a href="#sparql-constraints-variables">Mapping of SPARQL Result Variables</a>.
+						</li>
+						<li>
+							For validation results produced as a result of constraint components from the SHACL Core,
+							a SHACL processor MAY automatically generate other values for <code>sh:message</code>.
+						</li>
+					</ul>
+				</section>
+				<section id="results-severity">
+					<h4>Severity (sh:severity)</h4>
+					<p>
+						Each validation result must have exactly one <a>value</a> for the property <code>sh:severity</code>, and this value must be a <a>IRI</a>.
+						The values are derived from the <a>shapes graph</a> as described in the section <a href="#severity">Declaring the Severity of a Constraint</a>.
+					</p>
 				</section>
 			</section>
 		</section>
@@ -1504,7 +1618,7 @@ ex:MyShape
 		<section id="constraints">
 			<h2>Core Constraint Components</h2>
 			<p>
-				This section defines the built-in SHACL <a>constraint components</a> that MUST be supported by all SHACL validation engines.
+				This section defines the built-in SHACL Core <a>constraint components</a> that MUST be supported by all SHACL Core processors.
 				Each constraint component is identified by an IRI that is referenced in the validation results via <code>sh:sourceConstraintComponent</code>.
 			</p>
 			<p>
@@ -1513,12 +1627,12 @@ ex:MyShape
 				Special attention was paid to the balance between trying to cover as many common use cases as possible
 				and keeping the size of the Core language manageable.
 				Not all use cases (such as describing constraints on members of an <code>rdf:List</code>) can be expressed by the Core language alone.
-				Instead, SHACL provides an extension mechanism, described in the second part of this specification.
+				Instead, SHACL Full provides an extension mechanism, described in the second part of this specification.
 				It is expected that additional reusable libraries of <a>constraint components</a> will be maintained by third parties.
 			</p>
 			<p>
 				All constraint components can be used both in <a>property constraints</a> and <a>focus node constraints</a>.
-				However, some components might always fail in a particular constraint type.
+				However, some components may always result in violations in a particular constraint type.
 				For example, <a href="#ClosedConstraintComponent">sh:closed</a> does not make sense in <a>property constraints</a>
 				or <a href="#HasValueConstraintComponent">sh:hasValue</a> in <a>focus node constraints</a>.
 			</p>
@@ -1528,17 +1642,16 @@ ex:MyShape
 			</p>
 			<ul>
 				<li>
-					For <a>property constraints</a> that have a <code>sh:predicate</code> the <span class="term">value nodes</span> are the <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the given property as <a>predicate</a>.
+					For <a>property constraints</a> that have a <code>sh:predicate</code> the <span class="term">value nodes</span> are the <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the <code>sh:predicate</code> value as <a>predicate</a>.
 					Each produced <a>validation result</a> must have the <a>focus node</a> as its <code>sh:focusNode</code>,
 					the <code>sh:predicate</code> as its <code>sh:path</code> and, if applicable, the respective violating value node as its <code>sh:value</code>.
 				</li>
 				<li>
-					For <a>property constraints</a> that have a <code>sh:path</code> the <span class="term">value nodes</span> are the <a>objects</a> in the <a>data graph</a> that can be reached by following the given <a>property path</a> starting with the
-					<a>focus node</a> as <a>subject</a> based on the evaluation rules defined by <a href="https://www.w3.org/TR/sparql11-query/#propertypaths">SPARQL 1.1</a>.
+					For <a>property constraints</a> that have a <code>sh:path</code> the <span class="term">value nodes</span> is the set of <a>nodes</a> in the <a>data graph</a>
+					that can be reached from the <a>focus node</a> with the provided <a>SHACL property path</a>.
 					Each produced <a>validation result</a> must have the <a>focus node</a> as its <code>sh:focusNode</code>,
 					and, if applicable, the respective violating value node as its <code>sh:value</code>.
-					The value of <code>sh:path</code> of each validation result must be a "deep copy" of the <code>sh:path</code> provided in the constraint, i.e.
-					all triples that are required by the <a href="#path-syntax">SHACL well-formed path syntax rules</a> need to be copied from the <a>shapes graph</a> into the graph containing the validation results. 
+					The value of <code>sh:path</code> of each validation result must point to a <a>SHACL property path</a> that <a href="#path-syntax">represents</a> an equivalent path like the one provided in the constraint.
 				</li>
 				<li>
 					For <a>focus node constraints</a> the <span  class="term">value nodes</span> are the individual <a>focus nodes</a>, forming a set of exactly one node.
@@ -1550,19 +1663,15 @@ ex:MyShape
 					The SPARQL definitions in this section represent potential <a href="#constraint-components-validators">validators</a>.
 					Many constraint components are represented by a SPARQL ASK query.
 					These queries are interpreted against each <a>value node</a>, bound to the variable <code>value</code>.
-					If a <a>value node</a> fails the ASK query, a <a>validation result</a> is produced based on the rules outlined in
+					If an ASK query does not evaluate to <code>true</code> for a <a>value node</a>, a <a>validation result</a> is produced based on the rules outlined in
 					the <a href="#SPARQLAskValidator">section on ASK-based validators</a>.
 					Constraint components that are described using a SELECT query are interpreted based on the rules outlined in
 					the <a href="#SPARQLSelectValidator">section on SELECT-based validators</a>.
-					In particular, for <code>sh:PropertyConstraint</code>s,	the variable <code>PATH</code> is substituted with a <a>path</a> expression
+					In particular, for <a>property constraints</a>, the variable <code>PATH</code> is substituted with a <a>path</a> expression
 					based on the values of either <code>sh:predicate</code> or <code>sh:path</code> in the constraint.
 					All SPARQL queries also assume the variable bindings and result variable mapping rules detailed in the
 					<a href="#sparql-constraints">section on SPARQL-based Constraints</a>.
 					In a nutshell, the variable <code>this</code> represents the currently validated <a>focus node</a>.
-				</p>
-				<p>
-					Note that the parameter tables in each of the following sections have a column called Value Type which indicates the expected
-					type of the parameter values for documentation purposes, without enforcing any formal restrictions.
 					Based on the parameter IRIs on the tables, <a>pre-bound</a> variables are defined using the <a>parameter names</a>.
 				</p>
 				<p>
@@ -1583,25 +1692,24 @@ ex:MyShape
 						The property <code>sh:class</code> can be used to verify that each <a>value node</a> is a <a>SHACL instance</a> of a given type.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:ClassConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:ClassConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:class</code></td>
-							<td><code>rdfs:Resource</code></td>
-							<td>Type of all values</td>
+							<td>Type of all value nodes</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:class</code> must be IRIs.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							that is either a <a>literal</a>, or a non-literal that is not a <a>SHACL instance</a> of the given <a>class</a> in the <a>data graph</a>.
 						</div>
@@ -1632,28 +1740,26 @@ ex:Bob ex:knows ex:Alice .
 					<h4>sh:datatype</h4>
 					<p>
 						The property <code>sh:datatype</code> can be used to restrict the datatype of all <a>value nodes</a>.
-						The values of <code>sh:datatype</code> must be resources representing datatypes, such as <code>xsd:string</code>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:DatatypeConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:DatatypeConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:datatype</code></td>
-							<td><code>rdfs:Resource</code></td>
 							<td>Datatype of all value nodes (e.g., <code>xsd:integer</code>)</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:datatype</code> must be the <a>IRIs</a> of <a>datatypes</a>, such as <code>xsd:string</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							that is not a <a>literal</a>, or is a <a>literal</a> with a mismatching datatype.
 							A <a>literal</a> matches a datatype if the <a>literal</a>'s datatype has the same <a>IRI</a>.
@@ -1669,7 +1775,7 @@ ASK {
 					<pre class="example-shapes" title="Shape with sh:datatype property constraint">
 ex:DatatypeExampleShape
 	a sh:Shape ;
-	sh:targetNode ex:Alice, ex:Bob ;
+	sh:targetNode ex:Alice, ex:Bob, ex:Carol ;
 	sh:property [
 		sh:predicate ex:age ;
 		sh:datatype xsd:integer ;
@@ -1677,7 +1783,8 @@ ex:DatatypeExampleShape
 
 					<pre class="example-data">
 ex:Alice ex:age "23"^^xsd:integer .
-<span class="focus-node-error">ex:Bob</span> ex:age "twenty two" .</pre>
+<span class="focus-node-error">ex:Bob</span> ex:age "twenty two" .
+<span class="focus-node-error">ex:Carol</span> ex:age "23"^^xsd:int .</pre>
 				</section>
 				
 				<section id="NodeKindConstraintComponent">
@@ -1686,31 +1793,27 @@ ex:Alice ex:age "23"^^xsd:integer .
 						The property <code>sh:nodeKind</code> is used to restrict the RDF node kind of each <a>value node</a>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:NodeKindConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:NodeKindConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:nodeKind</code></td>
-							<td><code>sh:NodeKind</code></td>
 							<td>Node kind (IRI, blank node, literal or combinations of these) of all value nodes</td>
 						</tr>
 					</table>
-					<p>
-						The values of <code>sh:nodeKind</code> must be one of the following six instances of the class <code>sh:NodeKind</code>:
-						<code>sh:BlankNode</code>, <code>sh:IRI</code> and <code>sh:Literal</code> as well as the
-						following values that represent combinations of the former three, i.e. either-or:
-						<code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.
-					</p>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:nodeKind</code> must be one of the following six instances of the class <code>sh:NodeKind</code>:
+							<code>sh:BlankNode</code>, <code>sh:IRI</code> and <code>sh:Literal</code> as well as the
+							following values that represent combinations of the former three, i.e. either-or:
+							<code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							that does not match the given node kind.
 						</div>
@@ -1742,34 +1845,36 @@ ex:Bob ex:knows ex:Alice .
 			<section id="constraints-count">
 				<h3>Cardinality Constraint Components</h3>
 				<p>
-					The <a>constraint components</a> in this section can be applied to a <a>property constraint</a>,
-					to represent restrictions on the number of <a>values</a> that the <a>focus node</a> may have for the given property or property path.
+					The following <a>constraint components</a> represent restrictions on the number of
+					<a>values</a> that the <a>focus node</a> may have for the given property or property path.
+					SHACL has no default cardinality restrictions on properties.
+					Focus node constraints have a cardinality always equal to 1 by design.
 				</p>
 				<section id="MinCountConstraintComponent">
 					<h4>sh:minCount</h4>
 					<p>
-						The property <code>sh:minCount</code> restricts the number of <a>value nodes</a>.
+						The property <code>sh:minCount</code> restricts the minimum number of <a>value nodes</a>.
+						If the minimum cardinality value is 0 then this constraint is always satisfied and so may be omitted.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:MinCountConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:MinCountConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:minCount</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The minimum cardinality. If the value is 0 then this constraint is always satisfied and so may be omitted.</td>
+							<td>The minimum cardinality.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:minCount</code> must be literals with datatype <code>xsd:integer</code>.
 							A <a>validation result</a> must be produced if the number of
 							<a>value nodes</a> is less than the value of <code>sh:minCount</code>.
 						</div>
@@ -1784,7 +1889,7 @@ WHERE {
 	}
 } 
 GROUP BY $this
-HAVING (COUNT(?value) &lt; $minCount)</pre>
+HAVING (COUNT(DISTINCT ?value) &lt; $minCount)</pre>
 					</div>
 					<pre class="example-shapes">
 ex:MinCountExampleShape
@@ -1803,28 +1908,28 @@ ex:Alice ex:name "Alice" .
 				<section id="MaxCountConstraintComponent">
 					<h4>sh:maxCount</h4>
 					<p>
-						The property <code>sh:maxCount</code> restricts the number of <a>value nodes</a>.
+						The property <code>sh:maxCount</code> restricts the maximum number of <a>value nodes</a>.
+						If this parameter is omitted then there is no limit on the number of triples.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:MaxCountConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:MaxCountConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:maxCount</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The maximum cardinality. If this parameter is omitted then there is no limit on the number of triples.</td>
+							<td>The maximum cardinality.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:maxCount</code> must be literals with datatype <code>xsd:integer</code>.
 							A <a>validation result</a> must be produced if the number of
 							<a>value nodes</a> is greater than the value of <code>sh:maxCount</code>.
 						</div>
@@ -1837,7 +1942,7 @@ WHERE {
 	$this $PATH ?value .
 }
 GROUP BY $this
-HAVING (COUNT(?value) > $maxCount)</pre>
+HAVING (COUNT(DISTINCT ?value) > $maxCount)</pre>
 					</div>
 					<pre class="example-shapes">
 ex:MaxCountExampleShape
@@ -1857,7 +1962,7 @@ ex:Bob ex:birthDate "May 5th 1990" .</pre>
 				<h3>Value Range Constraint Components</h3>
 				<p>
 					The following constraint components represent range restrictions on nodes that are comparable
-					via operators such as <code>&lt;</code> and <code>&gt;</code>.
+					via operators such as <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code> and <code>&gt;=</code>.
 				</p>
 				<section id="range-property-constraints">
 					<h4>sh:minExclusive, sh:minInclusive, sh:maxExclusive, sh:maxInclusive</h4>
@@ -1866,38 +1971,33 @@ ex:Bob ex:birthDate "May 5th 1990" .</pre>
 						The supported datatypes of these nodes are <code>xsd:string</code>, <code>xsd:boolean</code>, <code>xsd:dateTime</code> and all numeric datatypes such as <code>xsd:integer</code>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Components:</span> <code>sh:MinExclusiveConstraintComponent</code>, <code>sh:MinInclusiveConstraintComponent</code>, <code>sh:MaxExclusiveConstraintComponent</code>, <code>sh:MaxInclusiveConstraintComponent</code>
+						<span class="component-class">Constraint Component IRIs:</span> <code>sh:MinExclusiveConstraintComponent</code>, <code>sh:MinInclusiveConstraintComponent</code>, <code>sh:MaxExclusiveConstraintComponent</code>, <code>sh:MaxInclusiveConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 							<th>Definition</th>
 						</tr>
 						<tr id="MinExclusiveConstraintComponent">
 							<td><code>sh:minExclusive</code></td>
-							<td>(supported datatypes)</td>
 							<td>The minimum exclusive value</td>
 							<td><code>&lt;</code></td>
 						</tr>
 						<tr id="MinInclusiveConstraintComponent">
 							<td><code>sh:minInclusive</code></td>
-							<td>(supported datatypes)</td>
 							<td>The minimum inclusive value</td>
 							<td><code>&lt;=</code></td>
 						</tr>
 						<tr id="MaxExclusiveConstraintComponent">
 							<td><code>sh:maxExclusive</code></td>
-							<td>(supported datatypes)</td>
 							<td>The maximum exclusive value</td>
 							<td><code>&gt;</code></td>
 						</tr>
 						<tr id="MaxInclusiveConstraintComponent">
 							<td><code>sh:maxInclusive</code></td>
-							<td>(supported datatypes)</td>
 							<td>The maximum inclusive value</td>
 							<td><code>&gt;=</code></td>
 						</tr>
@@ -1913,7 +2013,7 @@ ex:Bob ex:birthDate "May 5th 1990" .</pre>
 					</div>
 					<p>
 						Note that if the comparison cannot be performed, for example when someone compares a string with an integer,
-						then the validation engine will produce a validation result.  This is different from, say, a plain SPARQL query, in
+						then the SHACL processor will produce a validation result.  This is different from, say, a plain SPARQL query, in
 						which such failures would silently not lead to any results.
 					</p>
 					<p class="def-sparql">
@@ -1956,25 +2056,24 @@ ex:Bob ex:age 23 .
 						This can be applied to any <a>literals</a> and <a>IRIs</a>, but not to <a>blank nodes</a>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:MinLengthConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:MinLengthConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:minLength</code></td>
-							<td><code>xsd:integer</code></td>
 							<td>The minimum length. If the value is 0 then there is no restriction on the string length but this constraint is still violated if the node is a blank node.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:minLength</code> must be literals with datatype <code>xsd:integer</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							where the length of its string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
 							is less than the specified minimum length, or if the node is a <a>blank node</a>.
@@ -1996,25 +2095,24 @@ ASK {
 						This can be applied to any <a>literals</a> and <a>IRIs</a>, but not to <a>blank nodes</a>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:MaxLengthConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:MaxLengthConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:maxLength</code></td>
-							<td><code>xsd:integer</code></td>
 							<td>The maximum length. If this constraint is omitted then there is no restriction on the string length and no requirement that the node is a literal or IRI.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:maxLength</code> must be literals with datatype <code>xsd:integer</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							where the length of its string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
 							is greater than the specified maximum length, or if the node is a <a>blank node</a>.
@@ -2045,38 +2143,36 @@ ex:Bob ex:password "123456789" .
 				<section id="PatternConstraintComponent">
 					<h4>sh:pattern</h4>
 					<p>
-						The property <code>sh:pattern</code> can be used to validate whether all <a>value nodes</a> match a given regular expression.
-						The values of <code>sh:pattern</code> must be valid pattern arguments for the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL REGEX function</a>.
+						The property <code>sh:pattern</code> can be used to verify that every <a>value nodes</a> matches a given regular expression.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:PatternConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:PatternConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:pattern</code></td>
-							<td><code>xsd:string</code></td>
 							<td>Regular expression that all value nodes must match</td>
 						</tr>
 						<tr>
 							<td><code>sh:flags</code></td>
-							<td><code>xsd:string</code> (optional)</td>
 							<td>An optional string of flags, interpreted as in <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL 1.1 REGEX</a></td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:pattern</code> must be literals with datatype <code>xsd:string</code> that are
+							valid pattern arguments for the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL REGEX function</a>.
 							A <a>validation result</a> must be produced for each <a>value node</a> that is a <a>blank node</a> or
 							where the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
 							does not match the given regular expression (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL REGEX function</a>).
-							If <code>sh:flags</code> is present then this must be interpreted according to the third argument of the SPARQL REGEX function. 
+							If <code>sh:flags</code> is present then this must be a literal with datatype <code>xsd:string</code> that is interpreted according to the third argument of the SPARQL REGEX function. 
 						</div>
 					</div>
 					<div class="def def-sparql">
@@ -2104,28 +2200,27 @@ ex:Alice ex:bCode "B102" .
 				<section id="StemConstraintComponent">
 					<h4>sh:stem</h4>
 					<p>
-						The property <code>sh:stem</code> validates whether all <a>value nodes</a> are IRIs and the IRI starts with a given string value.
+						The property <code>sh:stem</code> can be used to verify that every <a>value node</a> in an IRIs and the IRI starts with a given string value.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:StemConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:StemConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:stem</code></td>
-							<td><code>xsd:string</code></td>
 							<td>String value that an IRI must start with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:stem</code> must be literals with datatype <code>xsd:string</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							that is not an <a>IRI</a> or the <a href="https://www.w3.org/TR/sparql11-query/#func-str">string representation</a> of the <a>IRI</a> does not <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#func-strstarts">start with</a> the given string.
 						</div>
@@ -2151,6 +2246,78 @@ ex:Alice ex:w3cHomepage &lt;https://www.w3.org/People/Alice&gt; .
 <span class="focus-node-error">ex:Carol</span> ex:w3cHomepage "https://www.w3.org/People/Carol" .</pre>
 				</section>
 				
+				<section id="LanguageInConstraintComponent">
+					<h4>sh:languageIn</h4>
+					<p>
+						The property <code>sh:languageIn</code> can be used to enumerate language tags that all <a>value nodes</a> must have.
+					</p>
+					<p>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:LanguageInConstraintComponent</code>
+					</p>
+
+					<div class="parameters">Parameters:</div>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Summary</th>
+						</tr>
+						<tr>
+							<td><code>sh:languageIn</code></td>
+							<td>An <a>RDF list</a> of language ranges</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							The values of <code>sh:languageIn</code> must be <a>RDF lists</a>.
+							The <a>members</a> of these lists must be literals with datatype <code>xsd:string</code>.
+							A <a>validation result</a> must be produced for each <a>value node</a>
+							that is either not a <a>literal</a> or that does not have a language tag
+							matching any of the provided language ranges following the filtering schema defined by
+							the <a href="https://www.w3.org/TR/sparql11-query/#func-langMatches">SPARQL langMatches</a> function.
+						</div>
+					</div>
+					<div class="def def-sparql">
+						<div class="def-header">SPARQL DEFINITION (Must evaluate to true for each value node $value)</div>
+<pre class="def-sparql-body">
+ASK {
+	BIND (lang($value) AS ?valueLang) .
+	FILTER (bound(?valueLang) &amp;&amp; EXISTS {
+			GRAPH $shapesGraph {
+				$languageIn (rdf:rest*)/rdf:first ?lang .
+				FILTER (langMatches(?valueLang, ?lang))
+			} 
+		} )
+}</pre>
+					</div>
+					<p>
+						The following example shape states that all values of <code>ex:prefLabel</code>
+						must be either in English or Māori.
+					</p>
+					<pre class="example-shapes">
+ex:NewZealandLanguagesShape
+	a sh:Shape ;
+	sh:targetNode ex:Mountain, ex:Berg ;
+	sh:property [
+		sh:predicate ex:prefLabel ;
+		sh:languageIn ( "en" "mi" ) ;
+	] .</pre>
+					<p>
+						From the example instances, <code>ex:Berg</code> will lead to constraint violations for all
+						of its labels.
+					</p>
+					<pre class="example-data">
+ex:Mountain
+	ex:prefLabel "Mountain"@en ;
+	ex:prefLabel "Hill"@en-NZ ;
+	ex:prefLabel "Maunga"@mi .
+
+<span class="focus-node-error">ex:Berg</span>
+	ex:prefLabel "Berg" ;
+	ex:prefLabel "Berg"@de ;
+	ex:prefLabel ex:BergLabel .</pre>
+				</section>
+				
 				<section id="UniqueLangConstraintComponent">
 					<h4>sh:uniqueLang</h4>
 					<p>
@@ -2158,25 +2325,24 @@ ex:Alice ex:w3cHomepage &lt;https://www.w3.org/People/Alice&gt; .
 						The values of <code>sh:uniqueLang</code> must be <code>xsd:boolean</code>s.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:UniqueLangConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:UniqueLangConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:uniqueLang</code></td>
-							<td><code>xsd:boolean</code></td>
 							<td><code>true</code> to activate this constraint</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:uniqueLang</code> must be literals with datatype <code>xsd:boolean</code>.
 							If <code>sh:uniqueLang</code> is set to <code>true</code> then a <a>validation result</a> must be produced for each non-empty language tag that is
 							used by at least two <a>value nodes</a>.
 						</div>
@@ -2222,36 +2388,35 @@ ex:Alice
 			<section id="constraints-property-pairs">
 				<h3>Property Pair Constraint Components</h3>
 				<p>
-					The constraint components in this section restrict the sets of values represented by
-					the <code>sh:predicate</code> used in the property constraint, and another property
-					that is specified as the value of the respective parameter such as <code>sh:equals</code>.
+					The constraint components in this section restrict the sets of <a>value nodes</a> in relation to other properties.
+					<a>Value nodes</a> of focus node constraints are always defined as a set of size 1
+					and may produce unexpected results when used with constraint components of this category.
 				</p>
 				
 				<section id="EqualsConstraintComponent">
 					<h3>sh:equals</h3>
 					<p>
-						<code>sh:equals</code> constrains a pair of properties so that the sets of values of both properties at a given focus node must be equal.
+						<code>sh:equals</code> can be used to verify that the set of <a>value nodes</a> is equal to the set of nodes that have the focus node as subject and the value of <code>sh:equals</code> as predicate.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:EqualsConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:EqualsConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:equals</code></td>
-							<td><code>rdfs:Resource</code></td>
 							<td>Property to compare with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:equals</code> must be <a>IRIs</a>.
 							A <a>validation result</a> must be produced
 							for each <a>value node</a> that does not exist as <a>value</a> at the focus node of the property specified using <code>sh:equals</code> and
 							for each <a>value</a> of the property specified using <code>sh:equals</code> that does not exist as <a>value node</a>.
@@ -2260,7 +2425,7 @@ ex:Alice
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	{
 		$this $PATH ?value .
@@ -2298,28 +2463,27 @@ ex:Bob
 				<section id="DisjointConstraintComponent">
 					<h3>sh:disjoint</h3>
 					<p>
-						<code>sh:disjoint</code> constrains a pair of properties so that the sets of <a>values</a> of both properties at a given <a>focus node</a> must not share any nodes.
+						<code>sh:disjoint</code> can be used to verify that the set of <a>value nodes</a> is disjoint with the the set of nodes that have the focus node as subject and the value of <code>sh:equals</code> as predicate.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:DisjointConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:DisjointConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:disjoint</code></td>
-							<td><code>rdfs:Resource</code></td>
 							<td>The property to compare the values with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:disjoint</code> must be <a>IRIs</a>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							that also exists as <a>value</a> of the property specified using <code>sh:disjoint</code> at the given <a>focus node</a>.
 						</div>
@@ -2327,7 +2491,7 @@ ex:Bob
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	$this $PATH ?value .
 	$this $disjoint ?value .
@@ -2358,28 +2522,27 @@ ex:USA
 				<section id="LessThanConstraintComponent">
 					<h3>sh:lessThan</h3>
 					<p>
-						<code>sh:lessThan</code> constrains a pair of properties so that the <a>values</a> of the first property must be smaller than the <a>values</a> of the second property at a given <a>focus node</a>.
+						<code>sh:lessThan</code> can be used to verify that every <a>value node</a> is smaller than all the nodes that have the focus node as subject and the value of <code>sh:lessThan</code> as predicate.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:LessThanConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:LessThanConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:lessThan</code></td>
-							<td><code>rdfs:Resource</code></td>
 							<td>The property to compare the values with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:lessThan</code> must be <a>IRIs</a>.
 							A <a>validation result</a> must be produced for each pair of <a>value nodes</a> and
 							the values of the property specified using <code>sh:lessThan</code> at the given <a>focus node</a>, where
 							the first <a>value</a> is not less than the second <a>value</a>, based on SPARQL's <code>&lt;</code> operator.
@@ -2389,7 +2552,7 @@ ex:USA
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	$this $PATH ?value .
 	$this $lessThan ?otherValue .
@@ -2413,28 +2576,27 @@ ex:LessThanExampleShape
 				<section id="LessThanOrEqualsConstraintComponent">
 					<h3>sh:lessThanOrEquals</h3>
 					<p>
-						<code>sh:lessThanOrEquals</code> constrains a pair of properties so that the <a>values</a> of the first property must be smaller than or equal to the <a>values</a> of the second property at a given <a>focus node</a>.
+						<code>sh:lessThanOrEquals</code> can be used to verify that every <a>value node</a> is smaller than or equal to all the nodes that have the focus node as subject and the value of <code>sh:lessThanOrEquals</code> as predicate.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:LessThanOrEqualsConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:LessThanOrEqualsConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:lessThanOrEquals</code></td>
-							<td><code>rdfs:Resource</code></td>
 							<td>The property to compare the values with</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:lessThanOrEquals</code> must be <a>IRIs</a>.
 							A <a>validation result</a> must be produced for each pair of <a>value nodes</a> and
 							the values of the property specified using <code>sh:lessThanOrEquals</code> at the given <a>focus node</a>, where
 							the first <a>value</a> is not less than or equal to the second <a>value</a>, based on SPARQL's <code>&lt;=</code> operator.
@@ -2444,7 +2606,7 @@ ex:LessThanExampleShape
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value
+SELECT DISTINCT $this ?value
 WHERE {
 	$this $PATH ?value .
 	$this $lessThan ?otherValue .
@@ -2463,29 +2625,29 @@ WHERE {
 				<section id="NotConstraintComponent">
 					<h3>sh:not</h3>
 					<p>
-						SHACL supports a negation constraint component that can be used to verify that a <a>value node</a> does not have a given <a>shape</a>.
+						SHACL supports a negation constraint component that can be used to verify that a <a>value node</a> does not validate against a <a>shape</a>.
 						This is comparable to a logical "not" operator.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:NotConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:NotConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:not</code></td>
-							<td><code>sh:Shape</code></td>
 							<td>The shape to negate</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:not</code> must be <a>IRIs</a> or <a>blank nodes</a>.
+							The <a>expected type</a> of these nodes is <code>sh:Shape</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a> that produces no validation results for the shape given via <code>sh:not</code>.
 							A <a>failure</a> must be reported if the validation of the shape produces a <a>failure</a>.
 						</div>
@@ -2495,7 +2657,7 @@ WHERE {
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
-	BIND (sh:hasShape($this, $not, $shapesGraph) AS ?hasShape) .
+	BIND (sh:hasShape($this, $not) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || ?hasShape) .
 }</pre>
@@ -2503,10 +2665,10 @@ WHERE {
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (for property constraints, must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value ?failure
+SELECT DISTINCT $this ?value ?failure
 WHERE {
 	$this $PATH ?value .
-	BIND (sh:hasShape($this, $not, $shapesGraph) AS ?hasShape) .
+	BIND (sh:hasShape($this, $not) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || ?hasShape) .
 }</pre>
@@ -2533,32 +2695,32 @@ ex:NotExampleShape
 				<section id="AndConstraintComponent">
 					<h3>sh:and</h3>
 					<p>
-						SHACL supports a conjunctive constraint component that can be used to test whether a <a>value node</a> has all out of several shapes.
+						SHACL supports a conjunctive constraint component that can be used to test whether a <a>value node</a> validates against all provided shapes.
 						This is comparable to a logical "and" operator.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:AndConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:AndConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:and</code></td>
-							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
-							<td>List of shapes to validate the value nodes against</td>
+							<td><a>RDF list</a> of shapes to validate the value nodes against</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:and</code> must be <a>RDF lists</a> where the <a>members</a> must be <a>IRIs</a> or <a>blank nodes</a>.
+							The <a>expected type</a> of these members is <code>sh:Shape</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a> if the following condition is false:
-							The validation of the <a>value node</a> against all of the <a>shapes</a> in the <code>sh:and</code> list produces a <a>validation result</a> for at least one shape.
-							A <a>failure</a> must be produced if the validation of one of the shapes produces a <a>failure</a>.
+							The validation of the <a>value node</a> against all of the <a>members</a> of the <a>RDF list</a> that is the value of <code>sh:and</code> produces a <a>validation result</a> for at least one <a>member</a>.
+							A <a>failure</a> must be produced if the validation of one of the <a>members</a> produces a <a>failure</a>.
 						</div>
 					</div>
 					<p>
@@ -2569,7 +2731,7 @@ ex:NotExampleShape
 						The following example illustrates the use of <code>sh:and</code> in a shape to verify
 						that certain nodes have exactly one value of <code>ex:property</code>.
 						This is achieved via the conjunction of a separate named shape (<code>ex:SuperShape</code>) which defines
-						the minimum count, and a blank node shape that further constrains the maximum count.
+						the minimum count, and a blank node shape that additionally defines the maximum count.
 						As shown here, <code>sh:and</code> can be used to implement a specialization mechanism between shapes.
 					</p>
 					<pre class="example-shapes">
@@ -2607,32 +2769,32 @@ ex:ValidInstance
 				<section id="OrConstraintComponent">
 					<h3>sh:or</h3>
 					<p>
-						SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether a <a>value node</a> has at least one out of several shapes.
+						SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether a <a>value node</a> validates against at least one out of several provided shapes.
 						This is comparable to a logical "or" operator.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:OrConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:OrConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:or</code></td>
-							<td><code>rdf:List</code> (members: <code>sh:Shape</code>)</td>
-							<td>List of shapes to validate the value nodes against</td>
+							<td><a>RDF list</a> of shapes to validate the value nodes against</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:or</code> must be <a>RDF lists</a> where the <a>members</a> must be <a>IRIs</a> or <a>blank nodes</a>.
+							The <a>expected type</a> of these members is <code>sh:Shape</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a> if the following condition is false:
-							The validation of the <a>value node</a> against all of the <a>shapes</a> in the <code>sh:or</code> list produces no <a>validation results</a> for at least one shape.
-							A <a>failure</a> must be produced if the <a>validation</a> of one of the shapes produces a <a>failure</a>.
+							The validation of the <a>value node</a> against all of the <a>members</a> in the <a>RDF list</a> that is the value of <code>sh:or</code> produces no <a>validation results</a> for at least one <a>member</a>.
+							A <a>failure</a> must be produced if the <a>validation</a> of one of the <a>members</a> produces a <a>failure</a>.
 						</div>
 					</div>
 					<p>
@@ -2699,29 +2861,28 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
 				<section id="ShapeConstraintComponent">
 					<h4>sh:shape</h4>
 					<p>
-						The property <code>sh:shape</code> can be used verify that all <a>value nodes</a> must have a given shape.
-						The value type of <code>sh:shape</code> is <code>sh:Shape</code>, but the <code>rdf:type</code> triple of those shapes can be omitted.
+						<code>sh:shape</code> can be used verify that all <a>value nodes</a> validate against the given shape.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:ShapeConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:ShapeConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:shape</code></td>
-							<td><code>sh:Shape</code></td>
-							<td>The required shape of all value nodes</td>
+							<td>All value nodes must validate against the given shape</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:shape</code> must be <a>IRIs</a> or <a>blank nodes</a>.
+							The <a>expected type</a> of these values is <code>sh:Shape</code>.
 							A <a>validation result</a> must be produced for each <a>value node</a>
 							where validating the value node against the shape specified by <code>sh:shape</code> 
 							produces any validation results.
@@ -2733,7 +2894,7 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
 <pre class="def-sparql-body">
 SELECT $this ?failure
 WHERE {
-	BIND (sh:hasShape($this, $shape, $shapesGraph) AS ?hasShape) .
+	BIND (sh:hasShape($this, $shape) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || !?hasShape) .
 }</pre>
@@ -2741,23 +2902,14 @@ WHERE {
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (for property constraints, must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this ?value ?failure
+SELECT DISTINCT $this ?value ?failure
 WHERE {
 	$this $PATH ?value .
-	BIND (sh:hasShape(?value, $shape, $shapesGraph) AS ?hasShape) .
+	BIND (sh:hasShape(?value, $shape) AS ?hasShape) .
 	BIND (!bound(?hasShape) AS ?failure) .
 	FILTER (?failure || !?hasShape) .
 }</pre>
 					</div>
-					<p id="recursion">
-						A shape may refer to itself directly or indirectly via <code>sh:shape</code>, <code>sh:filterShape</code>, etc.
-						Such a shape is said to be <em>recursive</em>.
-						The meaning of non-recursive shapes is always well-founded.
-						In contrast, the meaning of a recursive shape may not be well-founded.
-						The handling of recursive shapes in SHACL is left to implementations.
-						Some implementations MAY reject shapes graphs containing recursive shape definitions.
-						Some implementations MAY report a <a>failure</a> if a recursion has been detected at validation time.
-					</p>
 					<p>
 						In the following example, all values of the property <code>ex:someProperty</code> will validate with no results for the shape
 						specified by a blank node that ensures that the property <code>ex:nestedProperty</code> has at least one value.
@@ -2791,41 +2943,38 @@ ex:ShapeExampleValidResource
 						The WG may decide to support only one of these options, but not both.
 					</div>
 					<p>
-						The property <code>sh:qualifiedValueShape</code> can be used verify that a certain number of <a>value nodes</a> must have a given shape.
-						The value type of <code>sh:qualifiedValueShape</code> is <code>sh:Shape</code>, and it needs to be accompanied by
-						a <code>sh:qualifiedMinCount</code> or a <code>sh:qualifiedMaxCount</code> (both typed <code>xsd:integer</code>), or both.
-						The <code>rdf:type</code> of the value shapes can be omitted.
+						The property <code>sh:qualifiedValueShape</code> can be used verify that a specified number of <a>value nodes</a> validate against the given shape.
+						For each <code>sh:qualifiedValueShape</code> there must be either one <code>sh:qualifiedMinCount</code> or one <code>sh:qualifiedMaxCount</code>, or one of each, at the same <a>subject</a>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:QualifiedValueShapeConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:QualifiedValueShapeConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedValueShape</code></td>
-							<td><code>sh:Shape</code></td>
-							<td>The required shape of the specified values</td>
+							<td>A specified number of value nodes must validate against the given shape</td>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedMinCount</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The minimum number of values that must have the shape. If this constraint is omitted then there is no minimum number of values required.</td>
+							<td>The minimum number of value nodes that can validate against the shape. If this constraint is omitted then there is no minimum number of values required.</td>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedMaxCount</code></td>
-							<td><code>xsd:integer</code></td>
-							<td>The maximum number of values that can have the shape. If this constraint is omitted then there is no maximum number of values required.</td>
+							<td>The maximum number of value nodes that can validate against the shape. If this constraint is omitted then there is no maximum number of values required.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMinCount</div>
 						<div class="def-text-body">
+							The values of <code>sh:qualifiedValueShape</code> must be <a>IRIs</a> or <a>blank nodes</a>.
+							The <a>expected type</a> of these values is <code>sh:Shape</code>.
+							The values of <code>sh:qualifiedMinCount</code> must be literals with datatype <code>xsd:integer</code>.
 							Let <code>C</code> be the number of <a>value nodes</a> where
 							validating the node against the shape specified by <code>sh:qualifiedValueShape</code>
 							produces no <a>validation results</a>.
@@ -2837,11 +2986,11 @@ ex:ShapeExampleValidResource
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMinCount (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this (SUM(?failed)>0 AS ?failure)
+SELECT DISTINCT $this (SUM(?failed)>0 AS ?failure)
 WHERE {
 	{
 		$this $PATH ?value .
-		BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph) AS ?hasShape) .
+		BIND (sh:hasShape(?value, $qualifiedValueShape) AS ?hasShape) .
 		FILTER (!bound(?hasShape) || ?hasShape) .
 	}
 	BIND (IF(!bound(?hasShape), 1, 0) AS ?failed) .
@@ -2850,14 +2999,15 @@ GROUP BY $this
 HAVING ((COUNT(?value) &lt; $qualifiedMinCount) || (SUM(?failed) > 0))</pre>
 					</div>
 					<p class="def-sparql">
-						Note that in the SPARQL query above, we assume that the <code>SUM</code> operation fails
+						Note that in the SPARQL query above, the <code>SUM</code> operation produces a SPARQL error
 						if one of the values of <code>?s</code> is not a number.
-						This mechanism is used by the error handling, which sets <code>?s</code> to the string <code>'error'</code>
+						This mechanism is used by the failure handling, which sets <code>?s</code> to the string <code>'error'</code>
 						whenever one of the individual <code>sh:hasShape</code> calls fails.
 					</p>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMaxCount</div>
 						<div class="def-text-body">
+							The values of <code>sh:qualifiedMaxCount</code> must be literals with datatype <code>xsd:integer</code>.
 							Let <code>C</code> be the number of <a>value nodes</a> where
 							validating the node against the shape specified by <code>sh:qualifiedValueShape</code>
 							produces no <a>validation results</a>.
@@ -2869,11 +3019,11 @@ HAVING ((COUNT(?value) &lt; $qualifiedMinCount) || (SUM(?failed) > 0))</pre>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION of sh:qualifiedMaxCount (Must return no results for the given $PATH)</div>
 <pre class="def-sparql-body">
-SELECT $this (SUM(?failed)>0 AS ?failure)
+SELECT DISTINCT $this (SUM(?failed)>0 AS ?failure)
 WHERE {
 	{
 		$this $PATH ?value .
-		BIND (sh:hasShape(?value, $qualifiedValueShape, $shapesGraph) AS ?hasShape) .
+		BIND (sh:hasShape(?value, $qualifiedValueShape) AS ?hasShape) .
 		FILTER (!bound(?hasShape) || ?hasShape) .
 	}
 	BIND (IF(!bound(?hasShape), 1, 0) AS ?failed) .
@@ -2957,8 +3107,8 @@ ex:BibframeShape a sh:Shape ;
 		)
 ] .</pre>
 					<p>
-						The value of the <code>sh:partition</code> constraint parameter MUST be an <code>rdf:List</code> that contains zero or more resources. 
-						Each resource in the list defines conditions on a subset of the value nodes and MAY contain the following parameters:
+						The value of the <code>sh:partition</code> constraint parameter MUST be an <a>RDF list</a> that has zero or more <a>members</a>.
+						Each <a>member</a> of the list defines conditions on a subset of the value nodes and may contain the following parameters:
 					</p>
 					<ul>
 						<li>zero or one <code>sh:minCount</code>. This defines the minimum cardinality of the corresponding subset.</li>
@@ -2970,12 +3120,12 @@ ex:BibframeShape a sh:Shape ;
 							The corresponding subset consists of those remaining nodes for which the boolean function is <code>true</code>.</li>
 					</ul>
 					<p>
-						Note that a resource that contains no parameters matches all nodes. Such a resource is useful as the last member of the list where it acts as a default matching rule in the case where nodes that do not match any of the preceeding constraints are allowed. 
+						Note that a node that contains no parameters matches all nodes. Such a node is useful as the last <a>member</a> of the list where it acts as a default matching rule in the case where nodes that do not match any of the preceeding constraints are allowed. 
 						Note also that a qualified cardinality constraint defined using <code>sh:qualifiedValueShape</code>,
-						<code>sh:qualifiedMinCount</code>, and <code>sh:qualifiedMaxCount</code> is equivalent to a <code>sh:partition</code> constraint that contains two resources with the first one containing the corresponding parameters and the last one being the default matching rule that matches any set of nodes.
+						<code>sh:qualifiedMinCount</code>, and <code>sh:qualifiedMaxCount</code> is equivalent to a <code>sh:partition</code> constraint that contains two nodes with the first one containing the corresponding parameters and the last one being the default matching rule that matches any set of nodes.
 					</p>
 					<p>
-						Each member of the list is used by the SHACL processor to match a subset of the value nodes.
+						Each <a>member</a> of the list is used by the SHACL processor to match a subset of the value nodes.
 						The SHACL processor matches as many nodes as possible and then compares the result with the specified
 						minimum and maximum cardinalities if specified. This is referred to as a <em>greedy</em> matching algorithm.
 						Greedy pattern matching is commonly used with textual regular expressions.
@@ -2993,8 +3143,8 @@ ex:BibframeShape a sh:Shape ;
 							then N consists of all the nodes X such that (F, P, X) is in D.</li>
 					</ul>
 					<p>
-						Let the value of the <code>sh:partition</code> parameter be the list (Q<sub>1</sub>, ..., Q<sub>n</sub>) of resources.
-						The SHACL validator MUST perform the following steps to validate the constraint C at F.
+						Let the value of the <code>sh:partition</code> parameter be the <a>RDF list</a> with <a>members</a> (Q<sub>1</sub>, ..., Q<sub>n</sub>).
+						The SHACL processor MUST perform the following steps to validate the constraint C at F.
 					</p>
 					<ol>
 						<li>Let R denote the set of remaining value nodes. Initialize R to N.</li>
@@ -3012,8 +3162,9 @@ ex:BibframeShape a sh:Shape ;
 						<li>If R is non-empty and no violations have been reported yet then report a violation.</li>
 					</ol>
 					<p>
-						Note that the order of resources within the list is significant. 
-						In general, if the members of the list are reordered then different value node sets will be matched
+						Note that the order of nodes within the RDF list is significant.
+						<span class="TODO">TODO: This currently violates our definition of rdf:List members.</span> 
+						In general, if the members of the RDF list are reordered then different value node sets will be matched
 						and different violation results will be reported.
 					</p>
 				</section>
@@ -3029,42 +3180,41 @@ ex:BibframeShape a sh:Shape ;
 					<h3>sh:closed, sh:ignoredProperties</h3>
 					<p>
 						The RDF data model offers a huge amount of flexibility.
-						Any resource can in principle have values for any property.
-						However, in some cases it makes sense to restrict which properties can be applied to resources.
+						Any node can in principle have values for any property.
+						However, in some cases it makes sense to restrict which properties can be applied to nodes.
 						The SHACL Core language includes a property called <code>sh:closed</code> that can be assigned to
-						a shape via the property <code>sh:constraint</code> to indicate that valid resources must only have
+						a shape via the property <code>sh:constraint</code> to indicate that valid nodes must only have
 						values for those properties that have been explicitly declared via <code>sh:property</code>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:ClosedConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:ClosedConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:closed</code></td>
-							<td><code>xsd:boolean</code></td>
 							<td>Set to <code>true</code> to close the shape</td>
 						</tr>
 						<tr>
 							<td><code>sh:ignoredProperties</code></td>
-							<td><code>rdf:List</code> (members: <code>rdf:Property</code>)</td>
-							<td>Optional list of properties that are also permitted in addition to those explicitly enumerated via <code>sh:property</code></td>
+							<td>Optional <a>RDF list</a> of properties that are also permitted in addition to those explicitly enumerated via <code>sh:property</code></td>
 						</tr>
 					</table>
 					<div id="def-ClosedShape-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
+							The values of <code>sh:closed</code> must be literals with datatype <code>xsd:boolean</code>.
 							If <code>sh:closed</code> is <code>true</code> then
 							a <a>validation result</a> must be produced for each <a>triple</a> that has the <a>focus node</a> as its
 							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <code>sh:predicate</code>
 							in any of the <code>sh:property</code> constraints at the surrounding shape.
-							If the parameter <code>sh:ignoredProperties</code> is present then the properties enumerated in this list are also permitted.
+							If the parameter <code>sh:ignoredProperties</code> is present then its values must be <a>RDF lists</a>
+							where all <a>members</a> are <a>IRIs</a>, and the properties enumerated in this <a>RDF list</a> are also permitted for the <a>subject</a>.
 							The produced <a>validation result</a> must have the predicate of the triple as its <code>sh:path</code>,
 							and the object of the triple as its <code>sh:value</code>.
 						</div>
@@ -3122,19 +3272,17 @@ ex:Alice
 						The property <code>sh:hasValue</code> can be used to verify that one of the <a>value nodes</a> is a given RDF node.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:HasValueConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:HasValueConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:hasValue</code></td>
-							<td>any</td>
 							<td>A specific required value</td>
 						</tr>
 					</table>
@@ -3171,32 +3319,30 @@ ex:Alice
 					<h4>sh:in</h4>
 					<p>
 						The property <code>sh:in</code> exclusively enumerates the permitted <a>value nodes</a>.
-						For example when specified as part of a <a>property constraint</a>, then each <a>value</a> of the given property must be a member of the specified list.
+						For example when specified as part of a <a>property constraint</a>, then each <a>value</a> of the given property must be a <a>member</a> of the specified <a>RDF list</a>.
 					</p>
 					<p>
-						<span class="component-class">Constraint Component:</span> <code>sh:InConstraintComponent</code>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:InConstraintComponent</code>
 					</p>
 
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
 						<tr>
 							<th>Property</th>
-							<th>Value Type</th>
 							<th>Summary</th>
 						</tr>
 						<tr>
 							<td><code>sh:in</code></td>
-							<td><code>rdf:List</code></td>
-							<td>Enumeration of allowed values</td>
+							<td><a>RDF list</a> that has the allowed values as <a>members</a></td>
 						</tr>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
-							The values of <code>sh:in</code> must be well-formed <code>rdf:List</code>s.
-							The members of that <code>rdf:List</code> must not be blank nodes.
+							The values of <code>sh:in</code> must be <a>RDF lists</a>.
+							The <a>members</a> of those RDF lists must be <a>literals</a> or <a>IRIs</a>.
 							A <a>validation result</a> must be produced for every <a>value node</a>
-							that is not a member of the given list.
+							that is not a member of the given RDF list.
 							Matching of literals needs to be exact, e.g. <code>"04"^^xsd:byte</code> does not match <code>"4"^^xsd:integer</code>.
 						</div>
 					</div>
@@ -3227,14 +3373,14 @@ ex:RainbowPony ex:color ex:Pink .</pre>
 				<h4>Non-Validating Constraint Characteristics</h4>
 				<p>
 					While the previous sections introduced properties that represent validation conditions,
-					this section covers properties that are ignored by SHACL validation engines.
+					this section covers properties that are ignored by SHACL processors.
 					The use of these properties is entirely optional and not subject to formal interpretation contracts.
 					They may be used for purposes such as form building or predictable printing of RDF files.
 				</p>
 				<p id="name">
 					Property constraints may have one or more <a>values</a> for <code>sh:name</code> to provide human-readable labels for the property in the target where it appears.
 					If present, tools SHOULD prefer those locally defined labels over globally defined labels at the <code>rdf:Property</code> itself.
-					For example, if a form displays a resource that is in the target of a given shape, and the shape defines a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
+					For example, if a form displays a node that is in the target of a given shape, and the shape defines a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
 					Similarly, property constraints may have an <code id="description">sh:description</code> to provide a description of the property in the given context.
 					Both <code>sh:name</code> and <code>sh:description</code> may have multiple <a>values</a>, but SHOULD only have one <a>value</a> per language tag.
 				</p>
@@ -3343,19 +3489,19 @@ ex:AddressGroup
 		</section>
 
 		<div style="padding-top: 30px">
-			<h1 id="part2" style="font-size: 160%; font-weight: bold">Part 2: SHACL Extension Language</h1>
+			<h1 id="part2" style="font-size: 160%; font-weight: bold">Part 2: SHACL Full</h1>
 			<p>
 				Part 1 of this specification introduced features that are built into the Core of SHACL.
 				The goal of this Core was to provide a high-level vocabulary for common use cases to describe shapes.
 				However, SHACL also provides mechanisms to go beyond the Core vocabulary and represent constraints and targets with greater flexibility.
-				These mechanisms are described in the following sections.
+				These mechanisms, called <a>SHACL Full</a>, are described in the following sections.
 			</p>
 		</div>
 		
 		<section id="sparql-constraints">
 			<h2>SPARQL-based Constraints</h2>
 			<p>
-				SHACL supports two mechanisms to define constraints using SPARQL:
+				SHACL Full supports two mechanisms to define constraints using SPARQL:
 			</p>
 			<ul>
 				<li>Constraints based on a high-level vocabulary (<a href="#constraint-components">constraint components</a>), relying on a reusable SPARQL query in the background</li>
@@ -3367,25 +3513,13 @@ ex:AddressGroup
 			<section id="sparql-constraints-syntax">
 				<h3>Syntax of SPARQL-based Constraints</h3>
 				<p>
-					<code>sh:SPARQLConstraint</code> is an <code>rdfs:subClassOf sh:Constraint</code> and is the class of all SPARQL-based constraints.
-					SPARQL-based constraints must have exactly one value for the property <code>sh:select</code>.
-					The SPARQL queries linked to a <a>constraint</a> via <code>sh:select</code> must be string literals that can be parsed into legal SPARQL 1.1 queries	of the query form <code>SELECT</code>.
-				</p>
-				<p class="issue" data-number="105" title="Defined prefixes">
-					There is an ongoing discussion about whether and how to inject prefixes into SPARQL queries,
-					so the following paragraph may change.
-				</p>
-				<p id="sparql-prefixes">
-					Before parsing the values of <code>sh:select</code>, a SHACL processor must prepend <a href="https://www.w3.org/TR/sparql11-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
-					for all namespace prefixes declared via the property <code>sh:prefix</code> in the current <a>shapes graph</a>.
-					The subjects of <code>sh:prefix</code> triples must be IRIs, which become the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
-					The objects of <code>sh:prefix</code> triples must be string literals, which become the <code>PNAME_NS</code> in the <code>PREFIX</code> declaration.
-					For the example shapes graph below, a SHACL processor would produce the line <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
-					No such <code>PREFIX</code> must be generated if the SPARQL string already contains a <code>PREFIX</code> statement for the same <span class="term">prefix</span> at the top-level query
-					(ignoring prefixes from nested SELECT queries).
-					The SHACL processor must produce a <a>failure</a> if the <a>shapes graph</a> contains multiple <code>sh:prefix</code> triples with the same object.
-					Since the use of <code>sh:prefix</code> triples may lead to conflicts, it is recommended to only use them in closed and controlled environments or for well-established prefixes.
-					In the rest of this document, the <code>sh:prefix</code> statements may have been omitted for brevity.
+					Shapes may have values for the property <code>sh:sparql</code>, and these values must be <a>IRIs</a> or <a>blank nodes</a>.
+					The values of <code>sh:sparql</code> have the <a>expected type</a> <code>sh:SPARQLConstraint</code> which is an <code>rdfs:subClassOf sh:Constraint</code>
+					and is the class of all <dfn>SPARQL-based constraints</dfn>.
+					SPARQL-based constraints must have exactly one <a>value</a> for the property <code>sh:select</code> and this value must be a <a>literal</a> with datatype <code>xsd:string</code>.
+					As elaborated in the section on <a href="#sparql-prefixes">prefix handling rules</a>, the value of <code>sh:select</code> must be transformable into
+					a SPARQL 1.1 SELECT query.
+					The remainder of this section is not normative.
 				</p>
 				<p>
 					The following example illustrates the definition of a SPARQL-based constraint.
@@ -3397,14 +3531,13 @@ ex:ValidCountry a ex:Country ;
 <span class="focus-node-error">ex:InvalidCountry</span> a ex:Country ;
 	ex:germanLabel "Spain"@en .</pre>
 				<pre class="example-shapes" id="example-sparql-constraint">
-&lt;http://example.com/ns#&gt; sh:prefix "ex" .
-
 ex:LanguageExampleShape
 	a sh:Shape ;
 	sh:targetClass ex:Country ;
 	sh:sparql [
 		a sh:SPARQLConstraint ;   # This triple is optional
 		sh:message "Values must be literals with German language tag." ;
+		sh:prefixes ex: ;
 		sh:select """
 			SELECT $this (ex:germanLabel AS ?path) ?value
 			WHERE {
@@ -3431,22 +3564,70 @@ ex:LanguageExampleShape
 ]
 </pre>
 				<p>
-					The SPARQL query returns result set rows for all bindings of <code>?value</code> that violate the constraint.
-					A validation result is produced for each row in that result set, following the <a href="#sparql-constraints-variables">mapping rules</a> explained later:
+					The SPARQL query returns result set <a>solutions</a> for all bindings of <code>?value</code> that violate the constraint.
+					A validation result is produced for each <a>solution</a> in that result set, following the <a href="#sparql-constraints-variables">mapping rules</a> explained later:
 					Each validation result will have <code>$this</code> as the <code>sh:focusNode</code>,
 					<code>ex:germanLabel</code> as <code>sh:path</code> and the violating value as <code>sh:value</code>.
 				</p>
-				<!--p>
-					In the example above, it is assumed that the existing SHACL validation engine is capable of evaluating constraints using SPARQL.
-					Additional executable languages such as JavaScript may be provided based on other sets of properties like <code>ex:javaScript</code>,
-					but that is outside of the target of this specification.
-				</p-->
+			</section>
+			<section id="sparql-prefixes">
+				<h4>Prefix Declarations for SPARQL Queries</h4>
+				<p>
+					A <a>shapes graph</a> may include declarations of namespace prefixes so that these prefixes can be used to abbreviate the SPARQL queries derived from the same shapes graph.
+					The syntax of such prefix declarations is illustrated by the following example.
+				</p>
+				<pre class="example-shapes">
+ex:
+	a owl:Ontology ;
+	owl:imports sh: ;
+	sh:declare [
+		sh:prefix "ex" ;
+		sh:namespace "http://example.com/ns#"^^xsd:anyURI ;
+	] ;
+	sh:declare [
+		sh:prefix "schema" ;
+		sh:namespace "http://schema.org/"^^xsd:anyURI ;
+	] .</pre>
+				<p>
+					The property <code>sh:declare</code> is used to make individual prefix declarations.
+					The SHACL vocabulary defines the class <code>sh:PrefixDeclaration</code> for the values of <code>sh:declare</code>
+					although no <code>rdf:type</code> triple is required for them.
+					The values of <code>sh:declare</code> must have exactly one value for the property <code>sh:prefix</code> (<a>literals</a> of datatype <code>xsd:string</code>)
+					and exactly one value for the property <code>sh:namespace</code> (<a>literals</a> of datatype <code>xsd:anyURI</code>).
+					Such a pair of values defines a single mapping of a prefix to a namespace.
+				</p>
+				<p>
+					The recommended <a>subject</a> for values of <code>sh:declare</code> is the IRI of the graph defining the shapes that use the prefixes.
+					These IRIs are often declared as an instance of <code>owl:Ontology</code>, but this is not required.
+				</p>
+				<p>
+					Prefix declarations can be used by SPARQL-based constraints and similar SPARQL-based features such as
+					the validators of <a href="#constraint-components">constraint components</a>,
+					<a href="#derivedValues">derived values constraints</a>,
+					<a href="#sparql-targets">target types</a> and <a href="#functions">functions</a>.
+					These nodes can use the property <code>sh:prefixes</code> to define a set of prefix mappings.
+					(An example use of the <code>sh:prefixes</code> property can be found in the
+					<a href="#example-sparql-constraint">example</a> above.)
+					The values of <code>sh:prefixes</code> must be <a>IRIs</a> or <a>blank nodes</a>.
+					A SHACL processor collects a set of prefix mappings as the union of all
+					single prefix mappings that can be reached by the property path <code>sh:prefixes/owl:imports*/sh:declare</code> starting at the SPARQL-based constraint.
+					If such a collection of prefix declarations contains multiple namespaces for the same <code>sh:prefix</code>,
+					then the <a>shapes graph</a> is invalid.
+					A SHACL processor transforms the values of <code>sh:select</code> (and similar properties such as <code>sh:ask</code>)
+					into SPARQL by prepending <a href="https://www.w3.org/TR/sparql11-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
+					for all namespace prefix mappings.
+					Each value of <code>sh:prefix</code> is turned into the <code>PNAME_NS</code>, while each value of <code>sh:namespace</code> is turned
+					into the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
+					For the example shapes graph above, a SHACL Full processor would produce lines such as <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
+					The SHACL Full processor must produce a <a>failure</a> if the resulting SPARQL query string cannot be parsed into a valid SPARQL 1.1 query.
+					In the rest of this document, the <code>sh:prefixes</code> statements may have been omitted for brevity.
+				</p>
 			</section>
 			<section id="sparql-constraints-prebound">
 				<h4>Pre-bound Variables in SPARQL Constraints ($this, $shapesGraph, $currentShape)</h4>
 				<p>
 					The following table enumerates variables that have special meaning in SPARQL constraints.
-					When SPARQL constraints are executed, the validation engine <a>pre-binds</a> values for these variables.
+					When SPARQL constraints are executed, the SHACL Full processor <a>pre-binds</a> values for these variables.
 				</p>
 				<table class="term-table">
 					<tr>
@@ -3464,16 +3645,16 @@ ex:LanguageExampleShape
 						<td>
 							Can be used to query the shapes graph as in <code>GRAPH $shapesGraph { ... }</code>.
 							If the shapes graph is a named graph in the same dataset as the data graph then it is the IRI of the shapes graph in the dataset.
-							Not all SHACL validation engines need to support this variable.
+							Not all SHACL Full processors need to support this variable.
 							Processors that do not support <code>$shapesGraph</code> MUST report a <a>failure</a> if they encounter a query that references this variable.
 							Use of <code>GRAPH $shapesGraph { ... }</code> should be handled with extreme caution.
-							It may result in constraints that are not interoperable across different SHACL validation engines and that may not run on remote RDF datasets.
+							It may result in constraints that are not interoperable across different SHACL Full processors and that may not run on remote RDF datasets.
 						</td>
 					</tr>
 					<tr>
 						<td><code style="white-space: nowrap">$currentShape</code></td>
 						<td>
-							The currently validated shape.  Typically used in conjunction with <code>$shapesGraph</code>.
+							The current shape.  Typically used in conjunction with <code>$shapesGraph</code>.
 							The same support policies as for <code>$shapesGraph</code> apply for this variable.
 						</td>
 					</tr>
@@ -3482,12 +3663,12 @@ ex:LanguageExampleShape
 			<section id="sparql-constraints-variables">
 				<h4>Mapping of Result Variables to Validation Results</h4>
 				<p>
-					If one of the rows of the result set produced by a SELECT query contains the binding <code>true</code>
-					for the variable <code>failure</code>, then the validation engine must signal a <a>failure</a>.
+					If one of the <a>solutions</a> of the result set produced by a SELECT query contains the binding <code>true</code>
+					for the variable <code>failure</code>, then the SHACL Full processor must signal a <a>failure</a>.
 				</p>
 				<p>
-					Otherwise, each row of the result set produced by a SELECT query must be converted into one validation result resource.
-					The properties of those resources are derived by the following rules, through a combination of result variables and the properties linked to the constraint itself.
+					Otherwise, each row of the result set produced by a SELECT query must be converted into one validation result node.
+					The properties of those nodes are derived by the following rules, through a combination of result variables and the properties linked to the constraint itself.
 					The production rules are meant to be executed from top to bottom, so that the first bound value will be used.
 				</p>
 				<table class="term-table">
@@ -3500,7 +3681,6 @@ ex:LanguageExampleShape
 						<td>
 							<ol>
 								<li>The value of <code>sh:severity</code> of the constraint node</li>
-								<li>For <a>constraint components</a>, the value of <code>sh:severity</code> of the constraint component resource</li>
 								<li><code>sh:Violation</code> as default</li>
 							</ol>
 						</td>
@@ -3537,8 +3717,8 @@ ex:LanguageExampleShape
 								<li>The value of the variable <code>message</code></li>
 								<li>
 									The values of <code>sh:message</code> of the subject of the <code>sh:select</code> or <code>sh:ask</code> triple.
-									These string literals may reference any value of the SELECT result variables via <code>{?varName}</code> or <code>{$varName}</code>.
-									If the constraint is based on a <a href="#constraint-components">constraint component</a>, then the component's parameter variables can also be used.
+									These string literals may reference any <a>binding</a> of the SELECT result variables via <code>{?varName}</code> or <code>{$varName}</code>.
+									If the constraint is based on a <a href="#constraint-components">constraint component</a>, then the component's <a>parameter names</a> can also be used.
 									The <code>{?varName}</code> blocks SHOULD be substituted with suitable string representations of the values of said variables.
 								</li>
 							</ol>
@@ -3565,7 +3745,7 @@ ex:LanguageExampleShape
 			<section id="sparql-constraints-annotations">
 				<h4>Injecting Annotation Properties into Validation Results</h4>
 				<p>
-					It is possible to inject additional <span class="term">annotation properties</span> into the validation result resources created for each row of the SELECT result sets.
+					It is possible to inject additional <span class="term">annotation properties</span> into the validation result nodes created for each <a>solution</a> of the SELECT result sets.
 					Any such property needs to be declared via a value of <code>sh:resultAnnotation</code> at the subject holding the <code>sh:select</code> or <code>sh:ask</code> triple.
 					The values of <code>sh:resultAnnotation</code> must be IRIs or blank nodes with the following properties:
 				</p>
@@ -3596,16 +3776,16 @@ ex:LanguageExampleShape
 					</tr>
 				</table>
 				<p>
-					For each row of a SELECT result set, a SHACL processor must walk through the declared result annotations.
+					For each <a>solution</a> of a SELECT result set, a SHACL Full processor must walk through the declared result annotations.
 					The mapping from result annotations to SPARQL variables uses the following rules:
 				</p>
 				<ol>
-					<li>If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the validation engine must look for the variable named after the <code>sh:annotationVarName</code></li>
-					<li>Otherwise, the validation engine must derive a variable name from the value of <code>sh:annotationProperty</code> using the same <a>local name</a> mechanism as described earlier</li>
+					<li>If a <code>sh:resultAnnotation</code> defines a <code>sh:annotationVarName</code> then the SHACL Full processor must look for the variable named after the <code>sh:annotationVarName</code></li>
+					<li>Otherwise, the SHACL Full processor must derive a variable name from the value of <code>sh:annotationProperty</code> using the same <a>local name</a> mechanism as described earlier</li>
 				</ol>
 				<p>
-					If a variable name could be determined, then the validation engine must copy the bindings for the given variable into the constructed validation results for the current row.
-					If the variable has no binding in the result set row, then the value of <code>sh:annotationValue</code> must be used, if present.
+					If a variable name could be determined, then the SHACL Full processor must copy the bindings for the given variable into the constructed validation results for the current <a>solution</a>.
+					If the variable has no binding in the result set <a>solution</a>, then the value of <code>sh:annotationValue</code> must be used, if present.
 				</p>
 				<p>
 					The values of <code>sh:annotationProperty</code> must not be from the SHACL namespace, to avoid clashes with variables that are already produced by other means.
@@ -3642,7 +3822,7 @@ ex:ExampleValueResource
 	ex:property2 ex:ExampleIntermediateResource .
 </pre>
 				<p>
-					Which produces the following validation result resource:
+					Which produces the following validation result nodes:
 				</p>
 				<pre class="example-results">
 [
@@ -3668,7 +3848,7 @@ ex:ExampleValueResource
 				The definition of such constraint components can be represented in the SHACL RDF vocabulary and thus shared and reused.
 			</p>
 			<p>
-				<code>sh:ConstraintComponent</code> is the class of all constraint components.
+				<code>sh:ConstraintComponent</code> is the <a>SHACL class</a> of all constraint components.
 				Each constraint component must define:
 			</p>
 			<ul>
@@ -3678,7 +3858,7 @@ ex:ExampleValueResource
 			<section class="informative">
 				<h3>An Example Constraint Component</h3>
 				<p>
-					The following example demonstrates how SPARQL-based constraint components can be applied to define Core elements of the SHACL language itself.
+					The following example demonstrates how SPARQL can be used to define new constraint components using the SHACL Full language.
 					The example implements <a href="#PatternConstraintComponent"><code>sh:pattern</code> and <code>sh:flags</code></a> using a <a href="#SPARQLAskValidator">SPARQL ASK</a> query to validate that each <a>value node</a> matches a given regular expression.
 					Note that this is only an example implementation and should not be considered normative.
 				</p>
@@ -3710,14 +3890,14 @@ shimpl:hasPattern
 				<h3>Parameters Declaration (sh:parameter)</h3>
 				<p>
 					The parameters of a <a>constraint component</a> are declared via the property <code>sh:parameter</code>.
-					Each parameter must be a <a>SHACL instance</a> of <code>sh:Parameter</code>, but the <code>rdf:type</code> triples can be omitted.
+					The objects of triples with <code>sh:parameter</code> as predicate have <code>sh:Parameter</code> as <a>expected type</a>.
 				</p>
 				<p class="issue" data-number="107" title="Specifying SPARQL variable name">
 					There is an open issue about the relationship between SPARQL variable name and sh:predicate.
 					Possible revisions may require an additional property similar to sh:annotationVarName.
 				</p>
 				<p>
-					Each <code>sh:Parameter</code> must have exactly one value <code>p</code> for the property <code>sh:predicate</code> and the value must be an IRI.
+					Each parameter must have exactly one value <code>p</code> for the property <code>sh:predicate</code> and the value must be an IRI.
 					The <dfn data-lt="local names">local name</dfn> of an <a>IRI</a> is defined as the longest <a href="http://www.w3.org/TR/REC-xml-names/#NT-NCName">NCNAME</a>
 					at the end of the <a>IRI</a>, not immediately preceded by the first colon in the <a>IRI</a>.
 					The <dfn data-lt="parameter names">parameter name</dfn> is defined as the <a>local name</a> of the <a>value</a> of <code>sh:predicate</code>.
@@ -3731,7 +3911,7 @@ shimpl:hasPattern
 				<p>
 					An <code>sh:Parameter</code> may have its property <code>sh:optional</code> set to <code>true</code>
 					to indicate that the parameter is not mandatory.
-					Every <code>sh:ConstraintComponent</code> must have at least one non-optional parameter.
+					Every <a>constraint component</a> must have at least one non-optional parameter.
 				</p>
 				<p>
 					The class <code>sh:Parameter</code> is defined as a <a>SHACL subclass</a> of <code>sh:PropertyConstraint</code>,
@@ -3744,7 +3924,7 @@ shimpl:hasPattern
 					<h4>Parameter pre-binding</h4>
 					<p>
 						Every <a>parameter name</a> defines a <a>pre-bound</a> variable for the <a>constraint component</a> the parameter belongs to.
-						This variable can be used in the SPARQL definition of the <a>constraint component</a>  and the SHACL engine MUST <a>pre-bind</a> it to the parameter value.
+						This variable can be used in the SPARQL definition of the <a>constraint component</a> and a SHACL Full processor MUST <a>pre-bind</a> it to the parameter value.
 					</p>
 				</section>
 			</section>
@@ -3762,7 +3942,7 @@ shimpl:hasPattern
 				<h3>Validators</h3>
 				<p>
 					For every supported context (i.e., <a>property constraint</a> or <a>shape</a>)
-					the constraint component must declare a suitable <dfn>validator</dfn>.
+					the constraint component must declare a suitable <a>validator</a>.
 					For a given constraint, a validator is selected from the constraint component using the following rules:
 				</p>
 				<ol>
@@ -3771,18 +3951,18 @@ shimpl:hasPattern
 					<li>Otherwise, use one of the values of <code>sh:validator</code>.
 				</ol>
 				<p>
-					If no suitable validator can be found, a SHACL processor ignores the constraint.
+					If no suitable validator can be found, a SHACL Full processor ignores the constraint.
 					<span class="todo">The SHACL WG is seeking practical feedback on what the default behavior should be, and
 					whether we should report violations in those cases.</span>
 				</p>
 				<p>
-					SHACL includes two types of validators, based on <a href="#SPARQLSelectValidator">SPARQL SELECT</a> (for <code>sh:shapeValidator</code> and <code>sh:propertyValidator</code>) 
+					SHACL Full includes two types of validators, based on <a href="#SPARQLSelectValidator">SPARQL SELECT</a> (for <code>sh:shapeValidator</code> and <code>sh:propertyValidator</code>)
 					or <a href="#SPARQLAskValidator">SPARQL ASK</a> queries (for <code>sh:validator</code>).
 				</p>
 				<section id="SPARQLSelectValidator">
 					<h3>Validators based on SPARQL SELECT Queries</h3>
 					<p>
-						Validators that have the <code>rdf:type</code> <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:select</code>.
+						Validators that are <a>SHACL instances</a> of <code>sh:SPARQLSelectValidator</code> must point at exactly one string representation of a SPARQL SELECT query via the property <code>sh:select</code>.
 						The value of <code>sh:select</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
 						This type of validator can be used as values of <code>sh:shapeValidator</code> or <code>sh:propertyValidator</code>.
 					</p>
@@ -3809,7 +3989,7 @@ ex:LanguageConstraintComponentUsingSELECT
 		a sh:SPARQLSelectValidator ;
 		sh:message "Values must be literals with language \"{?lang}\"" ;
 		sh:select """
-			SELECT $this ?value
+			SELECT DISTINCT $this ?value
 			WHERE {
 				$this $PATH ?value .
 				FILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))
@@ -3841,12 +4021,12 @@ ex:LanguageExampleShape
 						used by the constraint.
 						The only legal use of this variable is in the <a>predicate</a> position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>.
 						A query that uses the variable <code>PATH</code> in any other position is invalid.
-						Furthermore, any query that uses the variable <code>this</code> as part of the expression used in an <a href="https://www.w3.org/TR/sparql11-query/#aggregates">aggregation</a>
+						Furthermore, any query that uses the variable <code>this</code> as part of the Expression used in a SPARQL 1.1 <a href="https://www.w3.org/TR/sparql11-query/#rAggregate">Aggregate</a>
 						is invalid. <!-- HK: This is because otherwise this would prevent implementations from injecting a loop over all target nodes into the beginning of the query -->
 					</p>
 					<p id="SPARQLSelectValidator-evaluation">
-						A SPARQL-based SHACL validation engine executes the provided SPARQL query to produce validation results.
-						In the context of <a>property constraints</a>, the engine will first substitute all occurrences of the variable <code>PATH</code>
+						A SHACL Full processor executes the provided SPARQL query on the data graph to produce validation results.
+						In the context of <a>property constraints</a>, the SHACL Full processor will first substitute all occurrences of the variable <code>PATH</code>
 						with the provided <a>property path</a> derived from the value of either <code>sh:predicate</code> or <code>sh:path</code> in the constraint.
 						The resulting SPARQL query is then evaluated with the same <a>pre-bound variables</a>
 						as outlined in the section for <a href="#sparql-constraints-prebound">SPARQL-based Constraints</a> (<code>$this</code> etc).
@@ -3856,7 +4036,7 @@ ex:LanguageExampleShape
 						The result set of the SELECT query is turned into validation results using the same rules as outlined in the section for <a href="#sparql-constraints-variables">SPARQL-based Constraints</a>.
 						In addition to the result properties listed in that section, the property <code>sh:sourceConstraintComponent</code> MUST point at the
 						IRI of the constraint component that has been evaluated.
-						Furthermore, a <code>sh:SPARQLSelectValidator</code> may declare additional <a href="#sparql-constraints-annotations">annotation properties</a> via <code>sh:resultAnnotation</code>.
+						Furthermore, a SPARQL select validator may declare additional <a href="#sparql-constraints-annotations">annotation properties</a> via <code>sh:resultAnnotation</code>.
 					</p>
 				</section>
 				<section id="SPARQLAskValidator">
@@ -3864,19 +4044,19 @@ ex:LanguageExampleShape
 					<p>
 						Many constraint components are of the form in which all <a>value nodes</a> are tested individually against some boolean condition.
 						Writing SELECT queries for these becomes burdensome, especially if a constraint component can be used for both <a>property constraints</a> and <a>shapes</a>.
-						SHACL provides an alternative, more compact syntax for validators based on ASK queries.
+						SHACL Full provides an alternative, more compact syntax for validators based on ASK queries.
 						This type of validators can be used as values of the property <code>sh:validator</code>.
 					</p>
 					<p>
-						Validators that have the <code>rdf:type</code> <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:ask</code>.
+						Validators that are <a>SHACL instances</a> of <code>sh:SPARQLAskValidator</code> must point at exactly one string representation of a SPARQL ASK query via the property <code>sh:ask</code>.
 						The value of <code>sh:ask</code> must be a valid SPARQL query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
 						The ASK queries are expected to return <code>true</code> if a given <a>value node</a>
 						(represented by the pre-bound variable <code>value</code>) is valid.
 					</p>
 					<p>
-						Prior to evaluation, a SHACL validation engine transforms the provided ASK query into a SELECT query using the following templates.
+						Prior to evaluation, a SHACL Full processor transforms the provided ASK query into a SELECT query using the following templates.
 						The resulting SELECT query can then be evaluated using the same algorithm as for <a href="#SPARQLSelectValidator-evaluation">SELECT-based validators</a>.
-						The engine drops the ASK keyword, any top-level dataset clauses and solution modifiers, leaving only the <code>GroupGraphPattern</code> including the outermost <code>{...}</code> pair.
+						The processor drops the ASK keyword, any top-level dataset clauses and solution modifiers, leaving only the <code>GroupGraphPattern</code> including the outermost <code>{...}</code> pair.
 						This block then substitutes <code>...</code> in the template.
 					</p>
 					<p>Template for <code>sh:Shape</code> context:</p>
@@ -3888,11 +4068,15 @@ ex:LanguageExampleShape
 	}</pre>
 					<p>Template for <code>sh:PropertyConstraint</code> context:</p>
 					<pre>
-	SELECT $this ?value
+	SELECT DISTINCT $this ?value
 	WHERE {
 		$this $PATH ?value .
 		FILTER NOT EXISTS ...
 	}</pre>
+					<p>
+						Note that the template above includes a <code>DISTINCT</code> keyword because a SPARQL path expression may
+						return the same <code>?value</code> multiple times, yet each <a>value node</a> is only validated once.
+					</p>
 					<p>
 						Once the corresponding template has been applied, the resulting SELECT query will be evaluated using the same approach as outlined <a href="#SPARQLSelectValidator-evaluation">above</a>.
 						Actual SHACL implementations may of course use a different approach internally, as long as the results are equivalent to the described approach.
@@ -3945,7 +4129,7 @@ ex:hasLang
 		<section id="sparql-targets">
 			<h2>SPARQL-based Targets (sh:target)</h2>
 			<p>
-				SHACL provides facilities to define custom targets.
+				SHACL Full provides facilities to define custom targets.
 				Similar to constraints, targets may either be <a href="#SPARQLTarget"><span class="term">SPARQL-based targets</span></a> or
 				<a href="#SPARQLTargetType"><span class="term">SPARQL-based target types</span></a> in a higher-level vocabulary.
 				All subjects of <code>sh:target</code> triples must be IRIs.
@@ -3961,7 +4145,7 @@ ex:hasLang
 				<p>
 					The SELECT queries must also be executable when converted to an ASK query and with a pre-bound value for <code>?this</code>.
 					The set of bindings for <code>?this</code> that return <code>true</code> for such ASK queries must be identical to the set produced by the SELECT query.
-					This design makes sure that validation engines can validate whether a given shape applies to a given individual focus node.
+					This design makes sure that SHACL Full processors can validate whether a given shape applies to a given individual focus node.
 				</p>
 				<p>
 					The following example illustrates a well-formed SPARQL-based target that produces all persons born in the USA:
@@ -4037,29 +4221,27 @@ ex:USCitizenShape
 			<p>
 				It is a common scenario that certain property values are derived from other values.
 				For example, the area of a rectangle must be the product of width and height, or an uncle of a person is a male sibling of a parent.
-				SHACL includes a constraint parameter <code>sh:derivedValues</code> that can be used with property constraints to define such constraints.
+				SHACL Full includes a constraint parameter <code>sh:derivedValues</code> that can be used with property constraints to define such constraints.
 			</p>
 			<p>
-				<span class="component-class">Constraint Component:</span> <code>sh:DerivedValuesConstraintComponent</code>
+				<span class="component-class">Constraint Component IRI</span>: <code>sh:DerivedValuesConstraintComponent</code>
 			</p>
 
 			<div class="parameters">Parameters:</div>
 			<table class="term-table">
 				<tr>
 					<th>Property</th>
-					<th>Value Type</th>
 					<th>Summary</th>
 				</tr>
 				<tr>
 					<td><code>sh:derivedValues</code></td>
-					<td><code>sh:ValuesDeriver</code></td>
 					<td>An object providing instructions on how to derive the values</td>
 				</tr>
 			</table>
 			<p>
 				The values of <code>sh:derivedValues</code> must be <a>SHACL instances</a> of a <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code>.
-				<code>sh:SPARQLValuesDeriver</code> is the only <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code> defined by SHACL.
-				Each <code>sh:SPARQLValuesDeriver</code> must have exactly one value for the property <code>sh:select</code> that can be used to produce the values that the property is expected to have.
+				<code>sh:SPARQLValuesDeriver</code> is the only <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code> defined by SHACL Full.
+				Each <a>SHACL instance</a> of <code>sh:SPARQLValuesDeriver</code> must have exactly one <a>value</a> for the property <code>sh:select</code> that can be used to produce the values that the property is expected to have.
 				The values of <code>sh:select</code> must be SPARQL SELECT queries that project into the variable <code>value</code> only.
 				These queries can access the current focus node via the variable <code>this</code> and must produce bindings for the variable <code>value</code> for all derived values.
 			</p>
@@ -4118,7 +4300,7 @@ ex:RectangleShape
 				<h3>Syntax of SPARQL Functions</h3>
 				<p>
 					Functions that encapsulate a SPARQL query must be <a>SHACL instances</a> of <code>sh:SPARQLFunction</code>, which is a <a>SHACL subclass</a> of the more general class <code>sh:Function</code>.
-					Such functions must provide exactly one value for either <code>sh:ask</code> or <code>sh:select</code>, linking to a SPARQL query.
+					Such functions must provide exactly one <a>value</a> for either <code>sh:ask</code> or <code>sh:select</code>, linking to a SPARQL query.
 				</p>
 				<p>
 					The following example illustrates the definition of a function based on a simple mathematical SPARQL query.
@@ -4144,7 +4326,7 @@ ex:exampleFunction
 		}
 		""" .</pre>
 				<p>
-					Using the declaration above, SPARQL engines with full SHACL support can install a new SPARQL function based on the SPARQL 1.1 <a href="http://www.w3.org/TR/sparql11-query/#extensionFunctions">Extensible Value Testing</a> mechanism.
+					Using the declaration above, SPARQL engines with  SHACL Full support can install a new SPARQL function based on the SPARQL 1.1 <a href="http://www.w3.org/TR/sparql11-query/#extensionFunctions">Extensible Value Testing</a> mechanism.
 					Such engines are then able to handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>, as illustrated in the following SPARQL query.
 				</p>
 				<pre class="example-shapes" title="Call of a SHACL function in a SPARQL query">
@@ -4161,10 +4343,10 @@ WHERE {
 				<h3>Function Parameters</h3>
 				<p>
 					The <a>parameters</a> of a function are linked to its <code>sh:Function</code> via the property <code>sh:parameter</code>.
-					Each <a>parameter</a> must be a <a>SHACL instance</a> of <code>sh:Parameter</code>, but their <code>rdf:type</code> triple can be omitted.
+					The objects of triples with <code>sh:parameter</code> as predicate have <code>sh:Parameter</code> as <a>expected type</a>.
 				</p>
 				<p>
-					Each <code>sh:Parameter</code> must have exactly one <a>value</a> for the property <code>sh:predicate</code>.
+					Each parameter must have exactly one <a>value</a> for the property <code>sh:predicate</code>.
 					The <a>values</a> of <code>sh:predicate</code> must be <a>IRIs</a>, and follow the following restrictions:
 				</p>
 				<ul>
@@ -4182,7 +4364,7 @@ WHERE {
 					<li><a>Parameters</a> that do not declare an <code>sh:order</code> are ordered by the <a>local names</a> of their declared <code>sh:predicate</code>s.</li>
 				</ol>
 				<p>
-					Each <code>sh:Parameter</code> may have its property <code>sh:optional</code> set to <code>true</code>
+					Each parameter may have its property <code>sh:optional</code> set to <code>true</code>
 					to indicate that the <a>parameter</a> is not mandatory.
 				</p>
 			</section>
@@ -4203,15 +4385,9 @@ WHERE {
 					SELECT queries must project exactly one result variable and SHOULD not use the <code>SELECT *</code> syntax.
 					In the SPARQL query, the SPARQL processor needs to <a>pre-bind</a> variables based on the provided parameters of the function call.
 					For ASK queries, the function's return value is the result of the ASK query execution, i.e. <code>true</code> or <code>false</code>.
-					For SELECT queries, the function's return value is the binding of the (single) result variable of the first row in the result set.
-					Since all other bindings will be ignored, such SELECT queries SHOULD only return a single result variable and at most one row.
-					Also note that the result variable may be unbound, making the return value of the function <span class="term">undefined</span>.
-				</p>
-				<p>
-					<em>Recursive use of functions is undefined:</em>
-					If a SPARQL-based function contains calls to other functions so that the same function with the same combination of parameters would be visited twice
-					then the result of the function call is undefined.
-					An implementation may either return no result (unbound) or terminate the surrounding SPARQL query with an error.
+					For SELECT queries, the function's return value is the <a>binding</a> of the (single) result variable of the first <a>solution</a> in the result set.
+					Since all other bindings will be ignored, such SELECT queries SHOULD only return a single result variable and at most one <a>solution</a>.
+					If the result variable is unbound, then the function generates a <a href="https://www.w3.org/TR/sparql11-query/#invocation">SPARQL error</a>.
 				</p>
 				<p>
 					Some processors may ignore the specified SPARQL query and rely on an alternative (possibly native) implementation instead,
@@ -4226,14 +4402,14 @@ WHERE {
 			<h2>Entailment</h2>
 			<p>
 				By default, SHACL does not assume any <span class="term">entailment regime</span> [[!sparql11-entailment]] to be activated on the <a>data graph</a>.
-				However, the property <code>sh:entailment</code> can be used to instruct a SHACL <a>validation</a> engine to ensure that a given entailment is activated on the <a>data graph</a>.
+				However, the property <code>sh:entailment</code> can be used in the <a>shapes graph</a> to instruct a SHACL processor to ensure that a given entailment is activated on the <a>data graph</a>.
 				The <a>values</a> of <code>sh:entailment</code> must be <a>IRIs</a>, with common use cases covered by [[!sparql11-entailment]].
 				<!--DK: we can be agnostic on the what the subject is-->
 				<!--The subject of <code>sh:entailment</code> must be the IRI of the shapes graph itself.-->
 			</p>
 			<p>
-				SHACL <a>validation</a> engines are not required to support any entailment regimes.
-				If an entailment regime is provided in the <a>data graph</a> which is not supported by the engine, the <a>validation</a> must produce a <a>failure</a>.
+				SHACL processors are not required to support any entailment regimes.
+				If an entailment regime is provided in the <a>shapes graph</a> which is not supported by the SHACL processor, the <a>validation</a> must produce a <a>failure</a>.
 			</p>
 		</section>
 		
@@ -4247,83 +4423,48 @@ WHERE {
 				The following definition is under discussion.
 			</div>
 			<p>
-				SHACL implementations with full support of the SHACL SPARQL extension mechanism must implement
-				a function <code>sh:hasShape</code>, which takes the following <a>parameters</a>:
+				SHACL Full processors must implement the function <code>sh:hasShape</code>,
+				which takes the following parameters:
 			</p>
 			<table class="term-table">
 				<tr>
 					<th style="min-width: 200px">Parameter</th>
-					<th>Value Type</th>
+					<th>Node Kind</th>
 					<th>Summary</th>
 				</tr>
 				<tr>
 					<td><code>focusNode</code></td>
-					<td><code>rdfs:Resource</code></td>
+					<td>Any</td>
 					<td>The <a>focus node</a> to validate.</td>
 				</tr>
 				<tr>
 					<td><code>shape</code></td>
-					<td><code>rdfs:Resource</code></td>
+					<td><a>IRI</a> or <a>blank node</a></td>
 					<td>The <a>shape</a> to validate the focus node against.</td>
-				</tr>
-				<tr>
-					<td><code>shapesGraph</code></td>
-					<td><code>rdfs:Resource</code></td>
-					<td>The IRI of the current <a>shapes graph</a>.</td>
 				</tr>
 			</table>
 			<p>
 				An example call of this function is
 			</p>
 			<pre>
-				<code>BIND (sh:hasShape(ex:JohnDoe, ex:PersonShape, $shapesGraph) AS ?hasShape)</code>
+				<code>BIND (sh:hasShape(ex:JohnDoe, ex:PersonShape) AS ?hasShape)</code>
 			</pre>
 			<p>
 				None of the <a>parameters</a> can be unbound.
-				The result of the <code>sh:hasShape</code> function is either <code>true</code>, <code>false</code> or <span class="term">undefined</span>:
+				The result of the <code>sh:hasShape</code> function is either (the following rules are applied in order):
 			</p>
-			<ul>
+			<ol>
+				<li>a <a href="https://www.w3.org/TR/sparql11-query/#invocation">SPARQL error</a> if during the execution a <a>failure</a> has been reported. This result indicates a <a>failure</a>.
+				Implementations MAY for example use this to report infinite recursion or invalid input.</li>
 				<li><code>true</code> if the <a>validation</a> of the <code>focusNode</code> against the given <code>shape</code> produces no <a>validation results</a>.</li>
 				<li><code>false</code> if the <a>validation</a> of the <code>focusNode</code> against the given <code>shape</code> produces at least one <a>validation result</a>.</li>
-				<li><span class="term">undefined</span> if during the execution a <a>failure</a> has been reported. This result indicates a <a>failure</a>.
-				Implementations MAY for example use this to report infinite recursion.</li>
-			</ul>
+			</ol>
 			<p>
 				Note that any <a>validation results</a> produced inside of the <code>sh:hasShape</code> function are temporary, i.e. they are not added to the results graph of the surrounding <a>validation</a> process.
 				However, some implementations may add those nested <a>validation results</a> as annotations to the surrounding <a>validation results</a>, via <a href="#results-detail"><code>sh:detail</code></a>.
 			</p>
 		</section>
-		
-		<section id="optional-features" class="appendix">
-			<h2>List of Optional SHACL Features and Dialects</h2>
-			<p>
-				SHACL has been designed to address a wide range of use cases.
-				For many advanced use cases, highly expressive constraints such as those
-				written in SPARQL are needed.
-				Yet, SHACL has been designed so that those advanced use cases do not put
-				unnecessary burden on implementations that only aim at the simpler features.
-				As a result of this, not all SHACL engines need to support all features of
-				the complete language, dubbed <dfn>SHACL Full</dfn>.
-				The following overview enumerates the features that are outside of
-				<dfn>SHACL Core</dfn>.
-			</p>
-			<ul>
-				<li><a href="#sparql-constraints">SPARQL-based Constraints</a></li>
-				<li><a href="#constraint-components">SPARQL-based Constraint Components</a></li>
-				<li><a href="#sparql-targets">SPARQL-based Targets</a></li>
-				<li><a href="#derivedValues">Derived Values Constraints</a></li>
-				<li><a href="#functions">SPARQL Functions</a></li>
-				<li><a href="#entailment">Entailment</a></li>
-				<li><a href="#hasShape">The Function sh:hasShape</a></li>
-			</ul>
-			<p>
-				Furthermore, implementation details of the following features have been left unspecified. 
-			</p>
-			<ul>
-				<li><a href="#recursion">Handling of recursive shapes</a></li>
-			</ul>
-		</section>
-		
+
 		<section id="pre-binding" class="appendix">
 			<h2>Pre-binding of Variables in SPARQL Queries</h2>
 			<p class="issue" data-number="68" title="Pre-binding of Variables in SPARQL">
@@ -4332,7 +4473,7 @@ WHERE {
 				The WG is also awaiting input from the <a href="https://www.w3.org/community/sparql-exists/">SPARQL Maintenance (EXISTS) Community Group</a>.
 			</p>
 			<p>
-				Some features of the SPARQL-based extension mechanism of SHACL rely on the concept of <dfn data-lt="pre-binding|pre-bind|pre-bound|pre-bound variables|pre-binds">pre-binding of variables</dfn>.
+				Some features of the SPARQL-based extension mechanism of SHACL Full rely on the concept of <dfn data-lt="pre-binding|pre-bind|pre-bound|pre-bound variables|pre-binds">pre-binding of variables</dfn>.
 				Although variations of this concept are supported by several existing SPARQL implementations, there is no formal definition of pre-binding in the SPARQL 1.1 specifications.
 				The goal of this section is to illustrate the effect of pre-binding to users and implementers.
 				Note however that the following definition is not meant to serve as recommendation for an actual implementation strategy.
@@ -4348,7 +4489,7 @@ WHERE {
 			<section id="pre-bindound-variables">
 				<h3>Pre-bound variables</h3>
 				<p>
-					SHACL defines two forms of variable pre-binding:
+					SHACL Full defines two forms of variable pre-binding:
 				</p>
 				<ol>
 			        <li><a href="#sparql-constraints-prebound">Global pre-bound variables</a> that are available in all SPARQL-based constraints, SPARQL-based constraint components and SPARQL-based targets.</li>
@@ -4356,7 +4497,7 @@ WHERE {
 				</ol>
 				<p>
 					The variable <code>PATH</code> has a special treatment in SHACL property constraint components and must be processed before any other pre-bound variable.
-					SHACL processors must perform string substitution of every occurrence of the variable <code>PATH</code> to the <a href="#path-syntax">generated SPARQL property path</a> before performing any pre-binding.
+					SHACL Full processors must perform string substitution of every occurrence of the variable <code>PATH</code> to the <a href="#path-syntax">generated SPARQL property path</a> before performing any pre-binding.
 				</p>
 				<p>
 					The variable <code>predicate</code> is not a pre-bound variable in SHACL and will be treated as a normal SPARQL variable.
