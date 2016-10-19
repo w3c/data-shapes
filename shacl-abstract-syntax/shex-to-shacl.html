@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-US">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Compiling ShEx to SHACL</title>
+    <script src='https://www.w3.org/Tools/respec/respec-w3c-common'
+            async="async" class='remove'></script>
+    <script src="https://www.w3.org/2013/ShEx/demobits/jquery.min.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="local.css" />
+    <script class='remove'>
+      var respecConfig = {
+        specStatus: "FPWD",
+        edDraftURI: "http://w3c.github.io/data-shapes/shex-to-shacl/",
+        shortName:  "shex-to-shacl",
+        editors: [
+          { name:       "Eric Prud'hommeaux",
+            url:        "http://www.w3.org/People/Eric/",
+            company:    "W3C/MIT",
+            companyURL: "http://www.w3.org/",
+            w3cid:      "2112" }
+        ],
+        wg:           "RDF Data Shapes Working Group",
+        wgURI:        "https://www.w3.org/2014/data-shapes",
+        wgPublicList: "public-rdf-shapes",
+        wgPatentURI:  "http://www.w3.org/2004/01/pp-impl/73865/status",
+        localBiblio:  {
+          "xyz": {
+            title:    "Shape Expressions Specification",
+            href:     "http://shex.io/spec",
+            "authors": [
+              "E. Prud'hommeaux", "I. Boneva"
+            ],
+            publisher: "self-published"
+          }
+        }
+      };
+    </script>
+		<!-- <script src="https://www.w3.org/scripts/jquery/2.1/jquery.min.js"></script>  -->
+
+    <style>
+.new {
+    background-color: yellow;
+}
+
+    </style>
+  </head>
+  <body>
+    <section id='abstract'>
+      This document defines the translation of Shape Expressions to SHACL.
+    </section>
+
+    <section id='sotd'>
+
+      <p>
+        This is a proposed Working Draft.
+      </p>
+    </section>
+
+    <section id="shacl-mapping">
+      <h2>Mapping to SHACL</h2>
+      <p>
+        A ShEx schema is translated to a SHACL schema by recursively applying the construction rules below:
+      </p>
+
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-Schema" class="obj">Schema</th><td>{</td><td><!-- <span class="param">prefixes</span>:{<a class="trmref" href="#dfn-PREFIX">PREFIX</a>-&gt;<a class="trmref" href="#dfn-IRI">IRI</a>}? <span class="param">base</span>:<a class="trmref" href="#dfn-IRI">IRI</a>? <span class="param">startActs</span>:[<a class="objref" href="#dfn-SemAct">SemAct</a>]? <span class="param">start</span>:<a class="nobref" href="#dfn-shapeExpr">shapeExpr</a>? --> <span class="param">shapes</span>:{<a class="nobref" href="#dfn-shapeLabel">shapeLabel</a>-&gt;<a class="nobref" href="#dfn-shapeExpr">shapeExpr</a>}? }</td></tr>
+          <tr class="nob"><th id="dfn-shapeLabel" class="nob">shapeLabel</th><td>=</td><td><a class="trmref" href="#dfn-IRI">IRI</a> | <a class="trmref" href="#dfn-BNODE">BNODE</a> ;</td></tr>
+          <tr class="nob"><th id="dfn-shapeExpr" class="nob">shapeExpr</th><td>=</td><td><a class="objref" href="#dfn-ShapeOr">ShapeOr</a> | <a class="objref" href="#dfn-ShapeAnd">ShapeAnd</a> | <a class="objref" href="#dfn-ShapeNot">ShapeNot</a> | <a class="objref" href="#dfn-NodeConstraint">NodeConstraint</a> | <a class="objref" href="#dfn-Shape">Shape</a> | <a class="objref" href="#dfn-ShapeRef">ShapeRef</a> | <a class="objref" href="#dfn-ShapeExternal">ShapeExternal</a> ;</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Schema">Schema        := <code class="param">shapes</code>:Set[<a href="#dfn-Shape">Shape</a>]</span><br/>
+          <span class="math" id="dfn-Shape">Shape         := <code class="param">label</code>:IRI|BNode, <code class="param">targets</code>:Set[<a href="#dfn-Target">Target</a>], <code class="param">filters</code>:Set[<a href="#dfn-Shape">Shape</a>], <code class="param">constraints</code>:Set[<a href="#dfn-Test">Test</a>]</span><br/>
+          <span class="math" id="dfn-Test">Test          := <a href="#dfn-Constraint">Constraint</a>|<a href="#dfn-Algebraic">Algebraic</a></span><br/>
+          <span class="math" id="dfn-Algebraic">Algebraic      := <a href="#dfn-And">And</a>|<a href="#dfn-Or">Or</a>|<a href="#dfn-Not">Not</a></span><br/>
+          <span class="math" id="dfn-Constraint">Constraint    := <a href="#dfn-NodeConstraint">NodeConstraint</a>|<a href="#dfn-PathConstraint">PathConstraint</a><!-- <a href="#dfn-PropertyConstraint">PropertyConstraint</a>|<a href="#dfn-InversePropertyConstraint">InversePropertyConstraint</a> --></span>
+        </div>
+        <p>
+          The map <span class="obj">ShEx</span> <span class="params">shapes</span> is treated as a set of (<a class="nobref" href="#dfn-shapeLabel">shapeLabel</a>, <a class="nobref" href="#dfn-shapeExpr">shapeExpr</a>) pairs.
+          The label is used as the subject node of SHACL/RDF <span class="math">Shape</span> constructions.
+        </p>
+        <div class="example">
+          <p>ShEx:</p>
+        <pre>&lt;IssueShape&gt; { ... }</pre>
+          <p>SHACL:</p>
+        <pre>&lt;IssueShape&gt; a sh:Shape ...</pre>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-ShapeOr" class="obj">ShapeOr</th><td>{</td><td><span class="param">shapeExprs</span>:[<a class="nobref" href="#dfn-shapeExpr">shapeExpr</a>] }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Or">Or            := <code class="param">shapes</code>:Set[<a href="#dfn-Shape">Shape</a>]</span>
+        </div>
+        <p>
+          Each <a class="nobref" href="#dfn-shapeExpr">shapeExpr</a> in <span class="param">shapeExprs</span> is consructed as a <a href="#dfn-Shape">Shape</a> in <code class="param">shapes</code>.
+        </p>
+        <div class="example">
+          <p>ShEx:</p>
+        <pre>&lt;User&gt; @&lt;Person&gt; OR &lt;Customer&gt;</pre>
+          <p>SHACL:</p>
+        <pre>&lt;User&gt; sh:constraint [ sh:or (&lt;Person&gt; &lt;Customer&gt;) ]</pre>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-ShapeAnd" class="obj">ShapeAnd</th><td>{</td><td><span class="param">shapeExprs</span>:[<a class="nobref" href="#dfn-shapeExpr">shapeExpr</a>] }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-And">And           := <code class="param">shapes</code>:Set[<a href="#dfn-Shape">Shape</a>]</span>
+        </div>
+        <p>
+          Each <a class="nobref" href="#dfn-shapeExpr">shapeExpr</a> in <span class="param">shapeExprs</span> is consructed as a <a href="#dfn-Shape">Shape</a> in <code class="param">shapes</code>.
+        </p>
+        <div class="example">
+          <p>ShEx:</p>
+        <pre>&lt;User&gt; @&lt;Person&gt; AND &lt;Customer&gt;</pre>
+          <p>SHACL:</p>
+        <pre>&lt;User&gt; sh:constraint [ sh:and (&lt;Person&gt; &lt;Customer&gt;) ]</pre>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-ShapeNot" class="obj">ShapeNot</th><td>{</td><td><span class="param">shapeExpr</span>:<a class="nobref" href="#dfn-shapeExpr">shapeExpr</a> }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Not">Not           := <code class="param">shape</code>:<a href="#dfn-Shape">Shape</a></span>
+        </div>
+        <p>
+          The <a class="nobref" href="#dfn-shapeExpr">shapeExpr</a> <span class="param">shape</span> is consructed as the <a href="#dfn-Shape">Shape</a> <code class="param">shapes</code>.
+        </p>
+        <div class="example">
+          <p>ShEx:</p>
+        <pre>&lt;User&gt; @&lt;Person&gt; AND NOT &lt;Customer&gt;</pre>
+          <p>SHACL:</p>
+        <pre>&lt;User&gt; sh:constraint [ sh:and (&lt;Person&gt; [ sh:not &lt;Customer&gt; ]) ]</pre>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-ShapeRef" class="obj">ShapeRef</th><td>{</td><td><span class="param">reference</span>:<a class="trmref" href="#dfn-shapeLabel">shapeLabel</a> }</td></tr>
+        </table>
+      </div>
+      <p>
+        The construction of a <span class="obj">ShapeRef</span> is the construction of the <a class="nobref" href="#dfn-shapeExpr">shapeExpr</a> for <span class="param">shapeLabel</span> in the ShEx Schema's <span class="param">shapes</span> map.
+      </p>
+        <div class="example">
+          <p>ShEx:</p>
+        <pre>&lt;User&gt; @&lt;Person&gt;
+&lt;Person&gt; &lt;X&gt; AND &lt;Y&gt;</pre>
+          <p>SHACL:</p>
+        <pre>&lt;User&gt; sh:constraint [ sh:and (&lt;X&gt; &lt;Y&gt; ) ]</pre>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-ShapeExternal" class="obj">ShapeExternal</th><td>{</td><td><span class="comment">/* empty */</span> }</td></tr>
+        </table>
+      </div>
+      <p>A schemas with a <span class="obj">ShapeExternal</span> has no translation to SHACL.</p>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-NodeConstraint" class="obj">NodeConstraint</th><td>{</td><td><span class="param">nodeKind</span>:(<span class="literal">"iri"</span> | <span class="literal">"bnode"</span> | <span class="literal">"nonliteral"</span> | <span class="literal">"literal"</span>)? <span class="param">datatype</span>:<a class="trmref" href="#dfn-IRI">IRI</a>? <a class="nobref" href="#dfn-xsFacet">xsFacet</a>* <span class="param">values</span>:[<a class="nobref" href="#dfn-valueSetValue">valueSetValue</a>]? }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-NodeConstraint">NodeConstraint := <code class="param">parms</code>:Set[<a href="#dfn-Parameter">Parameter</a>]</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Parameter">Parameter     :=
+          <a href="#dfn-UnaryParameter">UnaryParameter</a> |
+          <a href="#dfn-NaryParameter">NaryParameter</a>
+          </span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-UnaryParameter">UnaryParameter     :=
+          <a href="#dfn-NodeKind">NodeKind</a> |
+          <a href="#dfn-In">In</a> |
+          <a href="#dfn-Class">Class</a> |
+          <a href="#dfn-Datatype">Datatype</a> |
+          <!-- <a href="#dfn-DatatypeIn">DatatypeIn</a> | -->
+          <a href="#dfn-MinLength">MinLength</a> |
+          <a href="#dfn-MaxLength">MaxLength</a> |
+          <a href="#dfn-Pattern">Pattern</a> |
+          <a href="#dfn-Stem">Stem</a> |
+          <a href="#dfn-MinInclusive">MinInclusive</a> |
+          <a href="#dfn-MinExclusive">MinExclusive</a> |
+          <a href="#dfn-MaxInclusive">MaxInclusive</a> |
+          <a href="#dfn-MaxExclusive">MaxExclusive</a> |
+          <a href="#dfn-LessThanOrEquals">LessThanEquals</a> |
+          <a href="#dfn-LessThan">LessThan</a> |
+          <a href="#dfn-Equals">Equals</a> |
+          <a href="#dfn-Disjoint">Disjoint</a> |
+          <a href="#dfn-HasShape">HasShape</a>
+          </span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-NaryParameter">NaryParameter     :=
+          <a href="#dfn-UniqueLang">UniqueLang</a> |
+          <a href="#dfn-HasValue">HasValue</a> |
+          <a href="#dfn-MinCount">MinCount</a> |
+          <a href="#dfn-MaxCount">MaxCount</a> |
+          <a href="#dfn-QualifiedMinCount">QualifiedMinCount</a> |
+          <a href="#dfn-QualifiedMaxCount">QualifiedMaxCount</a> |
+          <a href="#dfn-QualifiedValueShape">QualifiedValueShape</a>
+          </span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-NodeKind">NodeKind      := <code class="param">kind</code>:"IRI"|"blank node"|"literal"</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-In">In            := <code class="param">vals</code>:Set[RDF term]</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Datatype">Datatype      := <code class="param">dt</code>:IRI</span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="nob"><th id="dfn-xsFacet" class="nob">xsFacet</th><td>=</td><td><a class="nobref" href="#dfn-stringFacet">stringFacet</a> | <a class="nobref" href="#dfn-numericFacet">numericFacet</a> ;</td></tr>
+          <tr class="nob"><th id="dfn-stringFacet" class="nob">stringFacet</th><td>=</td><td>(<span class="param">"length"</span>|<span class="param">"minlength"</span>|<span class="param">"maxlength"</span>):<a class="trmref" href="#dfn-INTEGER">INTEGER</a> | <span class="param">pattern</span>:<a class="trmref" href="#dfn-STRING">STRING</a> ;</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MinLength">MinLength     := <code class="param">ref</code>:numeric</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MaxLength">MaxLength     := <code class="param">ref</code>:numeric</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Pattern">Pattern       := <code class="param">pat</code>:RDFLiteral, <code class="param">flagstr</code>:RDFLiteral</span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="nob"><th id="dfn-numericFacet" class="nob">numericFacet</th><td>=</td><td>(<span class="param">"mininclusive"</span>|<span class="param">"minexclusive"</span>|<span class="param">"maxinclusive"</span>|<span class="param">"maxexclusive"</span>):<a class="nobref" href="#dfn-numericLiteral">numericLiteral</a> </td></tr>
+          <tr><th></th><td>|</td><td>(<span class="param">"totaldigits"</span>|<span class="param">"fractiondigits"</span>):<a class="trmref" href="#dfn-INTEGER">INTEGER</a> ;</td></tr>
+          <tr class="nob"><th id="dfn-numericLiteral" class="nob">numericLiteral</th><td>=</td><td><a class="trmref" href="#dfn-INTEGER">INTEGER</a> | <a class="trmref" href="#dfn-DECIMAL">DECIMAL</a> | <a class="trmref" href="#dfn-DOUBLE">DOUBLE</a> ;</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MinInclusive">MinInclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MinExclusive">MinExclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MaxInclusive">MaxInclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MaxExclusive">MaxExclusive  := <code class="param">ref</code>:RDFLiteral <sup><a href="#PC">PC</a></sup></span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+        </table>
+      </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="nob"><th id="dfn-objectValue" class="nob">objectValue</th><td>=</td><td><a class="trmref" href="#dfn-IRI">IRI</a> | <a class="trmref" href="#dfn-STRING">STRING</a> | <a class="trmref" href="#dfn-DATATYPE_STRING">DATATYPE_STRING</a> | <a class="trmref" href="#dfn-LANG_STRING">LANG_STRING</a> ;</td></tr>
+          <tr class="nob"><th id="dfn-valueSetValue" class="nob">valueSetValue</th><td>=</td><td><a class="nobref" href="#dfn-objectValue">objectValue</a> | <a class="objref" href="#dfn-Stem">Stem</a> | <a class="objref" href="#dfn-StemRange">StemRange</a> ;</td></tr>
+          <tr class="obj"><th id="dfn-Stem" class="obj">Stem</th><td>{</td><td><span class="param">stem</span>:<a class="trmref" href="#dfn-IRI">IRI</a> }</td></tr>
+          <tr class="obj"><th id="dfn-StemRange" class="obj">StemRange</th><td>{</td><td><span class="param">stem</span>:(<a class="trmref" href="#dfn-IRI">IRI</a> | <a class="objref" href="#dfn-Wildcard">Wildcard</a>) <span class="param">exclusions</span>:[<a class="nobref" href="#dfn-objectValue">objectValue</a>|<a class="nobref" href="#dfn-Stem">Stem</a>]? }</td></tr>
+          <tr class="obj"><th id="dfn-Wildcard" class="obj">Wildcard</th><td>{</td><td><span class="comment">/* empty */</span> }</td></tr>
+        </table>
+      </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-Shape" class="obj">Shape</th><td>{</td><td><!-- <span class="param">virtual</span>:<a class="trmref" href="#dfn-BOOL">BOOL</a>?  --><span class="param">closed</span>:<a class="trmref" href="#dfn-BOOL">BOOL</a>? <span class="param">extra</span>:[<a class="trmref" href="#dfn-IRI">IRI</a>]? <span class="param">expression</span>:<a class="nobref" href="#dfn-tripleExpr">tripleExpr</a>?<!-- <span class="param">inherit</span>:[<a class="nobref" href="#dfn-shapeLabel">shapeLabel</a> -->]? <span class="param">semActs</span>:[<a class="objref" href="#dfn-SemAct">SemAct</a>]? }</td></tr>
+          <tr class="nob"><th id="dfn-tripleExpr" class="nob">tripleExpr</th><td>=</td><td><a class="objref" href="#dfn-EachOf">EachOf</a> | <a class="objref" href="#dfn-SomeOf">SomeOf</a> | <a class="objref" href="#dfn-TripleConstraint">TripleConstraint</a> | <a class="objref" href="#dfn-Inclusion">Inclusion</a> ;</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-PartitionConstraint">PartitionConstraint := <code class="param">expression</code>:<a href="#dfn-Sexpr">Sexpr</a>, <code class="param">extra</code>:Set[IRI]</span><br/>
+          <span class="math" id="dfn-Sexpr">Sexpr    := <a href="#dfn-Choice">Choice</a>|<a href="#dfn-Group">Group</a>|<a href="#dfn-PathConstraint">PathConstraint</a></span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-EachOf" class="obj">EachOf</th><td>{</td><td><span class="param">expressions</span>:[<a class="nobref" href="#dfn-tripleExpr">tripleExpr</a>] <span class="param">min</span>:<a class="trmref" href="#dfn-INTEGER">INTEGER</a>? <span class="param">max</span>:(<a class="trmref" href="#dfn-INTEGER">INTEGER</a> | <span class="literal">"*"</span>)? <span class="param">semActs</span>:[<a class="objref" href="#dfn-SemAct">SemAct</a>]? <span class="param">annotations</span>:[<a class="objref" href="#dfn-Annotation">Annotation</a>]? }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Group">Group := <code class="param">exprs</code>:Set[IRI]</span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-SomeOf" class="obj">SomeOf</th><td>{</td><td><span class="param">expressions</span>:[<a class="nobref" href="#dfn-tripleExpr">tripleExpr</a>] <span class="param">min</span>:<a class="trmref" href="#dfn-INTEGER">INTEGER</a>? <span class="param">max</span>:(<a class="trmref" href="#dfn-INTEGER">INTEGER</a> | <span class="literal">"*"</span>)? <span class="param">semActs</span>:[<a class="objref" href="#dfn-SemAct">SemAct</a>]? <span class="param">annotations</span>:[<a class="objref" href="#dfn-Annotation">Annotation</a>]? }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Choice">Choice := <code class="param">exprs</code>:Set[IRI]</span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-TripleConstraint" class="obj">TripleConstraint</th><td>{</td><td><span class="param">inverse</span>:<a class="trmref" href="#dfn-BOOL">BOOL</a>? <span class="param">negated</span>:<a class="trmref" href="#dfn-BOOL">BOOL</a>? <span class="param">predicate</span>:<a class="trmref" href="#dfn-IRI">IRI</a> <span class="param">valueExpr</span>:<a class="nobref" href="#dfn-shapeExpr">shapeExpr</a>? <span class="param">min</span>:<a class="trmref" href="#dfn-INTEGER">INTEGER</a>? <span class="param">max</span>:(<a class="trmref" href="#dfn-INTEGER">INTEGER</a> | <span class="literal">"*"</span>)? <span class="param">semActs</span>:[<a class="objref" href="#dfn-SemAct">SemAct</a>]? <span class="param">annotations</span>:[<a class="objref" href="#dfn-Annotation">Annotation</a>]? }</td></tr>
+        </table>
+      </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-PathConstraint">PathConstraint := <code class="param">path</code>:<a href="http://www.w3.org/TR/sparql11-query/#pp-language">SPARQLPropertyPath</a>, <code class="param">parms</code>:Set[<a href="#dfn-Parameter">Parameter</a>]</span>
+        </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-Inclusion" class="obj">Inclusion</th><td>{</td><td><span class="param">include</span>:<a class="nobref" href="#dfn-shapeLabel">shapeLabel</a> }</td></tr>
+        </table>
+      </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-SemAct" class="obj">SemAct</th><td>{</td><td><span class="param">name</span>:<a class="trmref" href="#dfn-IRI">IRI</a> <span class="param">code</span>:<a class="trmref" href="#dfn-STRING">STRING</a>? }</td></tr>
+        </table>
+      </div>
+      <div class="shexjTable">
+        <table class="shexj">
+          <tr class="obj"><th id="dfn-Annotation" class="obj">Annotation</th><td>{</td><td><span class="param">predicate</span>:<a class="trmref" href="#dfn-IRI">IRI</a> <span class="param">object</span>:<a class="nobref" href="#dfn-objectValue">objectValue</a> }</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- section id="shacl">
+      <h2>SHACL</h2>
+      <p>
+      </p>
+
+      <section>
+        <h2>Schemas and Shapes</h2>
+        <!-|- 
+             <div class="abstrsynt">
+             <span class="math" id="dfn-PropertyConstraint">PropertyConstraint := <code class="param">predicate</code>:IRI, <code class="param">parms</code>:Set[<a href="#dfn-PCParameter">PCParameter</a>]</span>
+             </div>
+             <div class="abstrsynt">
+             <span class="math" id="dfn-InversePropertyConstraint">InversePropertyConstraint := <code class="param">predicate</code>:IRI, <code class="param">parms</code>:Set[<a href="#dfn-IPCParameter">IPCParameter</a>]</span>
+             </div>
+        -|->
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Class">Class         := t:IRI</span>
+        </div>
+        <!-|- 
+             <div class="abstrsynt">
+             <span class="math" id="dfn-DatatypeIn">DatatypeIn    := <code class="param">dts</code>:Set[IRI]</span>
+             </div>
+        -|->
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Stem">Stem          := <code class="param">str</code>:RDFLiteral</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-LessThanOrEquals">LessThanEquals := <code class="param">siblingProp</code>:RDFLiteral</span> <sup><a href="#PC">PC</a></sup>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-LessThan">LessThan      := <code class="param">siblingProp</code>:RDFLiteral</span> <sup><a href="#PC">PC</a></sup>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Equals">Equals        := <code class="param">siblingProp</code>:RDFLiteral</span> <sup><a href="#PC">PC</a></sup>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-Disjoint">Disjoint      := <code class="param">siblingProp</code>:RDFLiteral</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-HasShape">HasShape      := nested:Shape</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-UniqueLang">UniqueLang    := <code class="param">b</code>:boolean <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-HasValue">HasValue      := <code class="param">val</code>:RDF term</span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MinCount">MinCount      := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-MaxCount">MaxCount      := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span>
+        </div>
+        <div class="abstrsynt">
+          <span class="math" id="dfn-QualifiedMinCount">QualifiedMinCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span><br/>
+          <span class="math" id="dfn-QualifiedMaxCount">QualifiedMaxCount := <code class="param">ref</code>:numeric <sup><a href="#PC">PC</a></sup></span><br/>
+          <span class="math" id="dfn-QualifiedValueShape">QualifiedValueShape := nested:Shape <sup><a href="#PC">PC</a></sup></span>
+        </div>
+
+      </section>
+    </section -->
+
+    <script type="text/javascript">
+      var toggledElts = {
+        "r": $(".rdf"),
+        "e": $(".example")
+      };
+      function toggle (l) {
+        var visibleTop = $(window).scrollTop();
+        var v = l.is(":visible");
+        if (!v)
+          l.toggle();
+        var adj = 0;
+        for (var i = 0; i < l.length; ++i) {
+          var elt = l.slice(i, i+1);
+          if (elt.offset().top >= visibleTop) // stop when we pass the current scroll top.
+            break;
+          //adj += elt.outerHeight(true);
+          adj += elt.outerHeight(false) + (elt.outerHeight(true) - elt.outerHeight(false))/2;
+        }
+        $(window).scrollTop(visibleTop + (v ? 0 - adj : adj)); // move the scroll top.
+        if (v)
+          l.toggle();
+        return false;
+      }
+      var rdfElts = $(".rdf");
+      $("#toggleRDF").on("click", e => { toggledElts["r"].toggle(toggledElts["r"]); });
+      $("#toggleExamples").on("click", e => { toggledElts["e"].toggle(toggledElts["e"]); });
+      $("html > body").keypress(function (evt) {
+        if (evt.ctrlKey)
+          return true; // don't interfere with browser control keys.
+        var k = String.fromCharCode(evt.which).toLowerCase();
+    	  if (k in toggledElts)
+    	    return toggle(toggledElts[k]); // returns false meaning "don't propagate"
+        if (k === "a")
+          return toggleASonly(k);        // returns false meaning "don't propagate"
+    	  return true;
+      });
+      var toggleSquished = $("#toggleSquished").on("click", toggleASonly);
+      function toggleASonly (k) {
+        var applyTo = toggleSquished.parent().nextAll();
+        var toSquish = applyTo.find(".abstrsynt,h2,h3,h4");
+        var toToggle = applyTo.find("p,ul,ol,pre,div.issue,div.example,div.note");
+        toggle(toToggle);
+        if (toSquish.hasClass("squished")) {
+          // toToggle.show();
+          toSquish.removeClass("squished");
+        } else {
+          // toToggle.hide();
+          toSquish.addClass("squished");
+        }
+        return false;
+      }
+    </script>
+  </body>
+</html>
