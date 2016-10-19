@@ -198,6 +198,13 @@
       .param { color: #3500c8; }
       .var { color: #056800; }
       .rdf { border-left: thick solid #77f; padding-left: .5em; }
+.newref {
+    background-color: #ee0;
+}
+.newframe {
+    border: medium solid #ee0;
+}
+
     </style>
   </head>
   <body>
@@ -328,7 +335,7 @@
     <section>
       <h2 id="Constraints">Constraints</h2>
       <div class="abstrsynt">
-        <span class="math" id="dfn-Constraint">Constraint    := <a href="#dfn-NodeConstraint">NodeConstraint</a>|<a href="#dfn-PathConstraint">PathConstraint</a><!-- <a href="#dfn-PropertyConstraint">PropertyConstraint</a>|<a href="#dfn-InversePropertyConstraint">InversePropertyConstraint</a> --></span>
+        <span class="math" id="dfn-Constraint">Constraint    := <a href="#dfn-NodeConstraint">NodeConstraint</a>|<a href="#dfn-PathConstraint">PathConstraint</a><!-- <a href="#dfn-PropertyConstraint">PropertyConstraint</a>|<a href="#dfn-InversePropertyConstraint">InversePropertyConstraint</a> --><span class="newref">|<a href="#dfn-PartitionConstraint">PartitionConstraint</a></span></span>
       </div>
       <p>
         Both PathConstraints <!-- PropertyConstraint or InversePropertyConstraint --> and NodeConstraints include a set of <a href="#dfn-Parameter">Parameters</a>.
@@ -345,6 +352,7 @@
         Validation of a unary Parameter can be performed on each value node individually.
         The result of validating a set of value nodes against a set of unary parameters is <span class="fail">fail</span> if any individual value node failed any Parameter, otherwise <span class="pass">pass</span>.
         The result of validating a set of value nodes against a set of n-ary parameters is <span class="fail">fail</span> if the set of value nodes failed any Parameter, otherwise <span class="pass">pass</span>.
+        Both NodeConstraint and PathConstraint <span class="fail">fail</span> if any Parameter in <span class="param">parms</span> fails.
       </p>
 
       <p>
@@ -384,6 +392,80 @@
         Note that this includes <code>InversePath</code>.
       </p>
 
+      <div class="newframe">
+      <div class="abstrsynt">
+        <span class="math" id="dfn-PartitionConstraint">PartitionConstraint := <code class="param">expression</code>:<a href="#dfn-Sexpr">Sexpr</a>, <code class="param">extra</code>:Set[IRI]</span><br/>
+        <span class="math" id="dfn-Sexpr">Sexpr    := <a href="#dfn-Choice">Choice</a>|<a href="#dfn-Group">Group</a>|<a href="#dfn-PathConstraint">PathConstraint</a></span><br/>
+        <span class="math" id="dfn-Choice">Choice := <code class="param">exprs</code>:Set[<a href="#dfn-Sexpr">Sexpr</a>]</span><br/>
+        <span class="math" id="dfn-Group">Group := <code class="param">exprs</code>:Set[<a href="#dfn-Sexpr">Sexpr</a>]</span>
+      </div>
+      <p id="satisfies-PartitionConstraint">
+        Validation of a PartitionConstraint depends on evaluation of <code>matches</code> <a href="#matches">defined below</a>.
+        Let <code class="var">neigh</code> (the "neighborhood") be the union of every triple <code>(focus node, _, _)</code> and <code>(_, _, focus node)</code>.
+        Testing a PartitionConstraint returns <span class="pass">pass</span> if and only if:
+      </p>
+      <ul>
+        <li>
+          <code class="var">neigh</code> can be partitioned into two sets <m>matched</m> and <m>remainder</m> such that <code class="function">matches(<m>matched</m>, <span class="param">expression</span>, <m>m</m>)</code>.
+          If <span class="param">expression</span> is absent, <code class="function"><m>remainder</m> = neigh</code>.<br/>
+          Let <span class="label">outs</span> be the arcsOut in <m>remainder</m>:
+          <code class="function"><m>outs</m> = <m>remainder</m> ∩ arcsOut(<m>G</m>, <m>n</m>)</code>.<br/>
+          Let <span class="label">matchables</span> be the triples in <m>outs</m> whose predicate appears in a <span class="jobjref"><a href="#dfn-TripleConstraint" class="obj">TripleConstraint</a></span> in <span class="param">expression</span>.
+          If <span class="param">expression</span> is absent, <code class="function"><m>matchables</m> = <m>Ø</m> (the empty set)</code>.<br/>
+          Let <span class="label">unmatchables</span> be the triples in <m>outs</m> which are not in <m>matchables</m>.
+          <code class="function"><m>matchables</m> ∪ <m>unmatchables</m> = <m>outs</m></code>.
+        </li>
+        <li>
+          There is no triple in <m>matchables</m> whose predicate does not appear in <span class="param">extra</span>.
+        </li>
+        <li><span class="param">closed</span> is false or <m>unmatchables</m> is empty.</li>
+      </ul>
+      <p>
+        <span class="label" id="matches">matches</span>: asserts that a triple expression is matched by a set of triples that come from the neighbourhood of a node in an RDF graph.
+        The expression <code>matches(<m>T</m>, <m>expr</m>, <m>m</m>)</code> indicates that a set of triples <m>T</m> can satisfy these rules:
+      </p>
+      <ul>
+        <li>
+          <p id="matches-Choice"><m>expr</m> is a <span class="jobjref"><a href="#dfn-Choice" class="obj">Choice</a></span> and there is some expression <m>se2</m> in <span class="param">exprs</span> such that a <code class="function">matches(<m>T</m>, <m>se2</m>, <m>m</m>)</code>.</p>
+          <!-- div class="example"></div -->
+        </li>
+        <li>
+          <p id="matches-Group"><m>expr</m> is a <span class="jobjref"><a href="#dfn-Group" class="obj">Group</a></span> and there is some partition of <m>T</m> into <m>T<sub>1</sub></m>, <m>T<sub>2</sub></m>,… such that for every expression <span class="function"><m>expr<sub>1</sub></m>, <m>expr<sub>2</sub></m>,…</span> in <span class="param">exprs</span>, <code class="function">matches(<m>T<sub>n</sub></m>, <m>expr<sub>n</sub></m>, <m>m</m>)</code>.</p>
+          <!-- div class="example"></div -->
+        </li>
+        <li>
+          <p id="matches-PathConstraint"><m>expr</m> is a <span class="jobjref"><a href="#dfn-PathConstraint" class="obj">PathConstraint</a></span> whose evaluation over a graph G - neigh + T (the data graph without the neighborhood but with the partition) returns <span class="pass">pass</span>.</p>
+        </li>
+      </ul>
+      <div class="example">
+        <div class="example-title marker"><span>Partition example 1</span></div>
+        <pre class="schema">&lt;EmployeeShape&gt; sh:partition [
+  sh:or (
+    [ sh:property [
+        sh:predicate foaf:name ; sh:minCount 1 ; sh:maxCount 1 ] ]
+    [ sh:and (
+        [ sh:property [
+            sh:predicate foaf:givenName ; sh:minCount 1 ; sh:maxCount 1 ] ]
+        [ sh:property [
+            sh:predicate foaf:familyName ; sh:minCount 1 ; sh:maxCount 1 ] ]
+      ) ] ] .</pre>
+        <pre class="data">
+&lt;employee1&gt; foaf:name "Bob Smith" .
+&lt;employee2&gt; foaf:givenName "Bob" ; foaf:familyName "Smith" .
+<span class="fail">&lt;employee3&gt; ex:otherProp "some value" .</span>
+<span class="fail">&lt;employee4&gt; foaf:name "Bob Smith" ; foaf:familyName <span style="border-bottom: thin solid red;">"Smith"</span> .</span></pre>
+        <table>
+          <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
+          <tr class="pass"><td>&lt;EmployeeShape&gt;</td><td>&lt;employee1&gt;</td><td>pass</td></tr>
+          <tr class="pass"><td>&lt;EmployeeShape&gt;</td><td>&lt;employee2&gt;</td><td>pass</td></tr>
+          <tr class="fail"><td>&lt;EmployeeShape&gt;</td><td>&lt;employee3&gt;</td><td>fail</td><td class="fail">expected either <code>foaf:name</code> or <code>foaf:givenName</code> and <code>foaf:familyName</code>.</td></tr>
+          <tr class="fail"><td>&lt;EmployeeShape&gt;</td><td>&lt;employee4&gt;</td><td>fail</td><td class="fail">expected <em>only</em> one of <code>foaf:name</code> or <code>foaf:givenName</code> and <code>foaf:familyName</code>.</td></tr>
+        </table>
+        <p>
+        </p>
+      </div>
+
+      </div>
     </section>
 
     <section>
@@ -444,7 +526,7 @@
           </p>
           <ul>
             <li><code class="param">kind</code> = "IRI" and value node is not an IRI</li>
-            <li><code class="param">kind</code> = "blank node" and value node is not an blank node</li>
+            <li><code class="param">kind</code> = "blank node" and value node is not a blank node</li>
             <li><code class="param">kind</code> = "literal" and value node is not an RDFLiteral</li>
           </ul>
           <p class="rdf">
@@ -494,8 +576,8 @@
 <span class="fail">&lt;issue2&gt; ex:state ex:Unresolved .</span></pre>
             <table>
               <tr><th class="schema">shape</th><th class="data">node</th><th>result</th><th>reason</th></tr>
-              <tr class="pass"><td>&lt;IssueShape&gt;</td><td>&lt;issue1&gt;</td><td>pass</td></tr>
-              <tr class="fail"><td>&lt;IssueShape&gt;</td><td>&lt;issue2&gt;</td><td>fail</td><td class="fail"><code>ex:state</code> expected to be <code>ex:Resolved</code>, <code>ex:Unresolved</code> found.</td></tr>
+              <tr class="pass"><td>&lt;NoActionIssueShape&gt;</td><td>&lt;issue1&gt;</td><td>pass</td></tr>
+              <tr class="fail"><td>&lt;NoActionIssueShape&gt;</td><td>&lt;issue2&gt;</td><td>fail</td><td class="fail"><code>ex:state</code> expected to be <code>ex:Resolved</code>, <code>ex:Unresolved</code> found.</td></tr>
             </table>
           </div>
           <p class="note">
