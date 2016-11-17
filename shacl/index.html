@@ -210,7 +210,9 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
-				<li><b>2016-10-20</b>: Remove the sh:hasShape SPARQL function (<a href="http://www.w3.org/2014/data-shapes/track/issues/131">ISSUE-131</a>)</li>
+				<li><b>2016-11-17</b>: Introduced the term "conforms" on the outcome of validation (<a href="http://www.w3.org/2014/data-shapes/track/issues/188">ISSUE-188</a>)</li>
+				<li><b>2016-11-17</b>: Deleted filter shapes, added sh:deactivated (<a href="http://www.w3.org/2014/data-shapes/track/issues/196">ISSUE-196</a>)</li>
+				<li><b>2016-10-20</b>: Removed the sh:hasShape SPARQL function (<a href="http://www.w3.org/2014/data-shapes/track/issues/131">ISSUE-131</a>)</li>
 				<li><b>2016-10-12</b>: Generalized sh:message so that it can also be used in constraint (instances) (<a href="http://www.w3.org/2014/data-shapes/track/issues/178">ISSUE-178</a>)</li>
 				<li><b>2016-09-27</b>: Change several constraint components such as sh:minCount / sh:maxCount and ASK-based validators to operate on value node sets because property paths may return duplicates</li>
 				<li><b>2016-09-27</b>: Removed shapesGraph argument from sh:hasShape</li>
@@ -625,7 +627,7 @@ ex:PersonShape
 	a sh:Shape ;
 	sh:targetClass ex:Person ;    # Applies to all persons
 	sh:property [
-		sh:predicate ex:ssn ;     # Validates the values of the ex:ssn property
+		sh:predicate ex:ssn ;     # Constrains the values of the ex:ssn property
 		sh:maxCount 1 ;
 		sh:datatype xsd:string ;
 		sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
@@ -783,7 +785,7 @@ ex:PersonShape
 					or a node that has a <a>value</a> for a <a>target</a> property such as <code>sh:targetClass</code> in the <a>shapes graph</a>.
 				</p>
 				<p>
-					A shape provides a set of zero or more <a>targets</a>, <a>filters</a>, <a>constraints</a> and <a>parameters</a> of <a>constraint components</a>
+					A shape provides a set of zero or more <a>targets</a>, <a>constraints</a> and <a>parameters</a> of <a>constraint components</a>
 					that specify how a set of nodes from the <a>data graph</a> are validated against the shape.
 					Shapes can also provide <a href="#nonValidation">non-validating information</a>, such as labels and comments.
 				</p>
@@ -798,7 +800,7 @@ ex:PersonShape
 					The set of <a>focus nodes</a> for a <a>shape</a> may be identified as follows:
 				</p>
 				<ul>
-			    	<li>specified in a <a>shape</a> using <a>targets</a> and <a>filters</a>,</li>
+			    	<li>specified in a <a>shape</a> using <a>targets</a>,</li>
 					<li>specified in any <a>constraint</a> that references a <a>shape</a>
 						in parameters of <a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>) or
 						<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),</li>
@@ -823,10 +825,6 @@ ex:PersonShape
 
 					The SHACL Full language additionally defines an advanced <a href="#sparql-targets">general target mechanism based on SPARQL</a>.
 				</p>
-				<p>
-					Not all target nodes become focus nodes.
-					When a shape includes <a>filters</a>, filters can remove nodes specified by targets.
-				</p>
 
 				<p>
 					When multiple <a>targets</a> are provided in a <a>shape</a>, the target of a shape is the union of all nodes produced by these individual targets.
@@ -834,9 +832,8 @@ ex:PersonShape
 				</p>
 				<p>
 					Targets MUST be ignored when a shape is used in a validation process as a value of parameters of
-					<a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>),
-					<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>), or
-					<a href="#filterShape">filter shapes</a> (<code>sh:filterShape</code>).
+					<a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>), or
+					<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>).
 				</p>
 				
 				<section id="targetNode">
@@ -1009,77 +1006,6 @@ WHERE {
 }</pre>
 					</div>
 				</section>
-			</section>
-			
-			<section id="filterShape">
-				<h3>Filter Shapes</h3>
-				<p>
-					A <dfn data-lt="filter shape|filter shapes|filters">filter</dfn> is a <a>shape</a> in the <a>shapes graph</a>
-					that further refines which nodes in the data graph are validated against a <a>constraint</a> or all the constraints of a <a>shape</a>.
-					A filter is specified as an object in a triple with <code>sh:filterShape</code> as the predicate.
-					The subjects of these triples can be constraints or shapes.
-					Only those <a>nodes</a> that successfully validate against all the filters of a constraint or a shape become focus nodes for the constraint or the constraints of the shape.
-					Note that during the validation against filter shapes, the <a href="#targets">targets</a> of these filters are ignored.
-				</p>
-				<p>
-					The following example states that the <code>sh:minCount</code> constraint on <code>ex:email</code> is filtered to include only <a>SHACL instances</a> of <code>ex:Person</code> that are <code>ex:member</code>s of <code>ex:W3c</code>.
-				</p>
-				<pre class="example-shapes">
-ex:ExampleFilteredShape
-	a sh:Shape ;
-	<span class="target-can-be-skipped">sh:targetClass ex:Person ;</span>
-	sh:filterShape [
-		<span style="color: grey;">a sh:Shape ; # Optional triple</span>
-		sh:property [
-			sh:predicate ex:member ;
-			sh:hasValue ex:W3c ;
-		]
-	] ;
-	sh:property [
-		sh:predicate ex:email ;
-		sh:minCount 1 ;
-	] .</pre>
-
-<pre class="example-data">
-<span class="focus-node-selected">ex:Alice</span> a ex:Person ;
-	ex:member ex:W3c ;
-	ex:email &lt;mailto:alice@example.org&gt; .
-<span class="focus-node-selected">ex:John</span> a ex:Person ;
-	ex:member ex:W3c .
-ex:Bob a ex:Person ;
-	ex:member ex:Acme .</pre>
-
-				<pre class="example-results">
-[  a sh:ValidationResult ;
-	sh:severity sh:Violation ;
-	sh:focusNode ex:John ;
-	sh:path ex:email ;
-	sh:message "sh:minCount for ex:email is '1'." ;
-	sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
-	sh:sourceShape ex:ExampleFilteredShape ; 
-] . </pre>
-
-				<p>
-					The following example shows a <code>sh:filterShape</code> that is defined for a specific <a>property constraint</a>, instead of the whole <a>shape</a>.
-					In this scenario, the <code>sh:minCount</code> constraint is only applied to every person that is also a member of <code>ex:W3c</code>.
-				</p>
-
-				<pre class="example-shapes">
-ex:FilteredExampleShape
-	a sh:Shape ;
-	<span class="target-can-be-skipped" >sh:targetClass ex:Person ;</span>
-	sh:property [
-		sh:predicate ex:email ;
-		sh:minCount 1 ;
-		sh:filterShape [
-			sh:property [
-				sh:predicate ex:member ;
-				sh:hasValue ex:W3c ;
-			]
-		] ;
-	] .
-</pre>
-
 			</section>
 			
 			<section id="shape-constraints">
@@ -1386,7 +1312,44 @@ ex:MyInstance
 						on further details on how the values of <code>sh:message</code> are populated.
 					</p>
 				</section>
-				
+				<section id="deactivated">
+					<h4>Deactivating a Constraint or Shape</h4>
+					<p>
+						SHACL includes a mechanism to <dfn data-lt="deactivated">deactivate</dfn> a constraint or shape:
+						If the constraint or shape has the <a>value</a> <code>true</code> for the property <code>sh:deactivated</code>
+						then the validation of the constraint or shape will never produce any validation results, i.e. all nodes <a>conform</a> to it.
+					</p>
+					<p>
+						Use cases of this feature include shape reuse and debugging.
+						In scenarios where SHACL definitions from other graphs or files are	imported into a given <a>shapes graph</a>,
+						<code>sh:deactivated</code> can be set to <code>true</code> in the local shapes graph for imported constraints
+						to exclude constraints that do not apply in the current application context.
+						This makes it possible to reuse SHACL graphs developed by others even if you disagree with certain assumptions made by the original authors.
+						If a shape author anticipates that a constraint may need to be disabled or modified by others, it is a good practice to use <a>IRIs</a> instead of <a>blank nodes</a>
+						for the actual constraints.  For example, a constraint on the property <code>ex:name</code> at the shape <code>ex:Person</code> may have the IRI <code>ex:Person-name</code>.
+						Another typical use case of <code>sh:deactivated</code> is during the development and testing of shapes, to (temporarily) disable certain constraints.
+					</p>
+					<p>
+						The following example illustrates the use of <code>sh:deactivated</code> to temporarily disable a given constraint.
+						In cases where shape definitions are imported from other graphs, the <code>sh:deactivated true</code> triple would be in the importing graph.
+					</p>
+					<pre class="example-shapes">
+ex:PersonShape
+	a sh:Shape ;
+	<span class="target-can-be-skipped">sh:targetClass ex:Person ;</span>
+	sh:property ex:PersonShape-name .
+
+ex:PersonShape-name
+	a sh:PropertyConstraint ;
+	sh:predicate ex:name ;
+	sh:minCount 1 ;
+	sh:deactivated true .</pre>
+					<p>
+						With the following data, no constraint violation will be reported even though the instance does not have any value for <code>ex:name</code>. 
+					</p>
+					<pre class="example-shapes">
+ex:JohnDoe a ex:Person .</pre>
+				</section>
 			</section>
 		</section>
 
@@ -1400,20 +1363,22 @@ ex:MyInstance
 			<div id="def-validation" class="def def-text">
 				<div class="def-header">VALIDATION DEFINITION</div>
 				<div class="def-text-body">
-					Validation is the process of determining whether a <a>data graph</a>, or <a>nodes</a> in the <a>data graph</a>, validate against a <a>shapes graph</a>.
+					Validation is the process of determining whether a <a>data graph</a>, or <a>nodes</a> in the <a>data graph</a>, conform to a <a>shapes graph</a> or specific shapes in a shapes graph.
 					<ul>
-						<li>A <a>node</a> validates against a <a>shape</a> if and only if
-							either it does not validate against some <a>filter</a> of the shape
-							or none of the <a>constraints</a> in the shape produce a <a>validation result</a> or a <a>failure</a> for the node.
+						<li>A <a>node</a> <dfn data-lt="conform">conforms</dfn> to a <a>constraint</a> if and only if
+							either the constraint has been <a>deactivated</a> or
+							the validation of the constraint does not produce a <a>validation result</a> or a <a>failure</a>.
+						</li>
+						<li>A <a>node</a> conforms to a <a>shape</a> if and only if the node conforms to all of the <a>constraints</a> of the shape.
 							(This implies that a shape without constraints can never cause validation results.)
 							Note that validation against a shape processes the shape as a <a>focus node constraint</a> only,
 							even if the shape may have <code>rdf:type</code> triples or an <a>expected type</a> that would also make them <a>property constraints</a>.
 						</li>
-						<li>A <a>data graph</a> validates against a <a>shape</a> if and only if
-							each node that is in any of the <a>targets</a> of the shape validates against the shape.
+						<li>A <a>data graph</a> conforms to a <a>shape</a> if and only if
+							each node that is in any of the <a>targets</a> of the shape conforms to the shape.
 						</li>
-						<li>A <a>data graph</a> validates against a <a>shapes graph</a> if and only if
-							the data graph validates against each <a>shape</a> in the shapes graph.
+						<li>A <a>data graph</a> conforms to a <a>shapes graph</a> if and only if
+							the data graph conforms to each <a>shape</a> in the shapes graph.
 						</li>
 					</ul>
 				</div>
@@ -1422,7 +1387,7 @@ ex:MyInstance
 			<p>
 				After validation, SHACL processors MUST return a <a>validation report</a> containing all <a>validation results</a>.
 				For simpler validation scenarios, SHACL processors SHOULD provide an additional validation interface that returns only
-				<code>true</code> for valid or <code>false</code> for invalid.
+				<code>true</code> for 'does conform' or <code>false</code> for 'does not conform'.
 				Only SHACL implementations that can return all of the mandatory properties of the <a>Validation Results Vocabulary</a> are standards-compliant.
 			</p>
 			<p>
@@ -1462,9 +1427,8 @@ ex:MyInstance
 					<h4>Recursive shapes</h4>
 					<p id="recursion">
 						A <dfn>recursive shape</dfn> is a shape whose constraints refer to the shape directly or transitively via the parameters of
-						<a href="#constraints-shape">shape-based constraint components</a> (e.g. <code>sh:shape</code>),
-						<a href="#constraints-logical">logical constraint components</a> (e.g. <code>sh:or</code>) or
-						<a href="#filterShape">filter shapes</a> (<code>sh:filterShape</code>).
+						<a href="#constraints-shape">shape-based constraint components</a> (e.g. <code>sh:shape</code>), or
+						<a href="#constraints-logical">logical constraint components</a> (e.g. <code>sh:or</code>).
 
 						The handling of recursive shapes is not defined in SHACL and is left to SHACL processor implementations.
 					</p>
@@ -2626,7 +2590,7 @@ WHERE {
 				<section id="NotConstraintComponent">
 					<h3>sh:not</h3>
 					<p>
-						SHACL supports a negation constraint component that can be used to verify that a <a>value node</a> does not validate against a <a>shape</a>.
+						SHACL supports a negation constraint component that can be used to verify that a <a>value node</a> does not <a>conform</a> to a <a>shape</a>.
 						This is comparable to a logical "not" operator.
 					</p>
 					<p>
@@ -2675,7 +2639,7 @@ ex:NotExampleShape
 				<section id="AndConstraintComponent">
 					<h3>sh:and</h3>
 					<p>
-						SHACL supports a conjunctive constraint component that can be used to test whether a <a>value node</a> validates against all provided shapes.
+						SHACL supports a conjunctive constraint component that can be used to test whether a <a>value node</a> conforms to all provided shapes.
 						This is comparable to a logical "and" operator.
 					</p>
 					<p>
@@ -2749,7 +2713,7 @@ ex:ValidInstance
 				<section id="OrConstraintComponent">
 					<h3>sh:or</h3>
 					<p>
-						SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether a <a>value node</a> validates against at least one out of several provided shapes.
+						SHACL supports a high-level syntax for disjunctive constraints that can be used to test whether a <a>value node</a> conforms to at least one out of several provided shapes.
 						This is comparable to a logical "or" operator.
 					</p>
 					<p>
@@ -2841,7 +2805,7 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
 				<section id="ShapeConstraintComponent">
 					<h4>sh:shape</h4>
 					<p>
-						<code>sh:shape</code> can be used to verify that all <a>value nodes</a> validate against the given shape.
+						<code>sh:shape</code> can be used to verify that all <a>value nodes</a> conform to the given shape.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component IRI</span>: <code>sh:ShapeConstraintComponent</code>
@@ -2855,7 +2819,7 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
 						</tr>
 						<tr>
 							<td><code>sh:shape</code></td>
-							<td>All value nodes must validate against the given shape</td>
+							<td>All value nodes must conform to the given shape</td>
 						</tr>
 					</table>
 					<div class="def def-text">
@@ -2902,7 +2866,7 @@ ex:ShapeExampleValidResource
 						The WG may decide to support only one of these options, but not both.
 					</div>
 					<p>
-						The property <code>sh:qualifiedValueShape</code> can be used verify that a specified number of <a>value nodes</a> validate against the given shape.
+						The property <code>sh:qualifiedValueShape</code> can be used verify that a specified number of <a>value nodes</a> conforms to the given shape.
 						For each <code>sh:qualifiedValueShape</code> there must be either one <code>sh:qualifiedMinCount</code> or one <code>sh:qualifiedMaxCount</code>, or one of each, at the same <a>subject</a>.
 					</p>
 					<p>
@@ -2917,15 +2881,15 @@ ex:ShapeExampleValidResource
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedValueShape</code></td>
-							<td>A specified number of value nodes must validate against the given shape</td>
+							<td>A specified number of value nodes must conform to the given shape</td>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedMinCount</code></td>
-							<td>The minimum number of value nodes that can validate against the shape. If this constraint is omitted then there is no minimum number of values required.</td>
+							<td>The minimum number of value nodes that can conform to the shape. If this constraint is omitted then there is no minimum number of values required.</td>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedMaxCount</code></td>
-							<td>The maximum number of value nodes that can validate against the shape. If this constraint is omitted then there is no maximum number of values required.</td>
+							<td>The maximum number of value nodes that can conform to the shape. If this constraint is omitted then there is no maximum number of values required.</td>
 						</tr>
 					</table>
 					<div class="def def-text">
@@ -3108,7 +3072,7 @@ ex:BibframeShape a sh:Shape ;
 						Any node can in principle have values for any property.
 						However, in some cases it makes sense to restrict which properties can be applied to nodes.
 						The SHACL Core language includes a property called <code>sh:closed</code> that can be assigned to
-						a shape via the property <code>sh:constraint</code> to indicate that valid nodes must only have
+						a shape via the property <code>sh:constraint</code> to indicate that focus nodes must only have
 						values for those properties that have been explicitly declared via <code>sh:property</code>.
 					</p>
 					<p>
@@ -4033,7 +3997,7 @@ ex:hasLang
 		""" .</pre>
 					<p>
 						Note that the validation condition implemented by an ASK query is "in the inverse direction" from its SELECT counterpart:
-						ASK queries return <code>true</code> for valid value nodes, while SELECT queries return the invalid value nodes.
+						ASK queries return <code>true</code> for value nodes that conform to the constraint, while SELECT queries return those value nodes that do not conform.
 					</p>
 					<p class="todo">
 						TODO: The TopBraid SHACL API uses such ASK constraint declarations to install new SPARQL functions.
