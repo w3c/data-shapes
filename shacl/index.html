@@ -4061,23 +4061,26 @@ ex:hasLang
 		<section id="sparql-targets">
 			<h2>SPARQL-based Targets (sh:target)</h2>
 			<p>
-				SHACL Full provides facilities to specify custom targets.
+				SHACL Full provides facilities to specify custom targets, using <code>sh:target</code>.
 				Similar to constraints, targets may either be <a href="#SPARQLTarget"><span class="term">SPARQL-based targets</span></a> or
 				<a href="#SPARQLTargetType"><span class="term">SPARQL-based target types</span></a> in a higher-level vocabulary.
-				All subjects of <code>sh:target</code> triples must be IRIs.
 			</p>
 			<section id="SPARQLTarget">
 				<h3>Targets using sh:SPARQLTarget</h3>
 				<p>
 					SPARQL-based targets must be <a>SHACL instances</a> of <code>sh:SPARQLTarget</code>, which is a <a>SHACL subclass</a> of <code>sh:Target</code>.
-					The SPARQL queries linked to a <a>target</a> via <code>sh:select</code> must be of the query form <code>SELECT</code>.
-					The SELECT queries must project to the result variable <code>this</code>.
-					The resulting target consists of all distinct bindings for the variable <code>this</code>.
+					The SPARQL queries linked to a <a>target</a> via <code>sh:select</code> must be of the query form <code>SELECT</code> (after applying the <a href="#sparql-prefixes">prefix handling rules</a>).
+					The SELECT queries must return the result variable <code>this</code> as the only result variable.
+					The resulting <a>focus nodes</a> are the distinct bindings for the variable <code>this</code>.
 				</p>
 				<p>
-					The SELECT queries must also be executable when converted to an ASK query and with a pre-bound value for <code>?this</code>.
-					The set of bindings for <code>?this</code> that return <code>true</code> for such ASK queries must be identical to the set produced by the SELECT query.
-					This design makes sure that SHACL Full processors can validate whether a given shape applies to a given individual focus node.
+					While the SELECT queries can be used to identify all focus nodes for a given shape, SHACL processors sometimes also need to find all shapes for which a given node needs to be validated against.
+					For this reason, the following semantic restriction applies to SELECT queries used in SPARQL-based targets.
+					Informally, SHACL Full processors can derive an equivalent ASK query from the SELECT query, pre-bind the potential focus node, and check whether the node needs to be validated against the shape that has the given target.
+					Formally, let <code>A</code> be a SPARQL ASK query that is produced by replacing the <a href="https://www.w3.org/TR/sparql11-query/#rSelectClause">SelectClause</a> with <code>ASK</code> in the outermost SELECT query.
+					Let <code>rs</code> be the set of nodes returned as <a>bindings</a> for the variable <code>this</code> in the result table of the SELECT query.
+					Then <code>A</code> must return <code>true</code> if and only if the variable <code>this</code> is <a href="#pre-binding">pre-bound</a> with a value from <code>rs</code>.
+					SHACL Full processors MAY produce a failure if this rule is violated.
 				</p>
 				<p>
 					The following example illustrates a well-formed SPARQL-based target that produces all persons born in the USA:
@@ -4101,11 +4104,15 @@ ex:USCitizenShape
 				<h3>SPARQL-based Target Types</h3>
 				<p>
 					The class <code>sh:TargetType</code> can be used to declare high-level vocabularies for targets.
-					Similar to constraint components, such targets take <a>parameters</a> that are interpreted when the target is evaluated.
-					The class <code>sh:SPARQLTargetType</code> is an <code>rdfs:subClassOf sh:TargetType</code> for target types that specify a SPARQL SELECT query via the property <code>sh:select</code>.
-					Similar to constraint components, the parameter values become <a href="#pre-binding">pre-bound variables</a> in such SPARQL queries.
+					The class <code>sh:SPARQLTargetType</code> is an <code>rdfs:subClassOf sh:TargetType</code> for target types based on SPARQL.
+					Instances of this class must specify a SPARQL SELECT query via the property <code>sh:select</code>,
+					and this query must fulfill the same syntactic and semantic rules as <a href="#SPARQLTarget">SPARQL-based Targets</a>.
+				</p>
+				<p>
+					Similar to constraint components, such targets take <a>parameters</a> and
+					the parameter values become <a href="#pre-binding">pre-bound variables</a> in the associated SPARQL queries.
 					The parameter values of such targets must not be blank nodes.
-					All parameters of target types are expected to have <code>sh:maxCount 1</code>.
+					All parameters of target types must have at most one value for the same subject.
 					Similar to constraint components, target types may also have values for the property <a href="#labelTemplate"><code>sh:labelTemplate</code></a>.
 				</p>
 				<p>
