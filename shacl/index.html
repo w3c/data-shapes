@@ -786,7 +786,7 @@ ex:PersonShape
 			<h1 id="part1" style="font-size: 160%; font-weight: bold">Part 1: SHACL Core</h1>
 		</div>
 
-		<section id="shapes">
+		<section id="constraints-section">
 			<h2>Shapes and Constraints</h2>
 			
 			<p>
@@ -800,7 +800,7 @@ ex:PersonShape
 			</p>
 			<div>
 				<div class="diagram-class" style="margin-left: 200px">
-					<div class="diagram-class-name"><a href="#shape-constraints">sh:Constraint</a></div>
+					<div class="diagram-class-name"><a href="#constraints">sh:Constraint</a></div>
 					<div class="diagram-class-properties">
 						<div class="diagram-class-properties-start">
 							<div><a href="#deactivated">sh:deactivated</a> : xsd:boolean</div>
@@ -858,330 +858,60 @@ ex:PersonShape
 				</p>
 			</div>
 			
-			<section id="shapes">
-				<h3>Shapes</h3>
-				<p>
-					A <dfn data-lt="shape|shapes">shape</dfn> is a <a>node</a> in a <a>shapes graph</a> that fulfills any of the following conditions:
-				</p>
-				<ul>
-					<li>
-						the node is a <a>SHACL instance</a> of <code>sh:Shape</code>
-					</li>
-					<li>
-						the node has the <a>expected type</a> <code>sh:Shape</code>, which is the case if
-						it is used as a value of <a>shape-expecting constraint parameters</a> such as <code>sh:shape</code>
-						(in the case of the list-valued parameters <code>sh:and</code>, <code>sh:or</code> and <code>sh:partition</code> it is a <a>member</a> of the corresponding lists)
-					</li>
-					<li>
-						the node has a <a>value</a> for any of the <a>target</a> properties <code>sh:targetClass</code>, <code>sh:targetNode</code>, <code>sh:targetObjectsOf</code>, <code>sh:targetSubjectsOf</code> and <code>sh:target</code>
-					</li>
-				</ul>
-				<p>
-					A shape can have zero or more <a>targets</a>, <a>constraints</a> and <a>parameters</a> of <a>constraint components</a>
-					that specify how a set of RDF terms from the <a>data graph</a> are validated against the shape.
-					Shapes can also have <a href="#nonValidation">non-validating properties</a>, such as labels and comments.
-				</p>
-			</section>
-
-			<section id="focusNodes">
-				<h3>Focus Nodes</h3>
-				<p>
-					An <a>RDF term</a> that is <a>validated</a> against a <a>shape</a> using the triples from a <a>data graph</a> is called a <dfn data-lt="focus node|focus nodes">focus node</dfn>.
-				</p>
-				<p>
-					The set of <a>focus nodes</a> for a <a>shape</a> may be identified as follows:
-				</p>
-				<ul>
-			    	<li>specified in a <a>shape</a> using <a>targets</a>,</li>
-					<li>specified in any <a>constraint</a> that references a <a>shape</a>
-						in parameters of <a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>) or
-						<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),</li>
-					<li>specified as input to the SHACL processor for validating specific RDF terms against the shape</li>
-				</ul>
-			</section>
-
-			<section id="targets">
-				<h3>Targets</h3>
-
-				<p>
-					A <dfn data-lt="target|targets">target</dfn> provides one way to specify <a>focus nodes</a> for a <a>shape</a>.
-				</p>
-
-				<p>
-					SHACL Core includes four kinds of targets:
-					<a href="#targetNode">node targets</a>,
-					<a href="#targetClass">class-based targets</a>,
-					<a href="#targetSubjectsOf">subjects-of targets</a>, and
-					<a href="#targetObjectsOf">objects-of targets</a>.
-
-					The SHACL Full language additionally includes an advanced <a href="#sparql-targets">general target mechanism based on SPARQL</a>.
-				</p>
-
-				<p>
-					When multiple <a>targets</a> are declared by a <a>shape</a>, the target of a shape is the union of all RDF terms produced by these individual targets.
-					RDF terms specified by targets are not required to exist as nodes in the <a>data graph</a>.
-				</p>
-				<p>
-					Targets of a shape are ignored whenever a focus node is provided directly as input to the validation process for that shape.
-					This includes the cases where the shape is a value of one of the
-					<a>shape-expecting constraint parameters</a> (such as <code>sh:shape</code>) and
-					a focus node is determined during the validation of the corresponding constraint component (such as <code>sh:ShapeConstraintComponent</code>).
-				</p>
-				
-				<section id="targetNode">
-					<h4>Node targets (sh:targetNode)</h4>
-					<p>
-						A <dfn>node target</dfn> is specified using the <code>sh:targetNode</code> predicate.
-						Each <a>value</a> of <code>sh:targetNode</code> is either an <a>IRI</a> or a <a>literal</a>.
-						Each value of a node target identifies an RDF term to be validated against
-						the shape that is the <a>subject</a> of the <code>sh:targetNode</code> triple.
-					</p>
-
-					<p>
-						With the example data below, only <code>ex:Alice</code> is the target of the provided shape:
-					</p>
-					<pre class="example-shapes">
-ex:PersonShape
-	a sh:Shape ;
-	sh:targetNode ex:Alice .</pre>
-
-					<pre class="example-data">
-<span class="focus-node-selected">ex:Alice</span> a ex:Person .
-ex:Bob a ex:Person .</pre>
-
-					<p class="def-sparql">
-						The following SPARQL query specifies the semantics of node targets.
-						The variable <code>targetNode</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetNode</code>.
-						All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
-					</p>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
-WHERE {
-	BIND ($targetNode AS ?this)    <span class="triple-can-be-skipped"># $targetnote is <a href="#pre-binding">pre-bound</a> to ex:Alice</span>
-}</pre>
-					</div>
-				</section>
-				
-				<section id="targetClass">
-					<h4>Class-based Targets (sh:targetClass)</h4>
-					<p>
-						A <dfn>class target</dfn> is specified with the <code>sh:targetClass</code> predicate.
-						Each value of <code>sh:targetClass</code> is an <a>IRI</a>.
-						For every value <code>c</code> of a class target, all <a>SHACL instances</a> of <code>c</code> in the data graph are validated
-						against the <a>subject</a> of the <code>sh:targetClass</code> triple.
-					</p>
-
-					<pre class="example-shapes">
-ex:PersonShape
-	a sh:Shape ;
-	sh:targetClass ex:Person .</pre>
-
-					<pre class="example-data">
-<span class="focus-node-selected">ex:Alice</span> a ex:Person .
-<span class="focus-node-selected">ex:Bob</span> a ex:Person .
-ex:NewYork a ex:Place .</pre>
-					<p>
-						In this example, only <code>ex:Alice</code> and <code>ex:Bob</code> are focus nodes.
-						Note that, according to the <a>SHACL instance</a> definition, all the <code>rdfs:subClassOf</code> declarations needed to walk the class hierarchy need to exist in the <a>data graph</a>.
-						However, the <code>ex:Person a rdfs:Class</code> triple is not required to exist in either graphs.
-					</p>
-					<p>
-						In the following example, the selected focus node is only <code>ex:Who</code>.
-					</p>
-					<pre class="example-data">
-ex:Doctor rdfs:subClassOf ex:Person .
-<span class="focus-node-selected">ex:Who</span> a ex:Doctor .
-ex:House a ex:Nephrologist .</pre>
-
-					<p class="def-sparql">
-						The following SPARQL query specifies the semantics of class targets.
-						The variable <code>targetClass</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetClass</code>.
-						All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
-					</p>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
-WHERE {
-	?this rdf:type/rdfs:subClassOf* $targetClass .    <span class="triple-can-be-skipped"># $targetClass is <a href="#pre-binding">pre-bound</a> to ex:Person</span>
-}</pre>
-					</div>
-
-					<section id="implicit-targetClass">
-						<h4>Implicit Class Targets</h4>
-						<p>
-							When, in the <a>shapes graph</a>, a <a>shape</a> is a <a>SHACL instance</a> of both <code>sh:Shape</code> and <code>rdfs:Class</code>
-							then the <a>shape</a> is a <a>class target</a> of itself.
-						</p>
-						<pre class="example-shapes">
-ex:Person
-	<b>a rdfs:Class</b>, sh:Shape .</pre>
-						<pre class="example-data">
-<span class="focus-node-selected">ex:Alice</span> a ex:Person .
-ex:NewYork a ex:Place .</pre>
-						<p>
-							In this example, only <code>ex:Alice</code> is a focus node, because it is a <a>SHACL instance</a> of
-							<code>ex:Person</code> which is both a class and a shape in the <a>shapes graph</a>.
-						</p>
-					</section>
-				</section>
-				
-				<section id="targetSubjectsOf">
-					<h5>Subjects-of targets (sh:targetSubjectsOf)</h5>
-					<p>
-						A <dfn>subjects-of target</dfn> is specified with the predicate <code>sh:targetSubjectsOf</code>,
-						the <a>values</a> of which are <a>IRIs</a>.
-						For every value <code>p</code> of such a target, the focus nodes are defined as
-						the set of <a>subjects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
-					</p>
-
-					<pre class="example-shapes">
-ex:TargetSubjectsOfExampleShape
-	a sh:Shape ;
-	sh:targetSubjectsOf ex:knows .</pre>
-					<pre class="example-data">
-<span class="focus-node-selected">ex:Alice</span> ex:knows ex:Bob .
-ex:Bob ex:livesIn ex:NewYork .</pre>
-					<p>
-						In the example above, only <code>ex:Alice</code> is validated against the given shape,
-						because it is the <a>subject</a> of a <a>triple</a> that has <code>ex:knows</code> as its <a>predicate</a>.
-					</p>
-
-					<p class="def-sparql">
-						The following SPARQL query specifies the semantics of subjects-of targets.
-						The variable <code>targetSubjectsOf</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetSubjectsOf</code>.
-						All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
-					</p>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
-WHERE {
-	?this $targetSubjectsOf ?any .    <span class="triple-can-be-skipped"># $targetSubjectsOf is <a href="#pre-binding">pre-bound</a>to ex:knows</span>
-}</pre>
-					</div>
-				</section>
-				
-				<section id="targetObjectsOf">
-					<h5>Objects-of targets (sh:targetObjectsOf)</h5>
-					<p>
-						An <dfn>objects-of target</dfn> is specified with the predicate <code>sh:targetObjectsOf</code>,
-						the <a>values</a> of which are <a>IRIs</a>.
-						For every value <code>p</code> of such a target, the focus nodes are defined as
-						the set of <a>objects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
-					</p>
-
-					<pre class="example-shapes">
-ex:TargetObjectsOfExampleShape
-	a sh:Shape ;
-	sh:targetObjectsOf ex:knows .</pre>
-					<pre class="example-data">
-ex:Alice ex:knows <span class="focus-node-selected">ex:Bob</span> .
-ex:Bob ex:livesIn ex:NewYork .</pre>
-					<p>
-						In the example above, only <code>ex:Bob</code> is validated against the given shape,
-						because it is the <a>object</a> of a <a>triple</a> that has <code>ex:knows</code> as its <a>predicate</a>.
-					</p>
-
-					<p class="def-sparql">
-						The following SPARQL query specifies the semantics of objects-of targets.
-						The variable <code>targetObjectsOf</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetObjectsOf</code>.
-						All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
-					</p>
-					<div class="def def-sparql">
-						<div class="def-header">SPARQL DEFINITION</div>
-<pre class="def-sparql-body">
-SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
-WHERE {
-	?any $targetObjectsOf ?this .    <span class="triple-can-be-skipped"># $targetObjectsOf is <a href="#pre-binding">pre-bound</a> to ex:knows</span>
-}</pre>
-					</div>
-				</section>
-			</section>
+			<section id="constraints">
 			
-			<section id="shape-constraints">
 				<h3>Constraints</h3>
 				<p>
-					A <dfn data-lt="constraint|constraints">constraint</dfn> is a <a>node</a> in the <a>shapes graph</a> that determines how to validate
-					a <a>focus node</a> based on the <a>values</a> of properties and other characteristics of the <a>node</a>.
-					Constraints can, for example, require that a focus node be an IRI or that a focus node has a particular value for a property and also a minimum number of values for the property.
+					A <dfn data-lt="constraint|constraints">constraint</dfn> is a <a>node</a> in the <a>shapes graph</a>.
+					Informally, a constraint determines how to validate a <a>focus node</a> based on the <a>values</a> of properties and other characteristics of the focus node.
+					For example, constraints can require that a focus node be an IRI or that a focus node has a particular value for a property and also a minimum number of values for the property.
 				</p>
 				<p>
 					The SHACL Core language defines two types of constraints:
 				</p>
 				<ul>
 					<li>constraints about the <a>focus node</a> itself, called <a>shapes</a></li>
-					<li>constraints about the <a>values</a> of a particular property or <a>path</a> for the focus node, called <dfn data-lt="property constraint">property constraints</dfn></li>
+					<li>constraints about the <a>values</a> of a particular property or <a>path</a> for the focus node, called <a>property constraints</a></li>
 				</ul>
 				<p>
 					In addition to those, SHACL Full can be used to specify	<a href="#sparql-constraints">SPARQL-based constraints</a>.
 					<code>sh:Constraint</code> is the <a>SHACL superclass</a> of all SHACL constraint types.
 				</p>
 
-				<p>
-					Property constraints and shapes may be based on one or more constraint components.
-					A <dfn data-lt="constraint component|constraint components|components|component">constraint component</dfn>
-					declares one or more properties, called <dfn data-lt="parameter">parameters</dfn>, and declares <dfn data-lt="validator">validators</dfn>,
-					which provide instructions (for example expressed via SPARQL queries) on how the parameters are used to validate data.
-					Constraint components have an <a>IRI</a> which is used, among others, in validation reports.
-					For example, the component <code>sh:MinCountConstraintComponent</code> declares the parameter <code>sh:minCount</code> to represent the restriction
-					that the <a>focus node</a> has at least a minimum number of <a>values</a> for a	particular property.
-					The list of constraint components included in SHACL Core is described in <a href="#constraints">section 4</a>.
-				</p>
-				<p>
-					Validating an <a>focus node</a> against a <a>constraint</a> involves validating the focus node against each of the <a>components</a> for which the constraint has parameter values for.
-				</p>
-
-				<p>
-					Constraints can also have <dfn data-lt="non-validating property">non-validating properties</dfn> (such as names and default values) that do not lead to <a>validation results</a>.
-				</p>
-
-
-				<section id="property-constraints-section">
-					<h4>Property Constraints (sh:predicate or sh:path)</h4>
-
+				<section id="focusNodes">
+					<h3>Focus Nodes</h3>
 					<p>
-						<a>Property constraints</a> specify conditions that need to be met with respect to <a>nodes</a> that can be reached from the
-						<a>focus node</a> either by directly following a given property (specified using <code>sh:predicate</code>) or a given <a>property path</a> (specified using <code>sh:path</code>).
+						An <a>RDF term</a> that is <a>validated</a> against a <a>constraint</a> using the triples from a <a>data graph</a> is called a <dfn data-lt="focus node|focus nodes">focus node</dfn>.
 					</p>
 					<p>
-						<a>Property constraints</a> are associated with a <a>shape</a> with the property <code>sh:property</code>.
-						Each value of <code>sh:property</code> is an <a>IRI</a> or a <a>blank node</a>
-						that is the <a>subject</a> of precisely one <a>triple</a> with
-						either <a>predicate</a> <code>sh:predicate</code> or <code>sh:path</code>.
-						Each <a>value</a> of <code>sh:predicate</code> is an <a>IRI</a>.
-						Each <a>value</a> of <code>sh:path</code> is a <a>SHACL property path</a>.
+						The set of <a>focus nodes</a> for a <a>constraint</a> may be identified as follows:
 					</p>
-					<p>
-						The following example illustrates the two syntax variations of property constraints. 
-					</p>
-					<pre class="example-shapes">
-ex:ExampleShapeWithPropertyConstraints
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:email ;
-		sh:name "e-mail" ;
-		sh:description "We need at least one email value" ;
-		sh:minCount 1 ;
-	] ;
-	sh:property [
-		sh:path (ex:knows ex:email) ;
-		sh:name "Friend's e-mail" ;
-		sh:description "We need at least one email for everyone you know" ;
-		sh:minCount 1 ;
-	] .</pre>
-					<p>
-						<code>sh:PropertyConstraint</code> is the class of property constraints.
-						The objects of triples with <code>sh:property</code> as predicate have <code>sh:PropertyConstraint</code> as <a>expected type</a>.
-					</p>
-
+					<ul>
+				    	<li>specified in a <a>shape</a> using <a>targets</a>,</li>
+						<li>specified in any <a>constraint</a> that references a <a>shape</a>
+							in parameters of <a href="#constraints-shape">shape-based constraint components</a> (i.e. <code>sh:shape</code>) or
+							<a href="#constraints-shape">logical constraint components</a> (i.e. <code>sh:or</code>),</li>
+						<li>specified as input to the SHACL processor for validating a specific RDF term against a shape</li>
+					</ul>
 				</section>
-
-				<section id="multiple-parameter-constraints-section">
-					<h4>Multiple Parameters</h4>
+				
+				<section id="constraint-components">
+					<h4>Constraint Components</h4>
 					<p>
+						Property constraints and shapes may be based on one or more constraint components.
+						A <dfn data-lt="constraint component|constraint components|components|component">constraint component</dfn>
+						declares one or more properties, called <dfn data-lt="parameter">parameters</dfn>, and declares <dfn data-lt="validator">validators</dfn>,
+						which provide instructions (for example expressed via SPARQL queries) on how the parameters are used to validate data.
+						Constraint components have an <a>IRI</a> which is used, among others, in validation reports.
+						For example, the component <code>sh:MinCountConstraintComponent</code> declares the parameter <code>sh:minCount</code> to represent the restriction
+						that the <a>focus node</a> has at least a minimum number of <a>values</a> for a	particular property.
+						The list of constraint components included in SHACL Core is described in <a href="#constraints">section 4</a>.
+					</p>
+					<p>
+						Validating an <a>focus node</a> against a <a>constraint</a> involves validating the focus node against each of the <a>components</a> for which the constraint has parameter values for.
+					</p>
+
+					<p id="multiple-parameter-constraints-section">
 						Some constraint components declare only a single parameter.
 						For example <a href="#ClassConstraintComponent"><code>sh:ClassConstraintComponent</code></a> has the single parameter <code>sh:class</code>.
 						These parameters may be used multiple times in the same constraint node.
@@ -1201,86 +931,6 @@ ex:InvoiceShape
 						Some constraint components such as <a href="#PatternConstraintComponent"><code>sh:PatternConstaintComponent</code></a> declare more than one parameter.
 						Constraints are not allowed to have more than one value for any of the parameters of such components.
 					</p>
-				</section>
-
-				<section id="path-syntax">
-					<h4>Property Paths</h4>
-					<p>
-						SHACL includes an RDF vocabulary to represent <a>property paths</a> equivalent to a subset of <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1 property paths</a>.
-						SHACL supports the following SPARQL 1.1 property path constructs:
-						<code>PredicatePath</code>, <code>InversePath</code>, <code>SequencePath</code>, <code>AlternativePath</code>,
-						<code>ZeroOrMorePath</code>, <code>OneOrMorePath</code> and <code>ZeroOrOnePath</code>.
-					</p>
-					<p>
-						A <dfn>SHACL property path</dfn> <code>p</code> is a node in an RDF graph when it satisfies the antecedent of one of the following rules.
-						For each rule, the mapping from a SHACL property to a SPARQL property paths is provided.
-					</p>
-					<ol>
-						<li>
-							If <code>p</code> is an <a>IRI</a> then the property path is mapped to a <code>PredicatePath</code> with <code>p</code> as predicate.
-						</li>
-						<li>
-							If <code>p</code>  is a blank node that is the subject of exactly one triple with <code>rdf:first</code> as predicate
-							and <code>p</code> as object, and <code>p</code> is a <a>SHACL list</a> <code>L</code> with at least two <a>members</a>
-							and each member of <code>L</code> is a SHACL property path
-							then, for the members of <code>L</code>: <code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>,
-							<code>p</code> is mapped to a <code>SequencePath</code> of
-							<code>v<sub>1</sub></code> followed by <code>v<sub>2</sub></code>, ..., followed by <code>v<sub>n</sub></code>.
-						</li>
-						<li>
-							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:alternativePath</code>
-							as predicate, <code>L</code> as object and no other triples,
-							and <code>L</code> is a <a>SHACL list</a> with at least two <a>members</a>
-							and each member of <code>L</code> is a SHACL property path
-							then, for the members of <code>L</code>: <code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>,
-							<code>p</code> is mapped to a <code>AlternativePath</code> of
-							<code>v<sub>1</sub></code> followed by <code>v<sub>2</sub></code>, ..., followed by <code>v<sub>n</sub></code>.
-						</li>
-						<li>
-							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:inversePath</code>
-							as predicate, <code>v</code> as object and no other triples,
-							then <code>p</code> is mapped to an <code>InversePath</code> of <code>v</code>.
-						</li>
-						<li>
-							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:zeroOrMorePath</code>
-							as predicate, <code>v</code> as object and no other triples,
-							then <code>p</code> is mapped to a <code>ZeroOrMorePath</code> of <code>v</code>.
-						</li>
-						<li>
-							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:oneOrMorePath</code>
-							as predicate, <code>v</code> as object and no other triples,
-							then <code>p</code> is mapped to an <code>OneOrMorePath</code> of <code>v</code>.
-						</li>
-						<li>
-							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:zeroOrOnePath</code>
-							as predicate, <code>v</code> as object and no other triples,
-							then <code>p</code> is mapped to a <code>ZeroOrOnePath</code> of <code>v</code>.
-						</li>
-					</ol>
-					<p>
-						A node <code>p</code> is not a SHACL property path if <code>p</code> is a blank node and any path constructs of <code>p</code> directly or transitively reference <code>p</code>.
-					</p>
-					<p>
-						Two SHACL property paths are considered equivalent when they produce the exact same <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1 property path</a> syntax.
-					</p>
-					<p>
-						The following example illustrates some valid SHACL property paths, together with their SPARQL 1.1 equivalents.
-					</p>
-					<pre class="example-other">
-SPARQL Property path: ex:parent
-SHACL Property path: ex:parent
-
-SPARQL Property path: ^ex:parent
-SHACL Property path: [ sh:inversePath ex:parent ]
-
-SPARQL Property path: ex:parent/ex:firstName
-SHACL Property path: ( ex:parent ex:firstName )
-
-SPARQL Property path: rdf:type/rdfs:subClassOf*
-SHACL Property path: ( rdf:type [ sh:zeroOrMorePath rdfs:subClassOf ] )
-
-SPARQL Property path: ex:father|ex:mother
-SHACL Property path: [ sh:alternativePath ( ex:father ex:mother  ) ]</pre>
 				</section>
 
 				<section id="severity">
@@ -1380,7 +1030,7 @@ ex:MyInstance
 					</p>
 				</section>
 				<section id="deactivated">
-					<h4>Deactivating a Constraint or Shape</h4>
+					<h4>Deactivating a Constraint</h4>
 					<p>
 						SHACL includes a mechanism to <dfn data-lt="deactivated">deactivate</dfn> a constraint or shape:
 						If the constraint or shape has the <a>value</a> <code>true</code> for the property <code>sh:deactivated</code>
@@ -1416,6 +1066,480 @@ ex:PersonShape-name
 					</p>
 					<pre class="example-data">
 ex:JohnDoe a ex:Person .</pre>
+				</section>
+			</section>
+		
+			<section id="shapes">
+				<h3>Shapes</h3>
+				<p>
+					A <dfn data-lt="shape|shapes">shape</dfn> is a <a>node</a> in a <a>shapes graph</a> that fulfills any of the following conditions:
+				</p>
+				<ul>
+					<li>
+						the node is a <a>SHACL instance</a> of <code>sh:Shape</code>
+					</li>
+					<li>
+						the node has the <a>expected type</a> <code>sh:Shape</code>, which is the case if
+						it is used as a value of <a>shape-expecting constraint parameters</a> such as <code>sh:shape</code>
+						(in the case of the list-valued parameters <code>sh:and</code>, <code>sh:or</code> and <code>sh:partition</code> it is a <a>member</a> of the corresponding lists)
+					</li>
+					<li>
+						the node has a <a>value</a> for any of the <a>target</a> properties <code>sh:targetClass</code>, <code>sh:targetNode</code>, <code>sh:targetObjectsOf</code>, <code>sh:targetSubjectsOf</code> and <code>sh:target</code>
+					</li>
+				</ul>
+				<p>
+					A shape can have zero or more <a>targets</a>, <a>constraints</a> and <a>parameters</a> of <a>constraint components</a>
+					that specify how a set of RDF terms from the <a>data graph</a> are validated against the shape.
+					Shapes can also have <a href="#nonValidation">non-validating properties</a>, such as labels and comments.
+				</p>
+	
+				<section id="targets">
+					<h3>Targets</h3>
+	
+					<p>
+						A <dfn data-lt="target|targets">target</dfn> provides one way to specify <a>focus nodes</a> for a <a>shape</a>.
+					</p>
+	
+					<p>
+						SHACL Core includes four kinds of targets:
+						<a href="#targetNode">node targets</a>,
+						<a href="#targetClass">class-based targets</a>,
+						<a href="#targetSubjectsOf">subjects-of targets</a>, and
+						<a href="#targetObjectsOf">objects-of targets</a>.
+	
+						The SHACL Full language additionally includes an advanced <a href="#sparql-targets">general target mechanism based on SPARQL</a>.
+					</p>
+	
+					<p>
+						When multiple <a>targets</a> are declared by a <a>shape</a>, the target of a shape is the union of all RDF terms produced by these individual targets.
+						RDF terms specified by targets are not required to exist as nodes in the <a>data graph</a>.
+					</p>
+					<p>
+						Targets of a shape are ignored whenever a focus node is provided directly as input to the validation process for that shape.
+						This includes the cases where the shape is a value of one of the
+						<a>shape-expecting constraint parameters</a> (such as <code>sh:shape</code>) and
+						a focus node is determined during the validation of the corresponding constraint component (such as <code>sh:ShapeConstraintComponent</code>).
+					</p>
+					
+					<section id="targetNode">
+						<h4>Node targets (sh:targetNode)</h4>
+						<p>
+							A <dfn>node target</dfn> is specified using the <code>sh:targetNode</code> predicate.
+							Each <a>value</a> of <code>sh:targetNode</code> is either an <a>IRI</a> or a <a>literal</a>.
+							Each value of a node target identifies an RDF term to be validated against
+							the shape that is the <a>subject</a> of the <code>sh:targetNode</code> triple.
+						</p>
+	
+						<p>
+							With the example data below, only <code>ex:Alice</code> is the target of the provided shape:
+						</p>
+						<pre class="example-shapes">
+ex:PersonShape
+	a sh:Shape ;
+	sh:targetNode ex:Alice .</pre>
+
+						<pre class="example-data">
+<span class="focus-node-selected">ex:Alice</span> a ex:Person .
+ex:Bob a ex:Person .</pre>
+	
+						<p class="def-sparql">
+							The following SPARQL query specifies the semantics of node targets.
+							The variable <code>targetNode</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetNode</code>.
+							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
+						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
+WHERE {
+	BIND ($targetNode AS ?this)    <span class="triple-can-be-skipped"># $targetnote is <a href="#pre-binding">pre-bound</a> to ex:Alice</span>
+}</pre>
+						</div>
+					</section>
+					
+					<section id="targetClass">
+						<h4>Class-based Targets (sh:targetClass)</h4>
+						<p>
+							A <dfn>class target</dfn> is specified with the <code>sh:targetClass</code> predicate.
+							Each value of <code>sh:targetClass</code> is an <a>IRI</a>.
+							For every value <code>c</code> of a class target, all <a>SHACL instances</a> of <code>c</code> in the data graph are validated
+							against the <a>subject</a> of the <code>sh:targetClass</code> triple.
+						</p>
+	
+						<pre class="example-shapes">
+ex:PersonShape
+	a sh:Shape ;
+	sh:targetClass ex:Person .</pre>
+
+						<pre class="example-data">
+<span class="focus-node-selected">ex:Alice</span> a ex:Person .
+<span class="focus-node-selected">ex:Bob</span> a ex:Person .
+ex:NewYork a ex:Place .</pre>
+						<p>
+							In this example, only <code>ex:Alice</code> and <code>ex:Bob</code> are focus nodes.
+							Note that, according to the <a>SHACL instance</a> definition, all the <code>rdfs:subClassOf</code> declarations needed to walk the class hierarchy need to exist in the <a>data graph</a>.
+							However, the <code>ex:Person a rdfs:Class</code> triple is not required to exist in either graphs.
+						</p>
+						<p>
+							In the following example, the selected focus node is only <code>ex:Who</code>.
+						</p>
+						<pre class="example-data">
+ex:Doctor rdfs:subClassOf ex:Person .
+<span class="focus-node-selected">ex:Who</span> a ex:Doctor .
+ex:House a ex:Nephrologist .</pre>
+	
+						<p class="def-sparql">
+							The following SPARQL query specifies the semantics of class targets.
+							The variable <code>targetClass</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetClass</code>.
+							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
+						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
+WHERE {
+	?this rdf:type/rdfs:subClassOf* $targetClass .    <span class="triple-can-be-skipped"># $targetClass is <a href="#pre-binding">pre-bound</a> to ex:Person</span>
+}</pre>
+						</div>
+	
+						<section id="implicit-targetClass">
+							<h4>Implicit Class Targets</h4>
+							<p>
+								When, in the <a>shapes graph</a>, a <a>shape</a> is a <a>SHACL instance</a> of both <code>sh:Shape</code> and <code>rdfs:Class</code>
+								then the <a>shape</a> is a <a>class target</a> of itself.
+							</p>
+							<pre class="example-shapes">
+ex:Person
+	<b>a rdfs:Class</b>, sh:Shape .</pre>
+							<pre class="example-data">
+<span class="focus-node-selected">ex:Alice</span> a ex:Person .
+ex:NewYork a ex:Place .</pre>
+							<p>
+								In this example, only <code>ex:Alice</code> is a focus node, because it is a <a>SHACL instance</a> of
+								<code>ex:Person</code> which is both a class and a shape in the <a>shapes graph</a>.
+							</p>
+						</section>
+					</section>
+					
+					<section id="targetSubjectsOf">
+						<h5>Subjects-of targets (sh:targetSubjectsOf)</h5>
+						<p>
+							A <dfn>subjects-of target</dfn> is specified with the predicate <code>sh:targetSubjectsOf</code>,
+							the <a>values</a> of which are <a>IRIs</a>.
+							For every value <code>p</code> of such a target, the focus nodes are defined as
+							the set of <a>subjects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
+						</p>
+	
+						<pre class="example-shapes">
+ex:TargetSubjectsOfExampleShape
+	a sh:Shape ;
+	sh:targetSubjectsOf ex:knows .</pre>
+						<pre class="example-data">
+<span class="focus-node-selected">ex:Alice</span> ex:knows ex:Bob .
+ex:Bob ex:livesIn ex:NewYork .</pre>
+						<p>
+							In the example above, only <code>ex:Alice</code> is validated against the given shape,
+							because it is the <a>subject</a> of a <a>triple</a> that has <code>ex:knows</code> as its <a>predicate</a>.
+						</p>
+	
+						<p class="def-sparql">
+							The following SPARQL query specifies the semantics of subjects-of targets.
+							The variable <code>targetSubjectsOf</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetSubjectsOf</code>.
+							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
+						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
+WHERE {
+	?this $targetSubjectsOf ?any .    <span class="triple-can-be-skipped"># $targetSubjectsOf is <a href="#pre-binding">pre-bound</a>to ex:knows</span>
+}</pre>
+						</div>
+					</section>
+					
+					<section id="targetObjectsOf">
+						<h5>Objects-of targets (sh:targetObjectsOf)</h5>
+						<p>
+							An <dfn>objects-of target</dfn> is specified with the predicate <code>sh:targetObjectsOf</code>,
+							the <a>values</a> of which are <a>IRIs</a>.
+							For every value <code>p</code> of such a target, the focus nodes are defined as
+							the set of <a>objects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
+						</p>
+	
+						<pre class="example-shapes">
+ex:TargetObjectsOfExampleShape
+	a sh:Shape ;
+	sh:targetObjectsOf ex:knows .</pre>
+					<pre class="example-data">
+ex:Alice ex:knows <span class="focus-node-selected">ex:Bob</span> .
+ex:Bob ex:livesIn ex:NewYork .</pre>
+						<p>
+							In the example above, only <code>ex:Bob</code> is validated against the given shape,
+							because it is the <a>object</a> of a <a>triple</a> that has <code>ex:knows</code> as its <a>predicate</a>.
+						</p>
+	
+						<p class="def-sparql">
+							The following SPARQL query specifies the semantics of objects-of targets.
+							The variable <code>targetObjectsOf</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetObjectsOf</code>.
+							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
+						</p>
+						<div class="def def-sparql">
+							<div class="def-header">SPARQL DEFINITION</div>
+<pre class="def-sparql-body">
+SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
+WHERE {
+	?any $targetObjectsOf ?this .    <span class="triple-can-be-skipped"># $targetObjectsOf is <a href="#pre-binding">pre-bound</a> to ex:knows</span>
+}</pre>
+						</div>
+					</section>
+				</section>
+			</section>
+			
+			<section id="property-constraints">
+				<h4>Property Constraints</h4>
+				<p>
+					A <dfn data-lt="property constraints">property constraint</dfn> is an <a>IRI</a> or <a>blank node</a> in the <a>shapes graph</a> that is the <a>object</a> of a <a>triple</a>
+					that has <code>sh:property</code> as its <a>predicate</a> and a <a>shape</a> as its <a>subject</a>.
+					Each property constraint is the <a>subject</a> of precisely one <a>triple</a> with
+					either <a>predicate</a> <code>sh:predicate</code> or <code>sh:path</code>.
+					Each <a>value</a> of <code>sh:predicate</code> is an <a>IRI</a>.
+					Each <a>value</a> of <code>sh:path</code> is a <a>SHACL property path</a>.
+				</p>
+				<p>
+					Informally, property constraints specify conditions that need to be met with respect to <a>nodes</a> that can be reached from the
+					<a>focus node</a> either by directly following a given property (specified using <code>sh:predicate</code>) or a given <a>property path</a> (specified using <code>sh:path</code>).
+				</p>
+				<p>
+					The following example illustrates the two syntax variations of property constraints. 
+				</p>
+				<pre class="example-shapes">
+ex:ExampleShapeWithPropertyConstraints
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:email ;
+		sh:name "e-mail" ;
+		sh:description "We need at least one email value" ;
+		sh:minCount 1 ;
+	] ;
+	sh:property [
+		sh:path (ex:knows ex:email) ;
+		sh:name "Friend's e-mail" ;
+		sh:description "We need at least one email for everyone you know" ;
+		sh:minCount 1 ;
+	] .</pre>
+				<p>
+					<code>sh:PropertyConstraint</code> is the class of property constraints.
+					The objects of triples with <code>sh:property</code> as predicate have <code>sh:PropertyConstraint</code> as <a>expected type</a>.
+				</p>
+
+				<section id="path-syntax">
+					<h4>Property Paths</h4>
+					<p>
+						SHACL includes an RDF vocabulary to represent <a>property paths</a> equivalent to a subset of <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1 property paths</a>.
+						SHACL supports the following SPARQL 1.1 property path constructs:
+						<code>PredicatePath</code>, <code>InversePath</code>, <code>SequencePath</code>, <code>AlternativePath</code>,
+						<code>ZeroOrMorePath</code>, <code>OneOrMorePath</code> and <code>ZeroOrOnePath</code>.
+					</p>
+					<p>
+						A <dfn>SHACL property path</dfn> <code>p</code> is a node in an RDF graph when it satisfies the antecedent of one of the following rules.
+						For each rule, the mapping from a SHACL property to a SPARQL property paths is provided.
+					</p>
+					<ol>
+						<li>
+							If <code>p</code> is an <a>IRI</a> then the property path is mapped to a <code>PredicatePath</code> with <code>p</code> as predicate.
+						</li>
+						<li>
+							If <code>p</code>  is a blank node that is the subject of exactly one triple with <code>rdf:first</code> as predicate
+							and <code>p</code> as object, and <code>p</code> is a <a>SHACL list</a> <code>L</code> with at least two <a>members</a>
+							and each member of <code>L</code> is a SHACL property path
+							then, for the members of <code>L</code>: <code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>,
+							<code>p</code> is mapped to a <code>SequencePath</code> of
+							<code>v<sub>1</sub></code> followed by <code>v<sub>2</sub></code>, ..., followed by <code>v<sub>n</sub></code>.
+						</li>
+						<li>
+							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:alternativePath</code>
+							as predicate, <code>L</code> as object and no other triples,
+							and <code>L</code> is a <a>SHACL list</a> with at least two <a>members</a>
+							and each member of <code>L</code> is a SHACL property path
+							then, for the members of <code>L</code>: <code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>,
+							<code>p</code> is mapped to a <code>AlternativePath</code> of
+							<code>v<sub>1</sub></code> followed by <code>v<sub>2</sub></code>, ..., followed by <code>v<sub>n</sub></code>.
+						</li>
+						<li>
+							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:inversePath</code>
+							as predicate, <code>v</code> as object and no other triples,
+							then <code>p</code> is mapped to an <code>InversePath</code> of <code>v</code>.
+						</li>
+						<li>
+							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:zeroOrMorePath</code>
+							as predicate, <code>v</code> as object and no other triples,
+							then <code>p</code> is mapped to a <code>ZeroOrMorePath</code> of <code>v</code>.
+						</li>
+						<li>
+							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:oneOrMorePath</code>
+							as predicate, <code>v</code> as object and no other triples,
+							then <code>p</code> is mapped to an <code>OneOrMorePath</code> of <code>v</code>.
+						</li>
+						<li>
+							If <code>p</code> is a blank node that is the subject of exactly one triple with <code>sh:zeroOrOnePath</code>
+							as predicate, <code>v</code> as object and no other triples,
+							then <code>p</code> is mapped to a <code>ZeroOrOnePath</code> of <code>v</code>.
+						</li>
+					</ol>
+					<p>
+						A node <code>p</code> is not a SHACL property path if <code>p</code> is a blank node and any path constructs of <code>p</code> directly or transitively reference <code>p</code>.
+					</p>
+					<p>
+						Two SHACL property paths are considered equivalent when they produce the exact same <a href="https://www.w3.org/TR/sparql11-query/#pp-language">SPARQL 1.1 property path</a> syntax.
+					</p>
+					<p>
+						The following example illustrates some valid SHACL property paths, together with their SPARQL 1.1 equivalents.
+					</p>
+					<pre class="example-other">
+SPARQL Property path: ex:parent
+SHACL Property path: ex:parent
+
+SPARQL Property path: ^ex:parent
+SHACL Property path: [ sh:inversePath ex:parent ]
+
+SPARQL Property path: ex:parent/ex:firstName
+SHACL Property path: ( ex:parent ex:firstName )
+
+SPARQL Property path: rdf:type/rdfs:subClassOf*
+SHACL Property path: ( rdf:type [ sh:zeroOrMorePath rdfs:subClassOf ] )
+
+SPARQL Property path: ex:father|ex:mother
+SHACL Property path: [ sh:alternativePath ( ex:father ex:mother  ) ]</pre>
+				</section>
+				
+				<section id="nonValidation">
+					<h4>Non-Validating Constraint Characteristics</h4>
+					<p>
+						While the previous sections introduced properties that represent validation conditions,
+						this section covers properties that are ignored by SHACL processors.
+						The use of these so-called <dfn data-lt="non-validating property">non-validating properties</dfn> is entirely optional and not subject to formal interpretation contracts.
+						They MAY be used for purposes such as form building or predictable printing of RDF files.
+					</p>
+					<section id="name">
+						<h5>sh:name</h5>
+						<p>
+							Property constraints may have one or more <a>values</a> for <code>sh:name</code> to provide human-readable labels for the property in the target where it appears.
+							If present, tools SHOULD prefer those locally specified labels over globally specified labels at the <code>rdf:Property</code> itself.
+							For example, if a form displays a node that is in the target of a given shape, and the shape declares a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
+							Similarly, property constraints may have an <code id="description">sh:description</code> to provide a description of the property in the given context.
+							Both <code>sh:name</code> and <code>sh:description</code> may have multiple <a>values</a>, but should only have one <a>value</a> per language tag.
+						</p>
+					</section>
+					<section id="order">
+						<h5>sh:order</h5>
+						<p>
+							Property constraints may have one <a>value</a> for the property <code>sh:order</code> to indicate the relative order of the property constraint for purposes such as form building.
+							The values of <code>sh:order</code> are decimals.
+							<code>sh:order</code> is not used for validation purposes.
+							If present, the recommended use of <code>sh:order</code> is to sort the property constraints in an ascending order, for example so that
+							properties with smaller order are placed above (or to the left) of properties with larger order.
+						</p>
+					</section>
+					<section id="group">
+						<h5>sh:group</h5>
+						<p>
+							Property constraints may link to an <a>SHACL instance</a> of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
+							the constraint belongs to a group of related property constraints.
+							Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
+							Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
+						</p>
+					</section>
+					<section id="defaultValue">
+						<h5>sh:defaultValue</h5>
+						<p>
+							Property constraints may have a single value for <code>sh:defaultValue</code>.
+							The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
+							The value type of the <code>sh:defaultValue</code> should align with the specified <code>sh:datatype</code> or <code>sh:class</code> of the same constraint.
+						</p>
+						<p>
+							The following example illustrates the use of these various features together.
+						</p>
+						<pre class="example-shapes">
+ex:PersonFormShape
+	a sh:Shape ;
+	sh:property [
+		sh:predicate ex:firstName ;
+		sh:name "first name" ;
+		sh:description "The person's given name(s)" ;
+		sh:order 0 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:lastName ;
+		sh:name "last name" ;
+		sh:description "The person's last name" ;
+		sh:order 1 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:streetAddress ;
+		sh:name "street address" ;
+		sh:description "The street address including number" ;
+		sh:order 11 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:locality ;
+		sh:name "locality" ;
+		sh:description "The suburb, city or town of the address" ;
+		sh:order 12 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:predicate ex:postalCode ;
+		sh:name "postal code" ;
+		sh:name "zip code"@en-US ;
+		sh:description "The postal code of the locality" ;
+		sh:order 13 ;
+		sh:group ex:AddressGroup ;
+	] .
+
+ex:NameGroup
+	a sh:PropertyGroup ;
+	sh:order 0 ;
+	rdfs:label "Name" .
+
+ex:AddressGroup
+	a sh:PropertyGroup ;
+	sh:order 1 ;
+	rdfs:label "Address" .</pre>
+						<p>
+							A form building application MAY use the information above to display information as follows:
+						</p>
+						<div style="background: #f3f3f3; padding: 8px">
+							<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
+							<table>
+								<tr>
+									<td style="text-align: right; width: 160px"><b>first name:</b></td>
+									<td>John</td>
+								</tr>
+								<tr>
+									<td style="text-align: right"><b>last name:</b></td>
+									<td>Doe</td>
+								</tr>
+							</table>
+							<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
+							<table>
+								<tr>
+									<td style="text-align: right; width: 160px"><b>street address:</b></td>
+									<td>123 Silverado Ave</td>
+								</tr>
+								<tr>
+									<td style="text-align: right"><b>locality:</b></td>
+									<td>Cupertino</td>
+								</tr>
+								<tr>
+									<td style="text-align: right"><b>zip code:</b></td>
+									<td>54321</td>
+								</tr>
+							</table>
+						</div>
+					</section>
 				</section>
 			</section>
 		</section>
@@ -1719,7 +1843,7 @@ ex:JohnDoe a ex:Person .</pre>
 			</section>
 		</section>
 
-		<section id="constraints">
+		<section id="core-constraints">
 			<h2>Core Constraint Components</h2>
 			<p>
 				This section defines the built-in SHACL Core <a>constraint components</a> that MUST be supported by all SHACL Core processors.
@@ -3382,124 +3506,6 @@ ex:InExampleShape
 					<pre class="example-data">
 ex:RainbowPony ex:color ex:Pink .</pre>
 				</section>
-			</section>
-				
-			<section id="nonValidation">
-				<h4>Non-Validating Constraint Characteristics</h4>
-				<p>
-					While the previous sections introduced properties that represent validation conditions,
-					this section covers properties that are ignored by SHACL processors.
-					The use of these properties is entirely optional and not subject to formal interpretation contracts.
-					They MAY be used for purposes such as form building or predictable printing of RDF files.
-				</p>
-				<p id="name">
-					Property constraints may have one or more <a>values</a> for <code>sh:name</code> to provide human-readable labels for the property in the target where it appears.
-					If present, tools SHOULD prefer those locally specified labels over globally specified labels at the <code>rdf:Property</code> itself.
-					For example, if a form displays a node that is in the target of a given shape, and the shape declares a <code>sh:property</code> constraint with an <code>sh:name</code>, then the tool SHOULD use the provided name.
-					Similarly, property constraints may have an <code id="description">sh:description</code> to provide a description of the property in the given context.
-					Both <code>sh:name</code> and <code>sh:description</code> may have multiple <a>values</a>, but should only have one <a>value</a> per language tag.
-				</p>
-				<p id="order">
-					Property constraints may have one <a>value</a> for the property <code>sh:order</code> to indicate the relative order of the property constraint for purposes such as form building.
-					The values of <code>sh:order</code> are decimals.
-					<code>sh:order</code> is not used for validation purposes.
-					If present, the recommended use of <code>sh:order</code> is to sort the property constraints in an ascending order, for example so that
-					properties with smaller order are placed above (or to the left) of properties with larger order.
-				</p>
-				<p id="group">
-					Property constraints may link to an <a>SHACL instance</a> of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
-					the constraint belongs to a group of related property constraints.
-					Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
-					Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
-				</p>
-				<p id="defaultValue">
-					Property constraints may have a single value for <code>sh:defaultValue</code>.
-					The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
-					The value type of the <code>sh:defaultValue</code> should align with the specified <code>sh:datatype</code> or <code>sh:class</code> of the same constraint.
-				</p>
-				<p>
-					The following example illustrates the use of these various features together.
-				</p>
-				<pre class="example-shapes">
-ex:PersonFormShape
-	a sh:Shape ;
-	sh:property [
-		sh:predicate ex:firstName ;
-		sh:name "first name" ;
-		sh:description "The person's given name(s)" ;
-		sh:order 0 ;
-		sh:group ex:NameGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:lastName ;
-		sh:name "last name" ;
-		sh:description "The person's last name" ;
-		sh:order 1 ;
-		sh:group ex:NameGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:streetAddress ;
-		sh:name "street address" ;
-		sh:description "The street address including number" ;
-		sh:order 11 ;
-		sh:group ex:AddressGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:locality ;
-		sh:name "locality" ;
-		sh:description "The suburb, city or town of the address" ;
-		sh:order 12 ;
-		sh:group ex:AddressGroup ;
-	] ;
-	sh:property [
-		sh:predicate ex:postalCode ;
-		sh:name "postal code" ;
-		sh:name "zip code"@en-US ;
-		sh:description "The postal code of the locality" ;
-		sh:order 13 ;
-		sh:group ex:AddressGroup ;
-	] .
-
-ex:NameGroup
-	a sh:PropertyGroup ;
-	sh:order 0 ;
-	rdfs:label "Name" .
-
-ex:AddressGroup
-	a sh:PropertyGroup ;
-	sh:order 1 ;
-	rdfs:label "Address" .</pre>
-				<p>
-					A form building application MAY use the information above to display information as follows:
-				</p>
-				<div style="background: #f3f3f3; padding: 8px">
-					<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
-					<table>
-						<tr>
-							<td style="text-align: right; width: 160px"><b>first name:</b></td>
-							<td>John</td>
-						</tr>
-						<tr>
-							<td style="text-align: right"><b>last name:</b></td>
-							<td>Doe</td>
-						</tr>
-					</table>
-					<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
-					<table>
-						<tr>
-							<td style="text-align: right; width: 160px"><b>street address:</b></td>
-							<td>123 Silverado Ave</td>
-						</tr>
-						<tr>
-							<td style="text-align: right"><b>locality:</b></td>
-							<td>Cupertino</td>
-						</tr>
-						<tr>
-							<td style="text-align: right"><b>zip code:</b></td>
-							<td>54321</td>
-						</tr>
-					</table>
-				</div>
 			</section>
 		</section>
 
