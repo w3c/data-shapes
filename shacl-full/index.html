@@ -1,0 +1,301 @@
+		
+		<section id="derivedValues">
+			<h2>Derived Values Constraints</h2>
+			<p>
+				It is a common scenario that certain property values are derived from other values.
+				For example, the area of a rectangle is the product of width and height, or an uncle of a person is a male sibling of a parent.
+				SHACL Full includes a constraint parameter <code>sh:derivedValues</code> that can be used with property constraints to specify such constraints.
+			</p>
+			<p>
+				<span class="component-class">Constraint Component IRI</span>: <code>sh:DerivedValuesConstraintComponent</code>
+			</p>
+
+			<div class="parameters">Parameters:</div>
+			<table class="term-table">
+				<tr>
+					<th>Property</th>
+					<th>Summary</th>
+				</tr>
+				<tr>
+					<td><code>sh:derivedValues</code></td>
+					<td>A blank node or IRI providing instructions on how to derive the values</td>
+				</tr>
+			</table>
+			<p>
+				The <a>subject</a> of each triple with <code>sh:derivedValues</code> as <a>predicate</a> must be a <a>property constraint</a>.
+				The values of <code>sh:derivedValues</code> are <a>SHACL instances</a> of a <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code>.
+				<code>sh:SPARQLValuesDeriver</code> is the only <a>SHACL subclass</a> of <code>sh:ValuesDeriver</code> defined by SHACL Full.
+				Each <a>SHACL instance</a> of <code>sh:SPARQLValuesDeriver</code> has exactly one <a>value</a> for the property <code>sh:select</code> that can be used to produce the values that the property is expected to have.
+				The values of <code>sh:select</code> are SPARQL 1.1 SELECT queries (using the aforementioned <a href="#sparql-prefixes">prefix declaration mechanism</a>) that return the variable <code>value</code> only.
+				These queries can access the current focus node via the variable <code>this</code> and produce at least one binding for the variable <code>value</code> for all derived values.
+			</p>
+			<div class="def def-text">
+				<div class="def-header">TEXTUAL DEFINITION</div>
+				<div class="def-text-body">
+					Let S be the set of RDF terms produced by the values deriver for the <a>focus node</a>.
+					A <a>validation result</a> MUST be produced for every <a>value node</a>
+					that is not in S, and for every member of S that is not a <a>value node</a>.
+					The produced <a>validation results</a> MUST have the <a>focus node</a> as its <code>sh:focusNode</code>,
+					the <code>sh:predicate</code> or <code>sh:path</code> of the property constraint as its <code>sh:resultPath</code>,
+					and the missing or extra value as its <code>sh:value</code>.
+				</div>
+			</div>
+			<p>
+				The following example illustrates the use of <code>sh:derivedValues</code> to specify
+				that the value of the property <code>ex:area</code> is the product of the value of <code>ex:width</code> and <code>sh:height</code>.
+			</p>
+			<pre class="example-shapes" title="A property definition with derived values">
+ex:RectangleShape
+	a sh:Shape ;
+	<span class="target-can-be-skipped">sh:targetClass ex:Rectangle ;</span>
+	sh:property [
+		sh:predicate ex:width ;
+		sh:datatype xsd:integer ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:predicate ex:height ;
+		sh:datatype xsd:integer ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:predicate ex:area ;
+		sh:datatype xsd:integer ;
+		sh:derivedValues [
+			a sh:SPARQLValuesDeriver ;
+			sh:select """
+				SELECT ?value
+				WHERE {
+					$this ex:width ?width .
+					$this ex:height ?height .
+					BIND (?width * ?height AS ?value) .
+				}
+				""" ;
+		] ;
+	] .</pre>
+
+				<pre class="example-data">
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:width 7 ;
+	ex:height 6 .</pre>
+				<p>
+					Validation produces the following validation result nodes:
+				</p>
+				<pre class="example-results">
+[] a sh:ValidationReport ;
+	sh:conforms "false"^^xsd:boolean ;
+	sh:result [
+		a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:ExampleRectangle ;
+		sh:resultPath ex:area ;
+		sh:value 42 ;
+		sh:sourceConstraintComponent sh:DerivedValuesConstraintComponent ;
+		sh:sourceShape ex:RectangleShape ;
+	] .</pre>
+		</section>
+
+		<section id="sparql-targets">
+			<h2>SPARQL-based Targets (sh:target)</h2>
+			<p>
+				SHACL Full provides facilities to specify custom targets, using <code>sh:target</code>.
+				Similar to constraints, targets may either be <a href="#SPARQLTarget"><span class="term">SPARQL-based targets</span></a> or
+				<a href="#SPARQLTargetType"><span class="term">SPARQL-based target types</span></a> in a higher-level vocabulary.
+			</p>
+			<section id="SPARQLTarget">
+				<h3>Targets using sh:SPARQLTarget</h3>
+				<p>
+					SPARQL-based targets are <a>SHACL instances</a> of <code>sh:SPARQLTarget</code>, which is a <a>SHACL subclass</a> of <code>sh:Target</code>.
+					The SPARQL queries linked to a <a>target</a> via <code>sh:select</code> are valid SPARQL 1.1 SELECT queries with <code>this</code> as the only result variable (after applying the <a href="#sparql-prefixes">prefix handling rules</a>).
+					The resulting <a>focus nodes</a> are the distinct bindings for the variable <code>this</code>.
+				</p>
+				<p>
+					While the SELECT queries can be used to identify all focus nodes for a given shape, SHACL processors sometimes also need to find all shapes for which a given node needs to be validated against.
+					For this reason, the following semantic restriction applies to SELECT queries used in SPARQL-based targets.
+					Informally, SHACL Full processors can derive an equivalent ASK query from the SELECT query, pre-bind the potential focus node, and check whether the potential focus node needs to be validated against the shape that has the given target.
+					Formally, let <code>A</code> be a SPARQL ASK query that is produced by replacing the <a href="https://www.w3.org/TR/sparql11-query/#rSelectClause">SelectClause</a> with <code>ASK</code> in the outermost SELECT query.
+					Let <code>rs</code> be the set of RDF terms returned as <a>bindings</a> for the variable <code>this</code> in the result table of the SELECT query.
+					Then <code>A</code> returns <code>true</code> if and only if the variable <code>this</code> is <a href="#pre-binding">pre-bound</a> with a value from <code>rs</code>.
+					SHACL Full processors MAY produce a failure if this rule is violated.
+				</p>
+				<p>
+					The following example illustrates a well-formed SPARQL-based target that produces all persons born in the USA:
+				</p>
+				<pre class="example-shapes" title="SPARQL-based target example">
+ex:USCitizenShape
+	a sh:Shape ;
+	sh:target [
+		a sh:SPARQLTarget ;
+		sh:select """
+			SELECT ?this
+			WHERE {
+				?this a ex:Person .
+				?this ex:bornIn ex:USA .
+			}
+			""" ;
+	] ;
+	...</pre>
+			</section>
+			<section id="SPARQLTargetType">
+				<h3>SPARQL-based Target Types</h3>
+				<p>
+					The class <code>sh:TargetType</code> can be used to declare high-level vocabularies for targets.
+					The class <code>sh:SPARQLTargetType</code> is an <code>rdfs:subClassOf sh:TargetType</code> for target types based on SPARQL.
+					Instances of this class specify a SPARQL SELECT query via the property <code>sh:select</code>,
+					and this query has to fulfill the same syntactic and semantic rules as <a href="#SPARQLTarget">SPARQL-based Targets</a>.
+				</p>
+				<p>
+					Similar to constraint components, such targets take <a>parameters</a> and
+					the parameter values become <a href="#pre-binding">pre-bound variables</a> in the associated SPARQL queries.
+					The parameter values of such targets cannot not be blank nodes, and the same target has no more than one value per parameter.
+					Similar to constraint components, target types may also have values for the property <a href="#labelTemplate"><code>sh:labelTemplate</code></a>.
+				</p>
+				<p>
+					The following example declares a new SPARQL-based parameterizable target class that takes one parameter <code>ex:country</code>
+					that gets mapped into the variable <code>country</code> in the corresponding SPARQL query to determine the resulting focus nodes.
+				</p>
+				<pre class="example-shapes" title="Parameterized target example">
+ex:PeopleBornInCountryTarget
+	a sh:SPARQLTargetType ;
+	rdfs:subClassOf sh:Target ;
+	sh:labelTemplate "All persons born in {$country}" ;
+	sh:parameter [
+		sh:predicate ex:country ;
+		sh:name "country" ;
+		sh:description "The country that the focus nodes are born in." ;
+		sh:class ex:Country ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:select """
+		SELECT ?this
+		WHERE {
+			?this a ex:Person .
+			?this ex:bornIn $country .
+		}
+		""" .
+
+ex:USCitizenShape
+	a sh:Shape ;
+	sh:target [
+		a ex:BornInCountryTarget ;
+		ex:country ex:USA ;
+	] ;
+	...</pre>
+				<p>
+					The set of focus nodes produced by such a target type consists of all bindings of the variable <code>this</code> in the result set,
+					when the SPARQL SELECT query has been executed with the pre-bound parameter values.
+				</p>
+			</section>
+		</section>
+		
+		<section id="functions">
+			<h2>SPARQL Functions</h2>
+			<p>
+				SHACL <dfn data-lt="function|SHACL function">functions</dfn> declare operations that produce an <a>RDF term</a> based on zero or more <a>parameters</a> and an input RDF <a>graph</a> (or dataset).
+				Functions can be called within SPARQL queries to encapsulate complex logic of other SPARQL queries, or executable logic in other languages such as JavaScript.
+				However, the general declaration mechanism for SHACL functions is independent from SPARQL and may also be exploited by other environments.
+			</p>
+			<section id="sparql-functions-syntax">
+				<h3>Syntax of SPARQL Functions</h3>
+				<p>
+					Functions that encapsulate a SPARQL query are <a>SHACL instances</a> of <code>sh:SPARQLFunction</code>, which is a <a>SHACL subclass</a> of the more general class <code>sh:Function</code>.
+					Such functions have exactly one <a>value</a> for either <code>sh:ask</code> or <code>sh:select</code>, linking to a SPARQL query.
+				</p>
+				<p>
+					The following example illustrates the declaration of a function based on a simple mathematical SPARQL query.
+				</p>
+				<pre class="example-shapes" title="SHACL function with a SPARQL body">
+ex:exampleFunction
+	a sh:SPARQLFunction ;
+	rdfs:comment "Computes the sum of its two parameters ?op1 and ?op2." ;
+	sh:parameter [
+		sh:predicate ex:op1 ;
+		sh:datatype xsd:integer ;
+		sh:description "The first operand" ;
+	] ;
+	sh:parameter [
+		sh:predicate ex:op2 ;
+		sh:datatype xsd:integer ;
+		sh:description "The second operand" ;
+	] ;
+	sh:returnType xsd:integer ;
+	sh:select """
+		SELECT ($op1 + $op2 AS ?result)
+		WHERE {
+		}
+		""" .</pre>
+				<p>
+					Using the declaration above, SPARQL engines with SHACL Full support can install a new SPARQL function based on the SPARQL 1.1 <a href="http://www.w3.org/TR/sparql11-query/#extensionFunctions">Extensible Value Testing</a> mechanism.
+					Such engines are then able to handle expressions such as <code>ex:exampleFunction(40, 2)</code>, producing <code>42</code>, as illustrated in the following SPARQL query.
+				</p>
+				<pre class="example-shapes" title="Call of a SHACL function in a SPARQL query">
+SELECT ?subject
+WHERE {
+	?subject ex:myProperty ?value .
+	FILTER (ex:exampleFunction(?value, 2) = 42) .
+}</pre>
+				<p>
+					The following sections introduce the properties that such functions may have.
+				</p>
+			</section>
+			<section id="function-parameters">
+				<h3>Function Parameters</h3>
+				<p>
+					The <a>parameters</a> of a function are linked to its <code>sh:Function</code> via the property <code>sh:parameter</code>.
+					The objects of triples with <code>sh:parameter</code> as predicate have <code>sh:Parameter</code> as <a>expected type</a>.
+				</p>
+				<p>
+					Each parameter has exactly one <a>value</a> for the property <code>sh:predicate</code>.
+					The <a>values</a> of <code>sh:predicate</code> are <a>IRIs</a>, and follow the following restrictions:
+				</p>
+				<ul>
+					<li>The <a>local name</a> is a valid <a href="http://www.w3.org/TR/sparql11-query/#rVARNAME">SPARQL VARNAME</a></li>
+					<li>There is no other declared <code>sh:Parameter</code> for the same function that has a <code>sh:predicate</code> with the same <a>local name</a></li>
+				</ul>
+				<p id="parameters-ordering">
+					<a>Parameters</a> are ordered, corresponding to the notation of function calls in SPARQL such as
+					<code>ex:exampleFunction(?param1, ?param2)</code>.
+					The ordering of function <a>parameters</a> is determined as follows:
+				</p>
+				<ol>
+					<li><a>Parameters</a> are ordered in ascending order by the parameter's numeric <a>values</a> of <code>sh:order</code>.</li>
+					<li><a>Parameters</a> that do not declare an <code>sh:order</code> are placed after those that have.</li>
+					<li><a>Parameters</a> that do not declare an <code>sh:order</code> are ordered by the <a>local names</a> of their declared <code>sh:predicate</code>s.</li>
+				</ol>
+				<p>
+					Each parameter may have its property <code>sh:optional</code> set to <code>true</code>
+					to indicate that the <a>parameter</a> is not mandatory.
+				</p>
+			</section>
+			<section id="function-returnType">
+				<h3>sh:returnType</h3>
+				<p>
+					A function may declare a single return type via <code>sh:returnType</code>.
+					This information may serve for documentation purposes, only.
+					However, in some execution languages such as JavaScript, the declared <code>sh:returnType</code> may inform
+					a processor how to cast a native value into an <a>RDF term</a>.
+				</p>
+			</section>
+			<section id="function-evaluation">
+				<h3>Evaluation of Functions</h3>
+				<p>
+					<a>SHACL instances</a> of <code>sh:SPARQLFunction</code> have exactly one <a>value</a> for either <code>sh:ask</code> or <code>sh:select</code>.
+					The <a>values</a> of this property are strings that can be parsed into SPARQL queries of type ASK (for <code>sh:ask</code>) or SELECT (for <code>sh:select</code>), using the aforementioned <a href="#sparql-prefixes">prefix declaration mechanism</a>.
+					SELECT queries return exactly one result variable and should not use the <code>SELECT *</code> syntax.
+					In the SPARQL query, the SPARQL processor needs to <a>pre-bind</a> variables based on the provided parameters of the function call.
+					For ASK queries, the function's return value is the result of the ASK query execution, i.e. <code>true</code> or <code>false</code>.
+					For SELECT queries, the function's return value is the <a>binding</a> of the (single) result variable of the first <a>solution</a> in the result set.
+					Since all other bindings will be ignored, such SELECT queries should only return a single result variable and at most one <a>solution</a>.
+					If the result variable is unbound, then the function generates a <a href="https://www.w3.org/TR/sparql11-query/#invocation">SPARQL error</a>.
+				</p>
+				<p>
+					Some processors MAY ignore the specified SPARQL query and rely on an alternative (possibly native) implementation instead,
+					as long as the functions return the same values as the specified SPARQL query.
+					This can be used to optimize frequently needed functions.
+					Some processors MAY even use the SPARQL query to rewrite other SPARQL queries via inlining techniques.
+				</p>
+			</section>
+		</section>
