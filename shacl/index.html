@@ -74,7 +74,6 @@
 				border-left-width: .5em;
 				border-color: #c0c0c0;
 				margin-bottom: 16px;
-				padding: 8px;
 			}
 			
 			.def-sparql {
@@ -163,9 +162,12 @@
 			}
 			
 			p.syntax {
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #d0d0d0;
+				margin-bottom: 16px;
+				padding: .5em 1em;
 				background-color: #f6f6f6;
-				padding: 0.2em 0.3em 0.2em 0.4em;
-				border: 1px solid #bbb;
 			}
 		
 			.term {
@@ -968,7 +970,7 @@ ex:InvoiceShape
 	] .</pre>
 					<p class="syntax">
 						Some constraint components such as <a href="#PatternConstraintComponent"><code>sh:PatternConstaintComponent</code></a> declare more than one parameter.
-						Shapes are not allowed to have more than one value for any of the parameters of such components.
+						Shapes that have more than one value for any of the parameters of such components are <a>ill-formed</a>.
 					</p>
 					<p>
 						In these cases, constraints need to be spread across multiple shapes, as illustrated in the following example.
@@ -1006,28 +1008,30 @@ ex:MultiplePatternsShape
 	
 				<section id="targets">
 					<h3>Targets</h3>
-	
 					<p>
-						A <dfn data-lt="target|targets">target</dfn> provides one way to specify <a>focus nodes</a> for a <a>shape</a>.
+						<dfn data-lt="target declaration">Target declarations</dfn> are values of certain properties (such as <code>sh:targetClass</code>)
+						for a <a>shape</a> in a <a>shapes graph</a>.
+						Target declarations are one way to produce <a>focus nodes</a> for a <a>shape</a>.
+						The <dfn data-lt="targets">target</dfn> of a <a>target declaration</a> is the set of RDF terms produced
+						by applying the rules described in the remainder of this section to the <a>data graph</a>. 
+						The <dfn data-lt="target of the shape">target of a shape</dfn> is the union of all RDF terms produced by the individual
+						<a>targets</a> that are declared by the <a>shape</a> in the <a>shapes graph</a>.
 					</p>
-	
 					<p>
-						SHACL Core includes four kinds of targets:
+						SHACL Core includes the following kinds of targets:
 						<a href="#targetNode">node targets</a>,
 						<a href="#targetClass">class-based targets</a> (including <a href="#implicit-targetClass">implicit class-based targets</a>),
 						<a href="#targetSubjectsOf">subjects-of targets</a>, and
 						<a href="#targetObjectsOf">objects-of targets</a>.
 					</p>
-	
+					<p><em>The remainder of this introduction is informative.</em></p>
 					<p>
-						When multiple <a>targets</a> are declared by a <a>shape</a>, the target of a shape is the union of all RDF terms produced by these individual targets.
-						RDF terms specified by targets are not required to exist as nodes in the <a>data graph</a>.
-					</p>
-					<p>
+						RDF terms produced by targets are not required to exist as nodes in the <a>data graph</a>.
 						Targets of a shape are ignored whenever a focus node is provided directly as input to the validation process for that shape.
 						This includes the cases where the shape is a value of one of the
 						<a>shape-expecting constraint parameters</a> (such as <code>sh:shape</code>) and
 						a focus node is determined during the validation of the corresponding constraint component (such as <code>sh:ShapeConstraintComponent</code>).
+						In such cases, the provided focus node does not need to be in the <a>target of the shape</a>.
 					</p>
 					
 					<section id="targetNode">
@@ -1036,10 +1040,13 @@ ex:MultiplePatternsShape
 							A <dfn>node target</dfn> is specified using the <code>sh:targetNode</code> predicate.
 							Each <a>value</a> of <code>sh:targetNode</code> is either an <a>IRI</a> or a <a>literal</a>.
 						</p>
-						<p>
-							Each value of a node target identifies an RDF term to be validated against
-							the shape that is the <a>subject</a> of the <code>sh:targetNode</code> triple.
-						</p>
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a <a>shape</a> in a <a>shapes graph</a> <code>SG</code> and <code>s</code> has
+							<a>value</a> <code>t</code> for	<code>sh:targetNode</code> in <code>SG</code>
+							then <code>{ t }</code> is a <a>target</a> from any data graph for <code>s</code> in <code>SG</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
 						<p>
 							With the example data below, only <code>ex:Alice</code> is the target of the provided shape:
 						</p>
@@ -1053,7 +1060,7 @@ ex:PersonShape
 ex:Bob a ex:Person .</pre>
 	
 						<p class="def-sparql">
-							The following SPARQL query specifies the semantics of node targets.
+							The following SPARQL query expresses the semantics of node targets.
 							The variable <code>targetNode</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetNode</code>.
 							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
 						</p>
@@ -1062,7 +1069,7 @@ ex:Bob a ex:Person .</pre>
 <pre class="def-sparql-body">
 SELECT DISTINCT ?this    <span class="triple-can-be-skipped"># ?this is the focus node</span>
 WHERE {
-	BIND ($targetNode AS ?this)    <span class="triple-can-be-skipped"># $targetnote is <a href="#pre-binding">pre-bound</a> to ex:Alice</span>
+	BIND ($targetNode AS ?this)    <span class="triple-can-be-skipped"># $targetNode is <a href="#pre-binding">pre-bound</a> to ex:Alice</span>
 }</pre>
 						</div>
 					</section>
@@ -1073,11 +1080,13 @@ WHERE {
 							A <dfn>class target</dfn> is specified with the <code>sh:targetClass</code> predicate.
 							Each value of <code>sh:targetClass</code> is an <a>IRI</a>.
 						</p>
-						<p>
-							For every value <code>c</code> of a class target, all <a>SHACL instances</a> of <code>c</code> in the data graph are validated
-							against the <a>subject</a> of the <code>sh:targetClass</code> triple.
-						</p>
-	
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a shape in a shapes graph <code>SG</code> and <code>s</code> has <a>value</a> <code>c</code> for
+							<code>sh:targetClass</code> in <code>SG</code> then the set of <a>SHACL instances</a> of <code>c</code> in a data graph
+							<code>DG</code> is a <a>target</a> from <code>DG</code> for <code>s</code> in <code>SG</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
 						<pre class="example-shapes">
 ex:PersonShape
 	a sh:NodeShape ;
@@ -1101,7 +1110,7 @@ ex:Doctor rdfs:subClassOf ex:Person .
 ex:House a ex:Nephrologist .</pre>
 	
 						<p class="def-sparql">
-							The following SPARQL query specifies the semantics of class targets.
+							The following SPARQL query expresses the semantics of class targets.
 							The variable <code>targetClass</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetClass</code>.
 							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
 						</p>
@@ -1120,16 +1129,18 @@ WHERE {
 						<h4>Implicit Class Targets</h4>
 						<p>
 							Informally, if a <a>shape</a> is also declared to be a <a>class</a> in the <a>shapes graph</a> then 
-							all <a>SHACL instances</a> of this class become focus nodes for the shape.
+							all <a>SHACL instances</a> of this class are a target for the shape.
 						</p>
 						<p class="syntax">
 							If <code>s</code> is a <a>shape</a> in an RDF graph <code>G</code> and <code>s</code> is also a <a>SHACL instance</a> of
 							<code>rdfs:Class</code> in <code>G</code> and <code>s</code> is not an <a>IRI</a> then <code>s</code> is an <a>ill-formed</a> shape in <code>G</code>.
 						</p>
-						<p>
-							If <code>s</code> is a <a>shape</a> in a <a>shapes graph</a> <code>G</code> and <code>s</code> is also a <a>SHACL instance</a> of <code>rdfs:Class</code>
-							in <code>G</code> then the set of <a>SHACL instances</a> of <code>s</code> in a data graph <code>D</code> is a <a>target</a> from <code>D</code> for <code>s</code> in <code>G</code>.
-						</p>
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a <a>shape</a> in a <a>shapes graph</a> <code>SG</code> and <code>s</code> is also a <a>SHACL instance</a> of <code>rdfs:Class</code>
+							in <code>SG</code> then the set of <a>SHACL instances</a> of <code>s</code> in a data graph <code>DG</code> is a <a>target</a> from <code>DG</code> for <code>s</code> in <code>SG</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
 						<p>
 							In the following example, only <code>ex:Alice</code> is a focus node, because it is a <a>SHACL instance</a> of
 							<code>ex:Person</code> which is both a class and a shape in the <a>shapes graph</a>.
@@ -1148,11 +1159,14 @@ ex:NewYork a ex:Place .</pre>
 							A <dfn>subjects-of target</dfn> is specified with the predicate <code>sh:targetSubjectsOf</code>,
 							the <a>values</a> of which are <a>IRIs</a>.
 						</p>
-						<p>
-							For every value <code>p</code> of such a target, the focus nodes are defined as
-							the set of <a>subjects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
-						</p>
-	
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a shape in a shapes graph <code>SG</code> and <code>s</code> has <a>value</a>
+							<code>p</code> for <code>sh:targetSubjectsOf</code> in <code>SG</code> then the set of nodes in a
+							data graph <code>D</code> that are <a>subjects</a> of triples in <code>DG</code> with <a>predicate</a>
+							<code>p</code> is a <a>target</a> from <code>D</code> for <code>s</code> in <code>S</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
 						<pre class="example-shapes">
 ex:TargetSubjectsOfExampleShape
 	a sh:NodeShape ;
@@ -1166,7 +1180,7 @@ ex:Bob ex:livesIn ex:NewYork .</pre>
 						</p>
 	
 						<p class="def-sparql">
-							The following SPARQL query specifies the semantics of subjects-of targets.
+							The following SPARQL query expresses the semantics of subjects-of targets.
 							The variable <code>targetSubjectsOf</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetSubjectsOf</code>.
 							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
 						</p>
@@ -1186,11 +1200,14 @@ WHERE {
 							An <dfn>objects-of target</dfn> is specified with the predicate <code>sh:targetObjectsOf</code>,
 							the <a>values</a> of which are <a>IRIs</a>.
 						</p>
-						<p>
-							For every value <code>p</code> of such a target, the focus nodes are defined as
-							the set of <a>objects</a> in the <a>data graph</a> that appear in a <a>triple</a> with <code>p</code> as a <a>predicate</a>.
-						</p>
-	
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a shape in a shapes graph <code>SG</code> and <code>s</code> has <a>value</a>
+							<code>p</code> for <code>sh:targetObjectsOf</code> in <code>SG</code> then the set of nodes in a
+							data graph <code>D</code> that are <a>objects</a> of triples in <code>DG</code> with <a>predicate</a>
+							<code>p</code> is a <a>target</a> from <code>D</code> for <code>s</code> in <code>S</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
 						<pre class="example-shapes">
 ex:TargetObjectsOfExampleShape
 	a sh:NodeShape ;
@@ -1204,7 +1221,7 @@ ex:Bob ex:livesIn ex:NewYork .</pre>
 						</p>
 	
 						<p class="def-sparql">
-							The following SPARQL query specifies the semantics of objects-of targets.
+							The following SPARQL query expresses the semantics of objects-of targets.
 							The variable <code>targetObjectsOf</code> is assumed to be <a href="#pre-binding">pre-bound</a> to the given value of <code>sh:targetObjectsOf</code>.
 							All <a>bindings</a> of the variable <code>this</code> from the <a>solution</a> become focus nodes.
 						</p>
@@ -1755,12 +1772,17 @@ ex:AddressGroup
 			<section id="data-graph">
 				<h3>Data Graph</h3>
 				<p>
-					The <dfn data-lt="data graphs">data graph</dfn> is an RDF graph that a SHACL processor can <a>validate</a>.
+					Any RDF graph can be a <dfn data-lt="data graphs">data graph</dfn>.
+				</p>
+				<p><em>The remainder of this section is informative.</em></p>
+				<p>
+					A data graph is one of the inputs to the SHACL processor for <a>validation</a>.
 					SHACL processors treat it as a general RDF graph and makes no assumption about its nature.
 					For example, it can be an in-memory graph or a named graph from an RDF dataset or a SPARQL endpoint.
 				</p>
 				<p>
-					The data graph is expected to include all the ontology axioms related to the data and especially all the <code>rdfs:subClassOf</code> triples in order for SHACL to correctly identify class targets and validate Core SHACL constraints.
+					The data graph is expected to include all the ontology axioms related to the data and especially all the
+					<code>rdfs:subClassOf</code> triples in order for SHACL to correctly identify class targets and validate Core SHACL constraints.
 				</p>
 			</section>
 			
