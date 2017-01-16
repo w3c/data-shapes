@@ -16,11 +16,20 @@
 				});
 			};
 		
+			var prepareValidators = function() {
+				$("[data-validator]").each(function(index, element) {
+					var validatorId = $(element).attr("data-validator") + "ConstraintComponent";
+					var tr = $("<tr class=\"validator-tr\"><td><a class=\"validator-id-a\" href=\"#validator-" + validatorId + "\">sh:" + validatorId + "</a>: " + $(element).html() + "</td></tr>");
+					$("#validators-table").append(tr);
+					$(element).attr("id", "validator-" + validatorId);
+				});
+			};
+		
 			var respecConfig = {
 				edDraftURI: "http://w3c.github.io/data-shapes/shacl/",
 				issueBase: "http://www.w3.org/2014/data-shapes/track/issues/",
 				specStatus: "ED",
-				preProcess : [ prepareSyntaxRules ],
+				preProcess : [ prepareSyntaxRules, prepareValidators ],
 				previousPublishDate: "2016-08-14",
 				previousMaturity: "WD",
 				shortName:  "shacl",
@@ -187,6 +196,11 @@
 			}
 			
 			.syntax-rule-id-a {
+				white-space: nowrap;
+			}
+			
+			.validator-id-a {
+				font-weight: bold;
 				white-space: nowrap;
 			}
 		
@@ -1815,10 +1829,18 @@ ex:AddressGroup
 				<h3>Validation</h3>
 				<p>
 					The <dfn data-lt="validating|validates|validated|validate">validation</dfn> of a
-					<a>focus node</a> in the <a>data graph</a> against a <a>shape</a> in the <a>shapes graph</a>
-					produces the union of the <a>top-level</a> results that are produced by the <a>validators</a> associated with the <a>constraint components</a>
-					for all the <a>constraints</a> of the <a>shape</a>.
-					A <a>shape</a> that has been <a>deactivated</a> produces no <a>validation results</a> or <a>failures</a>.
+					<a>focus node</a> in the <a>data graph</a> against a <a>constraint</a> in the <a>shapes graph</a>
+					produces the <a>top-level</a> validation results that are produced by the <a>validator</a> of the
+					<a>constraint component</a>, using as input the <a>focus node</a>,
+					the specific values of the <a>parameters</a> in the constraint,
+					and the <a>value nodes</a> of the <a>shape</a> in the <a>data graph</a>.
+				</p>
+				<p>
+					The validation of a <a>focus node</a> in the <a>data graph</a> against a non-<a>deactivated</a>
+					<a>shape</a> in the <a>shapes graph</a> produces the union of the results that are produced by the
+					<a>validation</a> of the <a>focus node</a> against all <a>constraints</a> of the <a>shape</a>.
+					The validation of any <a>focus node</a> against a <a>deactivated</a> <a>shape</a> produces no
+					<a>validation results</a> or <a>failures</a>.
 				</p>
 				<p>
 					The validation of a <a>data graph</a> against a <a>shape</a> produces the union of the
@@ -1996,8 +2018,8 @@ ex:AddressGroup
 						<p>
 							Validation results may include, as a <a>value</a> of the property <code>sh:value</code>,
 							a specific RDF term that has caused the result.
-							Unless stated otherwise, the values of <code>sh:value</code> are the <a>value nodes</a>
-							that have violated a constraint.
+							The textual definitions of the validators of the SHACL Core components specify how this
+							value is constructed - often they are the <a>value nodes</a> that have violated a constraint.
 						</p>
 					</section>
 					<section id="results-source-shape">
@@ -2084,7 +2106,11 @@ ex:AddressGroup
 				The definition of each constraint component contains its IRI as well as a table of its <a>parameters</a>.
 				Unless stated otherwise, all these parameters are <a>mandatory parameters</a>.
 				Shapes that violate any of the syntax rules enumerated in those parameter tables are <a>ill-formed</a>.
-				Each constraint component also includes a textual definition, which describes the <a>validators</a> associated with the components.
+				Each constraint component also includes a textual definition, which describes the <a>validator</a> associated with the components.
+				These textual definitions refer to the values of the parameters in the constraint by variables of the form
+				<code>$paramName</code> where <code>paramName</code> is the part of the parameter's <a>IRI</a> after the <code>sh:</code> namespace.
+				For example, the textual definition of <code>sh:ClassConstraintComponent</code> refers to the value of
+				<code>sh:class</code> using the variable <code>$class</code>.
 				Note that these validators define the only validation results that are being produced by the component.
 			</p>
 			<p><em>The remainder of this section is informative.</em></p>
@@ -2152,9 +2178,10 @@ ex:AddressGroup
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							that is either a <a>literal</a>, or a non-literal that is not a <a>SHACL instance</a> of the given <a>class</a> in the <a>data graph</a>.
+						<div class="def-text-body" data-validator="Class">
+							For each <a>value node</a>
+							that is either a <a>literal</a>, or a non-literal that is not a <a>SHACL instance</a> of <code>$class</code> in the <a>data graph</a>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2205,10 +2232,11 @@ ex:Bob ex:knows ex:Alice .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							that is not a <a>literal</a>, or is a <a>literal</a> with a mismatching datatype,
-							whereby the datatype of a literal is determined following the <a href="https://www.w3.org/TR/sparql11-query/#func-datatype">datatype</a> function of SPARQL 1.1.
+						<div class="def-text-body" data-validator="Datatype">
+							For each <a>value node</a>
+							that is not a <a>literal</a>, or is a <a>literal</a> with a datatype that does not match <code>$datatype</code>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							The datatype of a literal is determined following the <a href="https://www.w3.org/TR/sparql11-query/#func-datatype">datatype</a> function of SPARQL 1.1.
 							A <a>literal</a> matches a datatype if the <a>literal</a>'s datatype has the same <a>IRI</a>
 							and, for the datatypes supported by SPARQL 1.1, is not an <a href="https://www.w3.org/TR/rdf11-concepts#section-Graph-Literal">ill-typed</a> literal.
 						</div>
@@ -2260,9 +2288,10 @@ ex:Alice ex:age "23"^^xsd:integer .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							that does not match the given node kind.
+						<div class="def-text-body" data-validator="NodeKind">
+							For each <a>value node</a>
+							that does not match <code>$nodeKind</code>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
 							Any <a>IRI</a> matches only <code>sh:IRI</code>, <code>sh:BlankNodeOrIRI</code> and <code>sh:IRIOrLiteral</code>.
 							Any <a>blank node</a> matches only <code>sh:BlankNode</code>, <code>sh:BlankNodeOrIRI</code> and <code>sh:BlankNodeOrLiteral</code>.
 							Any <a>literal</a> matches only <code>sh:Literal</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.
@@ -2324,9 +2353,9 @@ ex:Bob ex:knows ex:Alice .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced if the number of
-							<a>value nodes</a> is less than the value of <code>sh:minCount</code>.
+						<div class="def-text-body" data-validator="MinCount">
+							If the number of <a>value nodes</a> is less than <code>$minCount</code>,
+							a <a>validation result</a> MUST be produced.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2382,9 +2411,9 @@ ex:Alice ex:name "Alice" .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced if the number of
-							<a>value nodes</a> is greater than the value of <code>sh:maxCount</code>.
+						<div class="def-text-body" data-validator="MaxCount">
+							If the number of <a>value nodes</a> is greater than <code>$maxCount</code>,
+							a <a>validation result</a> MUST be produced.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2455,10 +2484,10 @@ ex:Bob ex:age 23 .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							Let <code>m</code> be the value of <code>sh:minExclusive</code>.
-							A <a>validation result</a> MUST be produced for each <a>value node</a> <code>v</code> for which the SPARQL expression
-							<code>m &lt; v</code> returns <code>false</code> or produces an error.
+						<div class="def-text-body" data-validator="MinExclusive">
+							For each <a>value node</a> <code>v</code>
+							where the SPARQL expression <code>$minExclusive &lt; v</code> does not return <code>true</code>,
+							a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2498,10 +2527,10 @@ ASK {
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							Let <code>m</code> be the value of <code>sh:minInclusive</code>.
-							A <a>validation result</a> MUST be produced for each <a>value node</a> <code>v</code> for which the SPARQL expression
-							<code>m &lt;= v</code> returns <code>false</code> or produces an error.
+						<div class="def-text-body" data-validator="MinInclusive">
+							For each <a>value node</a> <code>v</code>
+							where the SPARQL expression <code>$minInclusive &lt;= v</code> does not return <code>true</code>,
+							a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2535,10 +2564,10 @@ ASK {
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							Let <code>m</code> be the value of <code>sh:maxExclusive</code>.
-							A <a>validation result</a> MUST be produced for each <a>value node</a> <code>v</code> for which the SPARQL expression
-							<code>m &gt; v</code> returns <code>false</code> or produces an error.
+						<div class="def-text-body" data-validator="MaxExclusive">
+							For each <a>value node</a> <code>v</code>
+							where the SPARQL expression <code>$maxExclusive &gt; v</code> does not return <code>true</code>,
+							a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2572,10 +2601,10 @@ ASK {
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							Let <code>m</code> be the value of <code>sh:maxInclusive</code>.
-							A <a>validation result</a> MUST be produced for each <a>value node</a> <code>v</code> for which the SPARQL expression
-							<code>m &gt;= v</code> returns <code>false</code> or produces an error.
+						<div class="def-text-body" data-validator="MaxInclusive">
+							For each <a>value node</a> <code>v</code>
+							where the SPARQL expression <code>$minExclusive &gt;= v</code> does not return <code>true</code>,
+							a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2621,10 +2650,11 @@ ASK {
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							where the length of its string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
-							is less than the specified minimum length, or if the value node is a <a>blank node</a>.
+						<div class="def-text-body" data-validator="MinLength">
+							For each <a>value node</a> <code>v</code>
+							where the length of the string representation of <code>v</code> (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
+							is less than <code>$minLength</code>, or where <code>v</code> is a <a>blank node</a>,
+							a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2667,10 +2697,11 @@ ASK {
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							where the length of its string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
-							is greater than the specified maximum length, or if the value node is a <a>blank node</a>.
+						<div class="def-text-body" data-validator="MaxLength">
+							For each <a>value node</a> <code>v</code>
+							where the length of the string representation of <code>v</code> (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
+							is greater than <code>$maxLength</code>, or where <code>v</code> is a <a>blank node</a>,
+							a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2729,11 +2760,13 @@ ex:Bob ex:password "123456789" .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a> that is a <a>blank node</a> or
+						<div class="def-text-body" data-validator="Pattern">
+							For each <a>value node</a>
+							that is a blank node or
 							where the string representation (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-str">SPARQL str function</a>)
-							does not match the given regular expression (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL REGEX function</a>).
-							If <code>sh:flags</code> is present then it is interpreted according to the third argument of the SPARQL REGEX function.
+							does not match the regular expression <code>$pattern</code> (as defined by the <a href="http://www.w3.org/TR/sparql11-query/#func-regex">SPARQL REGEX function</a>),
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							If <code>$flags</code> has a value then it MUST be interpreted according to the third argument of the SPARQL REGEX function.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2785,11 +2818,12 @@ ex:Alice ex:bCode "B102" .
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
+						<div class="def-text-body" data-validator="LanguageIn">
+							For each <a>value node</a>
 							that is either not a <a>literal</a> or that does not have a language tag
-							matching any of the provided language ranges following the filtering schema defined by
-							the <a href="https://www.w3.org/TR/sparql11-query/#func-langMatches">SPARQL langMatches</a> function.
+							matching any of the language ranges that are the <a>members</a> of <code>$languageIn</code>
+							following the filtering schema defined by the <a href="https://www.w3.org/TR/sparql11-query/#func-langMatches">SPARQL langMatches</a> function,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2860,9 +2894,10 @@ ex:Mountain
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							If <code>sh:uniqueLang</code> is set to <code>true</code> then a <a>validation result</a> MUST be produced for each non-empty language tag that is
-							used by at least two <a>value nodes</a>.
+						<div class="def-text-body" data-validator="UniqueLang">
+							If <code>$uniqueLang</code> is <code>true</code>
+							then for each non-empty language tag that is used by at least two <a>value nodes</a>,
+							a <a>validation result</a> MUST be produced. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2938,11 +2973,13 @@ ex:Alice
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							Let <code>P</code> be the value of <code>sh:equals</code>.
-							A <a>validation result</a> MUST be produced
-							for each <a>value node</a> that does not exist as a <a>value</a> of <code>P</code> at the <a>focus node</a> and
-							for each <a>value</a> of <code>P</code> at the <a>focus node</a> that is not one of the <a>value nodes</a>.
+						<div class="def-text-body" data-validator="Equals">
+							For each <a>value node</a> 
+							that does not exist as a <a>value</a> of the property <code>$equals</code> at the <a>focus node</a>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							For each <a>value</a> of the property <code>$equals</code> at the <a>focus node</a>
+							that is not one of the <a>value nodes</a>,
+							a <a>validation result</a> MUST be produced with the <a>value</a> as <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3009,9 +3046,10 @@ ex:Bob
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							that also exists as a <a>value</a> of the property specified using <code>sh:disjoint</code> at the <a>focus node</a>.
+						<div class="def-text-body" data-validator="Disjoint">
+							For each <a>value node</a>
+							that also exists as a <a>value</a> of the property <code>$disjoint</code> at the <a>focus node</a>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3071,11 +3109,11 @@ ex:USA
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each pair of <a>value nodes</a> and
-							the values of the property specified using <code>sh:lessThan</code> at the given <a>focus node</a>, where
-							the first <a>value</a> is not less than the second <a>value</a>, based on SPARQL's <code>&lt;</code> operator.
-							A validation result MUST also be produced if the two <a>values</a> cannot be compared.
+						<div class="def-text-body" data-validator="LessThan">
+							For each pair of <a>value nodes</a> and the values of the property <code>$lessThan</code> at the given <a>focus node</a>
+							where the first <a>value</a> is not less than the second <a>value</a> (based on SPARQL's <code>&lt;</code> operator)
+							or where the two values cannot be compared,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3127,11 +3165,11 @@ ex:LessThanExampleShape
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each pair of <a>value nodes</a> and
-							the values of the property specified using <code>sh:lessThanOrEquals</code> at the <a>focus node</a>, where
-							the first <a>value</a> is not less than or equal to the second <a>value</a>, based on SPARQL's <code>&lt;=</code> operator.
-							A validation result MUST also be produced if the two <a>values</a> cannot be compared.
+						<div class="def-text-body" data-validator="LessThanOrEquals">
+							For each pair of <a>value nodes</a> and the values of the property <code>$lessThanOrEquals</code> at the given <a>focus node</a>
+							where the first <a>value</a> is not less than or equal to the second <a>value</a> (based on SPARQL's <code>&lt;=</code> operator)
+							or where the two values cannot be compared,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3180,9 +3218,11 @@ WHERE {
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a> that produces no validation results for the shape given via <code>sh:not</code>.
-							A <a>failure</a> MUST be reported if the validation of the shape produces a <a>failure</a>.
+						<div class="def-text-body" data-validator="Not">
+							For each <a>value node</a>
+							that produces no <a>validation</a> results against the shape <code>$not</code>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							A <a>failure</a> MUST be reported if the <a>validation</a> of the shape produces a <a>failure</a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3230,10 +3270,11 @@ ex:NotExampleShape
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a> if the following condition is false:
-							The validation of the <a>value node</a> against all of the <a>members</a> of the <a>SHACL list</a> that is the value of <code>sh:and</code> produces a <a>validation result</a> for at least one <a>member</a>.
-							A <a>failure</a> MUST be produced if the validation of one of the <a>members</a> produces a <a>failure</a>.
+						<div class="def-text-body" data-validator="And">
+							For each <a>value node</a>
+							where the <a>validation</a> of the <a>value node</a> against any of the <a>members</a> of <code>$and</code> produces a <a>validation result</a> and no <a>failure</a>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							A <a>failure</a> MUST be produced if the validation of a <a>value node</a> against any of the <a>members</a> produces a <a>failure</a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3304,10 +3345,11 @@ ex:ValidInstance
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a> if the following condition is false:
-							The validation of the <a>value node</a> against all of the <a>members</a> in the <a>SHACL list</a> that is the value of <code>sh:or</code> produces no <a>validation results</a> for at least one <a>member</a>.
-							A <a>failure</a> MUST be produced if the <a>validation</a> of one of the <a>members</a> produces a <a>failure</a>.
+						<div class="def-text-body" data-validator="Or">
+							For each <a>value node</a> 
+							where the <a>validation</a> of the <a>value node</a> against all of the <a>members</a> of <code>$or</code> produces a <a>validation result</a> but no <a>failure</a>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							A <a>failure</a> MUST be produced if the <a>validation</a> of any of the <a>members</a> produces a <a>failure</a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3392,11 +3434,11 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for each <a>value node</a>
-							where validating the value node against the shape specified by <code>sh:shape</code> 
-							produces any validation results.
-							A <a>failure</a> MUST be produced if the validation of any <a>value node</a> has produced a <a>failure</a>.
+						<div class="def-text-body" data-validator="Shape">
+							For each <a>value node</a>
+							where <a>validating</a> the value node against the <a>shape</a> <code>$shape</code> produces any validation results but no <a>failure</a>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
+							A <a>failure</a> MUST be produced if the <a>validation</a> of any <a>value node</a> has produced a <a>failure</a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3447,8 +3489,9 @@ ex:ShapeExampleValidResource
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							The <a>validation results</a> are the results produced by <a>validating</a> each <a>value node</a> against the property shape specified by <code>sh:property</code>.
+						<div class="def-text-body" data-validator="Property">
+							For each <a>value node</a> <code>v</code>
+							the validation results MUST be produced that are produced by <a>validating</a> <code>v</code> as <a>focus node</a> against the property shape <code>$property</code>.
 							A <a>failure</a> MUST be produced if the validation of any <a>value node</a> has produced a <a>failure</a>.
 						</div>
 					</div>
@@ -3502,25 +3545,25 @@ ex:ShapeExampleValidResource
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMinCount</div>
-						<div class="def-text-body">
-							Let <code>C</code> be the number of <a>value nodes</a> where
-							validating the value node against the shape specified by <code>sh:qualifiedValueShape</code>
+						<div class="def-text-body" data-validator="QualifiedMinCount">
+							Let <code>C</code> be the number of <a>value nodes</a> <code>v</code> where
+							validating <code>v</code> against the shape <code>$qualifiedValueShape</code>
 							produces no <a>validation results</a>.
-							A <a>failure</a> MUST be produced if the validation of any of the value nodes produces a <a>failure</a>.
+							A <a>failure</a> MUST be produced if the validation of any of the <a>value nodes</a> has produced a <a>failure</a>.
 							A <a>validation result</a> MUST be produced if <code>C</code>
-							is less than the specified <code>sh:qualifiedMinCount</code>.
+							is less than <code>$qualifiedMinCount</code>.
 						</div>
 					</div>
 
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMaxCount</div>
-						<div class="def-text-body">
-							Let <code>C</code> be the number of <a>value nodes</a> where
-							validating the value node against the shape specified by <code>sh:qualifiedValueShape</code>
+						<div class="def-text-body" data-validator="QualifiedMaxCount">
+							Let <code>C</code> be the number of <a>value nodes</a> <code>v</code> where
+							validating <code>v</code> against the shape <code>$qualifiedValueShape</code>
 							produces no <a>validation results</a>.
-							A <a>failure</a> MUST be produced if the validation of any of the <a>value nodes</a> produces a <a>failure</a>.
+							A <a>failure</a> MUST be produced if the validation of any of the <a>value nodes</a> has produced a <a>failure</a>.
 							A <a>validation result</a> MUST be produced if <code>C</code>
-							is greater than the specified <code>sh:qualifiedMaxCount</code>.
+							is greater than <code>$qualifiedMaxCount</code>.
 						</div>
 					</div>
 
@@ -3711,15 +3754,15 @@ ex:BibframeShape a sh:NodeShape ;
 					</table>
 					<div id="def-ClosedShape-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							If <code>sh:closed</code> is <code>true</code> then
-							a <a>validation result</a> MUST be produced for each <a>triple</a> that has the <a>value node</a> as its
+						<div class="def-text-body" data-validator="Closed">
+							If <code>$closed</code> is <code>true</code> then
+							a <a>validation result</a> MUST be produced for each <a>triple</a> that has a <a>value node</a> as its
 							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <code>sh:predicate</code>
 							in any of the <a>property shapes</a> declared via <code>sh:property</code> at the current shape.
-							If the parameter <code>sh:ignoredProperties</code> is present then the properties enumerated as <a>members</a> of this <a>SHACL list</a>
+							If <code>$ignoredProperties</code> has a value then the properties enumerated as <a>members</a> of this <a>SHACL list</a>
 							are also permitted for the <a>value node</a>.
-							The produced <a>validation result</a> MUST have the predicate of the triple as its <code>sh:resultPath</code>,
-							and the object of the triple as its <code>sh:value</code>.
+							The produced <a>validation result</a> MUST have the <a>predicate</a> of the triple as its <code>sh:resultPath</code>,
+							and the <a>object</a> of the triple as its <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3795,8 +3838,9 @@ ex:Alice
 					</table>
 					<div id="def-hasValue-text" class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced if the RDF term specified by <code>sh:hasValue</code> is not among the <a>value nodes</a>.
+						<div class="def-text-body" data-validator="HasValue">
+							If the RDF term <code>$hasValue</code> is not among the <a>value nodes</a>,
+							a <a>validation result</a> MUST be produced. 
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3849,13 +3893,16 @@ ex:Alice
 					</table>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body">
-							A <a>validation result</a> MUST be produced for every <a>value node</a>
-							that is not a <a>member</a> of the given SHACL list.
-							Matching of literals needs to be exact, e.g. <code>"04"^^xsd:byte</code> does not match <code>"4"^^xsd:integer</code>.
+						<div class="def-text-body" data-validator="In">
+							For each <a>value node</a>
+							that is not a <a>member</a> of <code>$in</code>,
+							a <a>validation result</a> MUST be produced with the <a>value node</a> as <code>sh:value</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						Note that matching of literals needs to be exact, e.g. <code>"04"^^xsd:byte</code> does not match <code>"4"^^xsd:integer</code>.
+					</p>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must evaluate to true for each value node $value)</div>
 <pre class="def-sparql-body">
@@ -4564,6 +4611,20 @@ ex:hasLang
 				<tr>
 					<th>Syntax Rule Id</th>
 					<th>Syntax Rule Text</th>
+				</tr>
+			</table>
+		</section>
+		
+		<section id="core-validators" class="appendix">
+			<h2>Summary of SHACL Core Validators</h2>
+			<p>
+				This section enumerates all normative <a>validators</a> of SHACL Core.
+				This section is automatically generated from other parts of this spec and hyperlinks are provided back
+				into the prose if the context of the validator in unclear. 
+			</p>
+			<table class="term-table" id="validators-table">
+				<tr>
+					<th>Validators by Constraint Component</th>
 				</tr>
 			</table>
 		</section>
