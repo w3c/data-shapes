@@ -280,6 +280,8 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2017-01-19</b>: Deleted sh:partition and added a boolean flag sh:qualifiedValueShapesDisjoint (<a href="http://www.w3.org/2014/data-shapes/track/issues/92">ISSUE-92</a>)</li>
+				<li><b>2017-01-19</b>: Removed sh:predicate in favor of using sh:path only (<a href="http://www.w3.org/2014/data-shapes/track/issues/217">ISSUE-217</a>)</li>
 				<li><b>2017-01-17</b>: Finished general restructuring, formalization and clean up of the whole document</li>
 				<li><b>2017-01-15</b>: Added appendixes that summarize syntax rules and validators</li>
 				<li><b>2017-01-12</b>: Removed dependency on SPARQL EXISTS (<a href="http://www.w3.org/2014/data-shapes/track/issues/170">ISSUE-170</a>)</li>
@@ -644,9 +646,6 @@
 
 			<section id="conformance">
 				<p>
-					<span class="todo">TODO: needs more work.</span>
-				</p>
-				<p>
 					This specification describes conformance criteria for:
 				</p>
 				<ul>
@@ -721,13 +720,13 @@ ex:PersonShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Person ;    # Applies to all persons
 	sh:property [
-		sh:predicate ex:ssn ;     # This property shape is about the values of the ex:ssn property
+		sh:path ex:ssn ;     # This property shape is about the values of the ex:ssn property
 		sh:maxCount 1 ;
 		sh:datatype xsd:string ;
 		sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
 	] ;
 	sh:property [
-		sh:predicate ex:child ;
+		sh:path ex:child ;
 		sh:class ex:Person ;
 		sh:nodeKind sh:IRI ;
 	] ;
@@ -749,7 +748,7 @@ ex:PersonShape
 					The <a>node shape</a> also declares three other constraints with the property <code>sh:property</code>,
 					and each of these is backed by a <a>property shape</a>. 
 					These <a>property shapes</a> declare additional <a>constraints</a> using <a>parameters</a> such as <code>sh:datatype</code> and <code>sh:maxCount</code>.
-					One of them uses a <a>path</a> expression.
+					One of them uses an <a>inverse path</a> expression.
 				</p>
 				<p>
 					Some of the <a>property shapes</a> specify parameters from multiple <a>constraint components</a> in order to
@@ -925,7 +924,7 @@ ex:PersonShape
 							<div><a href="#group">sh:group</a> : sh:PropertyGroup</div>
 						</div>
 						<div class="diagram-class-properties-section">
-							<div><a href="#property-constraints-section">sh:predicate</a> or <a href="#property-constraints-section">sh:path</a> : rdfs:Resource</div>
+							<div><a href="#property-constraints-section">sh:path</a> : rdfs:Resource</div>
 						</div>
 					</div>
 				</div>
@@ -993,7 +992,7 @@ ex:PersonShape
 ex:InvoiceShape
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:customer ;
+		sh:path ex:customer ;
 		sh:class ex:Customer ;
 		sh:class ex:Person ;
 	] .</pre>
@@ -1008,12 +1007,12 @@ ex:InvoiceShape
 ex:MultiplePatternsShape
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:name ;
+		sh:path ex:name ;
 		sh:pattern "^Start" ;
 		sh:flags "i" ;
 	] ;
 	sh:property [
-		sh:predicate ex:name ;
+		sh:path ex:name ;
 		sh:pattern "End$" ;
 	] .</pre>
 					<p>
@@ -1325,14 +1324,14 @@ ex:MyShape
 	<span class="target-can-be-skipped">sh:targetNode ex:MyInstance ;</span>
 	sh:property [
 		# Violations of sh:minCount and sh:datatype are produced as warnings
-		sh:predicate ex:myProperty ;
+		sh:path ex:myProperty ;
 		sh:minCount 1 ;
 		sh:datatype xsd:string ;
 		sh:severity sh:Warning ;
 	] ;
 	sh:property [
 		# The default severity here is sh:Violation
-		sh:predicate ex:myProperty ;
+		sh:path ex:myProperty ;
 		sh:maxLength 10 ;
 		sh:message "Too many characters"@en ;
 		sh:message "Zu viele Zeichen"@de ;
@@ -1421,7 +1420,7 @@ ex:PersonShape
 
 ex:PersonShape-name
 	a sh:PropertyShape ;
-	sh:predicate ex:name ;
+	sh:path ex:name ;
 	sh:minCount 1 ;
 	sh:deactivated true .</pre>
 					<p>
@@ -1436,7 +1435,7 @@ ex:JohnDoe a ex:Person .</pre>
 				<h4>Node Shapes</h4>
 				<p class="syntax">
 					A <dfn data-lt="node shapes">node shape</dfn> is a <a>shape</a> in the <a>shapes graph</a> that
-					is not the <a>subject</a> of a <a>triple</a> with either <code>sh:predicate</code> or <code>sh:path</code> as its <a>predicate</a>.
+					is not the <a>subject</a> of a <a>triple</a> with <code>sh:path</code> as its <a>predicate</a>.
 				</p>
 				<p>
 					Informally, node shapes specify constraints that need to be met with respect to <a>focus nodes</a>.
@@ -1451,16 +1450,14 @@ ex:JohnDoe a ex:Person .</pre>
 			<section id="property-shapes">
 				<h4>Property Shapes</h4>
 				<p class="syntax">
-					<span data-syntax-rule="PropertyShape">A <dfn data-lt="property shapes">property shape</dfn> must be the <a>subject</a> of a <a>triple</a> that has either <code>sh:predicate</code> or <code>sh:path</code> as its <a>predicate</a>.</span>
-					<span data-syntax-rule="predicate-maxCount">A node that has more than one <a>value</a> for <code>sh:predicate</code> is <a>ill-formed</a>.</span>
+					<span data-syntax-rule="PropertyShape">A <dfn data-lt="property shapes">property shape</dfn> must be the <a>subject</a> of a <a>triple</a> that has <code>sh:path</code> as its <a>predicate</a>.</span>
 					<span data-syntax-rule="path-maxCount">A node that has more than one <a>value</a> for <code>sh:path</code> is <a>ill-formed</a>.</span>
-					<span data-syntax-rule="predicate-and-path-exclusive">A node that has a <a>value</a> for both <code>sh:predicate</code> and <code>sh:path</code> is <a>ill-formed</a>.</span>
-					<span data-syntax-rule="predicate-nodeKind">Each <a>value</a> of <code>sh:predicate</code> is an <a>IRI</a>.</span>
 					<span data-syntax-rule="path-shape">Each <a>value</a> of <code>sh:path</code> must be a well-formed <a>SHACL property path</a>.</span>
 				</p>
 				<p>
 					Informally, property shapes specify constraints that need to be met with respect to <a>nodes</a> that can be reached from the
-					<a>focus node</a> either by directly following a given property (specified using <code>sh:predicate</code>) or a given <a>property path</a> (specified using <code>sh:path</code>).
+					<a>focus node</a> either by directly following a given property (specified as an <a>IRI</a> or any other <a>SHACL property path</a>
+					specified using <code>sh:path</code>.
 				</p>
 				<p>
 					<code>sh:PropertyShape</code> is the class of property shapes and should be declared as a <a>type</a> for shapes that are <a>IRIs</a>.
@@ -1476,7 +1473,7 @@ ex:JohnDoe a ex:Person .</pre>
 ex:ExampleNodeShapeWithPropertyShapes
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:email ;
+		sh:path ex:email ;
 		sh:name "e-mail" ;
 		sh:description "We need at least one email value" ;
 		sh:minCount 1 ;
@@ -1490,7 +1487,7 @@ ex:ExampleNodeShapeWithPropertyShapes
 	
 ex:ExamplePropertyShape
 	a sh:PropertyShape ;
-	sh:predicate ex:email ;
+	sh:path ex:email ;
 	sh:description "We need at least one email value" ;
 	sh:minCount 1 .</pre>
 
@@ -1666,35 +1663,35 @@ SHACL Property path: [ sh:alternativePath ( ex:father ex:mother  ) ]</pre>
 ex:PersonFormShape
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:firstName ;
+		sh:path ex:firstName ;
 		sh:name "first name" ;
 		sh:description "The person's given name(s)" ;
 		sh:order 0 ;
 		sh:group ex:NameGroup ;
 	] ;
 	sh:property [
-		sh:predicate ex:lastName ;
+		sh:path ex:lastName ;
 		sh:name "last name" ;
 		sh:description "The person's last name" ;
 		sh:order 1 ;
 		sh:group ex:NameGroup ;
 	] ;
 	sh:property [
-		sh:predicate ex:streetAddress ;
+		sh:path ex:streetAddress ;
 		sh:name "street address" ;
 		sh:description "The street address including number" ;
 		sh:order 11 ;
 		sh:group ex:AddressGroup ;
 	] ;
 	sh:property [
-		sh:predicate ex:locality ;
+		sh:path ex:locality ;
 		sh:name "locality" ;
 		sh:description "The suburb, city or town of the address" ;
 		sh:order 12 ;
 		sh:group ex:AddressGroup ;
 	] ;
 	sh:property [
-		sh:predicate ex:postalCode ;
+		sh:path ex:postalCode ;
 		sh:name "postal code" ;
 		sh:name "zip code"@en-US ;
 		sh:description "The postal code of the locality" ;
@@ -1891,7 +1888,6 @@ ex:AddressGroup
 						<li><a href="#AndConstraintComponent">sh:and</a></li>
 						<li><a href="#NotConstraintComponent">sh:not</a></li>
 						<li><a href="#OrConstraintComponent">sh:or</a></li>
-						<li><a href="#PartitionConstraintComponent">sh:partition</a></li>
 						<li><a href="#PropertyConstraintComponent">sh:property</a></li>
 						<li><a href="#QualifiedValueShapeConstraintComponent">sh:qualifiedValueShape</a></li>
 						<li><a href="#ShapeConstraintComponent">sh:shape</a></li>
@@ -1903,7 +1899,6 @@ ex:AddressGroup
 						<li><a href="#AndConstraintComponent">sh:and</a></li>
 						<li><a href="#LanguageInConstraintComponent">sh:languageIn</a></li>
 						<li><a href="#OrConstraintComponent">sh:or</a></li>
-						<li><a href="#PartitionConstraintComponent">sh:partition</a></li>
 					</ul>					
 					<p>
 						A shape <code>s1</code> in an RDF graph <code>G</code> <dfn>refers</dfn> to shape <code>s2</code>
@@ -1938,6 +1933,12 @@ ex:AddressGroup
 					The <dfn data-lt="validation report|report">validation report</dfn> is the result of the validation process that reports the <a>conformance</a> and the set of all <dfn data-lt="validation result|result">validation results</dfn>.
 					The validation report is described with the SHACL <dfn>Validation Report Vocabulary</dfn> as defined in this section.
 					This vocabulary defines the RDF properties to represent structural information that may provide guidance on how to identify or fix violations in the data graph.
+				</p>
+				<p><!-- ISSUE-181 -->
+					Note that although this specification only covers the case in which the validation report MUST include all validation results.
+					However, in order to count as a SHACL-compliant processor, the processor MUST only be <em>capable</em> of returning
+					all results, while it MAY support optional arguments that limit the number of returned results.
+					This flexibility is for example needed in some large-scale dataset validation use cases.
 				</p>
 				<p>
 					The following graph represents an example of a validation report for the validation of a data graph that conforms to a shapes graph.
@@ -2013,7 +2014,7 @@ ex:AddressGroup
 						<h4>Path (sh:resultPath)</h4>
 						<p>
 							Validation results may have a value for the property <code>sh:resultPath</code> pointing at a well-formed <a>property path</a> starting with the given <code>sh:focusNode</code>.
-							For results produced by a <a>property shape</a>, this <a>path</a> is equivalent to either the <code>sh:predicate</code> or <code>sh:path</code> of the shape.
+							For results produced by a <a>property shape</a>, this <a>path</a> is equivalent to the <a>value</a> of <code>sh:path</code> of the shape.
 						</p>
 					</section>
 					<section id="results-value">
@@ -2087,7 +2088,7 @@ ex:AddressGroup
 						For <a>node shapes</a> the <a>value nodes</a> are the individual <a>focus nodes</a>, forming a set with exactly one member.
 					</li>
 					<li>
-						For <a>property shapes</a> with a <code>sh:predicate</code> or <code>sh:path</code> <code>p</code> the
+						For <a>property shapes</a> with a <a>value</a> for <code>sh:path</code> <code>p</code> the
 						<a>value nodes</a> are the set of <a>nodes</a> in the <a>data graph</a>
 						that can be reached from the <a>focus node</a> with the <a>path mapping</a> of <code>p</code>.
 						Unless stated otherwise, the value of <code>sh:resultPath</code> of each validation result is a
@@ -2138,7 +2139,7 @@ ex:AddressGroup
 				Constraint components that are described using a SELECT query are interpreted based on the rules outlined in
 				the <a href="#SPARQLSelectValidator">section on SELECT-based validators</a>.
 				In particular, for <a>property shapes</a>, the variable <code>PATH</code> is substituted with a <a>path</a> expression
-				based on the values of either <code>sh:predicate</code> or <code>sh:path</code> in the constraint.
+				based on the value of <code>sh:path</code> in the shape.
 				All SPARQL queries also assume the variable bindings and result variable mapping rules detailed in the
 				<a href="#sparql-constraints">section on SPARQL-based Constraints</a>.
 				The variable <code>this</code> represents the currently validated <a>focus node</a>.
@@ -2195,7 +2196,7 @@ ex:ClassExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob, ex:Alice, ex:Carol ;</span>
 	sh:property [
-		sh:predicate ex:knows ;
+		sh:path ex:knows ;
 		sh:class ex:Person ;
 	] .</pre>
 
@@ -2249,7 +2250,7 @@ ex:DatatypeExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Alice, ex:Bob, ex:Carol ;</span>
 	sh:property [
-		sh:predicate ex:age ;
+		sh:path ex:age ;
 		sh:datatype xsd:integer ;
 	] .</pre>
 
@@ -2310,7 +2311,7 @@ ex:NodeKindExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob, ex:Alice ;</span>
 	sh:property [
-		sh:predicate ex:knows ;
+		sh:path ex:knows ;
 		sh:nodeKind sh:IRI ;
 	] .</pre>
 
@@ -2374,7 +2375,7 @@ ex:MinCountExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Alice, ex:Bob ;</span>
 	sh:property [
-		sh:predicate ex:name ;
+		sh:path ex:name ;
 		sh:minCount 1 ;
 	] .</pre>
 
@@ -2430,7 +2431,7 @@ ex:MaxCountExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob ;</span>
 	sh:property [
-		sh:predicate ex:birthDate ;
+		sh:path ex:birthDate ;
 		sh:maxCount 1 ;
 	] .</pre>
 
@@ -2451,7 +2452,7 @@ ex:NumericRangeExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob, ex:Alice, ex:Ted ;</span>
 	sh:property [
-		sh:predicate ex:age ;
+		sh:path ex:age ;
 		sh:minInclusive 0 ;
 		sh:maxInclusive 150 ;
 	] .</pre>
@@ -2715,7 +2716,7 @@ ex:PasswordExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob, ex:Alice ;</span>
 	sh:property [
-		sh:predicate ex:password ;
+		sh:path ex:password ;
 		sh:minLength 8 ;
 		sh:maxLength 10 ;
 	] .</pre>
@@ -2780,7 +2781,7 @@ ex:PatternExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob, ex:Alice, ex:Carol ;</span>
 	sh:property [
-		sh:predicate ex:bCode ;
+		sh:path ex:bCode ;
 		sh:pattern "^B" ;    # starts with 'B'
 		sh:flags "i" ;       # Ignore case
 	] .</pre>
@@ -2848,7 +2849,7 @@ ex:NewZealandLanguagesShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Mountain, ex:Berg ;</span>
 	sh:property [
-		sh:predicate ex:prefLabel ;
+		sh:path ex:prefLabel ;
 		sh:languageIn ( "en" "mi" ) ;
 	] .</pre>
 					<p>
@@ -2922,7 +2923,7 @@ ex:UniqueLangExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Alice, ex:Bob ;</span>
 	sh:property [
-		sh:predicate ex:label ;
+		sh:path ex:label ;
 		sh:uniqueLang true ;
 	] .</pre>
 
@@ -3010,7 +3011,7 @@ ex:EqualExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob ;</span>
 	sh:property [
-		sh:predicate ex:firstName ;
+		sh:path ex:firstName ;
 		sh:equals ex:givenName ;
 	] .</pre>
 					<pre class="example-data">
@@ -3069,7 +3070,7 @@ ex:DisjointExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:USA, ex:Germany ;</span>
 	sh:property [
-		sh:predicate ex:prefLabel ;
+		sh:path ex:prefLabel ;
 		sh:disjoint ex:altLabel ;
 	] .</pre>
 					<pre class="example-data">
@@ -3133,7 +3134,7 @@ WHERE {
 ex:LessThanExampleShape
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:startDate ;
+		sh:path ex:startDate ;
 		sh:lessThan ex:endDate ;
 	] .</pre>
 				</section>
@@ -3234,7 +3235,7 @@ ex:NotExampleShape
 	<span class="target-can-be-skipped">sh:targetNode ex:InvalidInstance1 ;</span>
 	sh:not [
 		a sh:PropertyShape ;
-		sh:predicate ex:property ;
+		sh:path ex:property ;
 		sh:minCount 1 ;
 	] .</pre>
 					<pre class="example-data">
@@ -3291,7 +3292,7 @@ ex:NotExampleShape
 ex:SuperShape
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:property ;
+		sh:path ex:property ;
 		sh:minCount 1 ;
 	] .
 
@@ -3301,7 +3302,7 @@ ex:ExampleAndShape
 	sh:and (
 		ex:SuperShape
 		[
-			sh:predicate ex:property ;
+			sh:path ex:property ;
 			sh:maxCount 1 ;
 		]
 	) .</pre>
@@ -3366,11 +3367,11 @@ ex:OrConstraintExampleShape
 	<span class="target-can-be-skipped">sh:targetNode ex:Bob ;</span>
 	sh:or (
 		[
-			sh:predicate ex:firstName ;
+			sh:path ex:firstName ;
 			sh:minCount 1 ;
 		]
 		[
-			sh:predicate ex:givenName ;
+			sh:path ex:givenName ;
 			sh:minCount 1 ;
 		]
 	) .</pre>
@@ -3386,7 +3387,7 @@ ex:PersonAddressShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetClass ex:Person ;</span>
 	sh:property [
-		sh:predicate ex:address ;
+		sh:path ex:address ;
 		sh:or (
 			[
 				sh:datatype xsd:string ;
@@ -3448,9 +3449,9 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
 ex:ShapeExampleShape
 	a sh:NodeShape ;
 	sh:property [
-		sh:predicate ex:someProperty ;
+		sh:path ex:someProperty ;
 		sh:shape [
-			sh:predicate ex:nestedProperty ;
+			sh:path ex:nestedProperty ;
 			sh:minCount 1 ;
 		]
 	] .</pre>
@@ -3529,26 +3530,52 @@ ex:ShapeExampleValidResource
 						<tr>
 							<td><code>sh:qualifiedMinCount</code></td>
 							<td>
-								The minimum number of value nodes that conform to the shape. If this constraint is omitted, there is specified condition on the minimum number of values.
+								The minimum number of value nodes that conform to the shape.
 								<span data-syntax-rule="qualifiedMinCount-datatype">The values of <code>sh:qualifiedMinCount</code> are literals with datatype <code>xsd:integer</code>.</span>
 							</td>
 						</tr>
 						<tr>
 							<td><code>sh:qualifiedMaxCount</code></td>
 							<td>
-								The maximum number of value nodes that can conform to the shape. If this constraint is omitted, there is no specified condition on the maximum number of values.
+								The maximum number of value nodes that can conform to the shape.
 								<span data-syntax-rule="qualifiedMaxCount-datatype">The values of <code>sh:qualifiedMaxCount</code> are literals with datatype <code>xsd:integer</code>.</span>
 							</td>
 						</tr>
 					</table>
+					<p>
+						As described in the following textual definitions, these parameters may interact with an optional property
+						<code>sh:qualifiedValueShapesDisjoint</code> if the value of that is <code>true</code> at any <em>parent</em> <a>shape</a>
+						that has the shape of the qualified cardinality constraint as its value of <code>sh:property</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="qualifiedValueShapesDisjoint-maxCount">A <a>shape</a> can have at most one <a>value</a> for the property <code>sh:qualifiedValueShapesDisjoint</code>.</span>
+						<span data-syntax-rule="qualifiedValueShapesDisjoint-datatype">The <a>value</a> of <code>sh:qualifiedValueShapesDisjoint</code> must be a literal with datatype <code>xsd:boolean</code>.</span>
+					</p>
+					
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION of Sibling Shapes</div>
+						<div class="def-text-body">
+							Let <code>Q</code> be a <a>shape</a> in <a>shapes graph</a> <code>G</code> that declares a qualified cardinality constraint
+							(by having a values for <code>sh:qualifiedValueShape</code> and at least one of <code>sh:qualifiedMinCount</code> or <code>sh:qualifiedMaxCount</code>).
+							If <code>G</code> contains a <a>shape</a> <code>p</code> that has <code>Q</code> as a <a>value</a> of <code>sh:property</code>
+							and also <code>true</code> as its <a>value</a> for <code>sh:qualifiedValueShapesDisjoint</code>, then
+							the set of <dfn>sibling shapes</dfn> is defined as the set of all <a>values</a> of the SPARQL <a>property path</a>
+							<code>sh:property/sh:qualifiedValueShape</code> starting at <code>p</code>
+							minus the <a>value</a> of <code>sh:qualifiedValueShape</code> of <code>Q</code> itself.
+							The set of sibling shapes is empty otherwise.
+						</div>
+					</div>
+					
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMinCount</div>
 						<div class="def-text-body" data-validator="QualifiedMinCount">
 							Let <code>C</code> be the number of <a>value nodes</a> <code>v</code> where
-							validating <code>v</code> against the shape <code>$qualifiedValueShape</code>
-							produces no <a>validation results</a>.
-							A <a>failure</a> MUST be produced if the validation of any of the <a>value nodes</a> has produced a <a>failure</a>.
-							A <a>validation result</a> MUST be produced if <code>C</code>
+							<a>validating</a> <code>v</code> against the shape <code>$qualifiedValueShape</code>
+							produces no <a>validation results</a> and where <a>validating</a> <code>v</code>
+							against each of the <a>sibling shapes</a> produces some <a>validation results</a>.
+							A <a>failure</a> MUST be produced if the said validations of any of the
+							<a>value nodes</a> has produced a <a>failure</a>.
+							Otherwise, a <a>validation result</a> MUST be produced if <code>C</code>
 							is less than <code>$qualifiedMinCount</code>.
 						</div>
 					</div>
@@ -3556,11 +3583,10 @@ ex:ShapeExampleValidResource
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:qualifiedMaxCount</div>
 						<div class="def-text-body" data-validator="QualifiedMaxCount">
-							Let <code>C</code> be the number of <a>value nodes</a> <code>v</code> where
-							validating <code>v</code> against the shape <code>$qualifiedValueShape</code>
-							produces no <a>validation results</a>.
-							A <a>failure</a> MUST be produced if the validation of any of the <a>value nodes</a> has produced a <a>failure</a>.
-							A <a>validation result</a> MUST be produced if <code>C</code>
+							With <code>C</code> defined as for <code>sh:qualifiedMinCount</code>,
+							a <a>failure</a> MUST be produced if the said validations of any of the
+							<a>value nodes</a> has produced a <a>failure</a>.
+							Otherwise, a <a>validation result</a> MUST be produced if <code>C</code>
 							is greater than <code>$qualifiedMaxCount</code>.
 						</div>
 					</div>
@@ -3575,11 +3601,11 @@ ex:QualifiedValueShapeExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:QualifiedValueShapeExampleValidResource ;</span>
 	sh:property [
-		sh:predicate ex:parent ;
+		sh:path ex:parent ;
 		sh:minCount 2 ;
 		sh:maxCount 2 ;
 		sh:qualifiedValueShape [
-			sh:predicate ex:gender ;
+			sh:path ex:gender ;
 			sh:hasValue ex:female ;
 		] ;
 		sh:qualifiedMinCount 1 ;
@@ -3595,116 +3621,30 @@ ex:John
 
 ex:Jane
 	ex:gender ex:female .</pre>
-				</section>
-				
-				<section id="PartitionConstraintComponent">
-					<h4>sh:partition</h4>
-					<div class="issue" data-number="92" title="Relationship of QCRs with Partitions">
-						Feature at risk:
-						There is an overlap between this feature and QCRs.
-						The WG may decide to support only one of these options, but not both.
-						This section on sh:partition has not been updated for a while.
-					</div>
 					<p>
-						In some cases a given property may be multi-valued and it may be required that the set of values
-						be partitioned into two or more subsets, each of which satisfies certain constraints.
+						The following example illustrates the use of <code>sh:qualifiedValueShapesDisjoint</code>
+						to express that a hand must have 5 values of <code>ex:digit</code>, and exactly one of them
+						must be an instance of <code>ex:Thumb</code> while exactly 4 of them must be an instance of <code>ex:Finger</code>
+						but thumbs and fingers must be disjoint.
+						In other words, on a hand, none of the fingers can also be counted as the thumb. 
 					</p>
-					<p>
-						For example, suppose that in the Library of Congress BIBFRAME (<code>bf:</code>) Cultural Heritage vocabulary each person (<code>bf:Person</code>) needs to be identified by
-						(<code>bf:identifiedBy</code>) exactly one identifier from <code>id.loc.gov</code> and may have another identifier
-						from <code>viaf.org</code>. No other identifiers are allowed. Thus the set of all identifiers is partitioned into
-						two subsets, the first of which contains exactly one member and the second of which contains zero or one members.
-						The following example shows a snippet of some valid BIBFRAME data.
-					</p>
-					<pre class="example-data" title="Valid BIBFRAME Data">&lt;bf_Person1>
-  	bf:identifiedBy &lt;http://id.loc.gov/authorities/names/n80103961#RWO> ;
- 	bf:identifiedBy &lt;https://viaf.org/viaf/268367832/#Knape,_Joachim> .</pre>
-					<p>
-						The following example shows a snippet of some invalid BIBFRAME data.
-					</p>
-					<pre class="example-data" title="Invalid BIBFRAME Data">&lt;bf_Person1>
-  	bf:identifiedBy &lt;http://id.loc.gov/authorities/names/n80103961#RWO> ;
- 	bf:identifiedBy &lt;https://viaf.org/viaf/268367832/#Knape,_Joachim> ;
-	bf:identifiedBy "this is a mistake" . # error</pre>
-					<p>
-						Qualified cardinality constraints provide a basis for expressing this type of partitioning requirement, but using them imposes a burden on the shapes author. In the BIBFRAME example the author would need to express the requirement that the set of all identifiers that are from neither <code>id.loc.gov</code> nor <code>viaf.org</code> is empty, i.e. it has a maximum cardinality of 0. Clearly, as more subsets of values are involved, the burden on the author increases.
-						The <code>sh:partition</code> constraint makes it easier to express this type of requirement than it would be to use 
-						multiple qualified cardinality constraints.
-						In effect, <code>sh:partition</code> chains together a sequence of qualified cardinality constraints and removes the set of value nodes matched by each from further consideration. If every value node gets matched in this process, then
-						the <code>sh:partition</code> constraint reports no violations. Otherwise, any value nodes remaining are reported as
-						violations of the constraint.
-						The BIBFRAME example constraint is expressed as follows.
-					</p>
-					<pre class="example-shapes" title="BIBFRAME constraint expressed using sh:partition">
-ex:BibframeShape a sh:NodeShape ;
+					<pre class="example-shapes">
+ex:HandShape
+	a sh:NodeShape ;
+	<span class="target-can-be-skipped">sh:targetClass ex:Hand ;</span>
+	sh:qualifiedValueShapesDisjoint true ;
 	sh:property [
-		sh:predicate bf:identifiedBy ;
-		sh:partition (
-			[sh:minCount 1; sh:maxCount 1; sh:pattern "^http://id.loc.gov/"]
-			[sh:maxCount 1; sh:pattern "^https://viaf.org/"]
-		)
-] .</pre>
-					<p>
-						The value of the <code>sh:partition</code> constraint parameter is a <a>SHACL list</a> that has zero or more <a>members</a>.
-						Each <a>member</a> of the list specifies conditions on a subset of the value nodes and may contain the following parameters:
-					</p>
-					<ul>
-						<li>zero or one <code>sh:minCount</code>. This specifies the minimum cardinality of the corresponding subset.</li>
-						<li>zero or one <code>sh:maxCount</code>. This specifies the maximum cardinality of the corresponding subset.</li>
-						<li>any combination of parameters associated with node validation constraints. A node validation constraint
-							is any constraint defined by a boolean function on nodes. 
-							These include the built-in constraints defined by <code>sh:nodeKind</code>, <code>sh:partition</code>,
-							<code>sh:minExclusive</code>, etc.
-							The corresponding subset consists of those remaining nodes for which the boolean function is <code>true</code>.</li>
-					</ul>
-					<p>
-						Note that a node that contains no parameters matches all nodes. Such a node is useful as the last <a>member</a> of the list where it acts as a default matching rule in the case where nodes that do not match any of the preceeding constraints are allowed. 
-						Note also that a qualified cardinality constraint declared using <code>sh:qualifiedValueShape</code>,
-						<code>sh:qualifiedMinCount</code>, and <code>sh:qualifiedMaxCount</code> is equivalent to a <code>sh:partition</code> constraint that contains two nodes with the first one containing the corresponding parameters and the last one being the default matching rule that matches any set of nodes.
-					</p>
-					<p>
-						Each <a>member</a> of the list is used by the SHACL processor to match a subset of the value nodes.
-						The SHACL processor matches as many nodes as possible and then compares the result with the specified
-						minimum and maximum cardinalities if specified. This is referred to as a <em>greedy</em> matching algorithm.
-						Greedy pattern matching is commonly used with textual regular expressions.
-						Nodes that match are removed from further matching. Thus the set of all value nodes becomes partitioned by 
-						the matching algorithm. The following paragraphs define this algorithm more precisely.
-					</p>
-					<p>
-						Let D be a data graph and let F be a focus node in D. Let S be a shapes graph, let T be a shape in S, 
-						and let C be a <code>sh:partition</code> constraint in T. 
-						Let N be the set of value nodes for C in D at F. Recall that N depends on how C is related to T. 
-					</p>
-					<ul>
-						<li>If (T, <code>sh:constraint</code>, C) is in S then N consists of just the node F.</li>
-						<li>If (T, <code>sh:property</code>, C) and (C, <code>sh:predicate</code>, P) are in S 
-							then N consists of all the nodes X such that (F, P, X) is in D.</li>
-					</ul>
-					<p>
-						Let the value of the <code>sh:partition</code> parameter be the <a>SHACL list</a> with <a>members</a> (Q<sub>1</sub>, ..., Q<sub>n</sub>).
-						The SHACL processor MUST perform the following steps to validate the constraint C at F.
-					</p>
-					<ol>
-						<li>Let R denote the set of remaining value nodes. Initialize R to N.</li>
-						<li>Repeat the following for Q = Q<sub>1</sub>, ..., Q<sub>n</sub>
-						<ol>
-							<li>Let P be the conjunction of all the node validation constraints in Q.</li>
-							<li>Compute R' to be the set of all nodes in R that satisfy P, i.e. R' = {X in R | P(X) = true}</li>
-							<li>If Q contains a minimum cardinality m<sub>min</sub> and the number of nodes in R' is less than m<sub>min</sub>,
-							i.e. m<sub>min</sub> > #R', then report a constraint violation and exit the loop.</li>
-							<li>If Q contains a maximum cardinality m<sub>max</sub> and the number of nodes in R' is greater then m<sub>max</sub>,
-							i.e. m<sub>max</sub> &lt; #R', then report a constraint violation and exit the loop.</li>
-							<li>Remove R' from R, i.e. set R = R \ R'.</li>
-						</ol>
-						</li>
-						<li>If R is non-empty and no violations have been reported yet then report a violation.</li>
-					</ol>
-					<p>
-						Note that the order of nodes within the SHACL list is significant.
-						<span class="TODO">TODO: This currently violates our definition of rdf:List members.</span> 
-						In general, if the members of the SHACL list are reordered then different value node sets will be matched
-						and different violation results will be reported.
-					</p>
+		sh:path ex:digit ;
+		sh:qualifiedValueShape [ sh:class ex:Thumb ] ;
+		sh:qualifiedMinCount 1 ;
+		sh:qualifiedMaxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:digit ;
+		sh:qualifiedValueShape [ sh:class ex:Finger ] ;
+		sh:qualifiedMinCount 4 ;
+		sh:qualifiedMaxCount 4 ;
+	] .</pre>
 				</section>
 			</section>
 			
@@ -3755,7 +3695,7 @@ ex:BibframeShape a sh:NodeShape ;
 						<div class="def-text-body" data-validator="Closed">
 							If <code>$closed</code> is <code>true</code> then
 							a <a>validation result</a> MUST be produced for each <a>triple</a> that has a <a>value node</a> as its
-							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <code>sh:predicate</code>
+							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <code>sh:path</code>
 							in any of the <a>property shapes</a> declared via <code>sh:property</code> at the current shape.
 							If <code>$ignoredProperties</code> has a value then the properties enumerated as <a>members</a> of this <a>SHACL list</a>
 							are also permitted for the <a>value node</a>.
@@ -3776,7 +3716,7 @@ WHERE {
 	$this ?predicate ?value .
 	FILTER (NOT EXISTS {
 		GRAPH $shapesGraph {
-			$currentShape sh:property/sh:predicate ?predicate .
+			$currentShape sh:property/sh:path ?predicate .
 		}
 	} &amp;&amp; (!bound($ignoredProperties) || NOT EXISTS {
 		GRAPH $shapesGraph {
@@ -3797,10 +3737,10 @@ ex:ClosedShapeExampleShape
 	sh:closed true ;
 	sh:ignoredProperties (rdf:type) ;
 	sh:property [
-		sh:predicate ex:firstName ;
+		sh:path ex:firstName ;
 	] ;
 	sh:property [
-		sh:predicate ex:lastName ;
+		sh:path ex:lastName ;
 	] .</pre>
 
 					<pre class="example-data">
@@ -3856,7 +3796,7 @@ ex:StanfordGraduate
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:Alice ;</span>
 	sh:property [
-		sh:predicate ex:alumniOf ;
+		sh:path ex:alumniOf ;
 		sh:hasValue ex:Stanford ;
 	] .</pre>
 
@@ -3915,7 +3855,7 @@ ex:InExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:RainbowPony ;</span>
 	sh:property [
-		sh:predicate ex:color ;
+		sh:path ex:color ;
 		sh:in ( ex:Pink ex:Purple ) ;
 	] .</pre>
 
@@ -4355,10 +4295,10 @@ ex:ExampleValueResource
 sh:PatternConstraintComponent
 	a sh:ConstraintComponent ;
 	sh:parameter [
-		sh:predicate sh:pattern ;
+		sh:path sh:pattern ;
 	] ;
 	sh:parameter [
-		sh:predicate sh:flags ;
+		sh:path sh:flags ;
 		sh:optional true ;
 	] ;
 	sh:validator shimpl:hasPattern .
@@ -4386,13 +4326,13 @@ shimpl:hasPattern
 						The <a>parameters</a> of a <a>constraint component</a> are declared via the property <code>sh:parameter</code>.
 						The values of <code>sh:parameter</code> are called <dfn data-lt="parameter declaration">parameter declarations</dfn>.
 						The class <code>sh:Parameter</code> may be used as <a>type</a> of <a>parameter declarations</a> but no such triple is required.
-						<span data-syntax-rule="Parameter-predicate-count">Each <a>parameter declaration</a> has exactly one value for the property <code>sh:predicate</code></span>
-						and this value is an IRI.
+						<span data-syntax-rule="Parameter-predicate-count">Each <a>parameter declaration</a> has exactly one value for the property <code>sh:path</code></span>.
+						<span data-syntax-rule="Parameter">At <a>parameter declarations</a>, the <a>value</a> of <code>sh:path</code> is an <a>IRI</a>.</span>
 					</p>
 					<p>
 						The <dfn data-lt="local names">local name</dfn> of an <a>IRI</a> is defined as the longest <a href="http://www.w3.org/TR/REC-xml-names/#NT-NCName">NCNAME</a>
 						at the end of the <a>IRI</a>, not immediately preceded by the first colon in the <a>IRI</a>.
-						The <dfn data-lt="parameter names">parameter name</dfn> of a <a>parameter declaration</a> is defined as the <a>local name</a> of the <a>value</a> of <code>sh:predicate</code>.
+						The <dfn data-lt="parameter names">parameter name</dfn> of a <a>parameter declaration</a> is defined as the <a>local name</a> of the <a>value</a> of <code>sh:path</code>.
 						To ensure that a correct mapping from parameters into SPARQL variables is possible, the following syntax rules apply:
 					</p>
 					<p class="syntax">
@@ -4485,7 +4425,7 @@ ex:LanguageConstraintComponentUsingSELECT
 	a sh:ConstraintComponent ;
 	rdfs:label "Language constraint component" ;
 	sh:parameter [
-		sh:predicate ex:lang ;
+		sh:path ex:lang ;
 		sh:datatype xsd:string ;
 		sh:minLength 2 ;
 		sh:name "language" ;
@@ -4511,11 +4451,11 @@ ex:LanguageExampleShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetClass ex:Country ;</span>
 	sh:property [
-		sh:predicate ex:germanLabel ;
+		sh:path ex:germanLabel ;
 		ex:lang "de" ;
 	] ;
 	sh:property [
-		sh:predicate ex:englishLabel ;
+		sh:path ex:englishLabel ;
 		ex:lang "en" ;
 	] .</pre>
 						<p>
@@ -4552,7 +4492,7 @@ ex:LanguageConstraintComponentUsingASK
 	a sh:ConstraintComponent ;
 	rdfs:label "Language constraint component" ;
 	sh:parameter [
-		sh:predicate ex:lang ;
+		sh:path ex:lang ;
 		sh:datatype xsd:string ;
 		sh:minLength 2 ;
 		sh:name "language" ;
@@ -4598,7 +4538,7 @@ ex:hasLang
 						substitute the variable <code>PATH</code> where it appears in the <a>predicate</a>
 						position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>
 						with a valid SPARQL surface syntax string of the <a>SHACL property path</a>
-						specified via <code>sh:predicate</code> or <code>sh:path</code> at the <a>property shape</a>.
+						specified via <code>sh:path</code> at the <a>property shape</a>.
 					</li>
 				</ul>
 				<p>
