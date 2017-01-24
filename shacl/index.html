@@ -280,6 +280,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2017-01-24</b>: New definition of pre-binding (first draft based on <a href="https://w3c.github.io/sparql-exists/docs/sparql-exists.html">SPARQL EXISTS CG Draft Report</a>) (<a href="http://www.w3.org/2014/data-shapes/track/issues/68">ISSUE-68</a>)</li>
 				<li><b>2017-01-19</b>: Moved SPARQL annotation properties mechanism to advanced features WG Note in anticipation of the vote on (<a href="http://www.w3.org/2014/data-shapes/track/issues/218">ISSUE-218</a>)</li>
 				<li><b>2017-01-19</b>: Deleted sh:partition and added a boolean flag sh:qualifiedValueShapesDisjoint (<a href="http://www.w3.org/2014/data-shapes/track/issues/92">ISSUE-92</a>)</li>
 				<li><b>2017-01-19</b>: Removed sh:predicate in favor of using sh:path only (<a href="http://www.w3.org/2014/data-shapes/track/issues/217">ISSUE-217</a>)</li>
@@ -4466,42 +4467,78 @@ ex:hasLang
 
 		<section id="pre-binding" class="appendix">
 			<h2>Pre-binding of Variables in SPARQL Queries</h2>
-			<p class="issue" data-number="68" title="Pre-binding of Variables in SPARQL">
-				The following definition of what pre-binding means has not been approved by the WG yet,
-				and is work in progress.
-			</p>
 			<p>
-				Some features of the SPARQL-based extension mechanism of SHACL-SPARQL rely on the concept of <dfn data-lt="pre-binding|pre-bind|pre-bound|pre-bound variables|pre-binds">pre-binding of variables</dfn>.
-				Although variations of this concept are supported by several existing SPARQL implementations, there is no formal definition of pre-binding in the SPARQL 1.1 specifications.
-				The goal of this section is to illustrate the effect of pre-binding to users and implementers.
-				Note however that the following definition is not meant to serve as recommendation for an actual implementation strategy.
+				Some features of SHACL-SPARQL rely on the concept of <a>pre-binding of variables</a> as defined in this section.
+				The following definitions are based on <a href="https://w3c.github.io/sparql-exists/docs/sparql-exists.html">SPARQL EXISTS errata
+				Draft Community Group Report 05 December 2016</a>.
 			</p>
-			<p>
-				<span class="term">Pre-binding</span> a variable with a value means that
-				the SPARQL processor needs to evaluate all occurrences of variables with that same name
-				(including occurrences in inner targets and nested SELECT queries)
-				so that they have the provided value.
-				In other words, whenever a SPARQL processor evaluates a pre-bound variable, it must use the given value.
- 			</p>
+			<div class="def def-text">
+				<div class="def-header">DEFINITION: <dfn>Projection Expression Variable Remapping</dfn></div>
+				<div class="def-text-body">
+	          		<p>
+	            		For a projection algebra operation <code>P</code> with set of variables <code>PV</code>, define
+	            		a partial mapping <code>F</code> from
+	            		<a href="https://www.w3.org/TR/sparql11-query/#sparqlQueryVariables"><code>V</code></a>,
+	            		the set of all variables, to <code>V</code> where:
+	          		</p>
+	          		<p>
+						&nbsp;&nbsp;&nbsp;<code>F(v) = v</code> if <code>v in PV</code><br/>
+						&nbsp;&nbsp;&nbsp;<code>F(v) = v1</code> where <code>v1</code> is a fresh variable
+					</p>
+					<p>
+						Define the <em>Projection Expression Variable Remapping</em> <code>PrjMap(P,PV)</code> to
+						be the algebra expression <code>P</code> (and the subtree over which the projection is
+						defined) with <code>F</code> applied to every variable of the algebra expression over which
+						<code>P</code> is evaluated.
+	          		</p>
+	          	</div>
+        	</div>
+        	
+			<div class="def def-text">
+				<div class="def-header">DEFINITION: <dfn>Variable Remapping</dfn></div>
+				<div class="def-text-body">
+					<p>
+						For any algebra expression <code>X</code>, not a projection, define the
+						<em>Variable Remapping</em> <code>PrjMap(X)</code>:
+					</p>
+					<p>
+						&nbsp;&nbsp;&nbsp;<code>PrjMap(X)</code> = replace all project operations with <code>PrjMap(P,PV)</code> for each projection in <code>X</code>.
+					</p>
+				</div>
+			</div>
 
-			<section id="pre-bindound-variables">
-				<h3>Pre-bound variables</h3>
-				<p>
-					SHACL-SPARQL defines two forms of variable pre-binding:
-				</p>
-				<ol>
-			        <li><a href="#sparql-constraints-prebound">Global pre-bound variables</a> that are available in all SPARQL-based constraints, SPARQL-based constraint components and SPARQL-based targets.</li>
-					<li>Local pre-bound variables available only within a SPARQL-based constraint component and defined through the <a href="#constraint-components-parameter-pre-binding">component parameters</a> </li>
-				</ol>
-				<p>
-					The variable <code>PATH</code> has a special treatment in SHACL property constraint components and MUST be processed before any other pre-bound variable.
-					SHACL-SPARQL processors MUST perform string substitution of every occurrence of the variable <code>PATH</code> to the <a href="#path-syntax">generated SPARQL property path</a> before performing any pre-binding.
-				</p>
-				<p>
-					The variable <code>predicate</code> is not a pre-bound variable in SHACL and will be treated as a normal SPARQL variable.
-					<span class="todo">Should we disallow the variable predicate instead to avoid confusion?</span>
-				</p>
-			</section>
+			<div class="def def-text">
+				<div class="def-header">DEFINITION: <dfn>Values Insertion</dfn></div>
+				<div class="def-text-body">
+					<p>
+						For solution mapping <code>μ</code>, define <code>Table(μ)</code> to be the multiset formed from <code>μ</code>.
+					</p>
+					<p>
+						&nbsp;&nbsp;&nbsp;<code>Table(μ) = { μ }</code><br/>
+						&nbsp;&nbsp;&nbsp;<code>Card[μ] = 1</code>
+					</p>
+					<p>
+						Define the <em>Values Insertion</em> function <code>Replace(X, μ)</code> to
+						replace each occurence <code>Y</code> of a 
+						<a href="https://www.w3.org/TR/sparql11-query/#sparqlTranslateBasicGraphPatterns">Basic Graph Pattern</a>,
+						<a href="https://www.w3.org/TR/sparql11-query/#sparqlTranslatePathExpressions">Property Path Expression</a>,
+						<a href="https://www.w3.org/TR/sparql11-query/#sparqlTranslateGraphPatterns"><code>Graph(Var, pattern)</code></a>
+						in <code>X</code> with <code>join(Y, Table(μ))</code>.
+					</p>
+				</div>
+			</div>
+
+			<div class="def def-text">
+				<div class="def-header">DEFINITION: <dfn data-lt="pre-binding|pre-bind|pre-bound|pre-bound variables|pre-binds">Pre-binding of variables</dfn></div>
+				<div class="def-text-body">
+					<p>
+						Let <code>μ</code> be a solution mapping (pre-bound variables) and <code>X</code> a graph pattern,
+						define the evaluation of <code>X</code> as <code>eval(D(G), Replace(PrjMap(X), μ))</code>.
+					</p>
+				</div>
+			</div>
+
+			<p class="todo">Note: Incomplete: <tt>HAVING</tt></p>
 
 		</section>
 		
@@ -4555,6 +4592,7 @@ ex:hasLang
 				Irene Polikoff,
 				Eric Prud'hommeaux,
 				Arthur Ryman (who also served as a co-editor until Feb 2016),
+				Andy Seaborne,
 				Harold Solbrig,
 				Simon Steyskal,
 				Ted Thibodeau
