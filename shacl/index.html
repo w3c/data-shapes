@@ -280,6 +280,7 @@
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2017-01-26</b>: Added sh:xor (<a href="http://www.w3.org/2014/data-shapes/track/issues/219">ISSUE-219</a>)</li>
 				<li><b>2017-01-24</b>: New definition of pre-binding (first draft based on <a href="https://w3c.github.io/sparql-exists/docs/sparql-exists.html">SPARQL EXISTS CG Draft Report</a>) (<a href="http://www.w3.org/2014/data-shapes/track/issues/68">ISSUE-68</a>)</li>
 				<li><b>2017-01-19</b>: Moved SPARQL annotation properties mechanism to advanced features WG Note in anticipation of the vote on (<a href="http://www.w3.org/2014/data-shapes/track/issues/218">ISSUE-218</a>)</li>
 				<li><b>2017-01-19</b>: Deleted sh:partition and added a boolean flag sh:qualifiedValueShapesDisjoint (<a href="http://www.w3.org/2014/data-shapes/track/issues/92">ISSUE-92</a>)</li>
@@ -1891,6 +1892,7 @@ ex:AddressGroup
 						<li><a href="#PropertyConstraintComponent">sh:property</a></li>
 						<li><a href="#QualifiedValueShapeConstraintComponent">sh:qualifiedValueShape</a></li>
 						<li><a href="#ShapeConstraintComponent">sh:shape</a></li>
+						<li><a href="#XorConstraintComponent">sh:xor</a></li>
 					</ul>
 					<p>
 						The following properties are the so-called <dfn>list-taking constraint parameters</dfn> in SHACL Core:
@@ -1899,6 +1901,7 @@ ex:AddressGroup
 						<li><a href="#AndConstraintComponent">sh:and</a></li>
 						<li><a href="#LanguageInConstraintComponent">sh:languageIn</a></li>
 						<li><a href="#OrConstraintComponent">sh:or</a></li>
+						<li><a href="#XorConstraintComponent">sh:xor</a></li>
 					</ul>					
 					<p>
 						A shape <code>s1</code> in an RDF graph <code>G</code> <dfn>refers</dfn> to shape <code>s2</code>
@@ -3399,6 +3402,92 @@ ex:PersonAddressShape
 	] .</pre>
 					<pre class="example-data">
 ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .</pre>
+				</section>
+				
+				<section id="XorConstraintComponent">
+					<h4>sh:xor</h4>
+					<p>
+						<code>sh:xor</code> specifies the condition that each <a>value node</a> conforms to exactly one of the provided shapes.
+					</p>
+					<p>
+						Note that despite the name, the semantics of <code>sh:xor</code> for cases with 3 or more shapes are
+						<em>different from an exclusive or</em> in the mathematical sense.
+						The general definition of exclusive or makes it true only when an odd number of inputs are true,
+						while the SHACL definition of <code>sh:xor</code> relies on <em>exactly one</em> semantics.
+					</p>
+					<p>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:XorConstraintComponent</code>
+					</p>
+
+					<div class="parameters">Parameters:</div>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Summary and Syntax Rules</th>
+						</tr>
+						<tr>
+							<td><code>sh:xor</code></td>
+							<td>
+								A <a>SHACL list</a> of shapes to validate the value nodes against.
+								<span data-syntax-rule="xor-shape">The value of each <code>sh:xor</code> is a <a>SHACL list</a>.</span>
+								<span data-syntax-rule="xor-members-shape">Each <a>member</a> of such list must be a <a>well-formed</a> <a>shape</a>.</span>
+							</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body" data-validator="Or">
+							For each <a>value node</a> <code>v</code>
+							let <code>N</code> be the number of the <a>shapes</a> that are <a>members</a> of <code>$xor</code> 
+							where the validation of <code>v</code> against the shape produces a <a>validation result</a> but no <a>failure</a>.
+							If <code>N</code> is not exactly <code>1</code> then a <a>validation result</a> MUST be produced with <code>v</code> as <code>sh:value</code>.
+							A <a>failure</a> MUST be produced if the <a>validation</a> of any of the <a>members</a> produces a <a>failure</a>.
+						</div>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						Note that although <code>sh:xor</code> has a <a>SHACL list</a> of shapes as its value,
+						the order of those shapes does not impact the validation results.
+					</p>
+					<p>
+						The following example illustrates the use of <code>sh:xor</code> in a shape to specify the condition
+						that certain focus nodes must either have a value for <code>ex:fullName</code> or values for
+						<code>ex:firstName</code> and <code>ex:lastName</code>, but not both.
+					</p>
+					<pre class="example-shapes">
+ex:XorConstraintExampleShape
+	a sh:NodeShape ;
+	<span class="target-can-be-skipped">sh:targetClass ex:Person ;</span>
+	sh:xor (
+		[
+			sh:property [
+				sh:path ex:fullName ;
+				sh:minCount 1 ;
+			]
+		]
+		[
+			sh:property [
+				sh:path ex:firstName ;
+				sh:minCount 1 ;
+			] ;
+			sh:property [
+				sh:path ex:givenName ;
+				sh:minCount 1 ;
+			]
+		]
+	) .</pre>
+					<pre class="example-data">
+ex:Bob a ex:Person ;
+	ex:firstName "Robert" ; 
+	ex:lastName "Coin" .
+
+ex:Carla a ex:Person ;
+	ex:fullName "Carla Miller" .
+	
+<span class="focus-node-error">ex:Dory</span> a ex:Person ;
+	ex:firstName "Dory" ;
+	ex:lastName "Dunce" ;
+	ex:fullName "Dory Dunce" .</pre>
 				</section>
 			</section>
 	
