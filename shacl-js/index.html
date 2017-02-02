@@ -501,7 +501,104 @@ function getEnglishLabel(resource) {
 			</section>
 		</section>
 		
-		<section id="sparql-constraints">
+		<section id="js-rdf">
+			<h2>Representing JavaScript in RDF</h2>
+			<p>
+				The SHACL-JS vocabulary includes the class <code>sh:JSExecutable</code>.
+				Instances of this class are called <dfn data-lt="JavaScript executable">JavaScript executables</dfn>
+				and may have values for the properties <code>sh:script</code> and <code>sh:library</code>.
+			</p>
+			<section id="script">
+				<h3>sh:script</h3>
+				<p class="syntax">
+					<span data-syntax-rule="script-maxCount">The property <code>sh:script</code> can be used at most once at any given subject.</span>
+					<span data-syntax-rule="script-datatype">The values of <code>sh:script</code> are literals with datatype <code>xsd:string</code>.</span>
+				</p>
+			</section>
+			<section id="library">
+				<h3>sh:library</h3>
+				<p class="syntax">
+					<span data-syntax-rule="library-nodeKind">The values of the property <code>sh:library</code> are IRIs</span>
+					<span data-syntax-rule="library-class">that are well-formed SHACL instances of the class <code>sh:JSLibrary</code>.</span>
+				</p>
+			</section>
+			<section id="JSLibrary">
+				<h3>sh:JSLibrary</h3>
+				<p>
+					The class <code>sh:JSLibrary</code>, which is an <code>rdfs:subClassOf</code> <code>sh:JSExecutable</code>,
+					can be used to declare <dfn data-lt="JavaScript library">JavaScript libraries</dfn>.
+					A library can be understood as a reusable piece of JavaScript that may be shared among multiple executables.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="JSLibrary-or"><a>JavaScript libraries</a> must have at least one value for
+					either <code>sh:script</code> or <code>sh:scriptURL</code>.</span>
+					<span data-syntax-rule="scriptURL">The values of the property <code>sh:scriptURL</code> are literals with datatype <code>xsd:anyURI</code>.</span>
+				</p>
+				<p><em>The remainder of this section is informative.</em></p>
+				<p>
+					The following example illustrates the declaration of a <a>JavaScript library</a> that is backed by a script
+					and that relies on another library, which in turn has relies on a script from a URL.
+				</p>
+				<pre class="example-shapes">
+ex:MyBaseLibrary
+	a sh:JSLibrary ;
+	sh:scriptURL "http://example.org/ns/js/myBaseLibrary.js"^^xsd:anyURI .
+	
+ex:MyLocalLibrary
+	a sh:JSLibrary
+	sh:library ex:MyBaseLibrary ;
+	sh:script """
+		function square(n) {
+			return n * n;
+		}
+		""" .
+		
+ex:MyExecutable
+	a sh:JSExecutable ;
+	sh:library ex:MyLocalLibrary ;
+	sh:script "square(4)" .</pre>
+				<p>
+					If a SHACL processor executes <code>ex:MyExecutable</code>following the rules from
+					<a href="#js-exec"></a>, it will first resolve the base library's script from the
+					provided URL, then execute the local library script and finally execute the executable's script.
+				</p>
+			</section>
+		</section>
+		
+		<section id="js-exec">
+			<h2>Executing JavaScript</h2>
+
+			<div class="def def-text">
+				<div class="def-header">Execution of sh:script</div>
+				<div class="def-text-body">
+					The <dfn data-lt="execution of the script">execution of a script</dfn> consists of <em>evaluating</em> the string of the script by the JavaScript engine.
+				</div>
+			</div>
+
+			<div class="def def-text">
+				<div class="def-header">Execution of a JavaScript executable</div>
+				<div class="def-text-body">
+					The <dfn>execution of a <a>JavaScript executable</a></dfn> consists of <em>executing</em>
+					any <a>JavaScript libraries</a> that are values of <code>sh:library</code>, followed
+					by the <a>execution of the script</a> that is the value of <code>sh:script</code>.
+					A failure MUST be reported if the SHACL processor encounters a cyclic dependency between libraries.
+				</div>
+			</div>
+
+			<div class="def def-text">
+				<div class="def-header">Execution of a JavaScript library</div>
+				<div class="def-text-body">
+					Within the same JavaScript engine, the same <a>JavaScript library</a> MUST NOT be executed more than once.
+					When a <a>JavaScript library</a> is executed, all its values for <code>sh:scriptURL</code> must be resolved into JavaScript code.
+					By default this resolution mechanism MUST be performing an HTTP GET request against the given script URL.
+				</div>
+			</div>
+			<p>
+				In practice, some SHACL implementations may redirect the resolution of URLs to local files or cached copies.
+			</p>
+		</section>
+				
+		<section id="js-constraints">
 			<h2>JavaScript-based Constraints</h2>
 			<p>
 				SHACL-JS supports a <a>constraint component</a> that can be used to express restrictions based on JavaScript.
