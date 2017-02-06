@@ -229,7 +229,7 @@
 			pre.example-other, pre.example-other:before { border: 1px solid #ddd; }
 			pre.example-other:before { color: #888; content: "Example"; width: 13em; }
 
-			pre.example-js { background: #eeb; }
+			pre.example-js { background: #cceebe; }
 			pre.example-js, pre.example-js:before { border: 1px solid #cc9; }
 			pre.example-js:before { color: #996; content: "Example JavaScript"; width: 13em; }
 
@@ -357,8 +357,6 @@
 			<p>
 				This section defines an API that JavaScript-based SHACL features can use to operate on
 				RDF terms (IRIs, blank nodes and literals) and to query graphs.
-				The API is compatible with a minimal subset of the
-				<a href="https://github.com/rdfjs/representation-task-force/blob/master/interface-spec.md">Interface Specification by the RDFJS Representation Task Force</a>.
 			</p>
 			<p>
 				Note that the API expects these JavaScript objects to be immutable, i.e. neither
@@ -372,6 +370,10 @@
 					In addition to these, each of these objects must have a function <code>equals</code>
 					that takes another term object as its only parameter and returns <code>true</code>
 					exactly if the underlying RDF terms are equal.
+				</p>
+				<p>
+					This API is compatible with a minimal subset of the
+					<a href="https://github.com/rdfjs/representation-task-force/blob/master/interface-spec.md">Interface Specification by the RDFJS Representation Task Force</a>.
 				</p>
 				<section id="js-api-iri">
 					<h4>IRIs / Named Nodes</h4>
@@ -467,28 +469,22 @@
 				<h3>Graphs</h3>
 				<p>
 					RDF graphs are represented as JavaScript <dfn data-lt="Graphs">Graph</dfn> objects that
-					have a function <code>match</code> which takes three parameters of type object,
+					have a function <code>find</code> which takes three parameters of type object,
 					all of which are optional.
-					The result of the <code>matches</code> function is a <dfn data-lt="Streams">Stream</dfn>
+					The result of the <code>find</code> function is an <dfn data-lt="iterators">Iterator</dfn>
 					object with two functions: 
 				</p>
 				<ul>
 					<li>
-						<code>read()</code> returns the <a>Triple</a> from the stream or null if no further
-						triple is available.
+						<code>next()</code> returns an object either of the form
+						<code>{ done: true}</code> or <code>{ value : Triple, done: false }</code>.
 					</li>
 					<li>
-						<code>close()</code> terminates the <a>Stream</a> and releases any resources allocated by it.
-						Once <code>close()</code> has been called, further calls to <code>read()</code> cause an exception.
-						The <code>close()</code> function MUST always be called unless the stream has already been read to completion.
+						<code>close()</code> terminates the <a>Iterator</a> and releases any resources allocated by it.
+						Once <code>close()</code> has been called, further calls to <code>next()</code> cause an exception.
+						The <code>close()</code> function MUST always be called unless the iterator has already been walked to completion.
 					</li>
 				</ul>
-				<p class="todo">
-					TODO: The contract of .match and .read may be asynchronous, which would make
-					even simple loops require JS Promise callbacks.
-					So quite possibly we need an abstraction layer above this, which provides synchronous
-					access to triple streams.
-				</p>
 				<p>
 					The following JavaScript snippet assumes that the current data graph is represented by
 					the variable <code>$dataGraph</code> and gets the first label of a given resource
@@ -497,13 +493,13 @@
 				<pre class="example-js">
 function getEnglishLabel(resource) {
 	var labelProperty = TermFactory.namedNode("http://www.w3.org/2000/01/rdf-schema#label");
-	var stream = $dataGraph.match(resource, labelProperty, null);
+	var labels = $dataGraph.find(resource, labelProperty, null);
 	for(;;) {
-		var labelTriple = stream.read();
-		if(labelTriple == null) {
+		var labelTriple = labels.next();
+		if(labelTriple.done) {
 			return null;
 		}
-		var label = labelTriple.object;
+		var label = labelTriple.value.object;
 		if(label.termType === "Literal" &amp;&amp; label.language.startsWith("en")) {
 			stream.close();
 			return label.value;
@@ -541,66 +537,35 @@ function getEnglishLabel(resource) {
 			<p>
 				The SHACL-JS vocabulary includes the class <code>sh:JSExecutable</code>.
 				Instances of this class are called <dfn data-lt="JavaScript executable">JavaScript executables</dfn>
-				and may have values for the properties <code>sh:script</code> and <code>sh:library</code>.
+				and may have values for the properties <code>sh:jsFunctionName</code> and <code>sh:jsLibrary</code>.
 			</p>
-			<section id="script">
-				<h3>sh:script</h3>
+			<section id="jsFunctionName">
+				<h3>sh:jsFunctionName</h3>
 				<p class="syntax">
-					<span data-syntax-rule="script-maxCount">The property <code>sh:script</code> can be used at most once at any given subject.</span>
-					<span data-syntax-rule="script-datatype">The values of <code>sh:script</code> are literals with datatype <code>xsd:string</code>.</span>
+					<span data-syntax-rule="script-maxCount">Every SHACL instance of <code>sh:JSExecutable</code> must have exactly one value for the property <code>sh:jsFunctionName</code>.</span>
+					<span data-syntax-rule="script-datatype">The values of <code>sh:jsFunctionName</code> are literals with datatype <code>xsd:string</code>.</span>
 				</p>
-				<p class="todo">
-					A design alternative would be to only allow specifying the name of a JavaScript function
-					from one of the libraries.  The engine would then call the given function by matching
-					parameter names.
+				<p>
+					The semantics of how arguments are passed into the provided function depend on the specific type of executable,
+					as described in later sections.
 				</p>
 			</section>
-			<section id="library">
-				<h3>sh:library</h3>
+			<section id="jsLibrary">
+				<h3>sh:jsLibrary</h3>
 				<p class="syntax">
-					<span data-syntax-rule="library-nodeKind">The values of the property <code>sh:library</code> are IRIs</span>
+					<span data-syntax-rule="library-nodeKind">The values of the property <code>sh:jsLibrary</code> are IRIs or blank nodes.</span>
 					<span data-syntax-rule="library-class">that are well-formed SHACL instances of the class <code>sh:JSLibrary</code>.</span>
 				</p>
 			</section>
 			<section id="JSLibrary">
 				<h3>sh:JSLibrary</h3>
 				<p>
-					The class <code>sh:JSLibrary</code>, which is an <code>rdfs:subClassOf</code> <code>sh:JSExecutable</code>,
-					can be used to declare <dfn data-lt="JavaScript library">JavaScript libraries</dfn>.
-					A library can be understood as a reusable piece of JavaScript that may be shared among multiple executables.
+					The class <code>sh:JSLibrary</code> can be used to declare <dfn data-lt="JavaScript library">JavaScript libraries</dfn>.
+					A library can be understood as a pointer to zero or more JavaScript files that need to be executed before a JSExecutable can be evaluated.
+					Libraries may depend on each other by declaring further <code>sh:jsLibrary</code> triples.
 				</p>
 				<p class="syntax">
-					<span data-syntax-rule="JSLibrary-or"><a>JavaScript libraries</a> must have at least one value for
-					either <code>sh:script</code> or <code>sh:scriptURL</code>.</span>
-					<span data-syntax-rule="scriptURL">The values of the property <code>sh:scriptURL</code> are literals with datatype <code>xsd:anyURI</code>.</span>
-				</p>
-				<p><em>The remainder of this section is informative.</em></p>
-				<p>
-					The following example illustrates the declaration of a <a>JavaScript library</a> that is backed by a script
-					and that relies on another library, which in turn has relies on a script from a URL.
-				</p>
-				<pre class="example-shapes">
-ex:MyBaseLibrary
-	a sh:JSLibrary ;
-	sh:scriptURL "http://example.org/ns/js/myBaseLibrary.js"^^xsd:anyURI .
-	
-ex:MyLocalLibrary
-	a sh:JSLibrary
-	sh:library ex:MyBaseLibrary ;
-	sh:script """
-		function square(n) {
-			return n * n;
-		}
-		""" .
-		
-ex:MyExecutable
-	a sh:JSExecutable ;
-	sh:library ex:MyLocalLibrary ;
-	sh:script "square(4)" .</pre>
-				<p>
-					If a SHACL processor executes <code>ex:MyExecutable</code>following the rules from
-					<a href="#js-exec"></a>, it will first resolve the base library's script from the
-					provided URL, then execute the local library script and finally execute the executable's script.
+					<span data-syntax-rule="scriptURL">The values of the property <code>sh:jsLibraryURL</code> are literals with datatype <code>xsd:anyURI</code>.</span>
 				</p>
 			</section>
 		</section>
@@ -619,8 +584,9 @@ ex:MyExecutable
 				<div class="def-header">Execution of a JavaScript executable</div>
 				<div class="def-text-body">
 					The <dfn>execution of a <a>JavaScript executable</a></dfn> consists of <em>executing</em>
-					any <a>JavaScript libraries</a> that are values of <code>sh:library</code>, followed
-					by the <a>execution of the script</a> that is the value of <code>sh:script</code>.
+					any <a>JavaScript libraries</a> that are values of <code>sh:jsLibrary</code> (including
+					the libraries referenced by those libraries), followed
+					by the <a>execution of the function</a> that has the same name as the value of <code>sh:jsFunctionName</code>.
 					A failure MUST be reported if the SHACL processor encounters a cyclic dependency between libraries.
 				</div>
 			</div>
@@ -629,7 +595,7 @@ ex:MyExecutable
 				<div class="def-header">Execution of a JavaScript library</div>
 				<div class="def-text-body">
 					Within the same JavaScript engine, the same <a>JavaScript library</a> MUST NOT be executed more than once.
-					When a <a>JavaScript library</a> is executed, all its values for <code>sh:scriptURL</code> must be resolved into JavaScript code.
+					When a <a>JavaScript library</a> is executed, all its values for <code>sh:jsLibraryURL</code> must be resolved into JavaScript code.
 					By default this resolution mechanism MUST be performing an HTTP GET request against the given script URL.
 				</div>
 			</div>
@@ -675,31 +641,34 @@ ex:ValidCountry a ex:Country ;
   
 <span class="focus-node-error">ex:InvalidCountry</span> a ex:Country ;
 	ex:germanLabel "Spain"@en .</pre>
-				<pre class="example-shapes" id="example-sparql-constraint">
+				<pre class="example-js">
+function germanLabel(value) {
+	var results = [];
+	var p = TermFactory.namedNode("http://example.org/ns#germanLabel");
+	var s = $dataGraph.find(value, p, null);
+	for(var t = s.next(); !t.done; t = s.next()) {
+		var object = t.value.object;
+		if(object.termType != "Literal" || !object.language.startsWith("de")) {
+			results.push({
+				value : object
+			});
+		}
+	}
+	return results;
+}</pre>
+				<pre class="example-shapes">
 ex:LanguageExampleShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Country ;
 	sh:js [
 		a sh:JSConstraint ;   # This triple is optional
 		sh:message "Values are literals with German language tag." ;
-		sh:script """
-			var results = [];
-			var p = TermFactory.namedNode("http://example.org/ns#germanLabel");
-			var s = $dataGraph.match($this, p, null);
-			for(var t = s.read(); t != null; t = s.read()) {
-				var value = t.object;
-				if(value.termType != "Literal" || !value.language.startsWith("de")) {
-					results.push({
-						value : value
-					});
-				}
-			}
-			return results;
-			""" ;
+		sh:jsLibrary [ sh:jsLibraryURL "http://example/org/js/germanLabel.js" ] ;
+		sh:jsFunctionName "germanLabel" ;
 	] .</pre>
 				<p>
 					The target of the shape above includes all <a>SHACL instances</a> of <code>ex:Country</code>.
-					For those nodes (represented by the variable <code>$this</code>), the JavaScript code walks through the values of <code>ex:germanLabel</code>
+					For those nodes (represented by the variable <code>value</code>), the JavaScript code walks through the values of <code>ex:germanLabel</code>
 					and verifies that they are literals with a German language code.
 					The validation results for the aforementioned data graph is shown below:
 				</p>
@@ -741,6 +710,10 @@ ex:LanguageExampleShape
 					using a <a href="#JSValidator">JavaScript Validator</a> to validate that the string of each <a>value node</a> has at most a given number of characters.
 					Note that this is only an example implementation and should not be considered normative.
 				</p>
+				<pre class="example-js">
+function hasMaxLength(value, maxLength) {
+	return (value.value.length &lt;= maxLength.value)
+}</pre>
 				<pre class="example-shapes" title="Constraint component based on JavaScript">
 sh:MaxLengthConstraintComponent
 	a sh:ConstraintComponent ;
@@ -757,7 +730,8 @@ shimpl:hasMaxLength
 		Their lexical value is accessed via the .value attribute.
 		The function returns true if no violation has been found.
 		""" ;
-	sh:script "return ($value.value.length &lt;= $maxLength.value)" .</pre>
+	sh:jsLibrary [ sh:jsLibraryURL "http://example.org/ns/hasMaxLength.js"^^xsd:anyURI ] ;
+	sh:jsFunctionName "hasMaxLength" .</pre>
 			</section>
 			<p class="todo">
 				TODO!
@@ -781,6 +755,10 @@ shimpl:hasMaxLength
 					The following example demonstrates how JavaScript can be used to specify new SHACL function.
 					The function can be used, for example in SPARQL using <code>BIND (ex:square(4) AS ?s)</code>.
 				</p>
+				<pre class="example-js">
+function square(number) {
+	return number.value * number.value;
+}</pre>
 				<pre class="example-shapes" title="Function based on JavaScript">
 ex:square
 	a sh:JSFunction ;
@@ -789,7 +767,8 @@ ex:square
 		sh:datatype xsd:integer ;
 	] ;
 	sh:returnType xsd:integer ;
-	sh:script "return $number.value * $number.value;" .</pre>
+	sh:jsLibrary [ sh:jsLibraryURL "http://example.org/js/square.js" ] ;
+	sh:jsFunctionName "square" .</pre>
 			</section>
 			<p class="todo">
 				TODO!
