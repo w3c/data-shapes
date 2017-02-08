@@ -290,7 +290,9 @@
 				These advanced features are SPARQL-based constraints and constraint components.
 			</p>
 			<p>
-				The examples in this document use Turtle [[!turtle]].
+				The syntax of SHACL is RDF.
+				The examples in this document use Turtle [[!turtle]] and (in one instance) [[json-ld]].
+				Other RDF serializations such as RDF/XML may be used in practice.
 				The reader should be familiar with basic RDF concepts [[!rdf11-concepts]] such as triples and, for the advanced concepts of SHACL, with SPARQL [[!sparql11-overview]].			<p>
 			</p>
 		</section>
@@ -397,7 +399,7 @@
 				<div class="def">
 					<div class="term-def-header">SHACL Class</div>
 					<div>
-						<a>Nodes</a> in an <a>RDF graph</a> that are subclasses, superclasses, or types of <a>nodes</a> in the <a>graph</a> are often referred to as <dfn data-lt="class|classes|SHACL classes">SHACL class</dfn>.
+						<a>Nodes</a> in an <a>RDF graph</a> that are subclasses, superclasses, or types of <a>nodes</a> in the <a>graph</a> are referred to as <dfn data-lt="class|classes|SHACL classes">SHACL class</dfn>.
 					</div>
 				</div>
 				<div class="def">
@@ -764,7 +766,7 @@ ex:PersonShape
 					<div class="diagram-class-properties">
 						<div class="diagram-class-properties-start">
 							<div><a href="#targetClass">sh:targetClass</a> : rdfs:Class</div>
-							<div><a href="#targetNode">sh:targetNode</a> : any</div>
+							<div><a href="#targetNode">sh:targetNode</a> : any IRI or literal</div>
 							<div><a href="#targetObjectsOf">sh:targetObjectsOf</a> : rdf:Property</div>
 							<div><a href="#targetSubjectsOf">sh:targetSubjectsOf</a> : rdf:Property</div>
 						</div>
@@ -1226,14 +1228,14 @@ WHERE {
 ex:MyShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetNode ex:MyInstance ;</span>
-	sh:property [
+	sh:property [    # _:b1
 		# Violations of sh:minCount and sh:datatype are produced as warnings
 		sh:path ex:myProperty ;
 		sh:minCount 1 ;
 		sh:datatype xsd:string ;
 		sh:severity sh:Warning ;
 	] ;
-	sh:property [
+	sh:property [    # _:b2
 		# The default severity here is sh:Violation
 		sh:path ex:myProperty ;
 		sh:maxLength 10 ;
@@ -1253,7 +1255,7 @@ ex:MyInstance
 		sh:resultPath ex:myProperty ;
 		sh:value "http://toomanycharacters"^^xsd:anyURI ;
 		sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
-		sh:sourceShape ... blank node above ... ;
+		sh:sourceShape _:b1 ;
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
@@ -1263,7 +1265,7 @@ ex:MyInstance
 		sh:resultMessage "Too many characters"@en ;
 		sh:resultMessage "Zu viele Zeichen"@de ;
 		sh:sourceConstraintComponent sh:MaxLengthConstraintComponent ;
-		sh:sourceShape ... blank node above ... ;
+		sh:sourceShape _:b2 ;
 	]
 ] .</pre>
 				</section>
@@ -1361,7 +1363,7 @@ ex:JohnDoe a ex:Person .</pre>
 				</p>
 				<p>
 					Informally, property shapes specify constraints that need to be met with respect to <a>nodes</a> that can be reached from the
-					<a>focus node</a> either by directly following a given property (specified as an <a>IRI</a> or any other <a>SHACL property path</a>
+					<a>focus node</a> either by directly following a given property (specified as an <a>IRI</a>) or any other <a>SHACL property path</a>,
 					specified using <code>sh:path</code>.
 				</p>
 				<p>
@@ -1842,7 +1844,7 @@ ex:AddressGroup
 					This vocabulary defines the RDF properties to represent structural information that may provide guidance on how to identify or fix violations in the data graph.
 				</p>
 				<p><!-- ISSUE-181 -->
-					Note that although this specification only covers the case in which the validation report MUST include all validation results.
+					Note that this specification only covers the case in which the validation report MUST include all validation results.
 					However, in order to count as a SHACL-compliant processor, the processor MUST only be <em>capable</em> of returning
 					all results, while it MAY support optional arguments that limit the number of returned results.
 					This flexibility is for example needed in some large-scale dataset validation use cases.
@@ -1920,7 +1922,7 @@ ex:AddressGroup
 					<section id="results-path">
 						<h4>Path (sh:resultPath)</h4>
 						<p>
-							Validation results may have a value for the property <code>sh:resultPath</code> pointing at a <a>well-formed</a> <a>property path</a> starting with the given <code>sh:focusNode</code>.
+							Validation results may have a value for the property <code>sh:resultPath</code> pointing at a <a>well-formed</a> <a>property path</a>.
 							For results produced by a <a>property shape</a>, this <a>path</a> is equivalent to the <a>value</a> of <code>sh:path</code> of the shape.
 						</p>
 					</section>
@@ -2091,6 +2093,10 @@ ex:AddressGroup
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						Note that multiple values for <code>sh:class</code> are interpreted as a conjunction,
+						i.e. the values need to be SHACL instances of all of them.
+					</p>
 					<div class="def def-sparql">
 						<div class="def-header">SPARQL DEFINITION (Must evaluate to true for each value node $value)</div>
 <pre class="def-sparql-body">
@@ -2930,7 +2936,7 @@ ex:Bob
 				<section id="DisjointConstraintComponent">
 					<h4>sh:disjoint</h4>
 					<p>
-						<code>sh:disjoint</code> specifies the condition that the set of <a>value nodes</a> is disjoint with the the set of <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the <a>value</a> of <code>sh:equals</code> as <a>predicate</a>.
+						<code>sh:disjoint</code> specifies the condition that the set of <a>value nodes</a> is disjoint with the set of <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the <a>value</a> of <code>sh:equals</code> as <a>predicate</a>.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component IRI</span>: <code>sh:DisjointConstraintComponent</code>
@@ -3450,7 +3456,7 @@ ex:AddressShape
 ex:PersonShape
 	a sh:NodeShape ;
 	<span class="target-can-be-skipped">sh:targetClass ex:Person ;</span>
-	sh:property [
+	sh:property [   # _:b1
 		sh:path ex:address ;
 		sh:minCount 1 ;
 		sh:node ex:AddressShape ;
@@ -3478,7 +3484,7 @@ ex:RetosAddress
 		sh:value ex:RetosAddress ;
 		sh:resultMessage "Value does not conform to shape ex:AddressShape." ;
 		sh:sourceConstraintComponent sh:NodeConstraintComponent ;
-		sh:sourceShape   # ... blank node of sh:property at ex:PersonShape above ...
+		sh:sourceShape _:b1 ;
 	]
 ] .</pre>
 				</section>
@@ -3671,7 +3677,7 @@ ex:HandShape
 			<section id="core-components-others">
 				<h3>Other Constraint Components</h3>
 				<p>
-					This section enumerates Core constraint components that did not fit into the other categories.
+					This section enumerates Core constraint components that do not fit into the other categories.
 				</p>
 				
 				<section id="ClosedConstraintComponent">
@@ -3715,7 +3721,7 @@ ex:HandShape
 						<div class="def-text-body" data-validator="Closed">
 							If <code>$closed</code> is <code>true</code> then
 							a <a>validation result</a> MUST be produced for each <a>triple</a> that has a <a>value node</a> as its
-							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <code>sh:path</code>
+							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <a>value</a> of <code>sh:path</code>
 							in any of the <a>property shapes</a> declared via <code>sh:property</code> at the current shape.
 							If <code>$ignoredProperties</code> has a value then the properties enumerated as <a>members</a> of this <a>SHACL list</a>
 							are also permitted for the <a>value node</a>.
