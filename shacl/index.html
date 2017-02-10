@@ -1831,7 +1831,7 @@ ex:AddressGroup
 				<h3>Conformance Checking</h3>
 				<p>
 					A <a>focus node</a> <dfn data-lt="conform|conformance">conforms</dfn> to a <a>shape</a> if and only if
-					the <a>validation</a> of the shape does not produce any <a>validation result</a> or a <a>failure</a>.
+					the <a>validation</a> of the <a>focus node</a> against the shape does not produce any <a>validation result</a> or a <a>failure</a>.
 				</p>
 				<p>
 					<dfn>Conformance checking</dfn> produces <code>true</code> if and only if a given <a>focus node</a>
@@ -1847,9 +1847,8 @@ ex:AddressGroup
 					This vocabulary defines the RDF properties to represent structural information that may provide guidance on how to identify or fix violations in the data graph.
 				</p>
 				<p><!-- ISSUE-181 -->
-					Note that this specification only covers the case in which the validation report MUST include all validation results.
-					However, in order to count as a SHACL-compliant processor, the processor MUST only be <em>capable</em> of returning
-					all results, while it MAY support optional arguments that limit the number of returned results.
+					SHACL-compliant processors MUST be capable of returning all results described in this specification.
+					SHACL-compliant processors MAY support optional arguments that make it possible to limit the number of returned results.
 					This flexibility is for example needed in some large-scale dataset validation use cases.
 				</p>
 				<p>
@@ -1887,8 +1886,9 @@ ex:AddressGroup
 					<section id="results-validation-report-conforms">
 						<h5>Conforms (sh:conforms)</h5>
 						<p>
-							A validation report has exactly one value for the property <code>sh:conforms</code> that is of datatype <code>xsd:boolean</code>.
+							A validation report has exactly one value for the property <code>sh:conforms</code> and the value is of datatype <code>xsd:boolean</code>.
 							It represents the outcome of the <a>conformance checking</a>.
+							The value of <code>sh:conforms</code> is <code>true</code> if and only if the validation process did not produce any <a>top-level</a> <a>validation results</a>.
 						</p>
 					</section>
 					<section id="results-validation-report-result">
@@ -3929,7 +3929,7 @@ ex:RainbowPony ex:color ex:Pink .</pre>
 				</tr>
 			</table>
 			<p>
-				The syntax rules and validation process for SPARQL-based constraints are defined in the rest of this section.
+				The <a href="#sparql-constraints-syntax">syntax rules</a> and <a href="#sparql-constraints-validation">validation process</a> for SPARQL-based constraints are defined in the rest of this section.
 			</p>
 
 			<section id="sparql-constraints-example" class="informative">
@@ -3985,6 +3985,26 @@ ex:LanguageExampleShape
 					In this example, each validation result will have the <a>binding</a> for the variable <code>this</code> as the <code>sh:focusNode</code>,
 					<code>ex:germanLabel</code> as <code>sh:resultPath</code> and the violating value as <code>sh:value</code>.
 				</p>
+				<p>
+					The following example illustrates a similar scenario as above, but with a <a>property shape</a>.
+				</p>
+				<pre class="example-shapes" id="example-sparql-constraint-in-property-shape">
+ex:LanguageExamplePropertyShape
+	a sh:PropertyShape ;
+	<span class="target-can-be-skipped">sh:targetClass ex:Country ;</span>
+	sh:path ex:germanLabel ;
+	sh:sparql [
+		a sh:SPARQLConstraint ;   # This triple is optional
+		sh:message "Values are literals with German language tag." ;
+		sh:prefixes ex: ;
+		sh:select """
+			SELECT $this ?value
+			WHERE {
+				$this $PATH ?value .
+				FILTER (!isLiteral(?value) || !langMatches(lang(?value), "de"))
+			}
+			""" ;
+	] .</pre>
 			</section>
 			
 			<section id="sparql-constraints-syntax">
@@ -4001,15 +4021,22 @@ ex:LanguageExampleShape
 					<span data-syntax-rule="select-query-this">The SPARQL query derived from the value of <code>sh:select</code> returns the result variable <code>this</code> in the SELECT clause.</span>
 				</p>
 				<p>
-					The following three properties are similar to their use in <a>shapes</a>:
+					The following two properties are similar to their use in <a>shapes</a>:
 				</p>
 				<p class="syntax">
 					<!-- Not a formal syntax rule, already handled elsewhere: -->
 					<a>SPARQL-based constraints</a> may have values for the property <code>sh:message</code> which are either <code>xsd:string</code> literals or literals with a language tag.
 					<span data-syntax-rule="SPARQLConstraint-deactivated-maxCount"><a>SPARQL-based constraints</a> may have at most one value for the property <code>sh:deactivated</code></span>
 					and this value is either <code>true</code> or <code>false</code>.
-					<span data-syntax-rule="SPARQLConstraint-severity-maxCount"><a>SPARQL-based constraints</a> may have one value for the property <code>sh:severity</code></span>
-					and this value is an <a>IRI</a>.
+				</p>
+				<p>
+					SELECT queries used in the context of <a>property shapes</a> use a special variable named <code>PATH</code> as a placeholder for the path used by the shape.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="PATH-position">The only legal use of the variable <code>PATH</code> in the SPARQL queries of <a>SPARQL-based constraints</a>
+					and <a>SELECT-based validators</a> is in the
+					<a>predicate</a> position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>.</span>
+					A query that uses the variable <code>PATH</code> in any other position is <a>ill-formed</a>.
 				</p>
 				<section id="sparql-prefixes">
 					<h4>Prefix Declarations for SPARQL Queries</h4>
@@ -4087,10 +4114,14 @@ ex:
 					<div class="def-text-body">
 						No validation results are produced if the <a>SPARQL-based constraint</a> has <code>true</code>
 						as a <a>value</a> for the property <code>sh:deactivated</code>.
-						Otherwise, for each <a>value node</a>
-						execute the SPARQL query specified by the <a>SPARQL-based constraint</a> <code>$sparql</code>
+						Otherwise, execute the SPARQL query specified by the <a>SPARQL-based constraint</a> <code>$sparql</code>
 						<a>pre-binding</a> the variables <code>this</code> and, if supported,
 						<code>shapesGraph</code> and <code>currentShape</code> as described in <a href="#sparql-constraints-prebound"></a>. 
+						If the <a>shape</a> is a <a>property shape</a>, then prior to execution
+						substitute the variable <code>PATH</code> where it appears in the <a>predicate</a>
+						position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>
+						with a valid SPARQL surface syntax string of the <a>SHACL property path</a>
+						specified via <code>sh:path</code> at the <a>property shape</a>.
 						<span id="sparql-constraints-validation-rule">One validation result MUST be produced for each <a>solution</a> that does not have <code>true</code> as the <a>binding</a> for the variable <code>failure</code>.
 						The produced validation results MUST have the property values explained in <a href="#sparql-constraints-variables"></a>.
 						A <a>failure</a> MUST be produced if and only if one of the <a>solutions</a> has <code>true</code> as the <a>binding</a> for <code>failure</code>.</span>
@@ -4109,30 +4140,27 @@ ex:
 							<th>Interpretation</th>
 						</tr>
 						<tr>
-							<td><code>$this</code></td>
+							<td><code>this</code></td>
 							<td>
-								The <a>value node</a>.
-								Note that during the validation of <a>node shapes</a>,
-								the <a>value node</a> is identical with the <a>focus node</a>.
-								For <a>property shapes</a> the query is executed for each <a>value node</a>.
+								The <a>focus node</a>.
 							</td>
 						</tr>
 						<tr>
-							<td><code style="white-space: nowrap">$shapesGraph</code> (Optional)</td>
+							<td><code style="white-space: nowrap">shapesGraph</code> (Optional)</td>
 							<td>
 								Can be used to query the shapes graph as in <code>GRAPH $shapesGraph { ... }</code>.
 								If the shapes graph is a named graph in the same dataset as the data graph then it is the <a>IRI</a> of the shapes graph in the dataset.
 								Not all SHACL-SPARQL processors need to support this variable.
-								Processors that do not support <code>$shapesGraph</code> MUST report a <a>failure</a> if they encounter a query that references this variable.
+								Processors that do not support the variable <code>shapesGraph</code> MUST report a <a>failure</a> if they encounter a query that references this variable.
 								Use of <code>GRAPH $shapesGraph { ... }</code> should be handled with extreme caution.
 								It may result in constraints that are not interoperable across different SHACL-SPARQL processors and that may not run on remote RDF datasets.
 							</td>
 						</tr>
 						<tr>
-							<td><code style="white-space: nowrap">$currentShape</code> (Optional)</td>
+							<td><code style="white-space: nowrap">currentShape</code> (Optional)</td>
 							<td>
-								The current <a>shape</a>.  Typically used in conjunction with <code>$shapesGraph</code>.
-								The same support policies as for <code>$shapesGraph</code> apply for this variable.
+								The current <a>shape</a>.  Typically used in conjunction with the variable <code>shapesGraph</code>.
+								The same support policies as for <code>shapesGraph</code> apply for this variable.
 							</td>
 						</tr>
 					</table>
@@ -4152,7 +4180,6 @@ ex:
 							<td><code>sh:focusNode</code></td>
 							<td>
 								<ol>
-									<li>The binding for the variable <code>focusNode</code></li>
 									<li>The binding for the variable <code>this</code></li>
 								</ol>
 							</td>
@@ -4269,7 +4296,7 @@ shimpl:hasPattern
 					</p>
 					<p class="syntax">
 						<span data-syntax-rule="parameter-name-VARNAME">Every <a>parameter name</a> is a valid <a href="http://www.w3.org/TR/sparql11-query/#rVARNAME">SPARQL VARNAME</a>.</span>
-						<span data-syntax-rule="parameter-name-not-in"><a>Parameter names</a> must not be one of the following: <code>this</code>, <code>shapesGraph</code>, <code>currentShape</code>, <code>focusNode</code>, <code>path</code>, <code>PATH</code>, <code>value</code>.</span>
+						<span data-syntax-rule="parameter-name-not-in"><a>Parameter names</a> must not be one of the following: <code>this</code>, <code>shapesGraph</code>, <code>currentShape</code>, <code>path</code>, <code>PATH</code>, <code>value</code>.</span>
 						<span data-syntax-rule="parameter-name-unique">A constraint component where two or more <a>parameter declarations</a> use the same <a>parameter names</a> is <a>ill-formed</a>.</span>
 					</p>
 					<p class="syntax">
@@ -4334,15 +4361,6 @@ shimpl:hasPattern
 							<span data-syntax-rule="SPARQLSelectValidator-select-count"><a>SELECT-based validators</a> have exactly one <a>value</a> for the property <code>sh:select</code>.</span>
 							The value of <code>sh:select</code> is a valid SPARQL SELECT query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
 							The SPARQL query derived from the value of <code>sh:select</code> returns the result variable <code>this</code> in its SELECT clause.
-						</p>
-						<p>
-							SELECT queries used in the context of <a>property shapes</a> use a special variable named <code>PATH</code> as a placeholder for the predicate or path
-							used by the constraint.
-						</p>
-						<p class="syntax">
-							<span data-syntax-rule="PATH-position">The only legal use of the variable <code>PATH</code> on <a>SELECT-based validators</a> is in the
-							<a>predicate</a> position of a <a href="https://www.w3.org/TR/sparql11-query/#QSynTriples">triple pattern</a>.</span>
-							A query that uses the variable <code>PATH</code> in any other position is <a>ill-formed</a>.
 						</p>
 						<p><em>The remainder of this section is informative.</em></p>
 						<p>
@@ -4488,7 +4506,7 @@ ex:hasLang
 				</p>
 				<p>
 					The production rules for the validation results are identical to those for <a href="#sparql-constraints-validation-rule">SPARQL-based constraints</a>,
-					using the <a>solutions</a> <code>QS</code> of the query executions above.
+					using the <a>solutions</a> <code>QS</code> as produced above.
 				</p>
 			</section>
 		</section>
@@ -4651,6 +4669,7 @@ ex:hasLang
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2017-02-10</b>: Changed execution of sh:sparql in property shapes so that $this is the focus node and $PATH can be used. Also dropped support for SPARQL result variable focusNode (<a href="http://www.w3.org/2014/data-shapes/track/issues/230">ISSUE-230</a>)</li>
 				<li><b>2017-02-09</b>: Added syntax rules that sh:NodeShapes cannot have sh:path and sh:PropertyShapes must have a sh:path (<a href="http://www.w3.org/2014/data-shapes/track/issues/223">ISSUE-223</a>) and related terminology clarifications (<a href="http://www.w3.org/2014/data-shapes/track/issues/224">ISSUE-224</a>)</li>
 				<li><b>2017-02-09</b>: Declared the use of sh:minCount, sh:maxCount, sh:uniqueLang, the 4 property pair parameters and sh:qualifiedValueShape at node shapes ill-formed (<a href="http://www.w3.org/2014/data-shapes/track/issues/139">ISSUE-139</a>)</li>
 				<li><b>2017-02-09</b>: Corrected the constraint component IRIs of sh:qualifiedMinCount and sh:qualifiedMaxCount</li>
