@@ -3,11 +3,6 @@
     <title>SHACL Test Suite</title>
     <meta charset='utf-8'>
     <script src="https://www.w3.org/Tools/respec/respec-w3c-common" async class="remove"></script>
-	<link rel="stylesheet" href="stylesheets/codemirror.css"> 
-	<script src="javascripts/codemirror-compressed.js"></script>
-	<script src="http://codemirror.net/mode/sparql/sparql.js"></script>
-	<script src="http://codemirror.net/addon/runmode/runmode.js"></script>
-	<script src="http://codemirror.net/addon/runmode/colorize.js"></script>
 
     <script class='remove'>
       var respecConfig = {
@@ -15,10 +10,13 @@
           specStatus: "unofficial",
           shortName:  "SHACLTestSuite",
           editors: [
-                {   name:       "Jose Emilio Labra Gayo",
-                    url:        "http://www.di.uniovi.es/~labra",
-                    company:    "WESO Research Group",
-                    companyURL: "http://www.weso.es/" },
+				{
+					name:       "Holger Knublauch",
+					url:        "http://knublauch.com/",
+					company:    "TopQuadrant, Inc.",
+					companyURL: "http://topquadrant.com/",
+					w3cid:      46500
+				},
                 {   name:       "Dimitris Kontokostas",
                     url:        "http://aksw.org/DimitrisKontokostas.html",
                     company:    "University of Leipzig",
@@ -34,14 +32,14 @@
     <script src="javascripts/codemirror.js"></script>
 </head>
 <body>
-    <section id='abstract'>
-      <p>
-        This document describes the SHACL test suite</a>.
-      </p>
-    </section>
+	<section id='abstract'>
+		<p>
+			This document defines the format of the tests in the SHACL test suite,
+			and the process to use them to evaluate SHACL implementations.
+		</p>
+	</section>
 
     <section id='sotd'>
-      <p>Initial version</p>
     </section>
     
     <section class='informative'>
@@ -71,6 +69,7 @@ In this document we will employ the following namespace prefixes:
 
 <dt><code>mf</code></dt>
 <dd><code><a href="http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#">http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#</a></code></dd>
+</dl>
 
 </section>
 
@@ -91,25 +90,27 @@ In this document we will employ the following namespace prefixes:
      ....list of ManifestEntries
      ) .
 </pre>
-<p>Each manifest entry is a single test which can be one of the following types.
-<p>There are the following types of tests:</p>
+<p>Each manifest entry is a single test which can be one of the following types:</p>
 	<ul>
 	<li><a href="#Validate">Validate RDF data</a>
 	</ul>
 </section>
 
-<section>
-<h2 id="Validate">Validate RDF data</h2>
-<p>These tests validate a given data graph against a given shapes graph. Both graphs may be identical.
-To pass the test, the validation report must be isomorphic to the subgraph starting at <code>mf:result</code>.
-(TODO: More formal definition needed here.</p>
-
-<p>Example</p>
+	<section>
+		<h2 id="Validate">Validate RDF data</h2>
+		<p>
+			These tests verify that the validation of a given data graph against a given shapes graph produces
+			a specified validation report.
+			Both the data graph and the shapes graph may be identical.
+		</p>
+		<p>
+			Example:
+		</p>
 <pre data-lang="text/turtle">
 &lt;entry1&gt; a sht:Validate ;
    mf:name "Validate simple RDF data with a simple shapes graph" ;
    mf:action [
-        sht:shapesGraph &lt;example-schema.ttl&gt; ; 
+        sht:shapesGraph &lt;example-shapes.ttl&gt; ; 
         sht:dataGraph &lt;example-data.ttl&gt; ; 
    ] ;
    mf:result [
@@ -118,25 +119,77 @@ To pass the test, the validation report must be isomorphic to the subgraph start
    ] ;
    mf:status sht:proposed .
 </pre>
-  
-</section>
+		<p>
+			To pass the test, the validation engine must validate the data graph specified by <code>sht:dataGraph</code>
+			against the shapes graph specified by <code>sht:shapesGraph</code>.
+			The values of both must be relative URLs pointing at a Turtle file in the same directory as the test file itself.
+			It is also valid that either of these graphs point at the manifest graph itself, using the relative URL <code>&lt;&gt;</code>.
+		</p>
+		<p>
+			Let <code>R</code> be the blank node that is the value of <code>mf:result</code> of the <code>sht:Validate</code> test case
+			in the manifest graph.
+			Let <code>expected</code> be the graph that consists of all triples from the manifest graph that have <code>R</code> as subject
+			plus all triples that have all values of <code>sh:result</code> of <code>R</code> as their subject,
+			as well as any triples needed to correctly represent the <code>sh:resultPath</code>.
+		</p>
+		<p>
+			Let <code>actual</code> be the results graph produced by the validation, i.e. the validation report.
+			Before comparing these results with the <code>expected</code> results, the <code>actual</code> validation report
+			must not include any "nested" results, via <code>sh:details</code>.
+			Also, all instances of <code>sh:ValidationResult</code> and <code>sh:ValidationReport</code> must be blank nodes,
+			i.e. if the engine produces URIs then these need to be replaced with blank nodes.
+			Furthermore, only the following predicates are used by triples in the <code>expected</code> graph and therefore
+			any other triples (such as <code>sh:sourceConstraint</code>, <code>sh:resultMessage</code> and <code>sh:sourceShape</code>)
+			need to be removed from the <code>actual</code> graph prior to comparison:
+		</p>
+		<ul>
+			<li><code>rdf:type sh:ValidationResult</code></li>
+			<li><code>sh:focusNode</code></li>
+			<li><code>sh:resultPath</code></li>
+			<li><code>sh:resultSeverity</code></li>
+			<li><code>sh:sourceConstraintComponent</code></li>
+			<li><code>sh:value</code></li>
+		</ul>
+		<p>
+			To pass the test, the <code>actual</code> validation report must be <em>isomorphic</em> to <code>expected</code>.
+		</p>
+	</section>
+	
+	<section>
+		<h2>Test Creation, Approval and Modification Process</h2>
+		<p>
+			Tests are maintained by members of the Working Group in the
+			<a href="https://github.com/w3c/data-shapes/tree/gh-pages/data-shapes-test-suite/tests">GitHub</a> repository.
+			Anyone, including non-members, can submit or suggest test cases via GitHub pull requests.
+			Submissions by other means may be rejected without response.
+			Test cases that have not been accepted by the Working Group yet must have <code>mf:status sht:proposed</code>.
+		</p>
+		<p>
+			At the chair's discretion, individual tests or groups of tests are put to the Working Group,
+			e.g. in the weekly telecon.
+			The Working Group has complete discretion to approve or reject tests.
+			Approved tests must have <code>mf:status sht:approved</code>, those that have been rejected
+			may get marked as <code>mf:status sht:rejected</code> or deleted from the main branch of the repository.
+			All approved tests must be reachable from the root manifest.mf file.
+		</p>
+		<p>
+			Editors may modify test cases, but SHOULD go through the WG process for non-trivial changes.
+		</p>
+	</section>
 
-<section>
-<h2>Related information</h2>
-
-The following list contains a list of other test-suites:
-<ul>
-<li><a href="http://www.w3.org/2011/rdf-wg/wiki/RDF_Test_Suites">RDF test suite</a></li>
-<li><a href="http://www.w3.org/2001/sw/DataAccess/tests/r2">Data Access Test Suite</a>
-<li><a href="http://www.w3.org/XML/2004/xml-schema-test-suite/">XML Schema test suite</a>
-<li><a href="http://www.gnosis.cx/download/relax/clark.html">RelaxNG test suite</a>
-</ul>
-
-</section>
+	<section>
+		<h2>Related information</h2>
+		<p>
+			The following list contains a list of other test-suites:
+		</p>
+		<ul>
+			<li><a href="http://www.w3.org/2011/rdf-wg/wiki/RDF_Test_Suites">RDF test suite</a></li>
+			<li><a href="http://www.w3.org/2001/sw/DataAccess/tests/r2">Data Access Test Suite</a>
+			<li><a href="http://www.w3.org/XML/2004/xml-schema-test-suite/">XML Schema test suite</a>
+			<li><a href="http://www.gnosis.cx/download/relax/clark.html">RelaxNG test suite</a>
+		</ul>
+	</section>
 
 </body>
-<script>
- setTimeout(function(){CodeMirror.colorize();}, 20);
-</script>
 
 </html>
