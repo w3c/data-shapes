@@ -579,18 +579,17 @@
 				<pre class="example-data">
 ex:Alice
 	a ex:Person ;
-	ex:child ex:Calvin ;
 	ex:ssn "987-65-432A" .
   
 ex:Bob
 	a ex:Person ;
-	ex:child ex:Calvin ;
 	ex:ssn "123-45-6789" ;
 	ex:ssn "124-35-6789" .
   
 ex:Calvin
 	a ex:Person ;
-	ex:school ex:TrinityAnglicanSchool .</pre>
+	ex:birthDate "1971-07-07"^^xsd:date ;
+	ex:worksFor ex:UntypedCompany .</pre>
 				<p>
 					The following conditions are shown in the example:
 				<p>
@@ -601,17 +600,12 @@ ex:Calvin
 						a specified regular expression.
 					</li>
 					<li>
-						A <a>SHACL instance</a> of <code>ex:Person</code> can have unlimited <a>values</a> for the property <code>ex:child</code>,
-						and these <a>values</a> are <a>IRIs</a> and <a>SHACL instances</a> of <code>ex:Person</code>.
-					</li>
-					<li>
-						A person's parents are represented using the property <code>ex:child</code> in the inverse direction.
-						A <a>SHACL instance</a> of <code>ex:Person</code> can have at most 2 parents, i.e. can be the <a>object</a> of at most two <a>triples</a>
-						where the <a>predicate</a> is <code>ex:child</code>.
+						A <a>SHACL instance</a> of <code>ex:Person</code> can have unlimited <a>values</a> for the property <code>ex:worksFor</code>,
+						and these <a>values</a> are <a>IRIs</a> and <a>SHACL instances</a> of <code>ex:Company</code>.
 					</li>
 					<li>
 						A <a>SHACL instance</a> of <code>ex:Person</code> cannot have <a>values</a> for any other property apart from
-						<code>ex:ssn</code>, <code>ex:child</code> and <code>rdf:type</code>.
+						<code>ex:ssn</code>, <code>ex:worksFor</code> and <code>rdf:type</code>.
 					</li>
 				</ul>
 				<p>
@@ -621,22 +615,16 @@ ex:Calvin
 ex:PersonShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Person ;    # Applies to all persons
-	sh:property [            # _:b1
-		sh:path ex:ssn ;     # This property shape is about the values of the ex:ssn property
+	sh:property [                 # _:b1
+		sh:path ex:ssn ;          # constrains the values of ex:ssn
 		sh:maxCount 1 ;
 		sh:datatype xsd:string ;
 		sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
 	] ;
-	sh:property [
-		sh:path ex:child ;
-		sh:class ex:Person ;
+	sh:property [                 # _:b2
+		sh:path ex:worksFor ;
+		sh:class ex:Company ;
 		sh:nodeKind sh:IRI ;
-	] ;
-	sh:property [
-		rdfs:comment "A person's parents are represented via ex:child used in the inverse direction." ;
-		sh:path [ sh:inversePath ex:child ] ;
-		sh:name "parent" ;
-		sh:maxCount 2 ;
 	] ;
 	sh:closed true ;
 	sh:ignoredProperties ( rdf:type ) .</pre>
@@ -659,15 +647,9 @@ ex:PersonShape
 			"pattern" : "^\\d{3}-\\d{2}-\\d{4}$"
 		},
 		{
-			"path" : "ex:child",
-			"class" : "ex:Person",
+			"path" : "ex:worksFor",
+			"class" : "ex:Company",
 			"nodeKind" : "sh:IRI"
-		},
-		{
-			"comment" : "A person's parents are represented via ex:child used in the inverse direction." ,
-			"path" : { "inversePath" : "ex:child" },
-			"name" : "parent",
-			"maxCount" : 2
 		}
 	],
 	"closed" : true,
@@ -680,10 +662,9 @@ ex:PersonShape
 					During the validation, these target nodes become <a>focus nodes</a> for the shape.
 					The <a>shape</a> <code>ex:PersonShape</code> is a <a>node shape</a>, which means that it applies to the focus nodes.
 					It declares <a>constraints</a> on the <a>focus nodes</a>, for example using the <a>parameters</a> <code>sh:closed</code> and <code>sh:ignoredProperties</code>.
-					The <a>node shape</a> also declares three other constraints with the property <code>sh:property</code>,
+					The <a>node shape</a> also declares two other constraints with the property <code>sh:property</code>,
 					and each of these is backed by a <a>property shape</a>. 
 					These <a>property shapes</a> declare additional <a>constraints</a> using <a>parameters</a> such as <code>sh:datatype</code> and <code>sh:maxCount</code>.
-					One of them uses an <a>inverse path</a> expression.
 				</p>
 				<p>
 					Some of the <a>property shapes</a> specify parameters from multiple <a>constraint components</a> in order to
@@ -691,9 +672,6 @@ ex:PersonShape
 					For example, in the <a>property shape</a> for <code>ex:ssn</code>, parameters from three <a>constraint components</a> are used.
 					The <a>parameters</a> of these <a>constraint components</a> are <code>sh:datatype</code>, <code>sh:pattern</code> and <code>sh:maxCount</code>.
 					For each <a>focus node</a> the <a>property values</a> of <code>ex:ssn</code> will be validated against all three components.
-					The <a>property shape</a> on the inverse property values of <code>sh:child</code> uses only one <a>constraint component</a> identified by the <code>sh:maxCount</code> <a>parameter</a>.
-					Note that this <a>property shape</a> also uses the <a>non-validating property</a> <code>sh:name</code>
-					to suggest a human-readable name for the property <code>ex:child</code> when used in the inverse direction.
 				</p>
 				<p>
 					SHACL <a>validation</a> based on the provided <a>data graph</a> and <a>shapes graph</a> would produce the following <a>validation report</a>.
@@ -703,7 +681,7 @@ ex:PersonShape
 [	a sh:ValidationReport ;
 	sh:conforms false ;
 	sh:result
-	[  	a sh:ValidationResult ;
+	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
 		sh:focusNode ex:Alice ;
 		sh:resultPath ex:ssn ;
@@ -721,8 +699,16 @@ ex:PersonShape
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
 		sh:focusNode ex:Calvin ;
-		sh:resultPath ex:school ;
-		sh:value ex:TrinityAnglicanSchool ;
+		sh:resultPath ex:worksFor ;
+		sh:value ex:UntypedCompany ;
+		sh:sourceConstraintComponent sh:ClassConstraintComponent ;
+		sh:sourceShape ... blank node _:b2 on ex:worksFor above ... ;
+	] ,
+	[	a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Calvin ;
+		sh:resultPath ex:birthDate ;
+		sh:value "1971-07-07"^^xsd:date ;
 		sh:sourceConstraintComponent sh:ClosedConstraintComponent ;
 		sh:sourceShape sh:PersonShape ;
 	] 
@@ -733,8 +719,10 @@ ex:PersonShape
 					that does not match the regular expression specified by the property <code>sh:regex</code>.
 					The second <a>validation result</a> is produced because <code>ex:Bob</code> has more than the permitted number of <a>values</a>
 					for the property <code>ex:ssn</code> as specified by the <code>sh:maxCount</code> of 1.
-					The third <a>validation result</a> is produced because the <a>shape</a> <code>ex:PersonShape</code> has the	property <code>sh:closed</code> set to <code>true</code>
-					but <code>ex:Calvin</code> uses the property <code>ex:school</code> which is neither one of the predicates from any of the 
+					The third <a>validation result</a> is produced because <code>ex:Calvin</code> has a <a>value</a> for <code>ex:worksFor</code>
+					that does not have an <code>rdf:type</code> triple that makes it a <a>SHACL instance</a> of <code>ex:Company</code>.
+					The forth <a>validation result</a> is produced because the <a>shape</a> <code>ex:PersonShape</code> has the	property <code>sh:closed</code> set to <code>true</code>
+					but <code>ex:Calvin</code> uses the property <code>ex:birthDate</code> which is neither one of the predicates from any of the 
 					<a>property shapes</a> of the shape, nor one of the properties listed using <code>sh:ignoredProperties</code>.
 				</p>
 			</section>
@@ -4768,6 +4756,7 @@ ex:hasLang
 				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes/commits/gh-pages/shacl/index.html">Git repository</a>.
 			</p>
 			<ul>
+				<li><b>2017-03-17</b>: Updated example from 1.4 and other editorial work</li>
 				<li><b>2017-03-02</b>: Moved the sh:qualifiedValueShapesDisjoint flag from the parent into the property shapes (<a href="http://www.w3.org/2014/data-shapes/track/issues/92">ISSUE-92</a>)</li>
 				<li><b>2017-03-02</b>: Added informative security and privacy section to the appendix</li>
 				<li><b>2017-03-02</b>: Removed syntax restrictions that were disallowing sh:equals and sh:disjoint at node shapes (<a href="http://www.w3.org/2014/data-shapes/track/issues/139">ISSUE-139</a>)</li>
