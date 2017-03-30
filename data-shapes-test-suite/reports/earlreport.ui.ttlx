@@ -1,0 +1,198 @@
+# baseURI: http://shacl.org/earlreport
+# imports: http://topquadrant.com/shacl/api/earl
+# imports: http://uispin.org/html
+# imports: http://www.w3.org/ns/earl
+# prefix: earlreport
+
+@prefix afn: <http://jena.hpl.hp.com/ARQ/function#> .
+@prefix arg: <http://spinrdf.org/arg#> .
+@prefix css: <http://uispin.org/css#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix default: <http://uispin.org/default#> .
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix earl: <http://www.w3.org/ns/earl#> .
+@prefix earlreport: <http://shacl.org/earlreport#> .
+@prefix fn: <http://www.w3.org/2005/xpath-functions#> .
+@prefix html: <http://uispin.org/html#> .
+@prefix let: <http://uispin.org/let#> .
+@prefix letrs: <http://uispin.org/letrs#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix smf: <http://topbraid.org/sparqlmotionfunctions#> .
+@prefix sp: <http://spinrdf.org/sp#> .
+@prefix spif: <http://spinrdf.org/spif#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix spl: <http://spinrdf.org/spl#> .
+@prefix spr: <http://spinrdf.org/spr#> .
+@prefix spra: <http://spinrdf.org/spra#> .
+@prefix style: <http://uispin.org/style#> .
+@prefix ui: <http://uispin.org/ui#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://shacl.org/earlreport>
+  rdf:type owl:Ontology ;
+  owl:imports <http://topquadrant.com/shacl/api/earl> ;
+  owl:imports <http://uispin.org/html> ;
+  owl:imports <http://www.w3.org/ns/earl> ;
+  owl:versionInfo "Created with TopBraid Composer" ;
+.
+earlreport:ValidationTestsTable
+  rdf:type ui:ViewElement ;
+  ui:prototype """
+<table letrs:subjects=\"{#
+        SELECT ?subject
+        WHERE {
+            ?subject a earl:TestSubject .
+        } }\">
+    <tr>
+        <th>Test File</th>
+        <th>Test Label</th>
+        <ui:forEach ui:resultSet=\"{= ?subjects }\">
+            <th>
+                <a>{= spl:object(?subject, doap:name) }</a>
+            </th>
+        </ui:forEach>
+    </tr>
+    <tr>
+        <td/>
+        <td/>
+        <ui:forEach ui:resultSet=\"{= ?subjects }\">
+            <td>100%</td>
+        </ui:forEach>
+    </tr>
+    <ui:forEach ui:resultSet=\"{#
+            SELECT ?test ?label ?path ?filePath
+            WHERE {
+                GRAPH &lt;http://shacl.org/alltests&gt; {
+                    ?test rdfs:label ?label .
+                    ?test rdfs:seeAlso ?filePath .
+                } .
+                BIND (earlreport:getPath(?test) AS ?path) .
+            }
+            ORDER BY (?path) (?label) }\">
+        <tr>
+            <td>
+                <a href=\"https://github.com/w3c/data-shapes/blob/gh-pages/data-shapes-test-suite/tests/{= ?filePath }\">{= ?path }</a>
+            </td>
+            <td>{= ?label }</td>
+            <ui:forEach ui:resultSet=\"{= ?subjects }\">
+                <earlreport:ValidationTestsTableCell arg:subject=\"{= ?subject }\" arg:test=\"{= ?test }\"/>
+            </ui:forEach>
+        </tr>
+    </ui:forEach>
+</table>
+"""^^ui:Literal ;
+  ui:responseType ui:HTML ;
+  rdfs:label "Validation tests table" ;
+  rdfs:subClassOf ui:ViewElements ;
+.
+earlreport:ValidationTestsTableCell
+  rdf:type ui:ViewElement ;
+  spin:constraint [
+      rdf:type spl:Argument ;
+      spl:predicate arg:subject ;
+      spl:valueType earl:TestSubject ;
+      rdfs:comment "The test subject (product)." ;
+    ] ;
+  spin:constraint [
+      rdf:type spl:Argument ;
+      spl:predicate arg:test ;
+      spl:valueType rdfs:Resource ;
+      rdfs:comment "The test case." ;
+    ] ;
+  ui:prototype """
+<ui:group let:outcome=\"{#
+        SELECT ?outcome
+        WHERE {
+            ?assertion earl:subject ?subject .
+            ?assertion earl:test ?test .
+            ?assertion earl:result ?result .
+            ?result earl:outcome ?outcome .
+        } }\">
+    <ui:if ui:condition=\"{= !bound(?outcome) }\">
+        <td class=\"nodata\">no data</td>
+    </ui:if>
+    <ui:else>
+        <td class=\"{= afn:localname(?outcome) }\">{= afn:localname(?outcome) }</td>
+    </ui:else>
+</ui:group>
+"""^^ui:Literal ;
+  rdfs:label "Validation tests table cell" ;
+  rdfs:subClassOf ui:ViewElements ;
+.
+earlreport:getPath
+  rdf:type spin:Function ;
+  spin:body [
+      rdf:type sp:Select ;
+      sp:resultVariables (
+          [
+            sp:varName "result" ;
+          ]
+        ) ;
+      sp:where (
+          [
+            rdf:type sp:Bind ;
+            sp:expression [
+                rdf:type sp:str ;
+                sp:arg1 [
+                    sp:varName "test" ;
+                  ] ;
+              ] ;
+            sp:variable [
+                sp:varName "str" ;
+              ] ;
+          ]
+          [
+            rdf:type sp:Bind ;
+            sp:expression [
+                rdf:type spif:lastIndexOf ;
+                sp:arg1 [
+                    sp:varName "str" ;
+                  ] ;
+                sp:arg2 "/" ;
+              ] ;
+            sp:variable [
+                sp:varName "lastIndex" ;
+              ] ;
+          ]
+          [
+            rdf:type sp:Bind ;
+            sp:expression [
+                rdf:type sp:substr ;
+                sp:arg1 [
+                    sp:varName "str" ;
+                  ] ;
+                sp:arg2 19 ;
+                sp:arg3 [
+                    rdf:type sp:add ;
+                    sp:arg1 [
+                        sp:varName "lastIndex" ;
+                      ] ;
+                    sp:arg2 1 ;
+                  ] ;
+              ] ;
+            sp:variable [
+                sp:varName "result" ;
+              ] ;
+          ]
+        ) ;
+    ] ;
+  spin:constraint [
+      rdf:type spl:Argument ;
+      spl:predicate arg:test ;
+      spl:valueType rdfs:Resource ;
+      rdfs:comment "The test resource" ;
+    ] ;
+  spin:returnType xsd:string ;
+  rdfs:label "get path" ;
+  rdfs:subClassOf spin:Functions ;
+.
+arg:subject
+  rdf:type rdf:Property ;
+  rdfs:subPropertyOf sp:arg ;
+.
+arg:test
+  rdf:type rdf:Property ;
+  rdfs:subPropertyOf sp:arg ;
+.
