@@ -1,5 +1,5 @@
 # A SHACL shapes graph to validate SHACL shapes graphs
-# Draft last edited 2017-04-03
+# Draft last edited 2017-04-04
 
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -30,8 +30,7 @@ shsh:ListShape
 		rdfs:comment "Each list member (including this node) must be have the shape shsh:ListNodeShape."@en ;
 		sh:hasValue rdf:nil ;
 		sh:node shsh:ListNodeShape ;
-	] ;
-.
+	] .
 
 shsh:ListNodeShape
 	a sh:NodeShape ;
@@ -60,8 +59,7 @@ shsh:ListNodeShape
 					sh:maxCount 1 ;
 					sh:minCount 1 ;
 				] ;
-			] ) ;
-.
+			] ) .
 
 shsh:ShapeShape
 	a sh:NodeShape ;
@@ -77,7 +75,15 @@ shsh:ShapeShape
 		sh:maxInclusive, sh:maxLength, sh:minCount, sh:minExclusive, sh:minInclusive, sh:minLength, sh:node, sh:nodeKind,
 		sh:not, sh:or, sh:pattern, sh:property, sh:qualifiedMaxCount, sh:qualifiedMinCount, sh:qualifiedValueShape,
 		sh:qualifiedValueShape, sh:qualifiedValueShapesDisjoint, sh:qualifiedValueShapesDisjoint, sh:sparql, sh:uniqueLang, sh:xone ;
-		
+
+	sh:targetObjectsOf sh:node ;        # node-node
+	sh:targetObjectsOf sh:not ;         # not-node
+	sh:targetObjectsOf sh:property ;    # property-node
+	sh:targetObjectsOf sh:qualifiedValueShape ; # qualifiedValueShape-node
+
+	# Shapes are either node shapes or property shapes
+	sh:xone ( shsh:NodeShapeShape shsh:PropertyShapeShape ) ;
+
 	sh:property [
 		sh:path sh:targetNode ;
 		sh:nodeKind	sh:IRIOrLiteral ;   # targetNode-nodeKind
@@ -119,10 +125,6 @@ shsh:ShapeShape
 	sh:property [
 		sh:path sh:and ;
 		sh:node shsh:ListShape ;        # and-node
-	] ;
-	sh:property [
-		sh:path ( sh:and [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:node shsh:ShapeShape ;       # and-members-node
 	] ;
 	sh:property [
 		sh:path sh:class ;
@@ -218,25 +220,13 @@ shsh:ShapeShape
 		sh:maxCount 1 ;                 # minLength-maxCount
 	] ;
 	sh:property [
-		sh:path sh:node ;
-		sh:node shsh:NodeShapeShape ;   # node-node
-	] ;
-	sh:property [
 		sh:path sh:nodeKind ;
 		sh:in ( sh:BlankNode sh:IRI sh:Literal sh:BlankNodeOrIRI sh:BlankNodeOrLiteral sh:IRIOrLiteral ) ;	# nodeKind-in
 		sh:maxCount 1 ;                 # nodeKind-maxCount
 	] ;
 	sh:property [
-		sh:path sh:not ;
-		sh:node shsh:ShapeShape ;       # not-node
-	] ;
-	sh:property [
 		sh:path sh:or ;
 		sh:node shsh:ListShape ;        # or-node
-	] ;
-	sh:property [
-		sh:path ( sh:or [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:node shsh:ShapeShape ;       # or-members-node
 	] ;
 	sh:property [
 		sh:path sh:pattern ;
@@ -250,10 +240,6 @@ shsh:ShapeShape
 		sh:maxCount 1 ;                 # multiple-parameters
 	] ;
 	sh:property [
-		sh:path sh:property ;
-		sh:node shsh:PropertyShapeShape ;    # property-node
-	] ;
-	sh:property [
 		sh:path sh:qualifiedMaxCount ;
 		sh:datatype xsd:integer ;       # qualifiedMaxCount-datatype
 		sh:maxCount 1 ;                 # multiple-parameters
@@ -265,7 +251,6 @@ shsh:ShapeShape
 	] ;
 	sh:property [
 		sh:path sh:qualifiedValueShape ;
-		sh:node shsh:ShapeShape ;       # qualifiedValueShape-node
 		sh:maxCount 1 ;                 # multiple-parameters
 	] ;
 	sh:property [
@@ -281,16 +266,11 @@ shsh:ShapeShape
 	sh:property [
 		sh:path sh:xone ;
 		sh:node shsh:ListShape ;        # xone-node
-	] ;
-	sh:property [
-		sh:path ( sh:xone [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:node shsh:ShapeShape ;       # xone-members-node
-	] ;
-.
+	] .
 	
 shsh:NodeShapeShape
 	a sh:NodeShape ;
-	sh:node shsh:ShapeShape ;
+	sh:targetObjectsOf sh:node ;        # node-node
 	sh:property [
 		sh:path sh:path ;
 		sh:maxCount 0 ;                 # NodeShape-path-maxCount
@@ -318,27 +298,52 @@ shsh:NodeShapeShape
 	sh:property [
 		sh:path sh:uniqueLang ;
 		sh:maxCount 0 ;                 # uniqueLang-scope
-	] ;
-.
+	] .
 
 shsh:PropertyShapeShape
 	a sh:NodeShape ;
-	sh:targetSubjectsOf sh:path ;
-	sh:node shsh:ShapeShape ;
+	sh:targetObjectsOf sh:property ;    # property-node
 	sh:property [
 		sh:path sh:path ;
 		sh:maxCount 1 ;                 # path-maxCount
 		sh:minCount 1 ;                 # PropertyShape-path-minCount
 		sh:node shsh:PathShape ;        # path-node
-	] ;
-.
+	] .
+
+# Values of sh:and, sh:or and sh:xone must be lists of shapes
+shsh:ShapesListShape
+	a sh:NodeShape ;
+	sh:targetObjectsOf sh:and ;         # and-members-node
+	sh:targetObjectsOf sh:or ;          # or-members-node
+	sh:targetObjectsOf sh:xone ;        # xone-members-node
+	sh:property [
+		sh:path ( [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
+		sh:node shsh:ShapeShape ;
+	] .
+
+
+# A path of blank node path syntax, used to simulate recursion
+_:PathPath
+	sh:alternativePath (
+		( [ sh:zeroOrMorePath rdf:rest ] rdf:first )
+		( sh:alternativePath [ sh:zeroOrMorePath rdf:rest ] rdf:first )
+		sh:inversePath
+		sh:zeroOrMorePath
+		sh:oneOrMorePath
+		sh:zeroOrOnePath 
+	) .
 
 shsh:PathShape
 	a sh:NodeShape ;
 	rdfs:label "Path shape"@en ;
 	rdfs:comment "A shape that can be used to validate the syntax rules of well-formed SHACL paths."@en ;
 	rdfs:seeAlso <https://www.w3.org/TR/shacl/#property-paths> ;
-	# TODO, see https://lists.w3.org/Archives/Public/public-rdf-shapes/2017Feb/0115.html for some input
+	sh:property [
+		sh:path [ sh:zeroOrMorePath _:PathPath ] ;
+		sh:node shsh:PathNodeShape ;
+	] .
+
+shsh:PathNodeShape
 	sh:xone (                           # path-metarule
 			[ sh:nodeKind sh:IRI ]          # 2.3.1.1: Predicate path
 			[ sh:nodeKind sh:BlankNode ;    # 2.3.1.2: Sequence path
@@ -357,7 +362,6 @@ shsh:PathShape
 			  sh:closed true ;
 			  sh:property [
 			    sh:path sh:inversePath ;
-			    sh:node shsh:PathShape ;
 			    sh:minCount 1 ;
 			    sh:maxCount 1 ;
 			  ] 
@@ -366,7 +370,6 @@ shsh:PathShape
 			  sh:closed true ;
 			  sh:property [
 			    sh:path sh:zeroOrMorePath ;
-			    sh:node shsh:PathShape ;
 			    sh:minCount 1 ;
 			    sh:maxCount 1 ;
 			  ] 
@@ -375,7 +378,6 @@ shsh:PathShape
 			  sh:closed true ;
 			  sh:property [
 			    sh:path sh:oneOrMorePath ;
-			    sh:node shsh:PathShape ;
 			    sh:minCount 1 ;
 			    sh:maxCount 1 ;
 			  ] 
@@ -384,35 +386,26 @@ shsh:PathShape
 			  sh:closed true ;
 			  sh:property [
 			    sh:path sh:zeroOrOnePath ;
-			    sh:node shsh:PathShape ;
 			    sh:minCount 1 ;
 			    sh:maxCount 1 ;
 			  ] 
 			]
-		) ;
-.
+		) .
 
 shsh:PathListWithAtLeast2Members
 	a sh:NodeShape ;
 	sh:node shsh:ListShape ;
 	sh:property [
-		sh:path [ sh:zeroOrMorePath rdf:rest ] ;
-		sh:minCount 3 ;    # 2 list nodes plus rdf:nil
-	] ;
-	sh:property [
-		sh:path ( [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:node shsh:PathShape ;
-	] ;
-.
+		sh:path [ sh:oneOrMorePath rdf:rest ] ;
+		sh:minCount 2 ;    # 1 other list node plus rdf:nil
+	] .
 
 shsh:ShapesGraphShape
 	a sh:NodeShape ;
 	sh:targetObjectsOf sh:shapesGraph ;
-	sh:nodeKind sh:IRI ;                # shapesGraph-nodeKind
-.
+	sh:nodeKind sh:IRI .                # shapesGraph-nodeKind
 
 shsh:EntailmentShape
 	a sh:NodeShape ;
 	sh:targetObjectsOf sh:entailment ;
-	sh:nodeKind sh:IRI ;                # entailment-nodeKind
-.
+	sh:nodeKind sh:IRI .                # entailment-nodeKind
