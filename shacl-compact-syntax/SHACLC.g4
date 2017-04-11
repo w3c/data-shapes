@@ -11,9 +11,14 @@ baseDecl 		: KW_BASE  IRIREF ;
 importsDecl		: KW_IMPORTS IRIREF ;
 prefixDecl		: KW_PREFIX PNAME_NS IRIREF ;
 
-shapeDecl		: iri shapeValues '{' '}';
+shapeDecl		: iri shapeValues '{' propertyDecl* '}';
 shapeValues		: shapeValue* ;
 shapeValue		: KW_SHAPE_PARAM '=' iriOrLiteral ;
+
+propertyDecl	: iri ( propertyCount )* ';' ;
+propertyCount	: '[' propertyMinCount '..' propertyMaxCount ']' ;
+propertyMinCount: INTEGER ;
+propertyMaxCount: (INTEGER | '*') ;
 
 iriOrLiteral	: iri | literal ;
 
