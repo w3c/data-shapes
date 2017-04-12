@@ -1,4 +1,5 @@
 # baseURI: http://shacl.org/earlreport
+# imports: http://netage.com/shacl/earl/api
 # imports: http://topquadrant.com/shacl/api/earl
 # imports: http://uispin.org/html
 # imports: http://www.w3.org/ns/earl
@@ -32,6 +33,7 @@
 
 <http://shacl.org/earlreport>
   rdf:type owl:Ontology ;
+  owl:imports <http://netage.com/shacl/earl/api> ;
   owl:imports <http://topquadrant.com/shacl/api/earl> ;
   owl:imports <http://uispin.org/html> ;
   owl:imports <http://www.w3.org/ns/earl> ;
@@ -44,7 +46,17 @@ earlreport:ValidationTestsTable
         SELECT ?subject
         WHERE {
             ?subject a earl:TestSubject .
-        } }\">
+        } }\" letrs:tests=\"{#
+        SELECT ?test ?label ?path ?filePath ?status
+        WHERE {
+            GRAPH &lt;http://shacl.org/alltests&gt; {
+                ?test rdfs:label ?label .
+                ?test rdfs:seeAlso ?filePath .
+                ?test &lt;http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#status&gt; ?status .
+            } .
+            BIND (earlreport:getPath(?test) AS ?path) .
+        }
+        ORDER BY (?path) (?label) }\">
     <tr>
         <th>File</th>
         <th>Status</th>
@@ -60,20 +72,15 @@ earlreport:ValidationTestsTable
         <td/>
         <td/>
         <ui:forEach ui:resultSet=\"{= ?subjects }\">
-            <td>100%</td>
+            <td class=\"percent\" let:passed=\"{#
+                    SELECT COUNT(?test)
+                    WHERE {
+                        ?test earl:subject ?subject .
+                        ?test earl:result/earl:outcome earl:passed .
+                    } }\">{= ?passed } / {= spr:rowCount(?tests) } ({= ceil(((?passed * 100) / spr:rowCount(?tests))) }%)</td>
         </ui:forEach>
     </tr>
-    <ui:forEach ui:resultSet=\"{#
-            SELECT ?test ?label ?path ?filePath ?status
-            WHERE {
-                GRAPH &lt;http://shacl.org/alltests&gt; {
-                    ?test rdfs:label ?label .
-                    ?test rdfs:seeAlso ?filePath .
-                    ?test &lt;http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#status&gt; ?status .
-                } .
-                BIND (earlreport:getPath(?test) AS ?path) .
-            }
-            ORDER BY (?path) (?label) }\">
+    <ui:forEach ui:resultSet=\"{= ?tests }\">
         <tr>
             <td class=\"file-td\">
                 <a href=\"https://github.com/w3c/data-shapes/blob/gh-pages/data-shapes-test-suite/tests/{= ?filePath }\">{= ?path }</a>
