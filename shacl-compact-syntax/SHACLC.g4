@@ -11,21 +11,21 @@ baseDecl 		: KW_BASE  IRIREF ;
 importsDecl		: KW_IMPORTS IRIREF ;
 prefixDecl		: KW_PREFIX PNAME_NS IRIREF ;
 
-nodeShape		: iri targetClass? '{' constraint* '}';
+nodeShape		: iri targetClass? nodeShapeBody ;
+nodeShapeBody   : '{' constraint* '}';
 targetClass		: '->' iri+ ;
 
 constraint		: ( nodeValue+ | propertyShape ) ';' ;
-nodeValues		: nodeValue* ;
-nodeValue		: KW_NODE_PARAM '=' iriOrLiteralOrArray ;
+nodeValue		: nodeParam '=' iriOrLiteralOrArray ;
 
-propertyShape	: iri ( propertyCount | propertyType | nodeKind | shapeRef | propertyValue )* ;
+propertyShape	: iri ( propertyCount | propertyType | nodeKind | shapeRef | propertyValue | nodeShapeBody )* ;
 propertyCount	: '[' propertyMinCount '..' propertyMaxCount ']' ;
 propertyMinCount: INTEGER ;
 propertyMaxCount: (INTEGER | '*') ;
 propertyType    : iri ;
 nodeKind		: 'BlankNode' | 'IRI' | 'Literal' | 'BlankNodeOrIRI' | 'BlankNodeOrLiteral' | 'IRIOrLiteral' ;
 shapeRef		: ATPNAME_LN | ATPNAME_NS | '@' IRIREF ;
-propertyValue	: KW_PROPERTY_PARAM '=' iriOrLiteralOrArray ;
+propertyValue	: propertyParam '=' iriOrLiteralOrArray ;
 
 iriOrLiteralOrArray	: iriOrLiteral | array ;
 iriOrLiteral	: iri | literal ;
@@ -42,6 +42,22 @@ string          : STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2 | STRING_LITERAL1 
 
 array			: '[' iriOrLiteral* ']' ;
 
+nodeParam		: 	'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
+						'deactivated' | 'severity' | 'message' |
+						'class' | 'datatype' | 'nodeKind' |
+						'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+						'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' |
+						'equals' | 'disjoint' |
+						'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
+
+propertyParam	:	'deactivated' | 'severity' | 'message' |
+						'class' | 'datatype' | 'nodeKind' |
+						'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+						'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' | 'uniqueLang' |
+						'equals' | 'disjoint' | 'lessThan' | 'lessThanOrEquals' |
+						'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
+						'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
+
 
 // Keywords
 KW_BASE 		: B A S E ;
@@ -50,22 +66,6 @@ KW_PREFIX		: P R E F I X ;
 
 KW_TRUE         : 'true' ;
 KW_FALSE        : 'false' ;
-
-KW_PROPERTY_PARAM: 	'deactivated' | 'severity' | 'message' |
-					'class' | 'datatype' | 'nodeKind' |
-					'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
-					'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' | 'uniqueLang' |
-					'equals' | 'disjoint' | 'lessThan' | 'lessThanOrEquals' |
-					'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
-					'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
-
-KW_NODE_PARAM	: 	'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
-					'deactivated' | 'severity' | 'message' |
-					'class' | 'datatype' | 'nodeKind' |
-					'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
-					'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' |
-					'equals' | 'disjoint' |
-					'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
 
 // terminals
 PASS				  : [ \t\r\n]+ -> skip;
