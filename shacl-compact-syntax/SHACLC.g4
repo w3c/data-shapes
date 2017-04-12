@@ -13,13 +13,18 @@ prefixDecl		: KW_PREFIX PNAME_NS IRIREF ;
 
 shapeDecl		: iri shapeValues '{' propertyDecl* '}';
 shapeValues		: shapeValue* ;
-shapeValue		: KW_SHAPE_PARAM '=' iriOrLiteral ;
+shapeValue		: KW_SHAPE_PARAM '=' iriOrLiteralOrArray ;
 
-propertyDecl	: iri ( propertyCount )* ';' ;
+propertyDecl	: iri ( propertyCount | propertyType | nodeKind | shapeRef | propertyValue )* ';' ;
 propertyCount	: '[' propertyMinCount '..' propertyMaxCount ']' ;
 propertyMinCount: INTEGER ;
 propertyMaxCount: (INTEGER | '*') ;
+propertyType    : iri ;
+nodeKind		: 'BlankNode' | 'IRI' | 'Literal' | 'BlankNodeOrIRI' | 'BlankNodeOrLiteral' | 'IRIOrLiteral' ;
+shapeRef		: ATPNAME_LN | ATPNAME_NS | '@' IRIREF ;
+propertyValue	: KW_PROPERTY_PARAM '=' iriOrLiteralOrArray ;
 
+iriOrLiteralOrArray	: iriOrLiteral | array ;
 iriOrLiteral	: iri | literal ;
 
 iri				: IRIREF | prefixedName ;
@@ -32,6 +37,8 @@ rdfLiteral      : string (LANGTAG | '^^' datatype)? ;
 datatype        : iri ;
 string          : STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2 | STRING_LITERAL1 | STRING_LITERAL2 ;
 
+array			: '[' iriOrLiteral* ']' ;
+
 
 // Keywords
 KW_BASE 		: B A S E ;
@@ -40,6 +47,14 @@ KW_PREFIX		: P R E F I X ;
 
 KW_TRUE         : 'true' ;
 KW_FALSE        : 'false' ;
+
+KW_PROPERTY_PARAM: 	'deactivated' | 'severity' | 'message' |
+					'class' | 'datatype' | 'nodeKind' |
+					'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+					'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' | 'uniqueLang' |
+					'equals' | 'disjoint' | 'lessThan' | 'lessThanOrEquals' |
+					'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
+					'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
 
 KW_SHAPE_PARAM	: 	'targetClass' | 'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
 					'deactivated' | 'severity' | 'message' |
