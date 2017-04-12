@@ -4,18 +4,21 @@ grammar SHACLC;
 	package org.topbraid.shacl.compact.parser;
 }
 
-shaclDoc 		: directive* shapeDecl* EOF;
+shaclDoc 		: directive* nodeShape* EOF;
 
 directive       : baseDecl | importsDecl | prefixDecl ;
 baseDecl 		: KW_BASE  IRIREF ;
 importsDecl		: KW_IMPORTS IRIREF ;
 prefixDecl		: KW_PREFIX PNAME_NS IRIREF ;
 
-shapeDecl		: iri shapeValues '{' propertyDecl* '}';
-shapeValues		: shapeValue* ;
-shapeValue		: KW_SHAPE_PARAM '=' iriOrLiteralOrArray ;
+nodeShape		: iri targetClass? '{' constraint* '}';
+targetClass		: '->' iri+ ;
 
-propertyDecl	: iri ( propertyCount | propertyType | nodeKind | shapeRef | propertyValue )* ';' ;
+constraint		: ( nodeValue+ | propertyShape ) ';' ;
+nodeValues		: nodeValue* ;
+nodeValue		: KW_NODE_PARAM '=' iriOrLiteralOrArray ;
+
+propertyShape	: iri ( propertyCount | propertyType | nodeKind | shapeRef | propertyValue )* ;
 propertyCount	: '[' propertyMinCount '..' propertyMaxCount ']' ;
 propertyMinCount: INTEGER ;
 propertyMaxCount: (INTEGER | '*') ;
@@ -56,7 +59,7 @@ KW_PROPERTY_PARAM: 	'deactivated' | 'severity' | 'message' |
 					'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
 					'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
 
-KW_SHAPE_PARAM	: 	'targetClass' | 'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
+KW_NODE_PARAM	: 	'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
 					'deactivated' | 'severity' | 'message' |
 					'class' | 'datatype' | 'nodeKind' |
 					'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
