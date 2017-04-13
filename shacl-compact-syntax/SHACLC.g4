@@ -18,7 +18,7 @@ targetClass			: '->' iri+ ;
 constraint			: ( nodeValue+ | propertyShape ) ';' ;
 nodeValue			: nodeParam '=' iriOrLiteralOrArray ;
 
-propertyShape		: iri ( propertyCount | propertyOr )* ;
+propertyShape		: path ( propertyCount | propertyOr )* ;
 propertyOr			: propertyNot ( '|' propertyNot) * ;
 propertyNot			: negation? propertyAtom ;
 propertyAtom		: propertyType | nodeKind | shapeRef | propertyValue | nodeShapeBody ;
@@ -30,6 +30,15 @@ nodeKind			: 'BlankNode' | 'IRI' | 'Literal' | 'BlankNodeOrIRI' | 'BlankNodeOrLi
 shapeRef			: ATPNAME_LN | ATPNAME_NS | '@' IRIREF ;
 propertyValue		: propertyParam '=' iriOrLiteralOrArray ;
 negation			: '!' ;
+
+path				: pathAlternative ;
+pathAlternative		: pathSequence ( '|' pathSequence )* ;
+pathSequence		: pathEltOrInverse ( '/' pathEltOrInverse )* ;
+pathElt				: pathPrimary pathMod? ;
+pathEltOrInverse	: pathElt | pathInverse pathElt ;
+pathInverse			: '^' ;
+pathMod				: '?' | '*' | '+' ;
+pathPrimary			: iri | '(' path ')' ;
 
 iriOrLiteralOrArray	: iriOrLiteral | array ;
 iriOrLiteral		: iri | literal ;
