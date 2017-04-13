@@ -4,68 +4,72 @@ grammar SHACLC;
 	package org.topbraid.shacl.compact.parser;
 }
 
-shaclDoc 		: directive* nodeShape* EOF;
+shaclDoc 			: directive* nodeShape* EOF;
 
-directive       : baseDecl | importsDecl | prefixDecl ;
-baseDecl 		: KW_BASE  IRIREF ;
-importsDecl		: KW_IMPORTS IRIREF ;
-prefixDecl		: KW_PREFIX PNAME_NS IRIREF ;
+directive       	: baseDecl | importsDecl | prefixDecl ;
+baseDecl 			: KW_BASE  IRIREF ;
+importsDecl			: KW_IMPORTS IRIREF ;
+prefixDecl			: KW_PREFIX PNAME_NS IRIREF ;
 
-nodeShape		: iri targetClass? nodeShapeBody ;
-nodeShapeBody   : '{' constraint* '}';
-targetClass		: '->' iri+ ;
+nodeShape			: iri targetClass? nodeShapeBody ;
+nodeShapeBody   	: '{' constraint* '}';
+targetClass			: '->' iri+ ;
 
-constraint		: ( nodeValue+ | propertyShape ) ';' ;
-nodeValue		: nodeParam '=' iriOrLiteralOrArray ;
+constraint			: ( nodeValue+ | propertyShape ) ';' ;
+nodeValue			: nodeParam '=' iriOrLiteralOrArray ;
 
-propertyShape	: iri ( propertyCount | propertyType | nodeKind | shapeRef | propertyValue | nodeShapeBody )* ;
-propertyCount	: '[' propertyMinCount '..' propertyMaxCount ']' ;
-propertyMinCount: INTEGER ;
-propertyMaxCount: (INTEGER | '*') ;
-propertyType    : iri ;
-nodeKind		: 'BlankNode' | 'IRI' | 'Literal' | 'BlankNodeOrIRI' | 'BlankNodeOrLiteral' | 'IRIOrLiteral' ;
-shapeRef		: ATPNAME_LN | ATPNAME_NS | '@' IRIREF ;
-propertyValue	: propertyParam '=' iriOrLiteralOrArray ;
+propertyShape		: iri ( propertyCount | propertyOr )* ;
+propertyOr			: propertyNot ( '|' propertyNot) * ;
+propertyNot			: negation? propertyAtom ;
+propertyAtom		: propertyType | nodeKind | shapeRef | propertyValue | nodeShapeBody ;
+propertyCount		: '[' propertyMinCount '..' propertyMaxCount ']' ;
+propertyMinCount	: INTEGER ;
+propertyMaxCount	: (INTEGER | '*') ;
+propertyType    	: iri ;
+nodeKind			: 'BlankNode' | 'IRI' | 'Literal' | 'BlankNodeOrIRI' | 'BlankNodeOrLiteral' | 'IRIOrLiteral' ;
+shapeRef			: ATPNAME_LN | ATPNAME_NS | '@' IRIREF ;
+propertyValue		: propertyParam '=' iriOrLiteralOrArray ;
+negation			: '!' ;
 
 iriOrLiteralOrArray	: iriOrLiteral | array ;
-iriOrLiteral	: iri | literal ;
+iriOrLiteral		: iri | literal ;
 
-iri				: IRIREF | prefixedName ;
-prefixedName	: PNAME_LN | PNAME_NS ;
+iri					: IRIREF | prefixedName ;
+prefixedName		: PNAME_LN | PNAME_NS ;
 
-literal         : rdfLiteral | numericLiteral | booleanLiteral ;
-booleanLiteral  : KW_TRUE | KW_FALSE ;
-numericLiteral  : INTEGER | DECIMAL | DOUBLE ;
-rdfLiteral      : string (LANGTAG | '^^' datatype)? ;
-datatype        : iri ;
-string          : STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2 | STRING_LITERAL1 | STRING_LITERAL2 ;
+literal         	: rdfLiteral | numericLiteral | booleanLiteral ;
+booleanLiteral  	: KW_TRUE | KW_FALSE ;
+numericLiteral  	: INTEGER | DECIMAL | DOUBLE ;
+rdfLiteral      	: string (LANGTAG | '^^' datatype)? ;
+datatype        	: iri ;
+string          	: STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2 | STRING_LITERAL1 | STRING_LITERAL2 ;
 
-array			: '[' iriOrLiteral* ']' ;
+array				: '[' iriOrLiteral* ']' ;
 
-nodeParam		: 	'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
-						'deactivated' | 'severity' | 'message' |
-						'class' | 'datatype' | 'nodeKind' |
-						'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
-						'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' |
-						'equals' | 'disjoint' |
-						'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
+nodeParam			: 'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
+					  'deactivated' | 'severity' | 'message' |
+					  'class' | 'datatype' | 'nodeKind' |
+					  'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+					  'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' |
+					  'equals' | 'disjoint' |
+					  'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
 
-propertyParam	:	'deactivated' | 'severity' | 'message' |
-						'class' | 'datatype' | 'nodeKind' |
-						'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
-						'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' | 'uniqueLang' |
-						'equals' | 'disjoint' | 'lessThan' | 'lessThanOrEquals' |
-						'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
-						'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
+propertyParam		: 'deactivated' | 'severity' | 'message' |
+					  'class' | 'datatype' | 'nodeKind' |
+					  'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+					  'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' | 'uniqueLang' |
+					  'equals' | 'disjoint' | 'lessThan' | 'lessThanOrEquals' |
+					  'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
+					  'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
 
 
 // Keywords
-KW_BASE 		: B A S E ;
-KW_IMPORTS		: I M P O R T S ;
-KW_PREFIX		: P R E F I X ;
+KW_BASE 			: B A S E ;
+KW_IMPORTS			: I M P O R T S ;
+KW_PREFIX			: P R E F I X ;
 
-KW_TRUE         : 'true' ;
-KW_FALSE        : 'false' ;
+KW_TRUE         	: 'true' ;
+KW_FALSE        	: 'false' ;
 
 // terminals
 PASS				  : [ \t\r\n]+ -> skip;
