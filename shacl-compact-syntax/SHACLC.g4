@@ -15,7 +15,9 @@ nodeShape			: iri targetClass? nodeShapeBody ;
 nodeShapeBody   	: '{' constraint* '}';
 targetClass			: '->' iri+ ;
 
-constraint			: ( nodeValue+ | propertyShape ) ';' ;
+constraint			: ( nodeOr+ | propertyShape ) ';' ;
+nodeOr				: nodeNot ( '|' nodeNot) * ;
+nodeNot				: negation? nodeValue ;
 nodeValue			: nodeParam '=' iriOrLiteralOrArray ;
 
 propertyShape		: path ( propertyCount | propertyOr )* ;
@@ -73,9 +75,9 @@ propertyParam		: 'deactivated' | 'severity' | 'message' |
 
 
 // Keywords
-KW_BASE 			: B A S E ;
-KW_IMPORTS			: I M P O R T S ;
-KW_PREFIX			: P R E F I X ;
+KW_BASE 			: 'BASE' ;
+KW_IMPORTS			: 'IMPORTS' ;
+KW_PREFIX			: 'PREFIX' ;
 
 KW_TRUE         	: 'true' ;
 KW_FALSE        	: 'false' ;
@@ -118,30 +120,3 @@ fragment PERCENT               : '%' HEX HEX ;
 fragment HEX                   : [0-9] | [A-F] | [a-f] ;
 fragment PN_LOCAL_ESC          : '\\' ('_' | '~' | '.' | '-' | '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ','
 					  		   | ';' | '=' | '/' | '?' | '#' | '@' | '%') ;
-
-fragment A:('a'|'A');
-fragment B:('b'|'B');
-fragment C:('c'|'C');
-fragment D:('d'|'D');
-fragment E:('e'|'E');
-fragment F:('f'|'F');
-fragment G:('g'|'G');
-fragment H:('h'|'H');
-fragment I:('i'|'I');
-fragment J:('j'|'J');
-fragment K:('k'|'K');
-fragment L:('l'|'L');
-fragment M:('m'|'M');
-fragment N:('n'|'N');
-fragment O:('o'|'O');
-fragment P:('p'|'P');
-fragment Q:('q'|'Q');
-fragment R:('r'|'R');
-fragment S:('s'|'S');
-fragment T:('t'|'T');
-fragment U:('u'|'U');
-fragment V:('v'|'V');
-fragment W:('w'|'W');
-fragment X:('x'|'X');
-fragment Y:('y'|'Y');
-fragment Z:('z'|'Z');

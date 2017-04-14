@@ -126,6 +126,9 @@
 			.focus-node-error {
 				color: red;
 			}
+			
+			.rule {
+			}
 
 			.target-can-be-skipped{
 				color: darkslategray;
@@ -201,12 +204,13 @@
 			}
 
 			/* example pre taken / adapted from R2RML */
-			pre.example-shapes, pre.example-shapes-ttl, pre.example-results, pre.example-other, pre.example-js { margin-left: 0; padding: 0 2em; margin-top: 1.5em; padding: 1em; }
+			pre.grammar, pre.example-shapes, pre.example-shapes-ttl, pre.example-results, pre.example-other, pre.example-js { margin-left: 0; padding: 0 2em; margin-top: 1.5em; padding: 1em; }
 			pre.example-shapes:before, pre.example-shapes-ttl:before, pre.example-js:before, pre.example-results:before, pre.example-other:before { background: white; display: block; font-family: sans-serif; margin: -1em 0 0.4em -1em; padding: 0.2em 1em; }
 			pre.example-shapes { background: #eeb; }
 			pre.example-shapes, pre.example-shapes:before { border: 1px solid #cc9; }
 			pre.example-shapes:before { color: #888; content: "Example in Compact Syntax"; width: 13em; }
 			pre.example-shapes-ttl { background: #deb; }
+			pre.grammar { background: #fdfdfd; border: 1px solid #e0e0e0; }
 			pre.example-shapes-ttl, pre.example-shapes-ttl:before { border: 1px solid #bbb; }
 			pre.example-shapes-ttl:before { color: #996; content: "Example in Turtle Syntax"; width: 13em; }
 			example-results { background: #edb; }
@@ -294,7 +298,7 @@
 				</table>
 			</section>
 			
-			<section id="example">
+			<section class="informative" id="example">
 				<h3>An Example of the SHACL Compact Syntax</h3>
 				<p>
 					The following example illustrates key features of the SHACL Compact Syntax.
@@ -318,7 +322,7 @@ ex:PersonShape -> ex:Person {
 	}
 }</pre>
 				<p>
-					Using the <a href="#grammar"></a> this example is mapped to the following Turtle RDF graph: 
+					Using the <a href="#grammar-section"></a> this example is mapped to the following Turtle RDF graph: 
 				</p>
 				<pre class="example-shapes-ttl">
 @base &lt;http://example.com/ns&gt; .
@@ -372,25 +376,315 @@ ex:PersonShape
 			</section>
 		</section>
 		
-		<section id="grammar">
+		<section id="grammar-section">
 			<h2>Grammar and Production Rules</h2>
 			<p>
-				TODO - meanwhile here is an unfinished <a href="SHACLC.g4">ANTLR Grammar</a>
-				and a few <a href="https://github.com/w3c/data-shapes/tree/gh-pages/shacl-compact-syntax/tests">Test Cases</a>.
+				The following grammar (in <a href="http://www.antlr.org/">ANTLR</a> format) defines the parsing rules
+				for the SHACL Compact Syntax.
+				Valid SHACL Compact Syntax documents must be parseable against this grammar,
+				and must also not cause any errors during the application of the <a href="#rules">production rules</a>.
 			</p>
-			<ul>
-				<li>If BASE is missing then it is expected to come as input to parsing</li>
-				<li>IMPORTS maps to owl:imports of the URI specified via BASE</li>
-				<li>Default prefixes for rdf, rdfs, owl, sh, and xsd are automatically included</li>
-				<li>The default cardinality is [0..*]</li>
-				<li>Top-level name-value pairs inside curly braces become properties of the node shape itself</li>
-				<li>The name-value pairs behind the property become properties of the property shape</li>
-				<li>IRI, BlankNode etc are mapped to sh:nodeKind</li>
-				<li>xsd:integer etc (any known datatype) becomes sh:datatype, other free-floating URIs become sh:class</li>
-				<li>References to other named shapes via sh:node are expressed using @ex:Shape</li>
-				<li>References to bnode shapes are done via { shape definition }</li>
-				<li>sh:or could be |, sh:xone could be 'xone', sh:not could be !, sh:and is never needed</li>
-			</ul>
+			<pre id="grammar" class="grammar">
+grammar SHACLC;
+
+shaclDoc 			: directive* nodeShape* EOF;
+
+directive       	: baseDecl | importsDecl | prefixDecl ;
+baseDecl 			: KW_BASE  IRIREF ;
+importsDecl			: KW_IMPORTS IRIREF ;
+prefixDecl			: KW_PREFIX PNAME_NS IRIREF ;
+
+nodeShape			: iri targetClass? nodeShapeBody ;
+nodeShapeBody   	: '{' constraint* '}';
+targetClass			: '->' iri+ ;
+
+constraint			: ( nodeOr+ | propertyShape ) ';' ;
+nodeOr				: nodeNot ( '|' nodeNot) * ;
+nodeNot				: negation? nodeValue ;
+nodeValue			: nodeParam '=' iriOrLiteralOrArray ;
+
+propertyShape		: path ( propertyCount | propertyOr )* ;
+propertyOr			: propertyNot ( '|' propertyNot) * ;
+propertyNot			: negation? propertyAtom ;
+propertyAtom		: propertyType | nodeKind | shapeRef | propertyValue | nodeShapeBody ;
+propertyCount		: '[' propertyMinCount '..' propertyMaxCount ']' ;
+propertyMinCount	: INTEGER ;
+propertyMaxCount	: (INTEGER | '*') ;
+propertyType    	: iri ;
+nodeKind			: 'BlankNode' | 'IRI' | 'Literal' | 'BlankNodeOrIRI' | 'BlankNodeOrLiteral' | 'IRIOrLiteral' ;
+shapeRef			: ATPNAME_LN | ATPNAME_NS | '@' IRIREF ;
+propertyValue		: propertyParam '=' iriOrLiteralOrArray ;
+negation			: '!' ;
+
+path				: pathAlternative ;
+pathAlternative		: pathSequence ( '|' pathSequence )* ;
+pathSequence		: pathEltOrInverse ( '/' pathEltOrInverse )* ;
+pathElt				: pathPrimary pathMod? ;
+pathEltOrInverse	: pathElt | pathInverse pathElt ;
+pathInverse			: '^' ;
+pathMod				: '?' | '*' | '+' ;
+pathPrimary			: iri | '(' path ')' ;
+
+iriOrLiteralOrArray	: iriOrLiteral | array ;
+iriOrLiteral		: iri | literal ;
+
+iri					: IRIREF | prefixedName ;
+prefixedName		: PNAME_LN | PNAME_NS ;
+
+literal         	: rdfLiteral | numericLiteral | booleanLiteral ;
+booleanLiteral  	: KW_TRUE | KW_FALSE ;
+numericLiteral  	: INTEGER | DECIMAL | DOUBLE ;
+rdfLiteral      	: string (LANGTAG | '^^' datatype)? ;
+datatype        	: iri ;
+string          	: STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2 | STRING_LITERAL1 | STRING_LITERAL2 ;
+
+array				: '[' iriOrLiteral* ']' ;
+
+nodeParam			: 'targetNode' | 'targetObjectsOf' | 'targetSubjectsOf' |
+					  'deactivated' | 'severity' | 'message' |
+					  'class' | 'datatype' | 'nodeKind' |
+					  'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+					  'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' |
+					  'equals' | 'disjoint' |
+					  'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
+
+propertyParam		: 'deactivated' | 'severity' | 'message' |
+					  'class' | 'datatype' | 'nodeKind' |
+					  'minExclusive' | 'minInclusive' | 'maxExclusive' | 'maxInclusive' |
+					  'minLength' | 'maxLength' | 'pattern' | 'flags' | 'languageIn' | 'uniqueLang' |
+					  'equals' | 'disjoint' | 'lessThan' | 'lessThanOrEquals' |
+					  'qualifiedValueShape' | 'qualifiedMinCount' | 'qualifiedMaxCount' | 'qualifiedValueShapesDisjoint' |
+					  'closed' | 'ignoredProperties' | 'hasValue' | 'in' ;
+
+
+// Keywords
+KW_BASE 			: 'BASE' ;
+KW_IMPORTS			: 'IMPORTS' ;
+KW_PREFIX			: 'PREFIX' ;
+
+KW_TRUE         	: 'true' ;
+KW_FALSE        	: 'false' ;
+
+// terminals
+PASS				  : [ \t\r\n]+ -> skip;
+COMMENT				  : '#' ~[\r\n]* -> skip;
+
+CODE                  : '{' (~[%\\] | '\\' [%\\] | UCHAR)* '%' '}' ;
+RDF_TYPE              : 'a' ;
+IRIREF                : '&lt;' (~[\u0000-\u0020=&lt;>\"{}|^`\\] | UCHAR)* '>' ; /* #x00=NULL #01-#x1F=control codes #x20=space */
+PNAME_NS              : PN_PREFIX? ':' ;
+PNAME_LN              : PNAME_NS PN_LOCAL ;
+ATPNAME_NS			  : '@' PN_PREFIX? ':' ;
+ATPNAME_LN			  : '@' PNAME_NS PN_LOCAL ;
+REGEXP                : '~/' ([^\u002f\u005C\u000A\u000D] | '\\' [tbnrf\\/] | UCHAR)* '/' [smix]* ;
+BLANK_NODE_LABEL      : '_:' (PN_CHARS_U | [0-9]) ((PN_CHARS | '.')* PN_CHARS)? ;
+LANGTAG               : '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)* ;
+INTEGER               : [+-]? [0-9]+ ;
+DECIMAL               : [+-]? [0-9]* '.' [0-9]+ ;
+DOUBLE                : [+-]? ([0-9]+ '.' [0-9]* EXPONENT | '.'? [0-9]+ EXPONENT) ;
+fragment EXPONENT     : [eE] [+-]? [0-9]+ ;
+STRING_LITERAL1       : '\'' (~[\u0027\u005C\u000A\u000D] | ECHAR | UCHAR)* '\'' ; /* #x27=' #x5C=\ #xA=new line #xD=carriage return */
+STRING_LITERAL2       : '"' (~[\u0022\u005C\u000A\u000D] | ECHAR | UCHAR)* '"' ;   /* #x22=" #x5C=\ #xA=new line #xD=carriage return */
+STRING_LITERAL_LONG1  : '\'\'\'' (('\'' | '\'\'')? (~[\'\\] | ECHAR | UCHAR))* '\'\'\'' ;
+STRING_LITERAL_LONG2  : '"""' (('"' | '""')? (~[\"\\] | ECHAR | UCHAR))* '"""' ;
+fragment UCHAR                 : '\\u' HEX HEX HEX HEX | '\\U' HEX HEX HEX HEX HEX HEX HEX HEX ;
+fragment ECHAR                 : '\\' [tbnrf\\\"\'] ;
+fragment WS                    : [\u0020\u0009\u000D\u000A] ; /* #x20=space #x9=character tabulation #xD=carriage return #xA=new line */
+fragment PN_CHARS_BASE 		   : [A-Z] | [a-z] | [\u00C0-\u00D6] | [\u00D8-\u00F6] | [\u00F8-\u02FF] | [\u0370-\u037D]
+					   		   | [\u037F-\u1FFF] | [\u200C-\u200D] | [\u2070-\u218F] | [\u2C00-\u2FEF] | [\u3001-\uD7FF]
+					           | [\uF900-\uFDCF] | [\uFDF0-\uFFFD]
+					   		   ;
+fragment PN_CHARS_U            : PN_CHARS_BASE | '_' ;
+fragment PN_CHARS              : PN_CHARS_U | '-' | [0-9] | [\u00B7] | [\u0300-\u036F] | [\u203F-\u2040] ;
+fragment PN_PREFIX             : PN_CHARS_BASE ((PN_CHARS | '.')* PN_CHARS)? ;
+fragment PN_LOCAL              : (PN_CHARS_U | ':' | [0-9] | PLX) ((PN_CHARS | '.' | ':' | PLX)* (PN_CHARS | ':' | PLX))? ;
+fragment PLX                   : PERCENT | PN_LOCAL_ESC ;
+fragment PERCENT               : '%' HEX HEX ;
+fragment HEX                   : [0-9] | [A-F] | [a-f] ;
+fragment PN_LOCAL_ESC          : '\\' ('_' | '~' | '.' | '-' | '!' | '$' | '&amp;' | '\'' | '(' | ')' | '*' | '+' | ','
+					  		   | ';' | '=' | '/' | '?' | '#' | '@' | '%') ;
+			</pre>
+			<p id="rules">
+				A parser for the SHACL Compact Syntax receives as input a (text) document plus an optional <em>base URI</em>
+				which is used as initial value for the variable <code>?baseURI</code>.
+				The parser uses a <em>prefix mapping</em> which has initial mappings for the following namespaces:
+			</p>
+			<table class="term-table">
+				<tr>
+					<th>Prefix</th>
+					<th>Namespace</th>
+				</tr>
+				<tr>
+					<td><code>rdf:</code></td>
+					<td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
+				</tr>
+				<tr>
+					<td><code>rdfs:</code></td>
+					<td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
+				</tr>
+				<tr>
+					<td><code>sh:</code></td>
+					<td><code>http://www.w3.org/ns/shacl#</code></td>
+				</tr>
+				<tr>
+					<td><code>xsd:</code></td>
+					<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
+				</tr>
+			</table>
+			<p>
+				It then produces a new RDF graph with the triples produced by the following rules.
+			</p>
+			<p>
+				<b>baseDecl</b>: set <code>?baseURI</code> to the IRI specified by <a href="#rule-IRIREF"><code>IRIREF</code></a>.
+			</p>
+			<p>
+				<b>importsDecl</b>: add the IRI specified by <a href="#rule-IRIREF">IRIREF</a> into a set <code>?imports</code>.
+			</p>
+			<p>
+				<b>prefixDecl</b>: add to the prefix mapping a mapping from the prefix <code>PNAME_NS</code> (without the ':') to
+				the namespace specified by <a href="#rule-IRIREF"><code>IRIREF</code></a>.
+			</p>
+			<p>
+				Once the whole document has been completed, produce a triple <code>?baseURI rdf:type owl:Ontology</code>
+				using the final value of <code>baseURI</code>.
+				Report an error if <code>baseURI</code> has no value but <code>imports</code> is not empty.
+				For each <code>iri</code> in <code>imports</code>, produce a triple <code>?baseURI owl:imports ?iri</code>.
+			</p>
+			<p class="rule" id="rule-nodeShape">
+				<b>nodeShape</b>: Produce a triple <code>?shape rdf:type sh:NodeShape</code> where <code>?shape</code> is
+				derived from the <code>iri</code> using <a href="#rule-iri"><code>iri</code></a>.
+				Use <code>?shape</code> as context shape for the <a href="#rule-targetClass"><code>targetClass</code></a>
+				and <a href="#rule-nodeShapeBody"><code>nodeShapeBody</code></a>.
+			</p>
+			<p class="rule" id="rule-targetClass">
+				<b>targetClass</b>: For each <code>iri</code>, produce a triple <code>?shape sh:targetClass ?iri</code>
+				where <code>?iri</code> is derived from <a href="#rule-iri"><code>iri</code></a>.
+			</p>
+			<p class="rule" id="rule-nodeShapeBody">
+				<b>nodeShapeBody</b>: Handle each <a href="#rule-constraint"><code>constraint</code></a> using the context shape <code>?shape</code>.
+			</p>
+			<p class="rule" id="rule-constraint">
+				<b>constraint</b>: Handle each <a href="#rule-nodeOr"><code>nodeOr</code></a> or
+				<a href="#rule-propertyShape"><code>propertyShape</code></a> using the context shape <code>?shape</code>.
+			</p>
+			<p class="rule" id="rule-nodeOr">
+				<b>nodeOr</b>: If there is more than one <code>nodeNot</code>, then produce an RDF list <code>?or</code> where for each <code>nodeNot</code>,
+				there is a new blank node, and that blank node is used as context shape for the <a href="#rule-nodeNot"><code>nodeNot</code></a>.
+				Then produce a triple <code>?shape sh:or ?or</code>.
+				If there is only one <code>nodeNot</code>, handle the <a href="#rule-nodeNot"><code>nodeNot</code></a> using the context shape <code>?shape</code>.
+			</p>
+			<p class="rule" id="rule-nodeNot">
+				<b>nodeNot</b>: If there is a <code>negation</code>, produce a new blank node <code>?not</code> and produce a triple
+				<code>?shape sh:not ?not</code>. Then handle the <a href="#rule-nodeValue"><code>nodeValue</code></a> using <code>?not</code> as context shape.
+				If there is no <code>negation</code>, handle the <a href="#rule-nodeValue"><code>nodeValue</code></a> using the context shape <code>?shape</code>.
+			</p>
+			<p class="rule" id="rule-nodeValue">
+				<b>nodeValue</b>: Produce a triple <code>?shape ?predicate ?object</code> where <code>?predicate</code>
+				is the IRI produced by concatenating the <code>sh</code> namespace with string value of <code>nodeParam</code>
+				(for example <code>"minLength"</code> becomes <code>sh:minLength</code>),
+				and <code>?object</code> is derived from the <a href="#rule-iriOrLiteralOrArray"><code>iriOrLiteralOrArray</code></a>.
+			</p>
+			<p class="rule" id="rule-propertyShape">
+				<b>propertyShape</b>: Using a new blank node <code>?property</code>, produce a triple
+				<code>?shape sh:property ?property</code>.
+				Produce a triple <code>?property sh:path ?path</code> where <code>?path</code> is the result of <a href="#rule-path"><code>path</code></a>.
+				Use <code>?property</code> as context shape for <a href="#rule-propertyCount"><code>propertyCount</code></a> and <a href="#rule-propertyOr"><code>propertyOr</code></a>.
+			</p>
+			<p class="rule" id="rule-propertyCount">
+				<b>propertyCount</b>:
+				If <code>propertyMinCount</code> is not <code>"0"</code>, produce a triple <code>?property sh:minCount ?minCount</code>
+				using the <code>xsd:integer</code> derived from <code>propertyMinCount</code> as <code>?minCount</code>.
+				If <code>propertyMaxCount</code> is not <code>"*"</code>, produce a triple <code>?property sh:maxCount ?maxCount</code>
+				using the <code>xsd:integer</code> derived from <code>propertyMaxCount</code> as <code>?maxCount</code>.
+			</p>
+			<p class="rule" id="rule-propertyOr">
+				<b>propertyOr</b>: If there is more than one <code>propertyNot</code>, then produce an RDF list <code>?or</code> where for each <code>propertyNot</code>,
+				there is a new blank node, and that blank node is used as context shape for the <a href="#rule-propertyNot"><code>propertyNot</code></a>.
+				Then produce a triple <code>?property sh:or ?or</code>.
+				If there is only one <code>propertyNot</code>, handle the <a href="#rule-propertyNot"><code>propertyNot</code></a> using the context shape <code>?property</code>.
+			</p>
+			<p class="rule" id="rule-propertyNot">
+				<b>propertyNot</b>: If there is a <code>negation</code>, produce a new blank node <code>?not</code> and produce a triple
+				<code>?property sh:not ?not</code>. Then handle the <a href="#rule-propertyAtom"><code>propertyAtom</code></a> using <code>?not</code> as context shape.
+				If there is no <code>negation</code>, handle the <a href="#rule-propertyAtom"><code>propertyAtom</code></a> using the context shape <code>?property</code>.
+			</p>
+			<p class="rule" id="rule-propertyAtom">
+				<b>propertyAtom</b>: Use <code>?property</code> as context shape for any of the child elements.
+				For a nested <code>nodeShapeBody</code>, produce a new blank node <code>?node</code> and use that as the context shape <code>?shape</code>.
+				Then produce a triple <code>?property sh:node ?node</code>. 
+			</p>
+			<p class="rule" id="rule-propertyType">
+				<b>propertyType</b>: Let <code>?iri</code> be the IRI derived from the <code>propertyType</code> using <a href="#rule-iri"><code>iri</code></a>.
+				If <code>?iri</code> is one of the RDF datatypes supported by SPARQL 1.1 (such as <code>xsd:string</code>) then produce a triple
+				<code>?property sh:datatype ?iri</code>, otherwise <code>?property sh:class ?iri</code>.
+			</p>
+			<p class="rule" id="rule-nodeKind">
+				<b>nodeKind</b>: Produce a triple <code>?property sh:nodeKind ?nodeKind</code> where
+				<code>?nodeKind</code> is the IRI produced by concatenating the <code>sh</code> namespace
+				with the text value of <code>nodeKind</code> (e.g., <code>sh:Literal</code>).
+			</p>
+			<p class="rule" id="rule-shapeRef">
+				<b>shapeRef</b>: Produce a triple <code>?property sh:node ?node</code> where
+				<code>?node</code> is the IRI derived from the substring of <code>shapeRef</code> after the '@' character using <a href="#rule-iri"><code>iri</code></a>.
+			</p>
+			<p class="rule" id="rule-propertyValue">
+				<b>propertyValue</b>: Produce a triple <code>?property ?predicate ?object</code> where <code>?predicate</code>
+				is the IRI produced by concatenating the <code>sh</code> namespace with the string value of <code>propertyParam</code>,
+				and <code>?object</code> is derived from the <a href="#rule-iriOrLiteralOrArray"><code>iriOrLiteralOrArray</code></a>.
+			</p>
+			<p class="rule" id="rule-path">
+				<b>path</b>: If there is more than one <code>pathSequence</code>, produce a new RDF list <code>?list</code> where there is
+				one list member for the paths derived from each <a href="#rule-pathSequence"><code>pathSequence</code></a>.
+				Then produce a triple <code>?alt sh:alternativePath ?list</code> where <code>?alt</code> is a new blank node, and return <code>?alt</code>.
+				If there is only one <code>pathSequence</code>, return the path derived from <a href="#rule-pathSequence"><code>pathSequence</code></a>.
+			</p>
+			<p class="rule" id="rule-pathSequence">
+				<b>pathSequence</b>: If there is more than one <code>pathEltOrInverse</code>, produce a new blank node RDF list <code>?list</code>
+				where there is one list member for the path derived from each <a href="#rule-pathEltOrInverse"><code>pathEltOrInverse</code></a>. Return <code>?list</code>.
+				If there is only one <code>pathEltOrInverse</code>, return the path derived from <a href="#rule-pathEltOrInverse"><code>pathEltOrInverse</code></a>.
+			</p>
+			<p class="rule" id="rule-pathEltOrInverse">
+				<b>pathEltOrInverse</b>: If there is a <code>pathInverse</code>, produce a triple
+				<code>?path sh:inversePath ?inverse</code> where <code>?path</code> is a new blank node and <code>?inverse</code>
+				is the path derived from <a href="#rule-pathElt"><code>pathElt</code></a>. Return <code>?path</code>.
+				If there is only one <code>pathElt</code>, return the path derived from <a href="#rule-pathElt"><code>pathElt</code></a>.
+			</p>
+			<p class="rule" id="rule-pathElt">
+				<b>pathElt</b>: Let <code>?primary</code> be the path derived from <a href="#rule-pathPrimary"><code>pathPrimary</code></a>.
+				If <code>pathMod</code> does not exist, return <code>?primary</code>.
+				Otherwise, produce and return a new blank node <code>?path</code> with one of the following triples:
+				If <code>pathMod</code> equals "?" produce a triple <code>?path sh:zeroOrOnePath ?primary</code>.
+				If <code>pathMod</code> equals "+" produce a triple <code>?path sh:oneOrMorePath ?primary</code>.
+				If <code>pathMod</code> equals "*" produce a triple <code>?path sh:zeroOrMorePath ?primary</code>.
+			</p>
+			<p class="rule" id="rule-pathPrimary">
+				<b>pathPrimary</b>: If <code>iri</code> exists, return the predicate derived from that IRI.
+				Otherwise, return the path derived from <a href="#rule-path">path</a>.
+			</p>
+			<p class="rule" id="rule-iriOrLiteralOrArray">
+				<b>iriOrLiteralOrArray</b>: If there is an <code>array</code>, produce and return an RDF list
+				where each <a href="#rule-iriOrLiteral"><code>iriOrLiteral</code></a> is a member.
+				Otherwise, return <a href="#rule-iriOrLiteral"><code>iriOrLiteral</code></a> for <code>iriOrLiteral</code>.
+			</p>
+			<p class="rule" id="rule-iriOrLiteral">
+				<b>iriOrLiteral</b>: If there is an <code>iri</code>, return the node derived from <a href="#rule-iri"><code>iri</code></a>.
+				Otherwise, apply Turtle's parsing rules to turn the string <code>literal</code> into an RDF literal.
+			</p>
+			<p class="rule" id="rule-iri">
+				<b>iri</b>: If there is a <code>IRIREF</code>, return the result of <a href="#rule-IRIREF"><code>IRIREF</code></a>.
+				Otherwise, return an IRI applying the current prefix mapping on <code>prefixedName</code>.
+				Report an error if there is no matching prefix.
+			</p>
+			<p class="rule" id="rule-IRIREF">
+				<b>IRIREF</b>: Return the IRI consisting of the substring of <code>IRIREF</code> between the leading <code>&lt;</code>
+				and the trailing <code>&gt;</code>, turning relative IRIs into absolute IRIs using the current <code>?baseURI</code>.
+			</p>
+			<p>
+				Developers may find the <a href="https://github.com/w3c/data-shapes/tree/gh-pages/shacl-compact-syntax/tests">Test Cases</a> useful.
+				Each test consists of a <code>.shaclc</code> file and an associated <code>.ttl</code> file.
+				Parsing the <code>.shaclc</code> file must produce a graph that is isomorphic to the <code>.ttl</code> file.
+				The test cases are not normative.
+			</p>
 		</section>
 		
 		<section id="ack" class="appendix informative">
