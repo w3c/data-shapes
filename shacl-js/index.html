@@ -19,10 +19,8 @@
 			var respecConfig = {
 				edDraftURI: "https://w3c.github.io/data-shapes/shacl-js/",
 				issueBase: "http://www.w3.org/2014/data-shapes/track/issues/",
-				specStatus: "unofficial",
+				specStatus: "ED",
 				preProcess : [ prepareSyntaxRules ],
-				previousPublishDate: "2016-08-14",
-				previousMaturity: "ED",
 				shortName:  "shacl-js",
 				editors: [
 					{
@@ -41,6 +39,7 @@
 			};
 		</script>
 		<style>
+
 
 			pre {
 				tab-size: 3;
@@ -140,11 +139,9 @@
 				color: red;
 			}
 
-			.target-can-be-skipped{
+			.target-can-be-skipped {
 				color: darkslategray;
 				font-style: italic;
-				data-tooltip: "Custom tooltip text." ;
-				data-tooltip-position: "bottom" ;
 			}
 			
 			.component-class {
@@ -212,19 +209,24 @@
 			.todo {
 				color: red;
 			}
+			
+			/* Attempt at fixing unwanted line breaks in some browsers */
+			pre {
+				word-wrap: normal;
+			}
 
 			/* example pre taken / adapted from R2RML */
-			pre.example-shapes, pre.example-data, pre.example-results, pre.example-other, pre.example-js { margin-left: 0; padding: 0 2em; margin-top: 1.5em; padding: 1em; }
+			pre.shapes, pre.example-shapes, pre.example-data, pre.example-js, pre.example-results, pre.example-other { margin-left: 0; padding: 0 2em; margin-top: 1.5em; padding: 1em; }
 			pre.example-shapes:before, pre.example-data:before, pre.example-js:before, pre.example-results:before, pre.example-other:before { background: white; display: block; font-family: sans-serif; margin: -1em 0 0.4em -1em; padding: 0.2em 1em; }
-			pre.example-shapes { background: #deb; }
-			pre.example-shapes, pre.example-shapes:before { border: 1px solid #bbb; }
+			pre.shapes, pre.example-shapes { background: #deb; }
+			pre.shapes, pre.example-shapes, pre.example-shapes:before { border: 1px solid #bbb; }
 			pre.example-shapes:before { color: #888; content: "Example shapes graph"; width: 13em; }
 			pre.example-data { background: #eeb; }
 			pre.example-data, pre.example-data:before { border: 1px solid #cc9; }
 			pre.example-data:before { color: #996; content: "Example data graph"; width: 13em; }
-			example-results { background: #edb; }
-			example-results, .example-results:before, .example-results th, .example-results td { border: 1px solid #aca; }
-			pre.example-results:before { color: #797; content: "Example validation results"; width: 13em; }
+			.example-results { background: #edb; }
+			.example-results, .example-results:before, .example-results th, .example-results td { border: 1px solid #cca; }
+			pre.example-results:before { color: #997; content: "Example validation results"; width: 13em; }
 			pre.example-other { background: #bed; }
 			pre.example-other, pre.example-other:before { border: 1px solid #ddd; }
 			pre.example-other:before { color: #888; content: "Example"; width: 13em; }
@@ -250,13 +252,11 @@
 		<section id="abstract">
 			<p>
 				This document defines a JavaScript-based extension mechanism for the Shapes Constraint Language (SHACL).
-				This early draft outlines a proposed syntax for declaring constraints
-				and constraint components (i.e. high-level terms such as <code>sh:minCount</code>) in JavaScript.
-			</p>
-			<p>
-				Note that reading this draft only makes sense after you have read the main SHACL spec,
-				and the SHACL-SPARQL extension mechanism in particular.
-				The JavaScript mechanism is very similar to that, just without SPARQL.
+				It defines a syntax for declaring constraints and constraint components in JavaScript.
+				Using this syntax, SHACL Core can be extended by almost arbitrary validation conditions, expressed
+				in JavaScript code.
+				In order to ensure that the resulting JavaScript code can be executed across platforms,
+				this document defines a (minimalistic) JavaScript API that needs to be implemented by supporting engines.
 			</p>
 		</section>
 
@@ -264,92 +264,116 @@
 		</section>
 		
 		<section class="introductory">
-			<h2>Document Outline</h2>
+			<h2>Document Conventions</h2>
 			<p>
 				Some examples in this document use Turtle [[!turtle]].
 				The reader is expected to be familiar with SHACL [[!shacl]].
 			</p>
-		</section>
-	
-		<section id="introduction">
-			<h2>Introduction</h2>
+			<p>
+				Within this document, the following namespace prefix bindings are used:
+			</p>
+			<table class="term-table">
+				<tr>
+					<th>Prefix</th>
+					<th>Namespace</th>
+				</tr>
+				<tr>
+					<td><code>rdf:</code></td>
+					<td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
+				</tr>
+				<tr>
+					<td><code>rdfs:</code></td>
+					<td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
+				</tr>
+				<tr>
+					<td><code>sh:</code></td>
+					<td><code>http://www.w3.org/ns/shacl#</code></td>
+				</tr>
+				<tr>
+					<td><code>xsd:</code></td>
+					<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
+				</tr>
+				<tr>
+					<td><code>ex:</code></td>
+					<td><code>http://example.com/ns#</code></td>
+				</tr>
+			</table>
+			<p>
+				The <a href="shacljs.ttl">Turtle serialization of the SHACL-JS vocabulary</a> <span class="todo">will be</span>
+				uploaded to the web URL of the graph that it represents.
+				(Better would be to add the resources into the shacl.ttl file, just like SHACL-SPARQL is).
+			</p>
+			<p>
+				Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear.
+				These fragments of Turtle documents use the prefix bindings given above.
+			</p>
+			<pre class="example-shapes">
+# This box represents a shapes graph
+&lt;s&gt; &lt;p&gt; &lt;o&gt; .</pre>
 
-			<section id="conventions">
-				<h3>Document Conventions</h3>
-				<p>
-					Within this document, the following namespace prefix bindings are used:
-				</p>
-				<table class="term-table">
-					<tr>
-						<th>Prefix</th>
-						<th>Namespace</th>
-					</tr>
-					<tr>
-						<td><code>rdf:</code></td>
-						<td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
-					</tr>
-					<tr>
-						<td><code>rdfs:</code></td>
-						<td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
-					</tr>
-					<tr>
-						<td><code>sh:</code></td>
-						<td><code><a href="shacl.ttl">http://www.w3.org/ns/shacl#</a></code></td>
-					</tr>
-					<tr>
-						<td><code>xsd:</code></td>
-						<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
-					</tr>
-					<tr>
-						<td><code>ex:</code></td>
-						<td><code>http://example.com/ns#</code></td>
-					</tr>
-				</table>
-				<p>
-					The <a href="shacljs.ttl">Turtle serialization of the SHACL-JS vocabulary</a> <span class="todo">will be</span> uploaded to the web URL of the graph that it represents.
-				</p>
-				<p>
-					Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear.
-					These fragments of Turtle documents use the prefix bindings given above.
-				</p>
-				<pre class="example-shapes">
-# This box represents an input shapes graph
+			<pre class="example-js">
+// This box contains JavaScript code</pre>
 
-# Triples that can be omitted are marked as grey e.g.
-<span class="triple-can-be-skipped">&lt;s&gt; &lt;p&gt; &lt;o&gt; .</span></pre>
-
-				<pre class="example-data">
-# This box represents an input data graph.
+			<pre class="example-data">
+# This box represents a data graph.
 # When highlighting is used in the examples:
 
-# Elements highlighted in blue are <a>focus nodes</a>
+# Elements highlighted in blue are focus nodes
 <span class="focus-node-selected">ex:Bob</span> a ex:Person .
 
-# Elements highlighted in red are focus nodes that fail <a href="#validation">validation</a>
+# Elements highlighted in red are focus nodes that fail validation
 <span class="focus-node-error">ex:Alice</span> a ex:Person .</pre>
 
-				<pre class="example-results">
+			<pre class="example-results">
 # This box represents an output results graph</pre>
 
-				<p>
-					SHACL Definitions appear in blue boxes:
-				</p>
-				<div class="def def-sparql">
-					<div class="def-header">TEXTUAL DEFINITIONS</div>
+			<p>
+				SHACL Definitions appear in blue boxes:
+			</p>
+			<div class="def def-sparql">
+				<div class="def-header">TEXTUAL DEFINITIONS</div>
 <pre class="def-sparql-body">
 # This box contains textual definitions. </pre>
-				</div>
+			</div>
 				
-				<p class="syntax">
-					Grey boxes such as this include syntax rules that apply to the <a>shapes graph</a>.
-				</p>
+			<p class="syntax">
+				Grey boxes such as this include syntax rules that apply to the shapes graph.
+			</p>
 				
-				<p>
-					<code>true</code> denotes the RDF term <code>"true"^^xsd:boolean</code>.
-					<code>false</code> denotes the RDF term <code>"false"^^xsd:boolean</code>.
-				</p>
-
-			</section>
+			<p>
+				<code>true</code> denotes the RDF term <code>"true"^^xsd:boolean</code>.
+				<code>false</code> denotes the RDF term <code>"false"^^xsd:boolean</code>.
+			</p>
+		</section>
+			
+		<section id="introduction">
+			<h2>Introduction</h2>
+			<p>
+				The Shapes Constraint Language (SHACL) [[!shacl]] a language for validating RDF graphs against a set of conditions.
+				These conditions are provided as shapes and other constructs expressed in the form of an RDF graph.
+				SHACL is represented in RDF and consists of a SHACL Core RDF vocabulary with terms such as <code>sh:minCount</code>
+				to express the most frequently needed constraint kinds.
+				However, in order to express more complex constraints, the SHACL Core vocabulary is often not sufficient.
+				SHACL-SPARQL is one extension mechanism for SHACL to express constraints in SPARQL, allowing shape definitions
+				to point at executable SPARQL queries to perform the validation checks.
+				This document defines the <dfn>SHACL JavaScript Extension Vocabulary (SHACL-JS)</dfn>, allowing users to express
+				SHACL constraints with the help of JavaScript. 
+			</p>
+			<p>
+				SHACL-JS is based on a similar design to SHACL-SPARQL, but for JavaScript instead of SPARQL.
+				The basic idea is that SHACL shapes can point at JavaScript functions in specified JavaScript files that
+				can be resolved from the web.
+				When such shapes get evaluated, the engine must call those functions with a predefined set of parameters
+				and construct validation results from the result values and objects of these function calls.
+				The JavaScript code can access RDF triples from both the shapes graph and the data graph where needed,
+				through the <a href="#js-api">JavaScript API</a> that is defined in this document or a higher-level
+				JavaScript API that uses the specified API under the hood.
+			</p>
+			<p>
+				As a result of this design, SHACL shape definitions can be augmented with JavaScript and executed either
+				within web browsers (assuming the SHACL engine operates on the client), or on servers that support
+				JavaScript execution.
+			</p>
 		</section>
 		
 		<section id="js-api">
@@ -357,6 +381,8 @@
 			<p>
 				This section defines an API that JavaScript-based SHACL features can use to operate on
 				RDF terms (IRIs, blank nodes and literals) and to query graphs.
+				The JavaScript code behind SHACL-JS constraints and constraint components can safely access those functions
+				or go through a higher-level layer of convenience functions that use these functions under the hood.
 			</p>
 			<p>
 				Note that the API expects these JavaScript objects to be immutable, i.e. neither
@@ -367,63 +393,76 @@
 				<p>
 					All RDF terms (IRIs, blank nodes and literals) are represented using JavaScript objects
 					that have attributes as described in the following three subsections.
-					In addition to these, each of these objects must have a function <code>equals</code>
-					that takes another term object as its only parameter and returns <code>true</code>
-					exactly if the underlying RDF terms are equal.
+					Given an RDF term object, the following three functions can be called on the object to determine
+					the node kind:
+				</p>
+				<table class="term-table">
+					<tr>
+						<th>Node Kind</th>
+						<th>Test Function</th>
+						<th>Attributes (Read-only)</th>
+						<th>Factory Function</th>
+					</tr>
+					<tr>
+						<td>IRIs / Named Nodes</td>
+						<td><code>.isURI()</code></td>
+						<td><code>uri</code></td>
+						<td><code>TermFactory.namedNode(iri)</code></td>
+					</tr>
+					<tr>
+						<td>Blank Nodes</td>
+						<td><code>.isBlankNode()</code></td>
+						<td><code>id</code></td>
+						<td><code>TermFactory.blankNode([id])</code></td>
+					</tr>
+					<tr>
+						<td>Literals</td>
+						<td><code>.isLiteral()</code></td>
+						<td><code>datatype</code>, <code>language</code>, <code>lex</code></td>
+						<td><code>TermFactory.literal(lex, languageOrDatatype)</code></td>
+					</tr>
+				</table>
+				<p>
+					Note that the attributes in the table above are only defined for objects that have matching types.
+					For example, the result of querying the <code>iri</code> of a blank node is undefined.
 				</p>
 				<p>
-					This API is compatible with a minimal subset of the
-					<a href="https://github.com/rdfjs/representation-task-force/blob/master/interface-spec.md">Interface Specification by the RDFJS Representation Task Force</a>.
+					Each of these objects must have a function <code>.equals</code>
+					that takes another term object as its only parameter and returns <code>true</code>
+					exactly if the underlying RDF terms are term-equal, and <code>false</code> otherwise.
 				</p>
 				<section id="js-api-iri">
 					<h4>IRIs / Named Nodes</h4>
 					<p>
-						IRIs are represented by a JavaScript <dfn data-lt="NamedNodes">NamedNode</dfn> object that has the string value <code>"NamedNode"</code>
-						for the attribute <code>termType</code> and the IRI string itself as its value for the attribute <code>value</code>.
+						IRIs are represented by a JavaScript <dfn data-lt="NamedNodes">NamedNode</dfn> object
+						where <code>.isURI()</code> returns <code>true</code> while <code>.isBlankNode()</code>
+						and <code>.isLiteral</code> return <code>false</code>.
+						The value of the read-only attribute <code>uri</code> is the IRI string.
 					</p>
-					<pre class="example-js">
-{
-	termType : "NamedNode",
-	value : "http://example.org/ns#myIRI",
-	equals : function(other) { ... }
-}</pre>
 				</section>
 				<section id="js-api-bnode">
 					<h4>Blank Nodes</h4>
 					<p>
-						Blank nodes are represented by a JavaScript <dfn data-lt="BlankNodes">BlankNode</dfn> object that has the string value <code>"BlankNode"</code>
-						for the attribute <code>termType</code> and a string as its value for the attribute <code>value</code>.
-						That string represents an identifier for the blank node, which is consistent for the duration of
-						a SHACL validation.
+						Blank nodes are represented by a JavaScript <dfn data-lt="BlankNodes">BlankNode</dfn> object
+						where <code>.isBlankNode()</code> returns <code>true</code> while <code>.isURI()</code>
+						and <code>.isLiteral()</code> return <code>false</code>.
+						The value of the read-only attribute <code>id</code> is the blank node identifier as a string.
+						That string is must be consistent for the same RDF node for the duration of a SHACL validation
+						and processing of validation results.
 					</p>
-					<pre class="example-js">
-{
-	termType : "NamedNode",
-	value : "1234-56-7890",
-	equals : function(other) { ... }
-}</pre>
 				</section>
 				<section id="js-api-literals">
 					<h4>Literals</h4>
 					<p>
-						Literals are represented by a JavaScript <dfn data-lt="Literals">Literal</dfn> object that has the string value <code>"Literal"</code>
-						for the attribute <code>termType</code> and a string containing the lexical form of the literal
-						as its value for the attribute <code>value</code>.
-						The attribute <code>language</code> is a lowercase <a href="http://tools.ietf.org/html/bcp47">BCP-47</a>
+						Literals are represented by a JavaScript <dfn data-lt="Literals">Literal</dfn> object
+						where <code>.isLiteral()</code> returns <code>true</code> while <code>.isURI()</code> and <code>.isBlankNode()</code>
+						return <code>false</code>.
+						The value of the read-only attribute <code>language</code> is a lowercase <a href="http://tools.ietf.org/html/bcp47">BCP-47</a>
 						string (for example, <code>en</code>, <code>en-gb</code>), or an empty string if the literal has no language.
-						The attribute <code>datatype</code> is a <a>NamedNode</a> representation of the datatype IRI of the literal.
+						The value of the read-only attribute <code>datatype</code> is a <a>NamedNode</a> representing the datatype IRI of the literal.
+						The value of the read-only attribute <code>lex</code> is the lexical form of the literal, e.g. <code>"042"</code> for the
+						RDF node <code>"042"^^xsd:integer</code>.
 					</p>
-					<pre class="example-js">
-{
-	termType : "Literal",
-	value : "Haus",
-	language : "de",
-	datatype : {
-		termType : "NamedNode",
-		value : "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString"
-	},
-	equals : function(other) { ... }
-}</pre>
 				</section>
 				<section id="js-api-termfactory">
 					<h4>The TermFactory</h4>
@@ -446,9 +485,9 @@
 						<li>
 							<code>literal(value, languageOrDatatype)</code> returns a <a>Literal</a>
 							with the lexical form provided as a string via <code>value</code>.
-							The second argument <code>languageOrDatatype</code> must be either a string,
+							The second argument <code>languageOrDatatype</code> must be either a non-empty string,
 							in which case the literal will have that value as its language tag,
-							or be a JavaScript <a>NamedNode</a> object representing a datatype.
+							or a JavaScript <a>NamedNode</a> object representing a datatype.
 						</li>
 					</ul>
 				</section>
@@ -456,8 +495,8 @@
 			<section id="js-api-triples">
 				<h3>Triples</h3>
 				<p>
-					RDF triples are represented as JavaScript <dfn data-lt="Triples">Triple</dfn> objects with three attributes
-					<code>subject</code>, <code>predicate</code> and <code>object</code>,
+					RDF triples are represented as JavaScript <dfn data-lt="Triples">Triple</dfn> objects with three 
+					read-only attributes <code>subject</code>, <code>predicate</code> and <code>object</code>,
 					each of which with exactly one RDF term as its value.
 					Furthermore, triples must provide an <code>equals</code> function that takes an
 					object as its only parameter and returns <code>true</code> exactly if that object has
@@ -499,7 +538,7 @@ function getEnglishLabel(resource) {
 			return null;
 		}
 		var label = labelTriple.object;
-		if(label.termType === "Literal" &amp;&amp; label.language.startsWith("en")) {
+		if(label.isLiteral() &amp;&amp; label.language.startsWith("en")) {
 			labels.close();
 			return label.value;
 		}
@@ -529,16 +568,17 @@ function getEnglishLabel(resource) {
 				<code>SHACL.nodeConformsToShape(node, shape)</code>
 				<ol>
 					<li><code>node</code>: The RDF term object of the node to validate</li>
-					<li><code>shape</code>: The RDF term object of the shape to validate</li>
+					<li><code>shape</code>: The RDF term object of the shape to validate the node against</li>
 				</ol>
 				<p>
-					The result of this function is true if and only if the validation of the given node against
-					the given shape returns with no validation results.
+					The result of this function is <code>true</code> if and only if the node
+					<a href="https://www.w3.org/TR/shacl/#dfn-conforms">conforms</a> to the shape.
 				</p>
 				<p>
 					This function is needed because the implementation of some of the constraint components
 					such as <code>sh:NotConstraintComponent</code> requires the ability to spawn off a new
 					SHACL validation process.
+					It may also be used as entry point into the validation engine by custom code.
 				</p>
 			</section>
 		</section>
