@@ -801,6 +801,126 @@ ex:ExampleValueResource
 ] .</pre>
 				</section>
 		</section>
+
+		<section id="rules">
+			<h2>SHACL Rules</h2>
+			<p>
+				SHACL provides an RDF vocabulary to describe <a>shapes</a> - collections of <a>constraints</a> that apply to a set of nodes.
+				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all members of a class.
+				Shapes also provide a natural way of organizing data structures and the concept of execution languages such as SPARQL and JavaScript.
+				SHACL Rules builds on these features to form a light-weight RDF vocabulary for the exchange of rules.
+			</p>
+			<section id="rules-example">
+				<h3>An Example of SHACL Rules</h3>
+				<p>
+					The following example illustrates a simple use case of a rule that applies to all instances of a class <code>ex:Rectangle</code>
+					and computes the values of the <code>ex:area</code> property by multiplying the rectangle's width and height:
+				</p>
+				<pre class="example" title="A rule to compute the area of a Rectangle">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		sh:prefixes ex: ;
+		sh:sparql """
+			CONSTRUCT {
+				?this ex:area ?area .
+			}
+			WHERE {
+				?this ex:width ?width .
+				?this ex:height ?height .
+				BIND (?width * ?height AS ?area) .
+			}
+			""" ;
+	] ;
+.</pre>
+			</section>
+	
+			<section id="rules-syntax">
+				<h2>Syntax of SHACL Rules</h2>
+				<p>
+					The property <code>sh:rule</code> is used to link a <a>shape</a> with <a>SHACL instances</a> of the class <code>sh:Rule</code>.
+					There are two subclasses of <code>sh:Rule</code>: 
+				</p>
+				<ul>
+					<li>
+						<a href="#native-rules"><code>sh:NativeRule</code></a> is used to represent rules that have an executable body, e.g. a SPARQL CONSTRUCT query.
+						This is the default type for <code>sh:rule</code> and its <code>rdf:type</code> triple is therefore optional.
+					</li>
+					<li>
+						<a href="#template-rules"><code>sh:TemplateRule</code></a> is used to represent rules that instantiate a rule macro, i.e. a high-level vocabulary to describe recurring rule patterns.
+						Instances of <code>sh:TemplateRule</code> may have additional property values that serve as arguments for the template.
+					</li>
+				</ul>
+				<section id="native-rules">
+					<h3>Native Rules</h3>
+					<p>
+						Native rules must include properties that allow a rules engine to pick an execution language, such as SPARQL.
+						For SPARQL-based rules, the property <code>sh:sparql</code> must contain a valid CONSTRUCT query.
+						These CONSTRUCT queries are evaluated with the pre-defined variable <code>?this</code> expected to point at the current focus node.
+					</p>
+				</section>
+				<section id="template-rules">
+					<h3>Template Rules</h3>
+					<p>
+						Template rules are instances of a <code>sh:TemplateRule</code> that is an instance of the meta-class <code>sh:RuleTemplate</code>.
+						Each <code>sh:RuleTemplate</code> must define an executable body, e.g. using <code>sh:sparql</code>.
+						...
+					</p>
+				</section>
+				<section id="salience">
+					<h3>Salience</h3>
+					<p>
+						Each SHACL Rule may have one value for the property <code>sh:salience</code>.
+						The values of that property must be literals of type <code>xsd:integer</code>.
+						If unspecified, then the default value is assumed to be <code>0</code>.
+						Salience is used by a SHACL rules engine to determine the order of rules associated with the same Shape.
+						When the rules associated with a Shape are evaluated, rules with larger values will be executed before those with smaller values.
+					</p>
+					<pre class="example">
+ex:SalienceExampleShape
+	a sh:Shape ;
+	sh:rule [
+		rdfs:label "Infer uncles, i.e. male siblings of the parents of ?this" ;
+		sh:salience 2 ;   # Will be evaluated before 1
+		sh:sparql """
+			CONSTRUCT {
+				?this ex:uncle ?uncle .
+			}
+			WHERE {
+				?this ex:parent ?parent .
+				?parent ex:sibling ?uncle .
+				?uncle ex:gender ex:male .
+			}
+			"""
+	] ;
+	sh:rule [
+		rdfs:label "Infer cousins, i.e. the children of the uncles" ;
+		sh:salience 1 ;
+		sh:sparql """
+			CONSTRUCT {
+				?this ex:cousin ?cousin .
+			}
+			WHERE {
+				?this ex:uncle ?uncle .
+				?cousin ex:parent ?uncle .
+			}
+			"""
+	] .</pre>
+				</section>
+				<section id="rules-target">
+					<h2>Targets of Rules</h2>
+					<p class="todo">Explain that the same mechanisms apply as for general shapes, e.g. sh:targetClass</p>
+				</section>
+			</section>
+			
+			<section id="rules-operations">
+				<h2>Operations</h2>
+				<p class="todo">
+					Shall we write down evaluation instructions, or is this just an exchange format? 
+				</p>
+			</section>
+		</section>
 		
 		<section id="syntax-rules" class="appendix">
 			<h2>Summary of SHACL-SPARQL ASF Syntax Rules</h2>
