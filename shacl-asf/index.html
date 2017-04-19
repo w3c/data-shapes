@@ -803,15 +803,21 @@ ex:ExampleValueResource
 		</section>
 
 		<section id="rules">
-			<h2>SHACL Rules</h2>
+			<h2>SHACL-SPARQL Rules</h2>
 			<p>
 				SHACL provides an RDF vocabulary to describe <a>shapes</a> - collections of <a>constraints</a> that apply to a set of nodes.
 				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all members of a class.
-				Shapes also provide a natural way of organizing data structures and the concept of execution languages such as SPARQL and JavaScript.
-				SHACL Rules builds on these features to form a light-weight RDF vocabulary for the exchange of rules.
+				One focus area of SHACL is on data validation.
+				However, the same principles of describing data patterns in shapes can also be exploited for other purposes.
+				SHACL Rules builds on SHACL to form a light-weight RDF vocabulary for the exchange of <em>rules</em> that can be used
+				to derive <em>inferred</em> RDF <a>triples</a> from existing <em>asserted</em> triples.
 			</p>
-			<section id="rules-example">
-				<h3>An Example of SHACL Rules</h3>
+			<p>
+				The SHACL rules feature described in this section is using SPARQL CONSTRUCT queries to perform inferences.
+				However, the architecture is flexible enough to also support rules expressed by other means such as JavaScript code. 
+			</p>
+			<section id="rules-example" class="informative">
+				<h3>An Example of SHACL-SPARQL Rules</h3>
 				<p>
 					The following example illustrates a simple use case of a rule that applies to all instances of a class <code>ex:Rectangle</code>
 					and computes the values of the <code>ex:area</code> property by multiplying the rectangle's width and height:
@@ -819,67 +825,76 @@ ex:ExampleValueResource
 				<pre class="example-shapes" title="A rule to compute the area of a Rectangle">
 ex:RectangleShape
 	a sh:NodeShape ;
-	<span class="target-can-be-skipped">sh:targetClass ex:Rectangle ;</span>
+	sh:targetClass ex:Rectangle ;
 	sh:rule [
 		a sh:SPARQLRule ;
 		sh:prefixes ex: ;
 		sh:construct """
 			CONSTRUCT {
-				?this ex:area ?area .
+				$this ex:area ?area .
 			}
 			WHERE {
-				?this ex:width ?width .
-				?this ex:height ?height .
+				$this ex:width ?width .
+				$this ex:height ?height .
 				BIND (?width * ?height AS ?area) .
 			}
 			""" ;
 	] ;
 .</pre>
+				<p>
+					An application that is capable of executing such rules would use the <a>target</a> statements associated
+					with the <a>shapes</a> in the <a>shapes graph</a> to determine which rules need to be executed on which target nodes.
+					It would then execute the provided CONSTRUCT queries to produce the inferred triples.
+					For the following <a>data graph</a>, the <a>triples</a> below would be produced.
+				</p>
+				<pre class="example-data">
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:width 7 ;
+	ex:height 8 .</pre>
+				<p>
+					Inferred triples:
+				</p>
+				<pre>	ex:ExampleRectangle ex:area 56 .</pre>
 			</section>
 	
 			<section id="rules-syntax">
-				<h2>Syntax of SHACL Rules</h2>
+				<h2>Syntax of SHACL-SPARQL Rules</h2>
 				<p>
-					The property <code>sh:rule</code> is used to link a <a>shape</a> with <a>SHACL instances</a> of the class <code>sh:Rule</code>.
-					There are two subclasses of <code>sh:Rule</code>: 
+					The property <code>sh:rule</code> is used to link a <a>shape</a> with rules.
+					This document defines a single type of rules, <dfn data-lt="SHACL-SPARQL rule">SHACL-SPARQL rules</dfn>,
+					which are expressed as <a>SHACL instances</a> of the class <code>sh:SPARQLRule</code>.
 				</p>
-				<ul>
-					<li>
-						<a href="#native-rules"><code>sh:SPARQLRule</code></a> is used to represent rules that have an executable body, e.g. a SPARQL CONSTRUCT query.
-						This is the default type for <code>sh:rule</code> and its <code>rdf:type</code> triple is therefore optional.
-						<span class="todo">Quite possibly we may also have JavaScript-based rules in the future, so this is unclear.</span>
-					</li>
-					<li>
-						<a href="#template-rules"><code>sh:TemplateRule</code></a> is used to represent rules that instantiate a rule macro, i.e. a high-level vocabulary to describe recurring rule patterns.
-						Instances of <code>sh:TemplateRule</code> may have additional property values that serve as arguments for the template.
-					</li>
-				</ul>
-				<section id="native-rules">
-					<h3>Native Rules</h3>
-					<p>
-						Native rules must include properties that allow a rules engine to pick an execution language, such as SPARQL.
-						For SPARQL-based rules, the property <code>sh:construct</code> must contain a valid CONSTRUCT query.
-						These CONSTRUCT queries are evaluated with the pre-defined variable <code>?this</code> expected to point at the current focus node.
+				<section id="construct">
+					<h3>sh:construct</h3>
+					<p class="syntax">
+						<span data-syntax-rule="SPARQLRule-construct-count"><a>SHACL-SPARQL rules</a> must have exactly one
+						<a>value</a> for the property <code>sh:construct</code>.</span>
+						<span data-syntax-rule="SPARQLRule-construct-datatype">The values of <code>sh:construct</code>
+						must be <a>literals</a> with datatype <code>xsd:string</code>.</span>
 					</p>
-				</section>
-				<section id="template-rules">
-					<h3>Template Rules</h3>
 					<p>
-						Template rules are instances of a <code>sh:TemplateRule</code> that is an instance of the meta-class <code>sh:RuleTemplate</code>.
-						Each <code>sh:RuleTemplate</code> must define an executable body, e.g. using <code>sh:sparql</code>.
-						...
+						The SPARQL CONSTRUCT queries may be accompanied by <a href="https://www.w3.org/TR/shacl/#sparql-prefixes">SHACL Prefix Declaration</a>
+						using <a>triples</a> with the <a>predicate</a> <code>sh:prefixes</code> and the <a>SHACL-SPARQL rule</a> as <a>subject</a>. 
 					</p>
 				</section>
 				<section id="salience">
 					<h3>Salience</h3>
 					<p>
-						Each SHACL Rule may have one value for the property <code>sh:salience</code>.
-						The values of that property must be literals of type <code>xsd:integer</code>.
-						If unspecified, then the default value is assumed to be <code>0</code>.
-						Salience is used by a SHACL rules engine to determine the order of rules associated with the same Shape.
-						When the rules associated with a Shape are evaluated, rules with larger values will be executed before those with smaller values.
+						Rules may specify a so-called <dfn>salience</dfn> as defined in this section, to define the relative ordering
+						of rules at execution time.
 					</p>
-				<pre class="example-shapes" title="Salience example">
+					<p class="syntax">
+						<span data-syntax-rule="salience-maxCount">Each <a>SHACL-SPARQL rule</a> may have at most one <a>value</a> for the
+						property <code>sh:salience</code>.</span>
+						<span data-syntax-rule="salience-datatype">The values of <code>sh:salience</code> must be <a>literals</a> with datatype <code>xsd:integer</code>.</span>
+					</p>
+					<p>
+						If unspecified, then the default <a>salience</a> is assumed to be <code>0</code>.
+						Salience is used by a SHACL-SPARQL rules engine to determine the order of rules associated with the same <a>shape</a>.
+						When the rules associated with a <a>shape</a> are evaluated, rules with larger values will be executed before those with smaller values.
+					</p>
+					<pre class="example-shapes" title="Salience example">
 ex:SalienceExampleShape
 	a sh:NodeShape ;
 	sh:rule [
@@ -889,10 +904,10 @@ ex:SalienceExampleShape
 		sh:salience 2 ;   # Will be evaluated before 1
 		sh:construct """
 			CONSTRUCT {
-				?this ex:uncle ?uncle .
+				$this ex:uncle ?uncle .
 			}
 			WHERE {
-				?this ex:parent ?parent .
+				$this ex:parent ?parent .
 				?parent ex:sibling ?uncle .
 				?uncle ex:gender ex:male .
 			}
@@ -905,10 +920,10 @@ ex:SalienceExampleShape
 		sh:salience 1 ;
 		sh:construct """
 			CONSTRUCT {
-				?this ex:cousin ?cousin .
+				$this ex:cousin ?cousin .
 			}
 			WHERE {
-				?this ex:uncle ?uncle .
+				$this ex:uncle ?uncle .
 				?cousin ex:parent ?uncle .
 			}
 			"""
@@ -920,8 +935,8 @@ ex:SalienceExampleShape
 				</section>
 			</section>
 			
-			<section id="rules-operations">
-				<h2>Operations</h2>
+			<section id="rules-semantics">
+				<h2>Semantics of Rules</h2>
 				<p class="todo">
 					Shall we write down evaluation instructions, or is this just an exchange format? 
 				</p>
