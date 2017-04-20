@@ -809,13 +809,13 @@ ex:ExampleValueResource
 		</section>
 
 		<section id="rules">
-			<h2>SHACL-SPARQL Rules</h2>
+			<h2>SHACL Rules</h2>
 			<p>
 				SHACL provides an RDF vocabulary to describe <a>shapes</a> - collections of <a>constraints</a> that apply to a set of nodes.
 				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all members of a class.
 				One focus area of SHACL is on data validation.
 				However, the same principles of describing data patterns in shapes can also be exploited for other purposes.
-				SHACL Rules builds on SHACL to form a light-weight RDF vocabulary for the exchange of <em>rules</em> that can be used
+				SHACL rules build on SHACL to form a light-weight RDF vocabulary for the exchange of <em>rules</em> that can be used
 				to derive <em>inferred</em> RDF <a>triples</a> from existing <em>asserted</em> triples.
 			</p>
 			<p>
@@ -832,6 +832,22 @@ ex:ExampleValueResource
 ex:RectangleShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Rectangle ;
+	sh:property [
+		sh:path ex:width ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:height ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] .
+
+ex:RectangleRulesShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
 	sh:rule [
 		a sh:SPARQLRule ;
 		sh:prefixes ex: ;
@@ -845,12 +861,13 @@ ex:RectangleShape
 				BIND (?width * ?height AS ?area) .
 			}
 			""" ;
+		sh:condition ex:RectangleShape ;    # Rule only applies to Rectangles that conform to ex:RectangleShape
 	] ;
 .</pre>
 				<p>
 					An application that is capable of executing such rules would use the <a>target</a> statements associated
 					with the <a>shapes</a> in the <a>shapes graph</a> to determine which rules need to be executed on which target nodes.
-					For those target nodes that conform to the shape, it would execute the provided CONSTRUCT queries to produce the inferred triples.
+					For those target nodes that conform to any <a href="#condition">condition shapes</a>, it would execute the provided CONSTRUCT queries to produce the inferred triples.
 					During the execution of the query, the variable <code>this</code> would have the current <a>focus node</a> as pre-bound variable.
 					For the following <a>data graph</a>, the <a>triples</a> below would be produced.
 				</p>
@@ -858,7 +875,11 @@ ex:RectangleShape
 ex:ExampleRectangle
 	a ex:Rectangle ;
 	ex:width 7 ;
-	ex:height 8 .</pre>
+	ex:height 8 .
+
+ex:InvalidRectangle    # Lacks a value for ex:height, so sh:condition is not met
+	a ex:Rectangle ;
+	ex:width 7 .</pre>
 				<p>
 					Inferred triples:
 				</p>
@@ -866,23 +887,21 @@ ex:ExampleRectangle
 			</section>
 	
 			<section id="rules-syntax">
-				<h2>Syntax of SHACL-SPARQL Rules</h2>
+				<h2>General Syntax of SHACL Rules</h2>
 				<p>
-					The property <code>sh:rule</code> is used to link a <a>shape</a> with rules.
-					This document defines a single type of rules, <dfn data-lt="SHACL-SPARQL rule">SHACL-SPARQL rules</dfn>,
-					which are expressed as <a>SHACL instances</a> of the class <code>sh:SPARQLRule</code>.
+					The <a>values</a> of the property <code>sh:rule</code> at a <a>shape</a> are called <dfn data-lt="rule">rules</dfn>.
+					SHACL has a flexible design in which multiple types of rules can be supported, including <a>SHACL-SPARQL rules</a>.
+					Rules have <code>rdf:type</code> triples to instruct an engine how to execute them.
+					All rules may have the properties defined in the rest of this section.
 				</p>
-				<section id="construct">
-					<h3>sh:construct</h3>
-					<p class="syntax">
-						<span data-syntax-rule="SPARQLRule-construct-count"><a>SHACL-SPARQL rules</a> must have exactly one
-						<a>value</a> for the property <code>sh:construct</code>.</span>
-						<span data-syntax-rule="SPARQLRule-construct-datatype">The values of <code>sh:construct</code>
-						must be <a>literals</a> with datatype <code>xsd:string</code>.</span>
-					</p>
+				<section id="condition">
+					<h3>sh:condition</h3>
 					<p>
-						The SPARQL CONSTRUCT queries may be accompanied by <a href="https://www.w3.org/TR/shacl/#sparql-prefixes">SHACL Prefix Declaration</a>
-						using <a>triples</a> with the <a>predicate</a> <code>sh:prefixes</code> and the <a>SHACL-SPARQL rule</a> as <a>subject</a>. 
+						All SHACL rules may have values for the property <code>sh:condition</code> to specify <a>shapes</a>
+						that the <a>target</a> nodes must conform to before the rule gets executed.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="condition-node">The <a>values</a> of <code>sh:condition</code> at a <a>rule</a> must be well-formed <a>shapes</a>.</span>
 					</p>
 				</section>
 				<section id="rules-order">
@@ -903,6 +922,7 @@ ex:ExampleRectangle
 					<pre class="example-shapes" title="Rule order example">
 ex:RuleOrderExampleShape
 	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
 	sh:rule [
 		a sh:SPARQLRule ;
 		rdfs:label "Infer uncles, i.e. male siblings of the parents of ?this" ;
@@ -935,9 +955,27 @@ ex:RuleOrderExampleShape
 			"""
 	] .</pre>
 				</section>
-				<section id="rules-target">
-					<h2>Targets of Rules</h2>
-					<p class="todo">Explain that the same mechanisms apply as for general shapes, e.g. sh:targetClass</p>
+			</section>
+			
+			<section id="rules-sparql-syntax">
+				<h2>Syntax of SHACL-SPARQL Rules</h2>
+				<p>
+					This document defines a type of rules, <dfn data-lt="SHACL-SPARQL rule">SHACL-SPARQL rules</dfn>,
+					which are expressed as <a>SHACL instances</a> of the class <code>sh:SPARQLRule</code>.
+					SHACL-SPARQL rules have the following properties.
+				</p>
+				<section id="construct">
+					<h3>sh:construct</h3>
+					<p class="syntax">
+						<span data-syntax-rule="SPARQLRule-construct-count"><a>SHACL-SPARQL rules</a> must have exactly one
+						<a>value</a> for the property <code>sh:construct</code>.</span>
+						<span data-syntax-rule="SPARQLRule-construct-datatype">The values of <code>sh:construct</code>
+						must be <a>literals</a> with datatype <code>xsd:string</code>.</span>
+					</p>
+					<p>
+						The SPARQL CONSTRUCT queries may be accompanied by <a href="https://www.w3.org/TR/shacl/#sparql-prefixes">SHACL Prefix Declaration</a>
+						using <a>triples</a> with the <a>predicate</a> <code>sh:prefixes</code> and the <a>SHACL-SPARQL rule</a> as <a>subject</a>. 
+					</p>
 				</section>
 			</section>
 			
