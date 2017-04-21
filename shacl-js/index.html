@@ -252,7 +252,7 @@
 		<section id="abstract">
 			<p>
 				This document defines a JavaScript-based extension mechanism for the Shapes Constraint Language (SHACL).
-				It defines a syntax for declaring constraints and constraint components in JavaScript.
+				It defines a syntax for declaring constraints, constraint components, functions and rules in JavaScript.
 				Using this syntax, SHACL Core can be extended by almost arbitrary validation conditions, expressed
 				in JavaScript code.
 				In order to ensure that the resulting JavaScript code can be executed across platforms,
@@ -373,6 +373,9 @@
 				<dfn data-lt="validators"><a href="https://www.w3.org/TR/shacl/#dfn-validator">validator</a></dfn>,
 				<dfn data-lt="values"><a href="https://www.w3.org/TR/shacl/#dfn-value">value</a></dfn>,
 				<dfn data-lt="value nodes"><a href="https://www.w3.org/TR/shacl/#dfn-value-nodes">value node</a></dfn>.
+				Additional terms are defined in the SHACL-SPARQL Advanced Features document:
+				<dfn data-lt="rules"><a href="http://w3c.github.io/data-shapes/shacl-asf/#dfn-rule">rule</a></dfn>,
+				<dfn data-lt="rule types"><a href="http://w3c.github.io/data-shapes/shacl-asf/#dfn-rule-type">rule type</a></dfn>.
 			</p>
 		</section>
 			
@@ -1046,8 +1049,103 @@ ex:square
 					current query graph, while the variable <code>$shapes</code> is undefined.
 				</p>
 			</section>
-			
 		</section>
+		
+		<section id="rules">
+			<h2>JavaScript Rules</h2>
+			<p>
+				The <a href="http://w3c.github.io/data-shapes/shacl-asf/">SHACL-SPARQL Advanced Features</a> document introduced
+				the concept of SHACL-based <a>rules</a> and an extension mechanism that can be used to define new <a>rule types</a>.
+			</p>
+			<p>
+				This section defines a <a>rule type</a> called <dfn data-lt="JavaScript rule">JavaScript rules</dfn>.
+			<p>
+			<table class="term-table">
+				<tr>
+					<th>Rule Type IRI</th>
+					<th>Key Property</th>
+					<th>Other Properties</th>
+				</tr>
+				<tr>
+					<td><code>sh:JSRule</code></td>
+					<td><a href="#jsFunctionName"><code>sh:jsFunctionName</code></a></td>
+					<td><a href="#jsLibrary"><code>sh:jsLibrary</code></a></td>
+				</tr>
+			</table>
+			<section id="rules-example">
+				<h3>An Example JavaScript Rule</h3>
+				<p>
+					The following example illustrates the use of a <a>JavaScript rule</a> to compute the area of
+					a rectangle, by multiplying width and height.
+				</p>
+				<pre class="example-js">
+var NS = "http://datashapes.org/js/tests/rules/rectangle.test#";
+
+function computeArea($focusNode) {
+	var width = getProperty($focusNode, "width");
+	var height = getProperty($focusNode, "height");
+	var area = TermFactory.literal(width.lex * height.lex, width.datatype);
+	var areaProperty = TermFactory.namedNode(NS + "area");
+	return [ [$focusNode, areaProperty, area] ]; 
+}
+
+function getProperty($focusNode, name) {
+	var it = $data.find($focusNode, TermFactory.namedNode(NS + name), null);
+	var result = it.next().object;
+	it.close();
+	return result;
+}</pre>
+				<p>
+					Note that this code is quite verbose because it uses only the very basic SHACL JavaScript API.
+					In real-world examples, a higher level API is likely used.
+				</p>
+				<pre class="example-shapes" title="Rules example">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		a sh:JSRule ;    # This triple is optional
+		sh:jsFunctionName "computeArea" ;
+		sh:jsLibrary [ sh:jsLibraryURL "http://example.org/js/rectangle.js"^^xsd:anyURI ] ;
+    ] .</pre>
+    			<p>
+					For the following <a>data graph</a>, the <a>triples</a> below would be produced.
+				</p>
+				<pre class="example-data">
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:width 7 ;
+	ex:height 8 .</pre>
+				<p>
+					Inferred triples:
+				</p>
+				<pre class="example-inferences">	ex:ExampleRectangle ex:area 56 .</pre>
+			</section>
+			<section id="rules-execution">
+				<h3>Execution Instructions for JavaScript Rules</h3>
+				<div class="def def-text">
+					<div class="def-header">TEXTUAL DEFINITION</div>
+					<div class="def-text-body">
+						Prior to execution, ensure that all JavaScript libraries for the <a>rule</a> (specified via <code>sh:jsLibrary</code>)
+						have been executed.
+						For each <a>focus node</a>, execute the JavaScript function specified as the <a>value</a> of
+						<code>sh:jsFunctionName</code> at the <a>rule</a> in the <a>shapes graph</a>, using the <a>focus node</a>
+						as the first (and only) argument into the function.
+						If the result <code>R</code> of the function call is an <code>Array</code> then for each member <code>O</code>
+						of this array apply the instructions below.
+					</div>
+				</div>
+				<ol>
+					<li><b>If <code>O</code> is an <code>Array</code>:</b> Infer a new <a>triple</a> <code>O[0] O[1] O[2]</code>.</li>
+					<li><b>If <code>O</code> is another <code>Object</code>:</b> Infer a new <a>triple</a> <code>O.subject O.predicate O.object</code>.
+				</ol>
+				<p>
+					In other words, each member of the <code>Array</code> returned by the JavaScript function must either
+					be another <code>Array</code> with three members (for subject, predicate and object),
+					of a JavaScript <code>Object</code> with three fields <code>subject</code>, <code>predicate</code> and <code>object</code>.
+				</p>
+			</section>
+		</section>		
 		
 		<div style="padding-top: 30px">
 			<h1 id="appendix" style="font-size: 160%; font-weight: bold">Appendix</h1>
