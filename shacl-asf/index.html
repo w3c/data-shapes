@@ -822,7 +822,8 @@ ex:ExampleValueResource
 				The SHACL rules feature defined in this section includes a general framework using the properties
 				<code>sh:rule</code>, <code>sh:condition</code> and <code>sh:order</code>, plus an extension mechanism
 				for specific <a>rule types</a>.
-				This document defines two such rule types: <a>Classification rules</a> and <a>SPARQL rules</a>.
+				This document defines three such rule types:
+				<a>Classification rules</a>, <a>SPARQL CONSTRUCT rules</a> and <a>SPARQL SELECT rules</a>.
 				Other documents, including <a href="http://w3c.github.io/data-shapes/shacl-js/">SHACL JavaScript Extensions</a>,
 				define additional types of rules.
 			</p>
@@ -891,9 +892,9 @@ ex:SquareRectangle
 			</section>
 			
 			<section id="rules-example-sparql" class="informative">
-				<h3>An Example SPARQL Rule</h3>
+				<h3>Example SPARQL-based Rules</h3>
 				<p>
-					The following example illustrates a simple use case of a <a>SPARQL rule</a> that applies to all instances of a class <code>ex:Rectangle</code>
+					The following example illustrates a simple use case of a <a>SPARQL CONSTRUCT rule</a> that applies to all instances of a class <code>ex:Rectangle</code>
 					and computes the values of the <code>ex:area</code> property by multiplying the rectangle's width and height:
 				</p>
 				<pre class="example-shapes" title="A rule to compute the area of a Rectangle">
@@ -917,7 +918,7 @@ ex:RectangleRulesShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Rectangle ;
 	sh:rule [
-		a sh:SPARQLRule ;   # Optional triple
+		a sh:SPARQLConstructRule ;   # Optional triple
 		sh:prefixes ex: ;
 		sh:construct """
 			CONSTRUCT {
@@ -952,17 +953,43 @@ ex:InvalidRectangle    # Lacks a value for ex:height, so sh:condition is not met
 					Inferred triples:
 				</p>
 				<pre class="example-inferences">	ex:ExampleRectangle ex:area 56 .</pre>
+				<p>
+					The following variation produces the same results as the <a>SPARQL CONSTRUCT rule</a>, but
+					uses a <a>SPARQL SELECT rule</a>.
+					This syntactic variation is suitable for cases in which only the values of a single property
+					of the focus nodes must be inferred.
+					While not as expressive as CONSTRUCT-based rules, SELECT-based rules are arguably more declarative.
+				</p>
+				<pre class="example-shapes" title="A rule to compute the area of a Rectangle">
+ex:RectangleRulesShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		a sh:SPARQLSelectRule ;   # Optional triple
+		sh:predicate ex:area ;    # Computes the values of the ex:area property at the focus nodes
+		sh:prefixes ex: ;
+		sh:select """
+			SELECT ?area 
+			WHERE {
+				$this ex:width ?width .
+				$this ex:height ?height .
+				BIND (?width * ?height AS ?area) .
+			}
+			""" ;
+		sh:condition ex:RectangleShape ;    # Rule only applies to Rectangles that conform to ex:RectangleShape
+	] ;
+.</pre>
 			</section>
 	
 			<section id="rules-syntax">
 				<h2>General Syntax of SHACL Rules</h2>
 				<p>
 					The <a>values</a> of the property <code>sh:rule</code> at a <a>shape</a> are called <dfn data-lt="rule">rules</dfn>.
-					SHACL has a flexible design in which multiple types of rules can be supported, including <a>Classification rules</a>
-					and <a>SPARQL rules</a>.
+					SHACL has a flexible design in which multiple types of rules can be supported, including <a>Classification rules</a>,
+					<a>SPARQL CONSTRUCT rules</a> and <a>SPARQL SELECT rules</a>.
 					Each <dfn data-lt="rule types">rule type</dfn> is identified by an <a>IRI</a> that may be used as <code>rdf:type</code> of rules.
 					However, rules do not require any <code>rdf:type</code> triples.
-					Instead, each rule type defines one <dfn data-lt="key properties">key property</dfn> (such as <code>sh:construct</code> for <a>SPARQL rules</a>)
+					Instead, each rule type defines one <dfn data-lt="key properties">key property</dfn> (such as <code>sh:construct</code> for <a>SPARQL CONSTRUCT rules</a>)
 					that is used to identify the rule type.
 					Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
 					Each <a>rule</a> can have multiple <a>rule types</a>,
@@ -1003,7 +1030,6 @@ ex:RuleOrderExampleShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Person ;
 	sh:rule [
-		a sh:SPARQLRule ;
 		rdfs:label "Infer uncles, i.e. male siblings of the parents of ?this" ;
 		sh:prefixes ex: ;
 		sh:order 1 ;   # Will be evaluated before 2
@@ -1019,7 +1045,6 @@ ex:RuleOrderExampleShape
 			"""
 	] ;
 	sh:rule [
-		a sh:SPARQLRule ;
 		rdfs:label "Infer cousins, i.e. the children of the uncles" ;
 		sh:prefixes ex: ;
 		sh:order 2 ;
@@ -1140,10 +1165,10 @@ while(oldCount != newCount)</pre>
 				</section>
 			</section>
 
-			<section id="rules-sparql">
-				<h3>SPARQL Rules</h3>
+			<section id="rules-sparql-construct">
+				<h3>SPARQL CONSTRUCT Rules</h3>
 				<p>
-					This section defines a <a>rule type</a> called <dfn data-lt="SPARQL rule">SPARQL rules</dfn>.
+					This section defines a <a>rule type</a> called <dfn data-lt="SPARQL CONSTRUCT rule">SPARQL CONSTRUCT rules</dfn>.
 				<p>
 				<table class="term-table">
 					<tr>
@@ -1152,7 +1177,7 @@ while(oldCount != newCount)</pre>
 						<th>Other Properties</th>
 					</tr>
 					<tr>
-						<td><code>sh:SPARQLRule</code></td>
+						<td><code>sh:SPARQLConstructRule</code></td>
 						<td><a href="#construct"><code>sh:construct</code></a></td>
 						<td><a href="#prefixes"><code>sh:prefixes</code></a></td>
 					</tr>
@@ -1160,23 +1185,23 @@ while(oldCount != newCount)</pre>
 				<section id="construct">
 					<h3>sh:construct</h3>
 					<p class="syntax">
-						<span data-syntax-rule="SPARQLRule-construct-count"><a>SPARQL rules</a> must have exactly one
+						<span data-syntax-rule="construct-count"><a>SPARQL CONSTRUCT rules</a> must have exactly one
 						<a>value</a> for the property <code>sh:construct</code>.</span>
-						<span data-syntax-rule="SPARQLRule-construct-datatype">The values of <code>sh:construct</code>
-						must be <a>literals</a> with datatype <code>xsd:string</code>.</span>
+						<span data-syntax-rule="construct-datatype">The values of <code>sh:construct</code>
+						are <a>literals</a> with datatype <code>xsd:string</code>.</span>
 					</p>
 				</section>
 				<section id="prefixes">
 					<h3>sh:prefixes</h3>
 					<p>
-						<a>SPARQL rules</a> may use the property <code>sh:prefixes</code> to declare a dependency on prefixes based on the
+						<a>SPARQL CONSTRUCT rules</a> (and <a>SPARQL SELECT rules</a>) may use the property <code>sh:prefixes</code> to declare a dependency on prefixes based on the
 						mechanism defined in <a href="https://www.w3.org/TR/shacl/#sparql-prefixes">Prefix Declarations for SPARQL Queries</a>
 						from the SHACL specification [[!shacl]].
-						This mechanism allows users to abbreviate URIs in the <code>sh:construct</code> strings.
+						This mechanism allows users to abbreviate URIs in the <code>sh:construct</code> and <code>sh:select</code> strings.
 					</p>
 				</section>
 				<section id="rules-sparql-execution">
-					<h3>Execution Instructions for SPARQL Rules</h3>
+					<h3>Execution Instructions for SPARQL CONSTRUCT Rules</h3>
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body">
@@ -1185,6 +1210,60 @@ while(oldCount != newCount)</pre>
 							For each <a>focus node</a>, execute the query <code>Q</code>
 							<a href="https://www.w3.org/TR/shacl/#pre-binding">pre-binding</a> the variables <code>this</code>
 							to the focus node, and <a>infer</a> the constructed <a>triples</a>.
+						</div>
+					</div>
+				</section>
+			</section>
+
+			<section id="rules-sparql-select">
+				<h3>SPARQL SELECT Rules</h3>
+				<p>
+					This section defines a <a>rule type</a> called <dfn data-lt="SPARQL SELECT rule">SPARQL SELECT rules</dfn>.
+				<p>
+				<table class="term-table">
+					<tr>
+						<th>Rule Type IRI</th>
+						<th>Key Property</th>
+						<th>Other Properties</th>
+					</tr>
+					<tr>
+						<td><code>sh:SPARQLSelectRule</code></td>
+						<td><a href="#select"><code>sh:select</code></a></td>
+						<td><a href="#predicate"><code>sh:predicate</code></a>, <a href="#prefixes"><code>sh:prefixes</code></a></td>
+					</tr>
+				</table>
+				<section id="select">
+					<h3>sh:select</h3>
+					<p class="syntax">
+						<span data-syntax-rule="select-count"><a>SPARQL SELECT rules</a> must have exactly one
+						<a>value</a> for the property <code>sh:select</code>.</span>
+						<span data-syntax-rule="select-datatype">The values of <code>sh:select</code>
+						are <a>literals</a> with datatype <code>xsd:string</code>.</span>
+					</p>
+				</section>
+				<section id="predicate">
+					<h3>sh:predicate</h3>
+					<p class="syntax">
+						<span data-syntax-rule="predicate-count"><a>SPARQL SELECT rules</a> must have exactly one
+						<a>value</a> for the property <code>sh:predicate</code>.</span>
+						<span data-syntax-rule="predicate-nodeKind">The values of <code>sh:predicate</code> are <a>IRIs</a>.</span>
+					</p>
+				</section>
+				<section id="rules-sparql-execution">
+					<h3>Execution Instructions for SPARQL SELECT Rules</h3>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body">
+							Let <code>Q</code> be the SPARQL SELECT query derived from the values of the properties
+							<code>sh:select</code> and <code>sh:prefixes</code> of the <a>rule</a> in the <a>shapes graph</a>.
+							Let <code>?predicate</code> be the <a>value</a> of <code>sh:predicate</code> of the <a>rule</a> in the <a>shapes graph</a>.
+							For each <a>focus node</a> that is not a <a>literal</a>, execute the query <code>Q</code>
+							<a href="https://www.w3.org/TR/shacl/#pre-binding">pre-binding</a> the variables <code>this</code>
+							to the <a>focus node</a>.
+							Report a <a>failure</a> if this query returns more than one result variable.
+							For each <a>solution</a> of this query, <a>infer</a> a <a>triple</a>
+							<code>?this ?predicate ?object</code> where <code>?this</code> is the <a>focus node</a>
+							and <code>?object</code> is the <a>binding</a> of the (first and only) result variable of the SELECT query.
 						</div>
 					</div>
 				</section>
