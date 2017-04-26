@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-US">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <title>Advanced SHACL Features</title>
+    <title>SHACL Advanced Features</title>
     <script src='https://www.w3.org/Tools/respec/respec-w3c-common'
             async="async" class='remove'></script>
     <script src="https://www.w3.org/2013/ShEx/demobits/jquery.min.js" type="text/javascript"></script>
@@ -59,6 +59,7 @@
 				tab-size: 3;
 				-moz-tab-size: 3; /* Code for Firefox */
 				-o-tab-size: 3; /* Code for Opera */
+				word-wrap: normal;
 			}
 
 			th {
@@ -858,20 +859,20 @@ WHERE {
 				The following example declares a <a>node expression</a> that produces the display labels of all values of
 				the property <code>ex:customer</code> that <a>conform</a> to a given <a>shape</a> <code>ex:GoodCustomerShape</code>.
 				The assumption here is that there is a <a>SHACL function</a> <code>ex:displayLabel</code> which declares a
-				parameter <code>ex:resource</code>.
+				single parameter.
 			</p>
 			<pre class="example-shapes" title="Node expression example">
 [
 	sh:function ex:displayLabel ;
-	ex:resource [
+	sh:args ( [
 		sh:filter ex:GoodCustomerShape ;
 		sh:nodes [ sh:path ex:customer ] ;
-	]
+	] )
 ] .</pre>
 			<p>
 				To execute this example, an engine gets all <a>values</a> of <code>ex:customer</code> of the <a>focus node</a>, then filters
 				them according to the <a>shape</a> <code>ex:GoodCustomerShape</code> and repeatedly calls the <a>SHACL function</a>
-				<code>ex:displayLabel</code> for all values that pass the filter.
+				<code>ex:displayLabel</code> with all values that pass the filter as parameters.
 			</p>
 			<p>
 				One important use case of such expressions is for <a>SHACL rules</a>, yet the basic functionality
@@ -930,17 +931,18 @@ WHERE {
 				<h3>Function Expressions</h3>
 				<p class="syntax">
 					<span data-syntax-rule="FunctionExpression">A <dfn>Function Expression</dfn> is a <a>blank node</a>
-					with exactly one <a>value</a> of <code>sh:function</code> (which is the <a>IRI</a> of a <a>SHACL Function</a>).</span>
+					with exactly one <a>value</a> of <code>sh:function</code> (which is the <a>IRI</a> of a <a>SHACL Function</a>).
+					A <a>function expression</a> may have at most one <a>value</a> for the property <code>sh:args</code>
+					and this value must be a well-formed RDF list where each list member is a <a>node expression</a>.</span>
 				</p>
 				<div class="def def-text">
 					<div class="def-header">EVALUATION OF FUNCTION EXPRESSIONS</div>
 					<div class="def-text-body">
 						For the <a>function expression</a> <code>$expr</code>, <code>Eval($expr, $this)</code> produces
 						the set of nodes returned by evaluating the <a>SHACL function</a> specified via <code>sh:function</code> at <code>$expr</code>
-						for all combinations of input parameters defined as follows.
-						For each property <code>?p</code> declared as <a>parameter</a> of the SHACL function via <code>sh:parameter/sh:path</code>,
-						if <code>$expr</code> has a <a>value</a> for <code>?p</code> then these values are evaluated as
-						<a>node expression</a>, and the results of these expressions passed as parameter into the SHACL function.
+						for all combinations of input arguments defined as follows.
+						The arguments of the function call(s) are based on the results of the <a>node expressions</a> listed
+						in the <a>value</a> of <code>sh:args</code>.
 						This is done for all combinations of nodes, unless there is no value for a non-optional parameter of the SHACL function.
 					</div>
 				</div>
@@ -1150,12 +1152,11 @@ ex:RectangleRulesShape
 	sh:targetClass ex:Rectangle ;
 	sh:rule [
 		a sh:TripleRule ;
-		sh:subject sh:focusNode ;
+		sh:subject sh:this ;
 		sh:predicate ex:area ;    # Computes the values of the ex:area property at the focus nodes
 		sh:object [
 			sh:function ex:multiply ;
-			ex:op1 [ sh:path ex:width ] ;
-			ex:op2 [ sh:path ex:height ] ;
+			sh:args ( [ sh:path ex:width ] [ sh:path ex:height ] ) ;
 		] ;
 		sh:condition ex:RectangleShape ;    # Rule only applies to Rectangles that conform to ex:RectangleShape
 	] ;
