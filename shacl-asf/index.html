@@ -360,6 +360,7 @@
 				<dfn data-lt="IRIs"><a href="https://www.w3.org/TR/shacl/#dfn-iri">IRI</a></dfn>,
 				<dfn data-lt="literals"><a href="https://www.w3.org/TR/shacl/#dfn-literal">literal</a></dfn>,
 				<dfn data-lt="local names"><a href="https://www.w3.org/TR/shacl/#dfn-local-name">local name</a></dfn>,
+				<dfn data-lt="members"><a href="https://www.w3.org/TR/shacl/#dfn-members">member</a></dfn>,
 				<dfn data-lt="nodes|RDF node"><a href="https://www.w3.org/TR/shacl/#dfn-node">node</a></dfn>,
 				<dfn data-lt="node shapes"><a href="https://www.w3.org/TR/shacl/#dfn-node-shape">node shape</a></dfn>,
 				<dfn data-lt="objects"><a href="https://www.w3.org/TR/shacl/#dfn-object">object</a></dfn>,
@@ -370,6 +371,7 @@
 				<dfn data-lt="property shapes"><a href="https://www.w3.org/TR/shacl/#dfn-property-shape">property shape</a></dfn>,
 				<dfn data-lt="RDF terms|terms|term"><a href="https://www.w3.org/TR/shacl/#dfn-rdf-term">RDF term</a></dfn>,
 				<dfn data-lt="SHACL instances"><a href="https://www.w3.org/TR/shacl/#dfn-shacl-instance">SHACL instance</a></dfn>,
+				<dfn data-lt="SHACL lists"><a href="https://www.w3.org/TR/shacl/#dfn-shacl-list">SHACL list</a></dfn>,
 				<dfn data-lt="SHACL subclasses"><a href="https://www.w3.org/TR/shacl/#dfn-shacl-subclass">SHACL subclass</a></dfn>,
 				<dfn data-lt="shapes"><a href="https://www.w3.org/TR/shacl/#dfn-shape">shape</a></dfn>,
 				<dfn data-lt="shapes graphs"><a href="https://www.w3.org/TR/shacl/#dfn-shapes-graph">shapes graph</a></dfn>,
@@ -477,6 +479,7 @@
 					<span data-syntax-rule="SPARQLTarget-select-sparql">Using the <a>values</a> of <code>sh:prefixes</code> as defined by
 					<a href="https://www.w3.org/TR/shacl/#sparql-prefixes">5.2.1 Prefix Declarations for SPARQL Queries</a>,
 					the <a>values</a> of <code>sh:select</code> must be valid SPARQL 1.1 SELECT queries with a single result variable <code>this</code>.</span>
+					<span data-syntax-rule="SPARQLTarget-ask-count"><a>SPARQL-based targets</a> have at most one <a>value</a> for the property <code>sh:ask</code>.</span>
 				</p>
 				<p>
 					The following example declares a well-formed SPARQL-based target that produces all persons born in the USA:
@@ -522,6 +525,11 @@ ex:USCitizenShape
 					with <code>ASK</code> in the outermost SELECT query.
 					Let <code>rs</code> be the set of RDF terms returned as <a>bindings</a> for the variable <code>this</code> in the <a>solutions</a> of the SELECT query.
 					Then <code>A</code> returns <code>true</code> if and only if the variable <code>this</code> is <a>pre-bound</a> with a value from <code>rs</code>.
+					If the SELECT query of a SPARQL-based target does not fulfill this requirement, it needs to be accompanied
+					by a SPARQL ASK query as the value for <code>sh:ask</code>.
+					A SHACL engine can then determine whether a given <a>shape</a> applies to a given <a>node</a> by executing the ASK
+					query with the variable <code>this</code> <a>pre-bound</a> to the <a>node</a>.
+					If the ASK query evaluates to <code>true</code> then the <a>node</a> is in the target of the <a>shape</a>.
 				</p>
 			</section>
 			<section id="SPARQLTargetType">
@@ -599,7 +607,7 @@ ex:USCitizenShape
 		</section>
 		
 		<section id="sparql-constraints-annotations">
-			<h2>Injecting Annotation Properties into Validation Results</h2>
+			<h2>Annotation Properties</h2>
 			<p>
 				This section extends the general <a href="https://www.w3.org/TR/shacl/#sparql-constraints-variables">mechanism from SHACL-SPARQL</a>
 				[[!shacl]] to produce <a>validation reports</a> as a result of the <a>validation</a>.
@@ -719,7 +727,8 @@ ex:AnnotationExample
 			<p>
 				SHACL functions can be called within FILTER or BIND clauses and similar features of SPARQL queries.
 				SHACL functions can also be used declaratively in frameworks such as the SHACL <a>node expressions</a>
-				which are used in <a>SHACL rules</a>.  In those scenarios they may be used to perform data transformations.
+				which are used in <a>SHACL rules</a>.
+				In those scenarios they may be used to perform data transformations such as string concatenation.
 			</p>
 			<section id="functions-example">
 				<h3>An Example SPARQL-based Function</h3>
@@ -839,14 +848,14 @@ WHERE {
 			<p>
 				This section defines a feature called <dfn data-lt="node expression">node expressions</dfn>.
 				Node expressions are declared as RDF nodes in a <a>shapes graph</a> and instruct a SHACL engine
-				on how to compute a set of <a>nodes</a>.
-				Each <a>node expression</a> is declared as a <a>node</a> and has one of the following types,
+				how to compute a set of <a>nodes</a> for a given <a>focus node</a>.
+				Each <a>node expression</a> has one of the following types,
 				each of which is defined together with its evaluation semantics in the following sub-sections.
 			</p>
 			<table class="term-table">
 				<tr>
-					<th>Node Expression Type</th>
-					<th>Syntax</th>
+					<th>Node&nbsp;Expression&nbsp;Type</th>
+					<th>Syntax (Informative)</th>
 					<th>Summary</th>
 				</tr>
 				<tr>
@@ -855,7 +864,7 @@ WHERE {
 					<td>The set consisting of the current <a>focus node</a>.</td>
 				</tr>
 				<tr>
-					<td><a>Constant Term Expression</a></td>
+					<td><a>Constant&nbsp;Term&nbsp;Expression</a></td>
 					<td>Any <a>IRI</a> or <a>literal</a> except <code>sh:this</code></td>
 					<td>The set consisting of the given <a>term</a>.</td>
 				</tr>
@@ -905,13 +914,14 @@ WHERE {
 	] )
 ] .</pre>
 			<p>
-				To execute this example, an engine gets all <a>values</a> of <code>ex:customer</code> of the <a>focus node</a>, then filters
-				them according to the <a>shape</a> <code>ex:GoodCustomerShape</code> and repeatedly calls the <a>SHACL function</a>
-				<code>ex:displayLabel</code> with all values that pass the filter shape as parameters.
+				To evaluate this example, an engine gets all <a>values</a> of <code>ex:customer</code> of the <a>focus node</a>,
+				then filters them according to the <a>shape</a> <code>ex:GoodCustomerShape</code>
+				and repeatedly calls the <a>SHACL function</a> <code>ex:displayLabel</code> with all values that pass the
+				filter shape as arguments.
 			</p>
 			<p>
 				Important use cases of such expressions are <a>expression constraints</a> and <a>SHACL rules</a>,
-				yet the basic functionality and vocabulary may find many other use cases.
+				yet the basic functionality and vocabulary may find many other application areas.
 			</p>
 			<p>
 				Each of the following sub-sections defines a node expression type with its syntax rules 
@@ -948,85 +958,86 @@ WHERE {
 			<section id="node-expressions-filter-shape">
 				<h3>Filter Shape Expressions</h3>
 				<p class="syntax">
-					<span data-syntax-rule="FilterShapeExpression">A <dfn>Filter Shape Expression</dfn> is a <a>blank node</a>
-					with exactly one <a>value</a> of <code>sh:filterShape</code> (which is a well-formed <a>shape</a>)
-					and exactly one <a>value</a> of <code>sh:nodes</code> (which is a well-formed <a>node expression</a>).</span>
+					<span data-syntax-rule="FilterShapeExpression">A <dfn>filter shape expression</dfn> is a <a>blank node</a>
+					with exactly one <a>value</a> for <code>sh:filterShape</code> (which is a well-formed <a>shape</a>)
+					and exactly one <a>value</a> for <code>sh:nodes</code> (which is a well-formed <a>node expression</a>).</span>
 				</p>
 				<div class="def def-text">
 					<div class="def-header">EVALUATION OF FILTER SHAPE EXPRESSIONS</div>
 					<div class="def-text-body">
-						For the <a>filter shape expression</a> <code>$expr</code>, <code>Eval($expr, $this)</code> produces
-						the set of nodes for each <a>node</a> <code>?node</code>
-						produced by evaluating the <a>node expression</a> declared using <code>sh:nodes</code> at <code>$expr</code>
-						where <code>?node</code> <a>conforms</a> to the <a>shape</a> declared using <code>sh:filterShape</code> at <code>$expr</code>.
+						For the <a>filter shape expression</a> <code>$expr</code> with <code>S</code> being the <a>shape</a>
+						that is the <a>value</a> of <code>sh:filterShape</code> and <code>N</code> being the <a>node expression</a> that
+						is the <a>value</a> of <code>sh:nodes</code>, <code>Eval($expr, $this)</code> produces the set of nodes for
+						each <a>node</a> <code>n</code> produced by evaluating <code>N</code> where <code>n</code> <a>conforms</a> to <code>S</code>.
 					</div>
 				</div>
 			</section>
 			<section id="node-expressions-function">
 				<h3>Function Expressions</h3>
 				<p class="syntax">
-					<span data-syntax-rule="FunctionExpression">A <dfn>Function Expression</dfn> is a <a>blank node</a>
+					<span data-syntax-rule="FunctionExpression">A <dfn>function expression</dfn> is a <a>blank node</a>
 					that does not fulfill any of the syntax rules of the other node expression types and which
-					has exactly one <a>triple</a> where the <a>object</a> is a well-formed RDF list,
-					and each member of that list is a well-formed <a>node expression</a>.</span>
-					Let <code>T</code> be that triple.
+					is the <a>subject</a> of exactly one <a>triple</a> <code>T</code> where the <a>object</a> is a well-formed <a>SHACL list</a>,
+					and each <a>member</a> of that list is a well-formed <a>node expression</a>.</span>
 				</p>
 				<div class="def def-text">
 					<div class="def-header">EVALUATION OF FUNCTION EXPRESSIONS</div>
 					<div class="def-text-body">
 						For the <a>function expression</a> <code>$expr</code>, <code>Eval($expr, $this)</code> produces
-						the set of nodes returned by evaluating the <a>SHACL function</a> specified as <a>predicate</a>
+						the set of <a>nodes</a> returned by evaluating the <a>SHACL function</a> specified as <a>predicate</a>
 						of the triple <code>T</code> mentioned above.
 						The arguments of the function call(s) are based on the results of the <a>node expressions</a> listed
-						in the <a>object</a> of <code>T</code>.
-						This is done for all combinations of nodes, unless there is no value for a non-optional parameter of the SHACL function.
+						in the <a>object</a> list of <code>T</code> so that the first list <a>member</a> is used for the first argument, etc.
+						This is done for all combinations of <a>nodes</a> produced by the <a>node expression</a>.
+						If one of the <a>node expressions</a> produces the empty set and the corresponding function <a>parameter</a>
+						is non-optional, then the result is the empty set.
 					</div>
 				</div>
 			</section>
 			<section id="node-expressions-path">
 				<h3>Path Expressions</h3>
 				<p class="syntax">
-					<span data-syntax-rule="PathExpression">A <dfn>Path Expression</dfn> is a <a>blank node</a>
+					<span data-syntax-rule="PathExpression">A <dfn>path expression</dfn> is a <a>blank node</a>
 					with exactly one <a>value</a> of the property <code>sh:path</code> (which are well-formed <a>property paths</a>).</span>
 				</p>
 				<div class="def def-text">
 					<div class="def-header">EVALUATION OF PATH EXPRESSIONS</div>
 					<div class="def-text-body">
-						For the <a>path expression</a> <code>$expr</code>, <code>Eval($expr, $this)</code> produces
-						the set of <a>value nodes</a> of the <a>focus node</a> <code>$this</code> for the <a>property path</a>
-						specified using <code>sh:path</code> at <code>$expr</code>.
+						For the <a>path expression</a> <code>$expr</code> that has the property path <code>P</code> as its
+						<a>value</a> for <code>sh:path</code>, <code>Eval($expr, $this)</code> produces
+						the set of <a>values</a> of the <a>focus node</a> <code>$this</code> for the <a>property path</a> <code>P</code>.
 					</div>
 				</div>
 			</section>
 			<section id="intersection">
 				<h3>Intersection Expressions</h3>
 				<p class="syntax">
-					<span data-syntax-rule="intersection">An <dfn>Intersection Expression</dfn> is a <a>blank node</a>
-					with exactly one <a>value</a> for the property <code>sh:intersection</code> which is a well-formed RDF list
-					with at least two members (which are well-formed node expressions).</span>
+					<span data-syntax-rule="intersection">An <dfn>intersection expression</dfn> is a <a>blank node</a>
+					with exactly one <a>value</a> for the property <code>sh:intersection</code> which is a well-formed <a>SHACL list</a>
+					with at least two <a>members</a> (which are well-formed node expressions).</span>
 				</p>
 				<div class="def def-text">
 					<div class="def-header">EVALUATION OF INTERSECTION EXPRESSIONS</div>
 					<div class="def-text-body">
-						For the <a>intersection expression</a> <code>$expr</code>, <code>Eval($expr, $this)</code> produces
-						the set of nodes that are in the results of all of the <a>node expressions</a> declared
-						as members of the <a>value</a> of <code>sh:intersection</code> at <code>$expr</code>.
+						For the <a>intersection expression</a> <code>$expr</code> that has the list <code>L</code> as its
+						<a>value</a> for <code>sh:intersection</code>, <code>Eval($expr, $this)</code> produces
+						the set of <a>nodes</a> that are in all of the result sets produced by the <a>members</a> of <code>L</code>.
 					</div>
 				</div>
 			</section>
 			<section id="union">
 				<h3>Union Expressions</h3>
 				<p class="syntax">
-					<span data-syntax-rule="union">A <dfn>Union Expression</dfn> is a <a>blank node</a>
-					with exactly one <a>value</a> for the property <code>sh:union</code> which is a well-formed RDF list
-					with at least two members (which are well-formed node expressions).</span>
+					<span data-syntax-rule="union">A <dfn>union expression</dfn> is a <a>blank node</a>
+					with exactly one <a>value</a> for the property <code>sh:union</code> which is a well-formed <a>SHACL list</a>
+					with at least two <a>members</a> (which are well-formed node expressions).</span>
 				</p>
 				<div class="def def-text">
 					<div class="def-header">EVALUATION OF UNION EXPRESSIONS</div>
 					<div class="def-text-body">
-						For the <a>union expression</a> <code>$expr</code>, <code>Eval($expr, $this)</code> produces
-						the set of nodes that are in the results of all of the <a>node expressions</a> declared
-						as members of the <a>value</a> of <code>sh:union</code> at <code>$expr</code>.
+						For the <a>union expression</a> <code>$expr</code> that has the list <code>L</code> as its
+						<a>value</a> for <code>sh:union</code>, <code>Eval($expr, $this)</code> produces
+						the set of <a>nodes</a> that are in any of the result sets produced by all of the <a>members</a> of <code>L</code>.
 					</div>
 				</div>
 			</section>
@@ -1039,8 +1050,8 @@ WHERE {
 				<dfn data-lt="expression constraint">expression constraints</dfn>.
 				Expression constraints can be used in any <a>shape</a> to declare the condition that the
 				<a>node expression</a> specified via <code>sh:expression</code> has <code>true</code> as its (only) result.
-				In the evaluation of these node expressions, the current <a>value node</a> of the <a>shape</a>
-				becomes the <a>focus node</a>.
+				In the evaluation of these node expressions is repeated for all <a>value nodes</a> of the <a>shape</a>
+				as the <a>focus node</a>.
 			</p>
 			<p>
 				<span class="component-class">Constraint Component IRI</span>: <code>sh:ExpressionConstraintComponent</code>
@@ -1064,9 +1075,9 @@ WHERE {
 			<div class="def def-text">
 				<div class="def-header">TEXTUAL DEFINITION</div>
 				<div class="def-text-body" data-validator="Filter">
-					For each <a>value node</a> <code>?value</code> where <code>Eval(?value, $expression)</code>
+					For each <a>value node</a> <code>v</code> where <code>Eval(v, $expression)</code>
 					returns a node set that is not equal to <code>{ true }</code>
-					there is a <a>validation result</a> that has <code>?value</code> as its <code>sh:value</code>
+					there is a <a>validation result</a> that has <code>v</code> as its <code>sh:value</code>
 					and <code>$expression</code> as its <code>sh:sourceConstraint</code>.
 					If the <code>$expression</code> has <a>values</a> for <code>sh:message</code> in the <a>shapes graph</a>
 					then these <a>values</a> become the (only) values for <code>sh:resultMessage</code> in the
@@ -1095,19 +1106,18 @@ ex:FilterExampleShape
 			<h2>SHACL Rules</h2>
 			<p>
 				SHACL defines an RDF vocabulary to describe <a>shapes</a> - collections of <a>constraints</a> that apply to a set of nodes.
-				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all members of a class.
+				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all instances of a class.
 				One focus area of SHACL is data validation.
 				However, the same principles of describing data patterns in shapes can also be exploited for other purposes.
-				<em>SHACL rules</em> build on SHACL to form a light-weight RDF vocabulary for the exchange of <a>rules</a> that can be used
+				<a>SHACL rules</a> build on SHACL to form a light-weight RDF vocabulary for the exchange of <a>rules</a> that can be used
 				to derive <a>inferred</a> RDF <a>triples</a> from existing <em>asserted</em> <a>triples</a>.
 			</p>
 			<p>
 				The <a>SHACL rules</a> feature defined in this section includes a general framework using the properties
 				such as <code>sh:rule</code> and <code>sh:condition</code>, plus an extension mechanism for specific <a>rule types</a>.
-				This document defines two such rule types:
-				<a>Triple rules</a> and <a>SPARQL rules</a>.
+				This document defines two such rule types: <a>Triple rules</a> and <a>SPARQL rules</a>.
 				Other documents, including <a href="http://w3c.github.io/data-shapes/shacl-js/">SHACL JavaScript Extensions</a>,
-				define additional types of rules.
+				can define additional types of rules.
 			</p>
 			
 			<section id="rules-example-classification" class="informative">
@@ -1116,7 +1126,7 @@ ex:FilterExampleShape
 					This section illustrates the use of a <a>triple rule</a> that adds an <code>rdf:type</code>
 					<a>triple</a> so that those <a>SHACL instances</a> of <code>ex:Rectangle</code> where the
 					<code>ex:width</code> equals the <code>ex:height</code> are also marked to be instances of <code>ex:Square</code>.
-					The rule applies only to well-formed rectangles that conform to the <code>ex:Rectangle</code> <a>shape</a>,
+					The rule applies only to well-formed rectangles that <a>conform</a> to the <code>ex:Rectangle</code> <a>shape</a>,
 					e.g. by having exactly one width and height, both integers.
 				</p>
 				<pre class="example-shapes" title="A rule to classify certain rectangles as squares">
@@ -1168,8 +1178,7 @@ ex:SquareRectangle
 				</p>
 				<pre class="example-inferences">	ex:SquareRectangle rdf:type ex:Square .</pre>
 				<p>
-					No inferences will be made for <code>ex:NonSquareRectangle</code> because its width is not equal to
-					its height.
+					No inferences will be made for <code>ex:NonSquareRectangle</code> because its width is not equal to its height.
 					No inferences will be made for <code>ex:InvalidRectangle</code> because although it has equal width
 					and height (namely none), it does not pass the <code>sh:condition</code> of being a well-formed rectangle.
 				</p>
@@ -1178,8 +1187,9 @@ ex:SquareRectangle
 			<section id="rules-example-sparql" class="informative">
 				<h3>An Example SPARQL Rule</h3>
 				<p>
-					The following example illustrates a simple use case of a <a>SPARQL rule</a> that applies to all instances of a class <code>ex:Rectangle</code>
-					and computes the values of the <code>ex:area</code> property by multiplying the rectangle's width and height:
+					The following example illustrates a simple use case of a <a>SPARQL rule</a> that applies to all instances of
+					the class <code>ex:Rectangle</code> and computes the values of the <code>ex:area</code> property by multiplying
+					the rectangle's width and height:
 				</p>
 				<pre class="example-shapes" title="A rule to compute the area of a Rectangle">
 ex:RectangleShape
@@ -1218,10 +1228,11 @@ ex:RectangleRulesShape
 	] ;
 .</pre>
 				<p>
-					An engine that is capable of executing such rules would use the <a>target</a> statements associated
+					An engine that is capable of executing such rules uses the <a>target</a> statements associated
 					with the <a>shapes</a> in the <a>shapes graph</a> to determine which rules need to be executed on which target nodes.
-					For those target nodes that conform to any <a href="#condition">condition shapes</a>, it would execute the provided CONSTRUCT queries to produce the inferred triples.
-					During the execution of the query, the variable <code>this</code> would have the current <a>focus node</a> as pre-bound variable.
+					For those target nodes that <a>conform</a> to any <a href="#condition">condition shapes</a>, it executes the provided
+					CONSTRUCT queries to produce the inferred triples.
+					During the execution of the query, the variable <code>this</code> has the current <a>focus node</a> as <a>pre-bound</a> variable.
 					For the following <a>data graph</a>, the <a>triples</a> below would be produced.
 				</p>
 				<pre class="example-data">
@@ -1238,8 +1249,7 @@ ex:InvalidRectangle    # Lacks a value for ex:height, so sh:condition is not met
 				</p>
 				<pre class="example-inferences">	ex:ExampleRectangle ex:area 56 .</pre>
 				<p>
-					The following variation produces the same results as the <a>SPARQL rule</a>, but
-					uses a <a>Triple rule</a>.
+					The following variation produces the same results as the <a>SPARQL rule</a>, but uses a <a>Triple rule</a>.
 					While not as expressive as CONSTRUCT-based rules, <a>Triple rules</a> are more declarative and
 					may be executed on platforms that do not support SPARQL.
 				</p>
@@ -1268,7 +1278,13 @@ ex:RectangleRulesShape
 					Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
 				</p>
 				<p class="syntax">
-					<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has exactly one <code>rdf:type</code> which is a <a>IRI</a>.</span>
+					<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code> which is a <a>IRI</a>.</span>
+				</p>
+				<p>
+					Rules can have multiple types, e.g. to provide instructions that work either in SPARQL or JavaScript,
+					depending on the capabilities of the engine.
+					The creator of such rules needs to make sure that such rules have consistent semantics.
+					Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
 				</p>
 				<p>
 					All rules may have the properties defined in the rest of this section.
@@ -1296,7 +1312,7 @@ ex:RectangleRulesShape
 					</p>
 					<p>
 						If unspecified, then the default order is assumed to be <code>0</code>.
-						These values are used by a <a>rules engine</a> to determine the order of <a>rules</a> associated with the same <a>shape</a>.
+						These values are used by a <a>rules engine</a> to determine the order of <a>rules</a>.
 						When the <a>rules</a> associated with a <a>shape</a> are executed, <a>rules</a> with larger values will be executed after
 						those with smaller values.
 					</p>
@@ -1306,7 +1322,7 @@ ex:RuleOrderExampleShape
 	sh:targetClass ex:Person ;
 	sh:rule [
 		a sh:SPARQLRule ;
-		rdfs:label "Infer uncles, i.e. male siblings of the parents of ?this" ;
+		rdfs:label "Infer uncles, i.e. male siblings of the parents of $this" ;
 		sh:prefixes ex: ;
 		sh:order 1 ;   # Will be evaluated before 2
 		sh:construct """
@@ -1358,7 +1374,7 @@ ex:RuleOrderExampleShape
 					The <a>IRI</a> <code>sh:Rules</code> represents the SHACL rules entailment regime.
 					In the following example, the shapes graph indicates to a SHACL validation engine that the SHACL rules
 					inside of the <a>shapes graph</a> need to be executed prior to starting the validation.
-					Engines that do <em>not</em> support the SHACL rules entailment regime are required to signal a <a>failure</a>
+					Engines that do <em>not</em> support the SHACL rules entailment regime MUST signal a <a>failure</a>
 					if this <a>triple</a> is present.
 				</p>
 				<pre class="example-shapes">
@@ -1366,7 +1382,6 @@ ex:RuleOrderExampleShape
 	a owl:Ontology ;
 	sh:entailment sh:Rules .</pre>
 			</section>
-			
 			<section id="rules-execution">
 				<h3>General Execution Instructions for SHACL Rules</h3>
 				<p>
@@ -1391,8 +1406,8 @@ ex:RuleOrderExampleShape
 				<pre>
 do {
 	oldCount = number of triples in the data graph
-	for each shape in the shapes graph, ordered by <code>sh:order</code> {
-		for each non-deactivated <a>rule</a> in the shape, ordered by <a href="#rule-order">sh:order</a> {
+	for each shape in the shapes graph, ordered by <a href="#rule-order"><code>sh:order</code></a> {
+		for each non-deactivated <a>rule</a> in the shape, ordered by <a href="#rule-order"><code>sh:order</code></a> {
 			for each <a>target</a> node of the shape that <a>conforms</a> to all <a href="#condition">conditions</a> of the <a>rule</a>
 				execute the <a>rule</a> following the <a>execution instructions</a> of the <a>rule type</a>
 			}
@@ -1403,6 +1418,7 @@ do {
 while(oldCount != newCount)</pre>
 				<p>
 					Note that the algorithm above may never terminate, e.g. if rules produce new <a>blank nodes</a> in each execution.
+					Furthermore, the algorithm above may sometimes produce non-deterministic results if the rules do not prescribe a fixed execution order.
 				</p>
 				<p>
 					If a <a>rules engine</a> is not able to execute a given <a>rule</a>
@@ -1416,6 +1432,7 @@ while(oldCount != newCount)</pre>
 				<p>
 					This section defines a <a>rule type</a> called <dfn data-lt="triple rule">triple rules</dfn>, identified by
 					the <a>IRI</a> <code>sh:TripleRule</code>.
+					<a>Triple rules</a> have the following properties:
 				<p>
 				<table class="term-table">
 					<tr>
@@ -1453,11 +1470,12 @@ while(oldCount != newCount)</pre>
 				<div class="def def-text">
 					<div class="def-header">EXECUTION OF TRIPLE RULES</div>
 					<div class="def-text-body">
-						Let <code>S</code>, <code>P</code> and <code>O</code> be the sets of nodes produced by evaluating
+						Let <code>S</code>, <code>P</code> and <code>O</code> be the sets of <a>nodes</a> produced by evaluating
 						the <a>node expressions</a> that are the values of <code>sh:subject</code>, <code>sh:predicate</code>
 						and <code>sh:object</code> respectively at the <a>triple rule</a>.
-						For each combination of members of <code>S</code>, <code>P</code> and <code>O</code>
-						<a>infer</a> a <a>triple</a> <code>s p o</code>.
+						For each combination of members <code>s</code> of <code>S</code>, <code>p</code> of <code>P</code> and
+						<code>o</code> of <code>O</code>, <a>infer</a> a <a>triple</a> with <a>subject</a> <code>s</code>,
+						<a>predicate</a> <code>p</code> and <a>object</a> <code>o</code>.
 					</div>
 				</div>
 			</section>
@@ -1467,6 +1485,7 @@ while(oldCount != newCount)</pre>
 				<p>
 					This section defines a <a>rule type</a> called <dfn data-lt="SPARQL rule">SPARQL rules</dfn>,
 					identified by the <a>IRI</a> <code>sh:SPARQLRule</code>.
+					<a>SPARQL rules</a> have the following properties:
 				<p>
 				<table class="term-table">
 					<tr>
