@@ -415,9 +415,10 @@
 	 			<li><b><a>SHACL Rules</a></b> - enable deriving new <a>triples</a> from existing ones</li>
 	 		</ul>
 	 		<p>
-	 			Taken together or individually, these features greatly extend the application scenarios of SHACL.
+	 			Taken together or individually, these features greatly extend the application scenarios of SHACL, and
+	 			SHACL-SPARQL in particular.
 	 			Some of the features presented here (including <a>node expressions</a>, <a>expression constraints</a>
-	 			and <a>triple rules</a>) do not require a SPARQL processor and could be used as extensions of
+	 			and <a>triple rules</a>) do not necessarily require a SPARQL processor and could be used as extensions of
 	 			pure SHACL Core implementations.
 	 			Other features (including <a href="#SPARQLTargetType">custom target types</a>, <a>SHACL functions</a>,
 	 			and general <a>SHACL rules</a>) define extension mechanisms that can also be used with other languages
@@ -700,7 +701,7 @@ ex:AnnotationExample
 	sh:conforms false ;
 	sh:result [
 		a sh:ValidationResult ;
-		sh:focusNode ex:ExampleRootResource ;
+		sh:focusNode ex:ExampleResource ;
 		sh:resultMessage "The message." ;
 		sh:resultSeverity sh:Violation ;
 		sh:sourceConstraint _:b1 ;
@@ -731,7 +732,7 @@ ex:AnnotationExample
 				In those scenarios they may be used to perform data transformations such as string concatenation.
 			</p>
 			<section id="functions-example">
-				<h3>An Example SPARQL-based Function</h3>
+				<h3>An Example SHACL Function</h3>
 				<p>
 					The following example illustrates the declaration of a SHACL function based on a simple mathematical SPARQL query.
 				</p>
@@ -1120,10 +1121,10 @@ ex:FilterExampleShape
 				can define additional types of rules.
 			</p>
 			
-			<section id="rules-example-classification" class="informative">
-				<h3>An Example Triple Rule</h3>
+			<section id="rules-examples" class="informative">
+				<h3>Examples of SHACL Rules</h3>
 				<p>
-					This section illustrates the use of a <a>triple rule</a> that adds an <code>rdf:type</code>
+					The following example illustrates the use of a <a>triple rule</a> that adds an <code>rdf:type</code>
 					<a>triple</a> so that those <a>SHACL instances</a> of <code>ex:Rectangle</code> where the
 					<code>ex:width</code> equals the <code>ex:height</code> are also marked to be instances of <code>ex:Square</code>.
 					The rule applies only to well-formed rectangles that <a>conform</a> to the <code>ex:Rectangle</code> <a>shape</a>,
@@ -1182,10 +1183,6 @@ ex:SquareRectangle
 					No inferences will be made for <code>ex:InvalidRectangle</code> because although it has equal width
 					and height (namely none), it does not pass the <code>sh:condition</code> of being a well-formed rectangle.
 				</p>
-			</section>
-			
-			<section id="rules-example-sparql" class="informative">
-				<h3>An Example SPARQL Rule</h3>
 				<p>
 					The following example illustrates a simple use case of a <a>SPARQL rule</a> that applies to all instances of
 					the class <code>ex:Rectangle</code> and computes the values of the <code>ex:area</code> property by multiplying
@@ -1302,7 +1299,7 @@ ex:RectangleRulesShape
 				<section id="rules-order">
 					<h3>sh:order</h3>
 					<p>
-						Rules and shapes may specify its relative execution order as defined in this section.
+						Rules and shapes may specify its relative <dfn>execution order</dfn> as defined in this section.
 					</p>
 					<p class="syntax">
 						<span data-syntax-rule="rule-order-maxCount">Each <a>rule</a> or <a>shape</a> may have at most one <a>value</a> for the
@@ -1311,7 +1308,7 @@ ex:RectangleRulesShape
 						are <a>literals</a> with a <em>numeric</em> datatype such as <code>xsd:decimal</code>.</span>
 					</p>
 					<p>
-						If unspecified, then the default order is assumed to be <code>0</code>.
+						If unspecified, then the default <a>execution order</a> is <code>0</code>.
 						These values are used by a <a>rules engine</a> to determine the order of <a>rules</a>.
 						When the <a>rules</a> associated with a <a>shape</a> are executed, <a>rules</a> with larger values will be executed after
 						those with smaller values.
@@ -1371,16 +1368,20 @@ ex:RuleOrderExampleShape
 				<p>
 					SHACL defines the property <a href="https://www.w3.org/TR/shacl/#shacl-rdfs"><code>sh:entailment</code></a>
 					to link a <a>shapes graph</a> with <em>entailment regimes</em>.
-					The <a>IRI</a> <code>sh:Rules</code> represents the SHACL rules entailment regime.
+					The <a>IRI</a> <code>sh:Rules</code> represents the <dfn>SHACL rules entailment regime</dfn>.
 					In the following example, the shapes graph indicates to a SHACL validation engine that the SHACL rules
 					inside of the <a>shapes graph</a> need to be executed prior to starting the validation.
-					Engines that do <em>not</em> support the SHACL rules entailment regime MUST signal a <a>failure</a>
-					if this <a>triple</a> is present.
 				</p>
 				<pre class="example-shapes">
 &lt;http://example.org/my-shapes&gt;
 	a owl:Ontology ;
 	sh:entailment sh:Rules .</pre>
+				<p>
+					Validation engines that do <em>not</em> support the <a>SHACL rules entailment regime</a> MUST signal a <a>failure</a>
+					if this <a>triple</a> is present.
+					Validation engines that do support the <a>SHACL rules entailment regime</a> MUST execute the rules following the
+					<a href="#rules-execution">rules execution instructions</a> prior to performing the actual validation. 
+				</p>
 			</section>
 			<section id="rules-execution">
 				<h3>General Execution Instructions for SHACL Rules</h3>
@@ -1400,26 +1401,37 @@ ex:RuleOrderExampleShape
 					In order to count as a SHACL rules engine, an implementation must be capable of <a>inferring</a> <a>triples</a>
 					according to the following procedure (given in pseudo-code), or a different algorithm as long as the result
 					is the same as specified.
-					Informally, a rules engine executes each <a>rule</a> in the <a>shapes graph</a> until no new triples have
-					been inferred by a full traversal of all <a>rules</a>.
+					Note that this algorithm only covers a single "iteration" over all rules, without prescribing the behavior
+					if the same rule needs to be applied multiple times after other rules have fired.
+					The latter is left to future work.
 				</p>
 				<pre>
-do {
-	oldCount = number of triples in the data graph
-	for each shape in the shapes graph, ordered by <a href="#rule-order"><code>sh:order</code></a> {
-		for each non-deactivated <a>rule</a> in the shape, ordered by <a href="#rule-order"><code>sh:order</code></a> {
-			for each <a>target</a> node of the shape that <a>conforms</a> to all <a href="#condition">conditions</a> of the <a>rule</a>
-				execute the <a>rule</a> following the <a>execution instructions</a> of the <a>rule type</a>
+	for each <a>shape</a> in the <a>shapes graph</a>, ordered by <a>execution order</a> {
+		for each non-deactivated <a>rule</a> in the <a>shape</a>, ordered by <a>execution order</a> {
+			for each <a>target</a> node of the <a>shape</a> that <a>conforms</a> to all <a href="#condition">conditions</a> of the <a>rule</a>
+				execute the <a>rule</a> using the <a>target</a> node following the <a>execution instructions</a> of its <a>rule types</a>
 			}
 		}
-	}
-	newCount = number of triples in the data graph
-}
-while(oldCount != newCount)</pre>
+	}</pre>
 				<p>
-					Note that the algorithm above may never terminate, e.g. if rules produce new <a>blank nodes</a> in each execution.
-					Furthermore, the algorithm above may sometimes produce non-deterministic results if the rules do not prescribe a fixed execution order.
+					The <a>triples</a> that are inferred by a <a>rule</a> do not <em>immediately</em> become part of the <a>data graph</a>,
+					i.e. the <a>triples</a> produced by one <a>rule</a> can not always be queried by other <a>rules</a>.
+					These policies reduce the likelihood of race conditions and better support parallel execution.
 				</p>
+				<ul>
+					<li>
+						If two <a>shapes</a> have the same <a>execution order</a> then their newly inferred <a>triples</a> are
+						not visible to each other.
+					</li>
+					<li>
+						If two <a>rules</a> have the same <a>execution order</a> then their newly inferred <a>triples</a> are
+						not visible to each other.
+					</li>
+					<li>
+						If the same <a>rule</a> is executed on multiple target nodes then the newly inferred <a>triples</a> are
+						not visible to the other target nodes.
+					</li>
+				</ul>
 				<p>
 					If a <a>rules engine</a> is not able to execute a given <a>rule</a>
 					because it does not support any of the <a>rule types</a> of the <a>rule</a>,
