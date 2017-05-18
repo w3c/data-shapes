@@ -1,5 +1,4 @@
-@prefix dash: <http://datashapes.org/dash#> .
-@prefix ex: <http://datashapes.org/sh/tests/core/property/maxCount-002.test#> .
+@prefix ex: <http://datashapes.org/sh/tests/sparql/pre-binding/shapesGraph-001.test#> .
 @prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -8,35 +7,41 @@
 @prefix sht: <http://www.w3.org/ns/shacl-test#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-ex:InvalidResource
-  rdf:type rdfs:Resource ;
-  rdfs:label "Invalid resource" ;
-  owl:versionInfo "1.0" ;
-.
+ex:
+	sh:declare [
+		sh:prefix "ex" ;
+		sh:namespace "http://datashapes.org/sh/tests/sparql/pre-binding/shapesGraph-001.test#"^^xsd:anyURI ;
+	] .
+
 ex:TestShape
   rdf:type sh:NodeShape ;
   rdfs:label "Test shape" ;
-  sh:property ex:TestShape-versionInfo ;
+  sh:sparql ex:TestShape-sparql ;
   sh:targetNode ex:InvalidResource ;
-  sh:targetNode ex:ValidResource ;
+  ex:property 42 ;
 .
-ex:TestShape-versionInfo
-  sh:path owl:versionInfo ;
-  sh:maxCount 0 ;
-.
-ex:ValidResource
-  rdf:type rdfs:Resource ;
-  rdfs:label "Valid resource" ;
+ex:TestShape-sparql
+  sh:message "Test message" ;
+  sh:prefixes ex: ;
+  sh:select """
+  	SELECT $this
+	WHERE {
+		FILTER bound($shapesGraph) .
+		GRAPH $shapesGraph {
+			FILTER bound($currentShape) .
+			$currentShape ex:property 42 . 
+		}
+	}""" ;
 .
 <>
   rdf:type mf:Manifest ;
   mf:entries (
-      <maxCount-002>
+      <shapesGraph-001>
     ) ;
 .
-<maxCount-002>
+<shapesGraph-001>
   rdf:type sht:Validate ;
-  rdfs:label "Test of sh:maxCount at property shape 002" ;
+  rdfs:label "Test of $shapesGraph and $currentShape" ;
   mf:action [
       sht:dataGraph <> ;
       sht:shapesGraph <> ;
@@ -47,11 +52,13 @@ ex:ValidResource
       sh:result [
           rdf:type sh:ValidationResult ;
           sh:focusNode ex:InvalidResource ;
-          sh:resultPath owl:versionInfo ;
+          sh:resultMessage "Test message" ;
           sh:resultSeverity sh:Violation ;
-          sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
-          sh:sourceShape ex:TestShape-versionInfo ;
+          sh:sourceConstraint ex:TestShape-sparql ;
+          sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+          sh:sourceShape ex:TestShape ;
+          sh:value ex:InvalidResource ;
         ] ;
     ] ;
-  mf:status sht:approved ;
+  mf:status sht:proposed ;
 .
