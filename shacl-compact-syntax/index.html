@@ -312,7 +312,7 @@ IMPORTS &lt;http://example.com/person-ontology&gt;
 
 PREFIX ex: &lt;http://example.com/ns#&gt;
 
-ex:PersonShape -> ex:Person {
+shape ex:PersonShape -> ex:Person {
 	closed=true ignoredProperties=[rdf:type] . 
 
 	ex:ssn       xsd:string [0..1] pattern="^\\d{3}-\\d{2}-\\d{4}$" .
@@ -375,6 +375,23 @@ ex:PersonShape
 		] ;
 	] .</pre>
 				<p>
+					SHACL also supports a design pattern where shapes that are also declared to be classes apply to
+					all instances of the class.  The Compact Syntax includes the keyword <code>shapeClass</code>
+					for this case, as shown in the snippet below:
+				</p>
+				<pre class="example-shapes">
+shapeClass ex:Person {
+	...
+}</pre>
+				<p>
+					Compared to the example further above using <code>shape</code>, this would produce the following
+					RDF triples (with no <code>sh:targetClass</code> triple):
+				</p>
+				<pre class="example-shapes-ttl">
+ex:Person
+	a sh:NodeShape, rdfs:Class ;
+	...</pre>
+				<p>
 					The SHACL Compact Syntax can be used both as an exchange format but also as temporary editing input format. 
 					If SHACL Compact Syntax files are saved, the recommended file ending is <code>.shaclc</code>.
 				</p>
@@ -393,14 +410,15 @@ ex:PersonShape
 			<pre id="grammar" class="grammar">
 grammar SHACLC;
 
-shaclDoc            : directive* nodeShape* EOF;
+shaclDoc            : directive* (nodeShape|shapeClass)* EOF;
 
 directive           : baseDecl | importsDecl | prefixDecl ;
 baseDecl            : KW_BASE  IRIREF ;
 importsDecl         : KW_IMPORTS IRIREF ;
 prefixDecl          : KW_PREFIX PNAME_NS IRIREF ;
 
-nodeShape           : iri targetClass? nodeShapeBody ;
+nodeShape           : KW_SHAPE iri targetClass? nodeShapeBody ;
+shapeClass          : KW_SHAPE_CLASS iri nodeShapeBody ;
 nodeShapeBody       : '{' constraint* '}';
 targetClass         : '->' iri+ ;
 
@@ -466,6 +484,9 @@ propertyParam       : 'deactivated' | 'severity' | 'message' |
 KW_BASE             : 'BASE' ;
 KW_IMPORTS          : 'IMPORTS' ;
 KW_PREFIX           : 'PREFIX' ;
+
+KW_SHAPE_CLASS      : 'shapeClass' ;
+KW_SHAPE            : 'shape' ;
 
 KW_TRUE             : 'true' ;
 KW_FALSE            : 'false' ;
@@ -556,6 +577,12 @@ fragment PN_LOCAL_ESC: '\\' ('_' | '~' | '.' | '-' | '!' | '$' | '&amp;' | '\'' 
 				derived from the <code>iri</code> using <a href="#rule-iri"><code>iri</code></a>.
 				Use <code>?shape</code> as context shape for the <a href="#rule-targetClass"><code>targetClass</code></a>
 				and <a href="#rule-nodeShapeBody"><code>nodeShapeBody</code></a>.
+			</p>
+			<p class="rule" id="rule-shapeClass">
+				<b>shapeClass</b>: Produce the triples <code>?shape rdf:type sh:NodeShape</code> and
+				<code>?shape rdf:type rdfs:Class</code> where <code>?shape</code> is
+				derived from the <code>iri</code> using <a href="#rule-iri"><code>iri</code></a>.
+				Use <code>?shape</code> as context shape for the <a href="#rule-nodeShapeBody"><code>nodeShapeBody</code></a>.
 			</p>
 			<p class="rule" id="rule-targetClass">
 				<b>targetClass</b>: For each <code>iri</code>, produce a triple <code>?shape sh:targetClass ?iri</code>
