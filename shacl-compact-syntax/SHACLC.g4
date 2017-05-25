@@ -1,13 +1,14 @@
 grammar SHACLC;
 
-shaclDoc            : directive* nodeShape* EOF;
+shaclDoc            : directive* (nodeShape|shapeClass)* EOF;
 
 directive           : baseDecl | importsDecl | prefixDecl ;
 baseDecl            : KW_BASE  IRIREF ;
 importsDecl         : KW_IMPORTS IRIREF ;
 prefixDecl          : KW_PREFIX PNAME_NS IRIREF ;
 
-nodeShape           : iri targetClass? nodeShapeBody ;
+shapeClass          : KW_SHAPE_CLASS iri nodeShapeBody ;
+nodeShape           : KW_SHAPE iri targetClass? nodeShapeBody ;
 nodeShapeBody       : '{' constraint* '}';
 targetClass         : '->' iri+ ;
 
@@ -73,6 +74,9 @@ propertyParam       : 'deactivated' | 'severity' | 'message' |
 KW_BASE             : 'BASE' ;
 KW_IMPORTS          : 'IMPORTS' ;
 KW_PREFIX           : 'PREFIX' ;
+
+KW_SHAPE_CLASS      : 'shapeClass' ;
+KW_SHAPE            : 'shape' ;
 
 KW_TRUE             : 'true' ;
 KW_FALSE            : 'false' ;
