@@ -1,4 +1,4 @@
-RDF Data Shapes WG Repository
+Data Shapes WG Repository
 =====
 
 Deliverables:
