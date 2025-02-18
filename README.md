@@ -1,11 +1,7 @@
-Data Shapes WG Repository
-=====
+# Data Shapes WG _Agenda Branch_
 
-Deliverables:
-* [UCR](https://w3c.github.io/data-shapes/data-shapes-ucr/)
-* [SHACL](https://w3c.github.io/data-shapes/shacl/)
-* [SHACL Advanced Features](https://w3c.github.io/data-shapes/shacl-af/)
-* [SHACL JavaScript Extensions](https://w3c.github.io/data-shapes/shacl-js/)
-* [SHACL Compact-Syntax](https://w3c.github.io/data-shapes/shacl-compact-syntax/)
+This branch of the [Data Shapes WG](https://www.w3.org/groups/wg/data-shapes/)'s main GitHub repository is intended to contain meeting agenda only.
 
-All of the above spec drafts are automatically rebuilt on pushes to this repository.
+Please see the `gh-pages`, which is the default, branch for all Data Shapes content:
+
+* <https://github.com/w3c/data-shapes/>
