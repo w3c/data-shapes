@@ -1552,13 +1552,13 @@ ex:JohnDoe a ex:Person .
 					<span data-syntax-rule="PropertyShape">A <dfn data-lt="property shapes">property shape</dfn> is a <a>shape</a> in the <a>shapes graph</a>
 					that is the <a>subject</a> of a <a>triple</a> that has <code>sh:path</code> as its <a>predicate</a>.</span>
 					<span data-syntax-rule="path-maxCount">A shape has at most one <a>value</a> for <code>sh:path</code>.</span>
-					<span data-syntax-rule="path-node">Each <a>value</a> of <code>sh:path</code> in a shape must be a <a>well-formed</a> <a>SHACL property path</a>.</span>
+					<span data-syntax-rule="path-node">Each <a>value</a> of <code>sh:path</code> in a shape must be a <a>well-formed</a> <a>node expression</a> but cannot be a <a>literal</a>.</span>
 					It is recommended, but not required, for a <a>property shape</a> to be declared as a <a>SHACL instance</a> of <code>sh:PropertyShape</code>.
 					<span data-syntax-rule="PropertyShape-path-minCount"><a>SHACL instances</a> of <code>sh:PropertyShape</code> have one <a>value</a> for the property <code>sh:path</code>.</span>
 				</p>
 				<p>
 					Informally, property shapes specify constraints that need to be met with respect to <a>nodes</a> that can be reached from the
-					<a>focus node</a> either by directly following a given property (specified as an <a>IRI</a>) or any other <a>SHACL property path</a>,
+					<a>focus node</a> either by directly following a given property (specified as an <a>IRI</a>) or any other <a>node expression</a>,
 					specified using <code>sh:path</code>.
 				</p>
 				<p>
@@ -1593,266 +1593,278 @@ ex:ExamplePropertyShape
 						</div>
 					</div>
 				</aside>
-
-				<section id="property-paths">
-					<h4>SHACL Property Paths</h4>
+			</section>
+		</section>
+			
+		<section id="node-expressions">
+			<h2>Node Expressions</h2>
+			<p><em>The introduction of this section is informative.</em></p>
+			<p>
+				This section introduces the concepts of node expressions and property path expressions.
+				Informally, a node expression is a function that takes an (optional) focus node as input and
+				produces a list of nodes as output.
+				Property path expressions are a subset of node expressions that are based on values of (SPARQL) property paths.
+			</p>
+			<p>
+				SHACL Core uses node expressions for the following features:
+			</p>
+			<ul>
+				<li>at <a href="#targetNode"><code>sh:targetNode</code></a> to dynamically compute the targets of a shape.</li>
+				<li>at <a href="#property-shapes"><code>sh:path</code></a> to derive the value nodes of a property shape.</li>
+				<li>as parameter values of most <a href="#core-components">constraint components</a> to represent constraints that may be different depending on each focus node.</li>
+			</ul>
+			<section id="node-expressions-definition">
+				<h3>Definition of Node Expressions</h3>
+				<div class="def">
+					<div class="def-header">TEXTUAL DEFINITION</div>
+					A <dfn>node expression</dfn> is a function with exactly one <dfn>node expression type</dfn> as its type.
+					Each <a>node expression type</a> has an <a>IRI</a>.
+					Node expression types can declares one or more <dfn>node expression parameters</dfn>.
+					Each of these parameters has an <a>IRI</a>.
+					One of these parameters can be the <dfn>key parameter</dfn> that uniquely identifies the node expression type.
+					For example, <code>sh:inversePath</code> uniquely identifies an <a>inverse path</a> and no other node expression type uses it.
+					<br />
+					<br />
+					During <dfn>evaluation</dfn> a node expression takes the following input:
+					<ul>
+						<li>A <a>graph</a>, called the <dfn>active graph</dfn>.</li>
+						<li>An optional <a>node</a> called the <dfn>input focus node</dfn>.</li>
+						<li>One <a>node</a> as value for each of the declared parameters, optional for any but the key parameter unless stated otherwise in the definition of the node expression type.</li>
+					</ul>
+					The result of the evaluation of a node expression is a list of <a>nodes</a> (possibly empty and with duplicates) called the <dfn>output nodes</dfn>.
+					The evaluation may also result in an <dfn>evaluation failure</dfn>.
+				</div>
+				<p class="syntax">
+					<span data-syntax-rule="node-expression-node">Each node expression is represented by one <a>node</a>.</span>
+					<span data-syntax-rule="node-expression-iri">A node expression that is an <a>IRI</a> evaluates to the list consisting of exactly this IRI.</span>
+					<span data-syntax-rule="node-expression-literal">A node expression that is a <a>literal</a> evaluates to the list consisting of exactly this literal.</span>
+					<span data-syntax-rule="node-expression-blank-nodes">All other node expressions are <a>blank nodes</a>.</span>
+					<span data-syntax-rule="node-expression-key-parameter">A node expression has exactly one <a>value</a> for the <a>key parameter</a> of exactly one <a>node expression type</a>.</span>
+					<span data-syntax-rule="node-expression-type">The <a>node expression type</a> of a node expression is determined by
+					the presence of the value of the key parameter.</span>
+				</p>
+				<p><em>The remainder of this section is informative.</em></p>
+				<aside class="example" title="A dynamically computed property using a node expression based on a SPARQL query">
 					<p>
-						SHACL includes RDF terms to represent the following subset of <a>SPARQL property paths</a>:
-						<code>PredicatePath</code>, <code>InversePath</code>, <code>SequencePath</code>, <code>AlternativePath</code>,
-						<code>ZeroOrMorePath</code>, <code>OneOrMorePath</code> and <code>ZeroOrOnePath</code>.
+						Here is an example use of a node expression based on <a href="shacl12-sparql">SHACL-SPARQL</a>, computing
+						the values of a property shape for the property <code>ex:fullName</code> as the concatenation of <code>ex:firstName</code>,
+						a space and the <code>ex:lastName</code>.
 					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Person-fullName
+	a sh:PropertyShape ;
+	sh:name "full name" ;
+	sh:path <b>[
+		sh:select """
+			PREFIX ex: &lt;http://example.org/ns#&gt;
+			SELECT ?fullName
+			WHERE {
+				$this ex:firstName ?firstName .
+				$this ex:lastName ?lastName .
+				BIND (CONCAT(?firstName, " ", ?lastName) AS ?fullName) .
+			}
+		"""
+	]</b> ;
+	sh:datatype xsd:string .
+						</div>
+					</div>
 					<p>
-						The following sub-sections provide syntax rules of <a>well-formed</a> <a>SHACL property paths</a>
-						together with mapping rules to <a href="https://www.w3.org/TR/sparql12-query/#pp-language">SPARQL 1.2 property paths</a>.
-						These rules define the <dfn>path mapping</dfn> <code>path(p,G)</code> in an RDF graph <code>G</code> of an RDF term <code>p</code> that is a SHACL property path in <code>G</code>.
-						Two SHACL property paths are considered <dfn data-lt="equivalent path">equivalent paths</dfn> when they map to the exact same SPARQL property paths.
+						In this example the <a>node expression</a> is represented by a blank node and <code>sh:select</code> is the <a>key parameter</a>.
+						A SHACL validation engine will evaluate the SPARQL query using the <a>input focus node</a> as value for the variable <var>$this</var>
+						and use the bindings of the result variable <var>?fullName</var> as <a>output nodes</a>.
 					</p>
-					<p class="syntax">
-						<span data-syntax-rule="path-metarule">A node in an RDF graph is a <a>well-formed</a> <dfn data-lt="SHACL property paths">SHACL property path</dfn> <code>p</code> if it satisfies exactly one of the syntax rules in the following sub-sections.</span>
-						<span data-syntax-rule="path-non-recursive">A node <code>p</code> is not a <a>well-formed</a> SHACL property path if <code>p</code> is a blank node and any path mappings of <code>p</code> directly or transitively reference <code>p</code>.</span>
-					</p>
-					<p>
-						The following example illustrates some valid SHACL property paths, together with their SPARQL 1.2 equivalents.
-					</p>
-					<aside class="example">
-						<pre>SPARQL Property path: ex:parent
-SHACL Property path: ex:parent
+				</aside>
+				<p>
+					This SHACL Core specification does not define any <a>node expression types</a> except for the <a>property path expressions</a>
+					in the next section.
+					However, the concept of <a>node expressions</a> serves as an extension point used by other specifications such as <a href="shacl12-sparql">SHACL-SPARQL</a>.
+					<span class="todo">TODO: Add link to shacl12-node-expr once that is stable.</span>
+				</p>
+			</section>
+			<section id="property-paths">
+				<h3>Property Path Expressions</h3>
+				<p>
+					The <a>node expressions</a> defined in this section are called <dfn data-lt="property path expressions">property path expressions</dfn>.
+					These node expressions cover the following subset of <a>SPARQL property paths</a>:
+					<code>PredicatePath</code>, <code>InversePath</code>, <code>SequencePath</code>, <code>AlternativePath</code>,
+					<code>ZeroOrMorePath</code>, <code>OneOrMorePath</code> and <code>ZeroOrOnePath</code>.
+				</p>
+				<p>
+					The following sub-sections provide syntax rules of <a>well-formed</a> <a>property path expressions</a>
+					together with mapping rules to <a data-cite="sparql12-query/#pp-language">SPARQL 1.2 property paths</a>.
+					These rules define the <dfn>path mapping</dfn> <code>path(p,G)</code> in an RDF graph <code>G</code> of an RDF term <code>p</code> that is a <a>property path expression</a> in <code>G</code>.
+					Two <a>property path expressions</a> are considered <dfn data-lt="equivalent path">equivalent paths</dfn> when they map to the exact same SPARQL property paths.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="path-metarule">A node in an RDF graph is a <a>well-formed</a> <a>property path expression</a> <code>p</code> if it satisfies exactly one of the syntax rules in the following sub-sections.</span>
+					<span data-syntax-rule="path-non-recursive">A node <code>p</code> is not a <a>well-formed</a> property path expression if <code>p</code> is a blank node and any path mappings of <code>p</code> directly or transitively reference <code>p</code>.</span>
+					<span data-syntax-rule="path-precedence">When used as a <a>value</a> of <code>sh:path</code>, the <a>property path expressions</a> take precedence over all other node expression types.
+					In particular, <a>IRIs</a> are interpreted as <a>predicate path</a>, not as a constant IRI.</span>
+				</p>
+				<div class="def">
+					<div class="def-header">TEXTUAL DEFINITION</div>
+					Let <var>PATH</var> be the <a data-cite="sparql12-query/#pp-language">SPARQL 1.2 property path</a> for a <a>property path expression</a> <var>p</var>.
+					The <a>output nodes</a> of <var>p</var> are the bindings of the variable <var>output</var> for the SPARQL expression
+					<code>$input PATH $output</code> where <var>$input</var> is the <a>input focus node</a>.
+				</div>
+				<aside class="example" title="Some valid property path expressions and their SPARQL 1.2 equivalents">
+					<div class="shapes-graph">
+						<div class="turtle">
+# SPARQL Property path: ex:parent
+ex:SomeClass-predicateExample
+	sh:path ex:parent .
 
-SPARQL Property path: ^ex:parent
-SHACL Property path: [ sh:inversePath ex:parent ]
-
-SPARQL Property path: ex:parent/ex:firstName
-SHACL Property path: ( ex:parent ex:firstName )
-
-SPARQL Property path: rdf:type/rdfs:subClassOf*
-SHACL Property path: ( rdf:type [ sh:zeroOrMorePath rdfs:subClassOf ] )
-
-SPARQL Property path: ex:father|ex:mother
-SHACL Property path: [ sh:alternativePath ( ex:father ex:mother  ) ]
-						</pre>
-					</aside>
-					<section id="property-path-predicate">
-						<h5>Predicate Paths</h5>
-						<p class="syntax">
-							A <dfn>predicate path</dfn> is an <a>IRI</a>.
-						</p>
-						<p>
-							If <code>p</code> is a <a>predicate path</a> then <code>path(p,G)</code> is a SPARQL <code>PredicatePath</code> with <code>p</code> as <code>iri</code>.
-						</p>
-					</section>
-					<section id="property-path-sequence">
-						<h5>Sequence Paths</h5>
-						<p class="syntax" data-syntax-rule="path-sequence">
-							A <dfn>sequence path</dfn> is a <a>blank node</a> that is a <a>SHACL list</a>
-							with at least two <a>members</a> and each member is a <a>well-formed</a> SHACL property path.
-						</p>
-						<p>
-							If <code>p</code> is a <a>sequence path</a> in <code>G</code> with list <a>members</a>
-							<code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>
-							then <code>path(p,G)</code> is a SPARQL <code>SequencePath</code> of
-							<code>path(v<sub>1</sub>,G)</code> as <code>elt1</code>, and the results of the <a>path mapping</a>
-							of the list node of <code>v<sub>2</sub></code> as <code>elt2</code>.
-						</p>
-						<p>
-							Informal note: the <a>nodes</a> in such a <a>SHACL list</a> should not have <a>values</a> for
-							other properties beside <code>rdf:first</code> and <code>rdf:rest</code>.
-						</p>
-					</section>
-					<section id="property-path-alternative">
-						<h5>Alternative Paths</h5>
-						<p class="syntax" data-syntax-rule="path-alternative">
-							An <dfn>alternative path</dfn> is a <a>blank node</a> that is the subject of exactly one triple in <code>G</code>.
-							This triple has <code>sh:alternativePath</code> as predicate, <code>L</code> as object,
-							and <code>L</code> is a <a>SHACL list</a> with at least two <a>members</a>
-							and each member of <code>L</code> is a <a>well-formed</a> SHACL property path.
-						</p>
-						<p>
-							If <code>p</code> is an <a>alternative path</a> in <code>G</code> then, for the members of its SHACL list <code>L</code>:
-							<code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>,
-							<code>path(p,G)</code> is a SPARQL <code>AlternativePath</code> with
-							<code>path(v<sub>1</sub>,G)</code> as <code>elt1</code> followed by an <code>AlternativePath</code>
-							for <code>v<sub>2</sub></code> as <code>elt2</code>, ..., up to <code>path(v<sub>n</sub>,G)</code>.
-						</p>
-					</section>
-					<section id="property-path-inverse">
-						<h5>Inverse Paths</h5>
-						<p class="syntax" data-syntax-rule="path-inverse">
-							An <dfn>inverse path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
-							This triple has <code>sh:inversePath</code> as predicate, and the <a>object</a> <code>v</code> is a <a>well-formed</a> SHACL property path.
-						</p>
-						<p>
-							If <code>p</code> is an <a>inverse path</a> in <code>G</code> then <code>path(p,G)</code> is a
-							SPARQL <code>InversePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
-						</p>
-					</section>
-					<section id="property-path-zero-or-more">
-						<h5>Zero-Or-More Paths</h5>
-						<p class="syntax" data-syntax-rule="path-zero-or-more">
-							A <dfn>zero-or-more path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
-							This triple has <code>sh:zeroOrMorePath</code> as <a>predicate</a>, and the <a>object</a> <code>v</code> is a <a>well-formed</a> SHACL property path.
-						</p>
-						<p>
-							If <code>p</code> is a <a>zero-or-more path</a> in <code>G</code> then <code>path(p,G)</code> is a
-							SPARQL <code>ZeroOrMorePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
-						</p>
-					</section>
-					<section id="property-path-one-or-more">
-						<h5>One-Or-More Paths</h5>
-						<p class="syntax" data-syntax-rule="path-one-or-more">
-							A <dfn>one-or-more path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
-							This triple has <code>sh:oneOrMorePath</code> as <a>predicate</a>, and the <a>object</a> <code>v</code> is a <a>well-formed</a> SHACL property path.
-						</p>
-						<p>
-							If <code>p</code> is a <a>one-or-more path</a> in <code>G</code> then <code>path(p,G)</code> is a
-							SPARQL <code>OneOrMorePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
-						</p>
-					</section>
-					<section id="property-path-zero-or-one">
-						<h5>Zero-Or-One Paths</h5>
-						<p class="syntax" data-syntax-rule="path-zero-or-one">
-							A <dfn>zero-or-one path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
-							This triple has <code>sh:zeroOrOnePath</code> as <a>predicate</a>, and the <a>object</a> <code>v</code> is a <a>well-formed</a> SHACL property path.
-						</p>
-						<p>
-							If <code>p</code> is a <a>zero-or-one path</a> in <code>G</code> then <code>path(p,G)</code> is a
-							SPARQL <code>ZeroOrOnePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
-						</p>
-					</section>
-				</section>
-				
-				<section id="nonValidation" class="informative">
-					<h4>Non-Validating Property Shape Characteristics</h4>
-					<p>
-						While the previous sections introduced properties that represent validation conditions,
-						this section covers properties that are ignored by SHACL processors.
-						The use of these so-called <dfn data-lt="non-validating property">non-validating properties</dfn> is entirely optional and not subject to formal interpretation contracts.
-						They MAY be used for purposes such as form building or predictable printing of RDF files.
-					</p>
-					<section id="name">
-						<h5>sh:name and sh:description</h5>
-						<p>
-							Property shapes may have one or more <a>values</a> for <code>sh:name</code> to provide human-readable labels for the property in the target where it appears.
-							If present, tools SHOULD prefer those locally specified labels over globally specified labels at the <code>rdf:Property</code> itself.
-							For example, if a form displays a node that is in the target of a given property shape with an <code>sh:name</code>, then the tool SHOULD use the provided name.
-							Similarly, property shape may have values for <code id="description">sh:description</code> to provide descriptions of the property in the given context.
-							Both <code>sh:name</code> and <code>sh:description</code> may have multiple <a>values</a>, but should only have one <a>value</a> per language tag.
-						</p>
-					</section>
-					<section id="order">
-						<h5>sh:order</h5>
-						<p>
-							Property shapes may have one <a>value</a> for the property <code>sh:order</code> to indicate the relative order of the property shape for purposes such as form building.
-							The values of <code>sh:order</code> are decimals.
-							<code>sh:order</code> is not used for validation purposes and may be used with any type of subjects.
-							If present at property shapes, the recommended use of <code>sh:order</code> is to sort the property shapes in an ascending order, for example so that
-							properties with smaller order are placed above (or to the left) of properties with larger order.
-						</p>
-					</section>
-					<section id="group">
-						<h5>sh:group</h5>
-						<p>
-							Property shapes may link to an <a>SHACL instance</a> of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
-							the shape belongs to a group of related property shapes.
-							Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
-							Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
-						</p>
-					</section>
-					<section id="defaultValue">
-						<h5>sh:defaultValue</h5>
-						<p>
-							Property shapes may have a single value for <code>sh:defaultValue</code>.
-							The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
-							The value type of the <code>sh:defaultValue</code> should align with the specified <code>sh:datatype</code> or <code>sh:class</code> of the same shape.
-						</p>
-						<p>
-							The following example illustrates the use of these various features together.
-						</p>
-						<aside class="example">
-							<div class="shapes-graph">
-								<div class="turtle">
-ex:PersonFormShape
-	a sh:NodeShape ;
-	sh:property [
-		sh:path ex:firstName ;
-		sh:name "first name" ;
-		sh:description "The person's given name(s)" ;
-		sh:order 0 ;
-		sh:group ex:NameGroup ;
-	] ;
-	sh:property [
-		sh:path ex:lastName ;
-		sh:name "last name" ;
-		sh:description "The person's last name" ;
-		sh:order 1 ;
-		sh:group ex:NameGroup ;
-	] ;
-	sh:property [
-		sh:path ex:streetAddress ;
-		sh:name "street address" ;
-		sh:description "The street address including number" ;
-		sh:order 11 ;
-		sh:group ex:AddressGroup ;
-	] ;
-	sh:property [
-		sh:path ex:locality ;
-		sh:name "locality" ;
-		sh:description "The suburb, city or town of the address" ;
-		sh:order 12 ;
-		sh:group ex:AddressGroup ;
-	] ;
-	sh:property [
-		sh:path ex:postalCode ;
-		sh:name "postal code" ;
-		sh:name "zip code"@en-US ;
-		sh:description "The postal code of the locality" ;
-		sh:order 13 ;
-		sh:group ex:AddressGroup ;
+# SPARQL Property path: ^ex:parent
+ex:SomeClass-inversePathExample
+	sh:path [ 
+		sh:inversePath ex:parent 
 	] .
 
-ex:NameGroup
-	a sh:PropertyGroup ;
-	sh:order 0 ;
-	rdfs:label "Name" .
+# SPARQL Property path: ex:parent/ex:firstName
+ex:SomeClass-sequencePathExample
+	sh:path ( 
+		ex:parent 
+		ex:firstName 
+	) .
 
-ex:AddressGroup
-	a sh:PropertyGroup ;
-	sh:order 1 ;
-	rdfs:label "Address" .
-								</div>
-							</div>
-						</aside>
-						<p>
-							A form building application MAY use the information above to display information as follows:
-						</p>
-						<div style="background: #f3f3f3; padding: 8px">
-							<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
-							<table>
-								<tr>
-									<td style="text-align: right; width: 160px"><b>first name:</b></td>
-									<td>John</td>
-								</tr>
-								<tr>
-									<td style="text-align: right"><b>last name:</b></td>
-									<td>Doe</td>
-								</tr>
-							</table>
-							<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
-							<table>
-								<tr>
-									<td style="text-align: right; width: 160px"><b>street address:</b></td>
-									<td>123 Silverado Ave</td>
-								</tr>
-								<tr>
-									<td style="text-align: right"><b>locality:</b></td>
-									<td>Cupertino</td>
-								</tr>
-								<tr>
-									<td style="text-align: right"><b>zip code:</b></td>
-									<td>54321</td>
-								</tr>
-							</table>
+# SPARQL Property path: rdf:type/rdfs:subClassOf*
+ex:SomeClass-complexPathExample
+	sh:path ( 
+		rdf:type 
+		[ sh:zeroOrMorePath rdfs:subClassOf ] 
+	) .
+
+# SPARQL Property path: ex:father|ex:mother
+ex:SomeClass-alternativePathExample
+	sh:path [ 
+		sh:alternativePath ( ex:father ex:mother  ) 
+	] .						
 						</div>
-					</section>
+					</div>
+				</aside>
+				<section id="property-path-predicate">
+					<h4>Predicate Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:PredicatePathExpression</code>
+					</p>
+					<p class="syntax">
+						A <dfn>predicate path</dfn> is an <a>IRI</a>.
+					</p>
+					<p>
+						If <code>p</code> is a <a>predicate path</a> then <code>path(p,G)</code> is a SPARQL <code>PredicatePath</code> with <code>p</code> as <code>iri</code>.
+					</p>
+				</section>
+				<section id="property-path-sequence">
+					<h4>Sequence Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:SequencePathExpression</code>
+					</p>
+					<p class="syntax" data-syntax-rule="path-sequence">
+						A <dfn>sequence path</dfn> is a <a>blank node</a> that is a <a>SHACL list</a>
+						with at least two <a>members</a> and each member is a <a>well-formed</a> <a>property path expression</a>.
+					</p>
+					<p>
+						If <code>p</code> is a <a>sequence path</a> in <code>G</code> with list <a>members</a>
+						<code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>
+						then <code>path(p,G)</code> is a SPARQL <code>SequencePath</code> of
+						<code>path(v<sub>1</sub>,G)</code> as <code>elt1</code>, and the results of the <a>path mapping</a>
+						of the list node of <code>v<sub>2</sub></code> as <code>elt2</code>.
+					</p>
+					<p>
+						Informal note: the <a>nodes</a> in such a <a>SHACL list</a> should not have <a>values</a> for
+						other properties beside <code>rdf:first</code> and <code>rdf:rest</code>.
+					</p>
+				</section>
+				<section id="property-path-alternative">
+					<h4>Alternative Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:AlternativePathExpression</code>
+					</p>
+					<p>
+						<span class="expression-params">Node Expression Parameters</span>: <code>sh:alternativPath</code> (<a>key parameter</a>)
+					</p>
+					<p class="syntax" data-syntax-rule="path-alternative">
+						An <dfn>alternative path</dfn> is a <a>blank node</a> that is the subject of exactly one triple in <code>G</code>.
+						This triple has <code>sh:alternativePath</code> as predicate, <code>L</code> as object,
+						and <code>L</code> is a <a>SHACL list</a> with at least two <a>members</a>
+						and each member of <code>L</code> is a <a>well-formed</a> <a>property path expression</a>.
+					</p>
+					<p>
+						If <code>p</code> is an <a>alternative path</a> in <code>G</code> then, for the members of its SHACL list <code>L</code>:
+						<code>v<sub>1</sub></code>, <code>v<sub>2</sub></code>, ..., <code>v<sub>n</sub></code>,
+						<code>path(p,G)</code> is a SPARQL <code>AlternativePath</code> with
+						<code>path(v<sub>1</sub>,G)</code> as <code>elt1</code> followed by an <code>AlternativePath</code>
+						for <code>v<sub>2</sub></code> as <code>elt2</code>, ..., up to <code>path(v<sub>n</sub>,G)</code>.
+					</p>
+				</section>
+				<section id="property-path-inverse">
+					<h4>Inverse Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:InversePathExpression</code>
+					</p>
+					<p>
+						<span class="expression-params">Node Expression Parameters</span>: <code>sh:inversePath</code> (<a>key parameter</a>)
+					</p>
+					<p class="syntax" data-syntax-rule="path-inverse">
+						An <dfn>inverse path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
+						This triple has <code>sh:inversePath</code> as predicate, and the <a>object</a> <code>v</code> is a <a>well-formed</a> <a>property path expression</a>.
+					</p>
+					<p>
+						If <code>p</code> is an <a>inverse path</a> in <code>G</code> then <code>path(p,G)</code> is a
+						SPARQL <code>InversePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
+					</p>
+				</section>
+				<section id="property-path-zero-or-more">
+					<h4>Zero-Or-More Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:ZeroOrMorePathExpression</code>
+					</p>
+					<p>
+						<span class="expression-params">Node Expression Parameters</span>: <code>sh:zeroOrMorePath</code> (<a>key parameter</a>)
+					</p>
+					<p class="syntax" data-syntax-rule="path-zero-or-more">
+						A <dfn>zero-or-more path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
+						This triple has <code>sh:zeroOrMorePath</code> as <a>predicate</a>, and the <a>object</a> <code>v</code> is a <a>well-formed</a> <a>property path expression</a>.
+					</p>
+					<p>
+						If <code>p</code> is a <a>zero-or-more path</a> in <code>G</code> then <code>path(p,G)</code> is a
+						SPARQL <code>ZeroOrMorePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
+					</p>
+				</section>
+				<section id="property-path-one-or-more">
+					<h4>One-Or-More Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:OneOrMorePathExpression</code>
+					</p>
+					<p>
+						<span class="expression-params">Node Expression Parameters</span>: <code>sh:oneOrMorePath</code> (<a>key parameter</a>)
+					</p>
+					<p class="syntax" data-syntax-rule="path-one-or-more">
+						A <dfn>one-or-more path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
+						This triple has <code>sh:oneOrMorePath</code> as <a>predicate</a>, and the <a>object</a> <code>v</code> is a <a>well-formed</a> <a>property path expression</a>.
+					</p>
+					<p>
+						If <code>p</code> is a <a>one-or-more path</a> in <code>G</code> then <code>path(p,G)</code> is a
+						SPARQL <code>OneOrMorePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
+					</p>
+				</section>
+				<section id="property-path-zero-or-one">
+					<h4>Zero-Or-One Paths</h4>
+					<p>
+						<span class="expression-type">Node Expression Type IRI</span>: <code>sh:ZeroOrOnePathExpression</code>
+					</p>
+					<p>
+						<span class="expression-params">Node Expression Parameters</span>: <code>sh:zeroOrOnePath</code> (<a>key parameter</a>)
+					</p>
+					<p class="syntax" data-syntax-rule="path-zero-or-one">
+						A <dfn>zero-or-one path</dfn> is a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a> in <code>G</code>.
+						This triple has <code>sh:zeroOrOnePath</code> as <a>predicate</a>, and the <a>object</a> <code>v</code> is a <a>well-formed</a> <a>property path expression</a>.
+					</p>
+					<p>
+						If <code>p</code> is a <a>zero-or-one path</a> in <code>G</code> then <code>path(p,G)</code> is a
+						SPARQL <code>ZeroOrOnePath</code> with <code>path(v,G)</code> as its <code>elt</code>.
+					</p>
 				</section>
 			</section>
 		</section>
@@ -2173,8 +2185,8 @@ ex:AddressGroup
 					<section id="results-path">
 						<h4>Path (sh:resultPath)</h4>
 						<p>
-							Validation results may have a value for the property <code>sh:resultPath</code> pointing at a <a>well-formed</a> <a>SHACL property path</a>.
-							For results produced by a <a>property shape</a>, this <a>SHACL property path</a> is equivalent to the <a>value</a> of <code>sh:path</code> of the shape,
+							Validation results may have a value for the property <code>sh:resultPath</code> pointing at a <a>well-formed</a> <a>node expression</a>.
+							For results produced by a <a>property shape</a>, this <a>node expression</a> is equivalent to the <a>value</a> of <code>sh:path</code> of the shape,
 							unless stated otherwise. <!-- sh:closed is an exception -->
 						</p>
 					</section>
@@ -2247,9 +2259,11 @@ ex:AddressGroup
 					<li>
 						For <a>property shapes</a> with a <a>value</a> for <code>sh:path</code> <code>p</code> the
 						<a>value nodes</a> are the set of <a>nodes</a> in the <a>data graph</a>
-						that can be reached from the <a>focus node</a> with the <a>path mapping</a> of <code>p</code>.
+						that are the result of evaluating the <a>node expression</a> <code>p</code> with the <a>focus node</a> as <a>input focus node</a>
+						and the <a>data graph</a> as <a>active graph</a>.
 						Unless stated otherwise, the value of <code>sh:resultPath</code> of each validation result is a
-						<a>SHACL property path</a> that <a href="#property-paths">represents</a> an <a>equivalent path</a> to the one provided in the shape.
+						<a>node expression</a> that <a href="#property-paths">represents</a> an <a>equivalent path</a> to the one provided in the shape.
+						<span class="todo">We need to generalize the term equivalent path to all node expressions (e.g. deep copy of blank node molecule).</span>
 					</li>
 				</ul>
 			</section>
@@ -4238,7 +4252,142 @@ ex:RainbowPony ex:color ex:Pink .
 				</section>
 			</section>
 		</section>
-		
+				
+		<section id="nonValidation" class="informative">
+			<h2>Non-Validating Property Shape Characteristics</h2>
+			<p>
+				While the previous sections introduced properties that represent validation conditions,
+				this section covers properties that are ignored by SHACL processors.
+				The use of these so-called <dfn data-lt="non-validating property">non-validating properties</dfn> is entirely optional and not subject to formal interpretation contracts.
+				They MAY be used for purposes such as form building or predictable printing of RDF files.
+			</p>
+			<section id="name">
+				<h3>sh:name and sh:description</h3>
+				<p>
+					Property shapes may have one or more <a>values</a> for <code>sh:name</code> to provide human-readable labels for the property in the target where it appears.
+					If present, tools SHOULD prefer those locally specified labels over globally specified labels at the <code>rdf:Property</code> itself.
+					For example, if a form displays a node that is in the target of a given property shape with an <code>sh:name</code>, then the tool SHOULD use the provided name.
+					Similarly, property shape may have values for <code id="description">sh:description</code> to provide descriptions of the property in the given context.
+					Both <code>sh:name</code> and <code>sh:description</code> may have multiple <a>values</a>, but should only have one <a>value</a> per language tag.
+				</p>
+			</section>
+			<section id="order">
+				<h3>sh:order</h3>
+				<p>
+					Property shapes may have one <a>value</a> for the property <code>sh:order</code> to indicate the relative order of the property shape for purposes such as form building.
+					The values of <code>sh:order</code> are decimals.
+					<code>sh:order</code> is not used for validation purposes and may be used with any type of subjects.
+					If present at property shapes, the recommended use of <code>sh:order</code> is to sort the property shapes in an ascending order, for example so that
+					properties with smaller order are placed above (or to the left) of properties with larger order.
+				</p>
+			</section>
+			<section id="group">
+				<h3>sh:group</h3>
+				<p>
+					Property shapes may link to an <a>SHACL instance</a> of the class <code>sh:PropertyGroup</code> using the property <code>sh:group</code> to indicate that
+					the shape belongs to a group of related property shapes.
+					Each group may have additional triples that serve application purposes, such as an <code>rdfs:label</code> for form building.
+					Groups may also have an <code>sh:order</code> property to indicate the relative ordering of groups within the same form.
+				</p>
+			</section>
+			<section id="defaultValue">
+				<h3>sh:defaultValue</h3>
+				<p>
+					Property shapes may have a single value for <code>sh:defaultValue</code>.
+					The default value does not have fixed semantics in SHACL, but MAY be used by user interface tools to pre-populate input widgets.
+					The value type of the <code>sh:defaultValue</code> should align with the specified <code>sh:datatype</code> or <code>sh:class</code> of the same shape.
+				</p>
+				<p>
+					The following example illustrates the use of these various features together.
+				</p>
+				<aside class="example">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:PersonFormShape
+	a sh:NodeShape ;
+	sh:property [
+		sh:path ex:firstName ;
+		sh:name "first name" ;
+		sh:description "The person's given name(s)" ;
+		sh:order 0 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:path ex:lastName ;
+		sh:name "last name" ;
+		sh:description "The person's last name" ;
+		sh:order 1 ;
+		sh:group ex:NameGroup ;
+	] ;
+	sh:property [
+		sh:path ex:streetAddress ;
+		sh:name "street address" ;
+		sh:description "The street address including number" ;
+		sh:order 11 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:path ex:locality ;
+		sh:name "locality" ;
+		sh:description "The suburb, city or town of the address" ;
+		sh:order 12 ;
+		sh:group ex:AddressGroup ;
+	] ;
+	sh:property [
+		sh:path ex:postalCode ;
+		sh:name "postal code" ;
+		sh:name "zip code"@en-US ;
+		sh:description "The postal code of the locality" ;
+		sh:order 13 ;
+		sh:group ex:AddressGroup ;
+	] .
+
+ex:NameGroup
+	a sh:PropertyGroup ;
+	sh:order 0 ;
+	rdfs:label "Name" .
+
+ex:AddressGroup
+	a sh:PropertyGroup ;
+	sh:order 1 ;
+	rdfs:label "Address" .
+						</div>
+					</div>
+				</aside>
+				<p>
+					A form building application MAY use the information above to display information as follows:
+				</p>
+				<div style="background: #f3f3f3; padding: 8px">
+					<div style="font-size: 18px; color: #0000a0"><b>Name</b></div>
+					<table>
+						<tr>
+							<td style="text-align: right; width: 160px"><b>first name:</b></td>
+							<td>John</td>
+						</tr>
+						<tr>
+							<td style="text-align: right"><b>last name:</b></td>
+							<td>Doe</td>
+						</tr>
+					</table>
+					<div style="font-size: 18px; padding-top: 6px; color: #0000a0"><b>Address</b></div>
+					<table>
+						<tr>
+							<td style="text-align: right; width: 160px"><b>street address:</b></td>
+							<td>123 Silverado Ave</td>
+						</tr>
+						<tr>
+							<td style="text-align: right"><b>locality:</b></td>
+							<td>Cupertino</td>
+						</tr>
+						<tr>
+							<td style="text-align: right"><b>zip code:</b></td>
+							<td>54321</td>
+						</tr>
+					</table>
+				</div>
+			</section>
+		</section>
+
 		<div style="padding-top: 30px">
 			<h1 id="appendix" style="font-size: 160%; font-weight: bold">Appendix</h1>
 		</div>
