@@ -1539,8 +1539,8 @@ ex:JohnDoe a ex:Person .
 					<span data-syntax-rule="PropertyShape">A <dfn data-lt="property shapes">property shape</dfn> is a <a>shape</a> in the <a>shapes graph</a>
 					that is the <a>subject</a> of a <a>triple</a> that has <code>sh:path</code> as its <a>predicate</a>.</span>
 					<span data-syntax-rule="path-maxCount">A shape has at most one <a>value</a> for <code>sh:path</code>.</span>
-					<span data-syntax-rule="path-node">Each <a>value</a> of <code>sh:path</code> in a shape must be a <a>well-formed</a> <a>SHACL property path</a>
-					or (if it is not a <a>well-formed</a> <a>SHACL property path</a>) a <a>well-formed</a> <a>node expression</a> but not a <a>literal</a>.</span>
+					<span data-syntax-rule="path-node">The <a>value</a> of <code>sh:path</code> in a property shape MUST be a <a>well-formed</a> <a>SHACL property path</a>
+					or (if it is not a <a>well-formed</a> <a>SHACL property path</a>) a <a>well-formed</a> <a>node expression</a>, but not a <a>literal</a>.</span>
 					It is recommended, but not required, for a <a>property shape</a> to be declared as a <a>SHACL instance</a> of <code>sh:PropertyShape</code>.
 					<span data-syntax-rule="PropertyShape-path-minCount"><a>SHACL instances</a> of <code>sh:PropertyShape</code> have one <a>value</a> for the property <code>sh:path</code>.</span>
 				</p>
@@ -1756,37 +1756,19 @@ ex:SomeClass-alternativePathExample
 			<section id="node-expressions">
 				<h3>Node Expressions</h3>
 				<p>
-					This section introduces the concept of <a>node expressions</a> as an extension point used by other specifications such as <a href="shacl12-sparql">SHACL-SPARQL</a>.
-					This SHACL Core specification does not define any <a>node expression types</a> but defines how they are generally handled.
-					<span class="todo">TODO: Add link to shacl12-node-expr once that is stable.</span>
+					This section introduces the concept of <a>node expressions</a>.
 				</p>
 				<div class="def">
 					<div class="def-header">TEXTUAL DEFINITION</div>
-					A <dfn>node expression</dfn> is a function with exactly one <dfn>node expression type</dfn> as its type.
-					Each <a>node expression type</a> has an <a>IRI</a>.
-					Node expression types can declare one or more <dfn>node expression parameters</dfn>.
+					A <dfn>node expression</dfn> is a <a>node</a> that follows the syntax rules of exactly one <dfn>node expression function</dfn>.
+					Each <a>node expression function</a> has an <a>IRI</a> as its <dfn>function name</dfn>.
+					Node expression functions can declare one or more <dfn>node expression parameters</dfn>.
 					Each of these parameters has an <a>IRI</a>.
-					One of these parameters can be the <dfn>key parameter</dfn> that uniquely identifies the node expression type.
-					<br />
-					<br />
-					During <dfn>evaluation</dfn> a node expression takes the following input:
-					<ul>
-						<li>A <a>graph</a>, called the <dfn>active graph</dfn>.</li>
-						<li>An optional <a>node</a> called the <dfn>input focus node</dfn>.</li>
-						<li>One <a>node</a> as value for each of the declared parameters, optional for any but the key parameter unless stated otherwise in the definition of the node expression type.</li>
-					</ul>
-					The result of the evaluation of a node expression is a list of <a>nodes</a> (possibly empty and with duplicates) called the <dfn>output nodes</dfn>.
-					The evaluation may also result in an <dfn>evaluation failure</dfn>.
+					One of these parameters can be the <dfn>key parameter</dfn> that uniquely identifies the <a>function name</a>.
 				</div>
-				<p class="syntax">
-					<span data-syntax-rule="node-expression-node">Each node expression is represented by one <a>node</a>.</span>
-					<span data-syntax-rule="node-expression-iri">A node expression that is an <a>IRI</a> evaluates to the list consisting of exactly this IRI.</span>
-					<span data-syntax-rule="node-expression-literal">A node expression that is a <a>literal</a> evaluates to the list consisting of exactly this literal.</span>
-					<span data-syntax-rule="node-expression-blank-nodes">All other node expressions are <a>blank nodes</a>.</span>
-					<span data-syntax-rule="node-expression-type">The <a>node expression type</a> of a node expression is determined by
-					the presence of the value of the key parameter at the blank node.</span>
+				<p>
+					The following example illustrates the syntax of a node expression, used as a blank node value of <code>sh:path</code>:
 				</p>
-				<p><em>The remainder of this section is informative.</em></p>
 				<aside class="example" title="A dynamically computed property using a node expression based on a SPARQL query">
 					<p>
 						Here is an example use of a node expression based on <a href="shacl12-sparql">SHACL-SPARQL</a>, computing
@@ -1812,7 +1794,70 @@ ex:Person-fullName
 	sh:datatype xsd:string .
 						</div>
 					</div>
+					<p>
+						In this example, the <a>key parameter</a> is <code>sh:select</code>,
+						and the <a>function name</a> is (as defined by SHACL-SPARQL) is <code>sh:SelectExpression</code>.
+					</p>
 				</aside>
+				<div class="def" id="node-expression-evaluation">
+					<div class="def-header">EVALUATION OF NODE EXPRESSIONS</div>
+					The <dfn>evaluation</dfn> of a node expression is defined as a function <code>eval(expr, activeGraph, scope) -> outputNodes</code>
+					where
+					<ul>
+						<li><code>expr</code> is a <a>node expression</a> that is the <a>subject</a> of <a>triples</a> where the <a>predicates</a> are the <a>node expression parameters</a>,
+							optional for any but the <a>key parameter</a> unless stated otherwise in the definition of the node expression function.</li>
+						<li><code>activeGraph</code> is a <a>graph</a>, called the <dfn>active graph</dfn>.</li>
+						<li><code>scope</code> is a map from <a href="https://www.w3.org/TR/sparql12-query/#defn_QueryVariable">variable names</a> to individual <a>nodes</a>.
+							The value of the variable <code>focusNode</code> (if it exists) is called the <dfn>input focus node</dfn>.
+						</li>
+					</ul>
+					The result of the evaluation of a node expression is a list of <a>nodes</a> (possibly empty and with duplicates) called the <dfn>output nodes</dfn>.
+					The evaluation may also result in an <dfn>evaluation failure</dfn>.
+				</div>
+				<p>
+					This SHACL Core specification only defines exactly the <a>node expression functions</a> from the following two sections.
+					Other specifications such as [[shacl12-sparql]] introduce additional functions.
+					Therefore <a>node expressions</a> serve as an extension point of SHACL.
+					<span class="todo">TODO: Add link to shacl12-node-expr once that is stable.</span>
+				</p>
+				<section id="IRIExpression">
+					<h4>IRI Expressions</h4>
+					<p>
+						A <a>node expression</a> that is a <a>IRI</a> is called an <dfn>IRI expression</dfn> with the <a>function name</a>
+						<code>sh:IRIExpression</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="IRIExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>IRI expression</a> if it is an <a>IRI</a>.</span>
+					</p>
+					<div class="def" id="IRIExpression-evaluation">
+						<div class="def-header">EVALUATION OF IRI EXPRESSIONS</div>
+						<p>
+							The <a>output nodes</a> of an <a>IRI expression</a> are the list consisting of exactly the <a>node expression</a> itself:
+							<br/>
+							<br/>
+							<code>eval(expr, activeGraph, scope) -> [expr]</code>
+						</p>
+					</div>
+				</section>
+				<section id="LiteralExpression">
+					<h4>Literal Expressions</h4>
+					<p>
+						A <a>node expression</a> that is a <a>literal</a> is called a <dfn>literal expression</dfn> with the <a>function name</a>
+						<code>sh:LiteralExpression</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="LiteralExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>literal expression</a> if it is a <a>literal</a>.</span>
+					</p>
+					<div class="def" id="LiteralExpression-evaluation">
+						<div class="def-header">EVALUATION OF LITERAL EXPRESSIONS</div>
+						<p>
+							The <a>output nodes</a> of a <a>literal expression</a> are the list consisting of exactly the <a>node expression</a> itself:
+							<br/>
+							<br/>
+							<code>eval(expr, activeGraph, scope) -> [expr]</code>
+						</p>
+					</div>
+				</section>
 			</section>
 		</section>
 
@@ -2217,8 +2262,8 @@ ex:Person-fullName
 						that can be reached from the <a>focus node</a> with the <a>path mapping</a> of <code>p</code>.
 					</p>
 					<p>
-						If <code>p</code> is a <a>node expression</a>, then its value nodes are the set of <a>output nodes</a> of <code>p</code>
-						when evaluated with the given <a>focus node</a> and the <a>data graph</a> as <a>active graph</a>.
+						If <code>p</code> is a <a>node expression</a>, then its value nodes are the set of <a>output nodes</a> of
+						<code>eval(p, <a>data graph</a>, scope)</code> where <code>scope</code> contains the <a>focus node</a> as value of the variable <code>focusNode</code>.
 					</p>
 					<p>
 						Unless stated otherwise, the value of <code>sh:resultPath</code> of each validation result is a "deep copy"
