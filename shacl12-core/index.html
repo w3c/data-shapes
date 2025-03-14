@@ -52,7 +52,46 @@
 					element.id = "validator-" + validatorId;
 				});
 			}
-		
+
+			document.addEventListener("DOMContentLoaded", () => {
+				// Replace code div blocks in shapes, data, and results graph with tabs
+				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+					const tabs = document.createElement("aside");
+					tabs.classList.add("ds-selector-tabs");
+					graph.firstElementChild.classList.add("selected");
+
+					for (const child of graph.children) {
+						child.classList.add("tab");
+					}
+
+					tabs.append(...graph.children);
+					graph.append(tabs)
+				}
+
+				// Generate buttons for the selection logic
+				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+					const selectors = document.createElement("div");
+					selectors.classList.add("selectors");
+					selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						<button data-selects="jsonld">JSON-LD</button>
+					`
+
+					tabs.prepend(selectors);
+				}
+
+				// Add example button selection logic
+				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+					button.onclick = () => {
+						const ex = button.closest(".ds-selector-tabs");
+						ex.querySelector("button.selected").classList.remove("selected");
+						ex.querySelector(".selected").classList.remove("selected");
+						button.classList.add('selected');
+						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+					}
+				}
+			});
+
 			var respecConfig = {
 				group: "wg/data-shapes",
 				github: "w3c/data-shapes",
@@ -91,7 +130,7 @@
 						mailto:     "simon.werner@taxonic.com",
 						w3cid:      164386
 					},
-					
+
 				],
 				formerEditors: [
 					{
@@ -307,7 +346,7 @@
 				margin-top: -1.5em;
 				white-space: pre;
 			}
-			
+
 			.data-graph { 
 				background: #eeb; 
 				border: 1px solid #cc9;
@@ -341,6 +380,12 @@
 				padding-left: 0.4em;
 			}
 
+			/* no dark mode, keep colors for shapes-graph, data-graph, and results graph background */
+			code.hljs {
+				--base: transparent;
+				--mono-1: #383a42;
+			}
+
 			/* our syntax menu for switching */
 			div.syntaxmenu {
 				border: 1px dotted black;
@@ -350,6 +395,47 @@
 
 			@media print {
 				div.syntaxmenu { display:none; }
+			}
+
+			/* example tab selection */
+			.ds-selector-tabs .selectors {
+				padding: 0;
+				border-bottom: 1px solid #ccc;
+				height: 28px;
+			}
+			.ds-selector-tabs .selectors button {
+				display: inline-block;
+				min-width: 54px;
+				text-align: center;
+				font-size: 11px;
+				font-weight: bold;
+				height: 27px;
+				padding: 0 8px;
+				line-height: 27px;
+				transition: all,0.218s;
+				border-top-right-radius: 2px;
+				border-top-left-radius: 2px;
+				color: #666;
+				border: 1px solid transparent;
+			}
+			.ds-selector-tabs .selectors button:first-child {
+				margin-left: 2px;
+			}
+			.ds-selector-tabs .selectors button.selected {
+				color: #202020 !important;
+				border: 1px solid #ccc;
+				border-bottom: 1px solid #fff !important;
+			}
+			.ds-selector-tabs .selectors button:hover {
+				background-color: transparent;
+				color: #202020;
+				cursor: pointer;
+			}
+			.ds-selector-tabs .tab {
+				display: none;
+			}
+			.ds-selector-tabs .selected {
+				display: block;
 			}
 		</style>
 	</head>
@@ -532,23 +618,47 @@
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
 				</table>
+
+				<p>
+					Within this document, the following JSON-LD context is used:
+				</p>
+				<pre class="jsonld">{
+  "@context": {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ex": "http://example.com/ns#"
+  }
+}</pre>
 				<p>
 					Note that the URI of the graph defining the SHACL vocabulary itself is equivalent to
-					the namespace above, i.e. it includes the <code>#</code>.
-					References to the SHACL vocabulary, e.g. via <code>owl:imports</code> should include the <code>#</code>.
+					the namespace above, i.e., it includes the <code>#</code>.
+					References to the SHACL vocabulary, e.g., via <code>owl:imports</code> should include the <code>#</code>.
 				</p>
 				<p>
-					Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear.
+					Throughout the document, color-coded boxes containing RDF graphs in Turtle and JSON-LD will appear.
 					These fragments of Turtle documents use the prefix bindings given above.
+					The JSON-LD document fragments use the context given above.
+					Only the Turtle documents may highlight certain parts.
 				</p>
 
 				<div class="shapes-graph">
 					<div class="turtle">
 # This box represents an input shapes graph
 
-# Triples that can be omitted are marked as grey e.g.
+# Triples that can be omitted are marked as grey, e.g. --
 <span class="triple-can-be-skipped">&lt;s&gt; &lt;p&gt; &lt;o&gt; .</span>
-					</div>
+						</div>
+				  <div class="jsonld">
+						<pre class="text">// This box represents an input shapes graph</pre>
+					  <pre class="jsonld">{
+  "@id": "ex:s",
+  "ex:p": {
+    "@id": "ex:o"
+  }
+}</pre>
+				  </div>
 				</div>
 
 				<div class="data-graph">
@@ -562,11 +672,29 @@
 # Elements highlighted in red are focus nodes that fail validation
 <span class="focus-node-error">ex:Alice</span> a ex:Person .
 					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an input data graph</pre>
+						<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person"
+		}
+	]
+}</pre>
+					</div>
 				</div>
 
 				<div class="results-graph">
 					<div class="turtle">
 # This box represents an output results graph
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an output results graph</pre>
 					</div>
 				</div>
 				
@@ -621,6 +749,36 @@ ex:Calvin
 	ex:birthDate "1971-07-07"^^xsd:date ;
 	ex:worksFor ex:UntypedCompany .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person",
+			"ex:ssn": "987-65-432A"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person",
+			"ex:ssn": [
+				"123-45-6789",
+				"124-35-6789"
+			]
+		},
+		{
+			"@id": "ex:Calvin",
+			"@type": "ex:Person",
+			"ex:birthDate": {
+				"@type": "xsd:date",
+				"@value": "1971-07-07"
+			},
+			"ex:worksFor": {
+				"@id": "ex:UntypedCompany"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 					<p>
 						The following conditions are shown in the example:
@@ -662,35 +820,54 @@ ex:PersonShape
 	sh:closed true ;
 	sh:ignoredProperties ( rdf:type ) .
 						</div>
-					</div>
-				</aside>
-				<p>
-					The example below shows the same shape definition as a possible JSON-LD [[json-ld]] fragment.
-					Note that we have left out a <code>@context</code> declaration, and depending on the
-					<code>@context</code> the rendering may look quite different.
-					Therefore this example should be understood as an illustration only.
-				</p>
-				<pre class="jsonld">
-{
-	"@id" : "ex:PersonShape",
-	"@type" : "NodeShape",
-	"targetClass" : "ex:Person",
-	"property" : [
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:PersonShape",
+	"@type": "sh:NodeShape",
+	"sh:closed": {
+		"@type": "xsd:boolean",
+		"@value": "true"
+	},
+	"sh:ignoredProperties": {
+		"@list": [
+			{
+				"@id": "rdf:type"
+			}
+		]
+	},
+	"sh:property": [
 		{
-			"path" : "ex:ssn",
-			"maxCount" : 1,
-			"datatype" : "xsd:string" ,
-			"pattern" : "^\\d{3}-\\d{2}-\\d{4}$"
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:path": {
+				"@id": "ex:ssn"
+			},
+			"sh:pattern": "^\\d{3}-\\d{2}-\\d{4}$"
 		},
 		{
-			"path" : "ex:worksFor",
-			"class" : "ex:Company",
-			"nodeKind" : "sh:IRI"
+			"sh:class": {
+				"@id": "ex:Company"
+			},
+			"sh:nodeKind": {
+				"@id": "sh:IRI"
+			},
+			"sh:path": {
+				"@id": "ex:worksFor"
+			}
 		}
 	],
-	"closed" : true,
-	"ignoredProperties" : [ "rdf:type" ]
+	"sh:targetClass": {
+		"@id": "ex:Person"
+	}
 }</pre>
+						</div>
+					</div>
+				</aside>
 				<p>
 					We can use the shape declaration above to illustrate some of the key terminology used by SHACL.
 					The <a>target</a> for the <a>shape</a> <code>ex:PersonShape</code> is the set of all <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
@@ -725,14 +902,14 @@ ex:PersonShape
 		sh:resultPath ex:ssn ;
 		sh:value "987-65-432A" ;
 		sh:sourceConstraintComponent sh:PatternConstraintComponent ;
-		sh:sourceShape ... blank node _:b1 on ex:ssn above ... ;
+		sh:sourceShape _:b1 ; # ... blank node _:b1 on ex:ssn above ...
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
 		sh:focusNode ex:Bob ;
 		sh:resultPath ex:ssn ;
 		sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
-		sh:sourceShape ... blank node _:b1 on ex:ssn above ... ;
+		sh:sourceShape _:b1 ; # ... blank node _:b1 on ex:ssn above ...
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
@@ -740,7 +917,7 @@ ex:PersonShape
 		sh:resultPath ex:worksFor ;
 		sh:value ex:UntypedCompany ;
 		sh:sourceConstraintComponent sh:ClassConstraintComponent ;
-		sh:sourceShape ... blank node _:b2 on ex:worksFor above ... ;
+		sh:sourceShape _:b2 ; # ... blank node _:b2 on ex:worksFor above ...
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
@@ -751,6 +928,97 @@ ex:PersonShape
 		sh:sourceShape sh:PersonShape ;
 	] 
 ] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": [
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Alice"
+			},
+			"sh:resultPath": {
+				"@id": "ex:ssn"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:PatternConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b3_b1"
+			},
+			"sh:value": "987-65-432A"
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Bob"
+			},
+			"sh:resultPath": {
+				"@id": "ex:ssn"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:MaxCountConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b3_b1"
+			}
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Calvin"
+			},
+			"sh:resultPath": {
+				"@id": "ex:worksFor"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:ClassConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b3_b2"
+			},
+			"sh:value": {
+				"@id": "ex:UntypedCompany"
+			}
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Calvin"
+			},
+			"sh:resultPath": {
+				"@id": "ex:birthDate"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:ClosedConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "sh:PersonShape"
+			},
+			"sh:value": {
+				"@type": "xsd:date",
+				"@value": "1971-07-07"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -952,6 +1220,25 @@ ex:InvoiceShape
 		sh:class ex:Person ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:InvoiceShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:class": [
+			{
+				"@id": "ex:Customer"
+			},
+			{
+				"@id": "ex:Person"
+			}
+		],
+		"sh:path": {
+			"@id": "ex:customer"
+		}
+	}
+}</pre>
+							</div>
 						</div>
 					</aside>
 					<p class="syntax" data-syntax-rule="multiple-parameters">
@@ -975,6 +1262,27 @@ ex:MultiplePatternsShape
 		sh:path ex:name ;
 		sh:pattern "End$" ;
 	] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MultiplePatternsShape",
+	"@type": "sh:NodeShape",
+	"sh:property": [
+		{
+			"sh:flags": "i",
+			"sh:path": {
+				"@id": "ex:name"
+			},
+			"sh:pattern": "^Start"
+		},
+		{
+			"sh:path": {
+				"@id": "ex:name"
+			},
+			"sh:pattern": "End$"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -1061,11 +1369,34 @@ ex:PersonShape
 	a sh:NodeShape ;
 	sh:targetNode ex:Alice .
 								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:PersonShape",
+	"@type": "sh:NodeShape",
+	"sh:targetNode": {
+		"@id": "ex:Alice"
+	}
+}</pre>
+								</div>
 							</div>
 							<div class="data-graph">
 								<div class="turtle">
 <span class="focus-node-selected">ex:Alice</span> a ex:Person .
 ex:Bob a ex:Person .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person"
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1091,6 +1422,15 @@ ex:PersonShape
 	a sh:NodeShape ;
 	sh:targetClass ex:Person .
 								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:PersonShape",
+	"@type": "sh:NodeShape",
+	"sh:targetClass": {
+		"@id": "ex:Person"
+	}
+}</pre>
+								</div>
 							</div>
 
 							<div class="data-graph">
@@ -1098,6 +1438,24 @@ ex:PersonShape
 <span class="focus-node-selected">ex:Alice</span> a ex:Person .
 <span class="focus-node-selected">ex:Bob</span> a ex:Person .
 ex:NewYork a ex:Place .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:NewYork",
+			"@type": "ex:Place"
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1115,6 +1473,26 @@ ex:NewYork a ex:Place .
 ex:Doctor rdfs:subClassOf ex:Person .
 <span class="focus-node-selected">ex:Who</span> a ex:Doctor .
 ex:House a ex:Nephrologist .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Doctor",
+			"rdfs:subClassOf": {
+				"@id": "ex:Person"
+			}
+		},
+		{
+			"@id": "ex:House",
+			"@type": "ex:Nephrologist"
+		},
+		{
+			"@id": "ex:Who",
+			"@type": "ex:Doctor"
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1162,11 +1540,34 @@ ex:House a ex:Nephrologist .
 ex:Person
 	<b>a rdfs:Class</b>, sh:NodeShape .
 								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:Person",
+	"@type": [
+		"rdfs:Class",
+		"sh:NodeShape"
+	]
+}</pre>
+								</div>
 							</div>
 							<div class="data-graph">
 								<div class="turtle">
 <span class="focus-node-selected">ex:Alice</span> a ex:Person .
 ex:NewYork a ex:Place .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:NewYork",
+			"@type": "ex:Place"
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1205,11 +1606,38 @@ ex:TargetSubjectsOfExampleShape
 	a sh:NodeShape ;
 	sh:targetSubjectsOf ex:knows .
 								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:TargetSubjectsOfExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:targetSubjectsOf": {
+		"@id": "ex:knows"
+	}
+}</pre>
+								</div>
 							</div>
 							<div class="data-graph">
 								<div class="turtle">
 <span class="focus-node-selected">ex:Alice</span> ex:knows ex:Bob .
 ex:Bob ex:livesIn ex:NewYork .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:knows": {
+				"@id": "ex:Bob"
+			}
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:livesIn": {
+				"@id": "ex:NewYork"
+			}
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1240,11 +1668,38 @@ ex:TargetObjectsOfExampleShape
 	a sh:NodeShape ;
 	sh:targetObjectsOf ex:knows .
 								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:TargetObjectsOfExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:targetObjectsOf": {
+		"@id": "ex:knows"
+	}
+}</pre>
+								</div>
 							</div>
 							<div class="data-graph">
 								<div class="turtle">
 ex:Alice ex:knows <span class="focus-node-selected">ex:Bob</span> .
 ex:Bob ex:livesIn ex:NewYork .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:knows": {
+				"@id": "ex:Bob"
+			}
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:livesIn": {
+				"@id": "ex:NewYork"
+			}
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1317,11 +1772,65 @@ ex:MyShape
 		sh:message "Zu viele Zeichen"@de ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MyShape",
+	"@type": "sh:NodeShape",
+	"sh:property": [
+		{
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:minCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:path": {
+				"@id": "ex:myProperty"
+			},
+			"sh:severity": {
+				"@id": "sh:Warning"
+			}
+		},
+		{
+			"sh:maxLength": {
+				"@type": "xsd:integer",
+				"@value": "10"
+			},
+			"sh:message": [
+				{
+					"@language": "en",
+					"@value": "Too many characters"
+				},
+				{
+					"@language": "de",
+					"@value": "Zu viele Zeichen"
+				}
+			],
+			"sh:path": {
+				"@id": "ex:myProperty"
+			}
+		}
+	],
+	"sh:targetNode": {
+		"@id": "ex:MyInstance"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:MyInstance
 	ex:myProperty "http://toomanycharacters"^^xsd:anyURI .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MyInstance",
+	"ex:myProperty": {
+		"@type": "xsd:anyURI",
+		"@value": "http://toomanycharacters"
+	}
+}</pre>
 							</div>
 						</div>
 						<div class="results-graph">
@@ -1348,6 +1857,71 @@ ex:MyInstance
 		sh:sourceShape _:b2 ;
 	]
 ] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": [
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:MyInstance"
+			},
+			"sh:resultPath": {
+				"@id": "ex:myProperty"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Warning"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:DatatypeConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b19_b1"
+			},
+			"sh:value": {
+				"@type": "xsd:anyURI",
+				"@value": "http://toomanycharacters"
+			}
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:MyInstance"
+			},
+			"sh:resultMessage": [
+				{
+					"@language": "en",
+					"@value": "Too many characters"
+				},
+				{
+					"@language": "de",
+					"@value": "Zu viele Zeichen"
+				}
+			],
+			"sh:resultPath": {
+				"@id": "ex:myProperty"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:MaxLengthConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b19_b2"
+			},
+			"sh:value": {
+				"@type": "xsd:anyURI",
+				"@value": "http://toomanycharacters"
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -1414,6 +1988,37 @@ ex:PersonShape-name
 	sh:minCount 1 ;
 	sh:deactivated true .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:PersonShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:PersonShape-name"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Person"
+			}
+		},
+		{
+			"@id": "ex:PersonShape-name",
+			"@type": "sh:PropertyShape",
+			"sh:deactivated": {
+				"@type": "xsd:boolean",
+				"@value": "true"
+			},
+			"sh:minCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:path": {
+				"@id": "ex:name"
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<p>
 							With the following data, no constraint violation will be reported even though the instance does not have any value for <code>ex:name</code>. 
@@ -1421,6 +2026,12 @@ ex:PersonShape-name
 						<div class="data-graph">
 							<div class="turtle">
 ex:JohnDoe a ex:Person .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:JohnDoe",
+	"@type": "ex:Person"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -1497,6 +2108,59 @@ ex:ExamplePropertyShape
 	sh:description "We need at least one email value" ;
 	sh:minCount 1 .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:ExampleNodeShapeWithPropertyShapes",
+			"@type": "sh:NodeShape",
+			"sh:property": [
+				{
+					"sh:description": "We need at least one email value",
+					"sh:minCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:name": "e-mail",
+					"sh:path": {
+						"@id": "ex:email"
+					}
+				},
+				{
+					"sh:description": "We need at least one email for everyone you know",
+					"sh:minCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:name": "Friend's e-mail",
+					"sh:path": {
+						"@list": [
+							{
+								"@id": "ex:knows"
+							},
+							{
+								"@id": "ex:email"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"@id": "ex:ExamplePropertyShape",
+			"@type": "sh:PropertyShape",
+			"sh:description": "We need at least one email value",
+			"sh:minCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:path": {
+				"@id": "ex:email"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 				</aside>
 			</section>
@@ -1571,6 +2235,69 @@ ex:SomeClass-alternativePathExample
 	sh:path [ 
 		sh:alternativePath ( ex:father ex:mother  ) 
 	] .						
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:SomeClass-alternativePathExample",
+			"sh:path": {
+				"sh:alternativePath": {
+					"@list": [
+						{
+							"@id": "ex:father"
+						},
+						{
+							"@id": "ex:mother"
+						}
+					]
+				}
+			}
+		},
+		{
+			"@id": "ex:SomeClass-complexPathExample",
+			"sh:path": {
+				"@list": [
+					{
+						"@id": "rdf:type"
+					},
+					{
+						"sh:zeroOrMorePath": {
+							"@id": "rdfs:subClassOf"
+						}
+					}
+				]
+			}
+		},
+		{
+			"@id": "ex:SomeClass-inversePathExample",
+			"sh:path": {
+				"sh:inversePath": {
+					"@id": "ex:parent"
+				}
+			}
+		},
+		{
+			"@id": "ex:SomeClass-predicateExample",
+			"sh:path": {
+				"@id": "ex:parent"
+			}
+		},
+		{
+			"@id": "ex:SomeClass-sequencePathExample",
+			"sh:path": {
+				"@list": [
+					{
+						"@id": "ex:parent"
+					},
+					{
+						"@id": "ex:firstName"
+					}
+				]
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -1721,6 +2448,19 @@ ex:Person-fullName
 	]</b> ;
 	sh:datatype xsd:string .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:Person-fullName",
+	"@type": "sh:PropertyShape",
+	"sh:datatype": {
+		"@id": "xsd:string"
+	},
+	"sh:name": "full name",
+	"sh:path": {
+		"sh:select": "\n\t\t\tPREFIX ex: &lt;http://example.org/ns#&gt;\n\t\t\tSELECT ?fullName\n\t\t\tWHERE {\n\t\t\t\t$this ex:firstName ?firstName .\n\t\t\t\t$this ex:lastName ?lastName .\n\t\t\t\tBIND (CONCAT(?firstName, \" \", ?lastName) AS ?fullName) .\n\t\t\t}\n\t\t"
+	}
+}</pre>
+						</div>
 					</div>
 					<p>
 						In this example, the <a>key parameter</a> is <code>sh:select</code>,
@@ -1845,6 +2585,19 @@ ex:Person-fullName
 &lt;http://example.com/myDataGraph&gt;
 	sh:shapesGraph ex:graph-shapes1 ;
 	sh:shapesGraph ex:graph-shapes2 .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "http://example.com/myDataGraph",
+	"sh:shapesGraph": [
+		{
+			"@id": "ex:graph-shapes1"
+		},
+		{
+			"@id": "ex:graph-shapes2"
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -2003,6 +2756,16 @@ ex:Person-fullName
 	sh:conforms true ;
 ] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "_:b1",
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "true"
+	}
+}</pre>
+						</div>
 					</div>
 				</aside>
 				<p>
@@ -2025,6 +2788,35 @@ ex:Person-fullName
 		sh:sourceShape ex:PersonShape-age ;
 	]
 ] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": {
+		"@type": "sh:ValidationResult",
+		"sh:focusNode": {
+			"@id": "ex:Bob"
+		},
+		"sh:resultMessage": "ex:age expects a literal of datatype xsd:integer.",
+		"sh:resultPath": {
+			"@id": "ex:age"
+		},
+		"sh:resultSeverity": {
+			"@id": "sh:Violation"
+		},
+		"sh:sourceConstraintComponent": {
+			"@id": "sh:DatatypeConstraintComponent"
+		},
+		"sh:sourceShape": {
+			"@id": "ex:PersonShape-age"
+		},
+		"sh:value": "twenty two"
+	}
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -2279,12 +3071,64 @@ ex:ClassExampleShape
 		sh:class ex:PostalAddress ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:ClassExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:class": {
+			"@id": "ex:PostalAddress"
+		},
+		"sh:path": {
+			"@id": "ex:address"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Bob"
+		},
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Carol"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Alice a ex:Person .
 ex:Bob ex:address [ a ex:PostalAddress ; ex:city ex:Berlin ] .
 <span class="focus-node-error">ex:Carol</span> ex:address [ ex:city ex:Cairo ] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:address": {
+				"@type": "ex:PostalAddress",
+				"ex:city": {
+					"@id": "ex:Berlin"
+				}
+			}
+		},
+		{
+			"@id": "ex:Carol",
+			"ex:address": {
+				"ex:city": {
+					"@id": "ex:Cairo"
+				}
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2341,12 +3185,61 @@ ex:DatatypeExampleShape
 		sh:datatype xsd:integer ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:DatatypeExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:datatype": {
+			"@id": "xsd:integer"
+		},
+		"sh:path": {
+			"@id": "ex:age"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Bob"
+		},
+		{
+			"@id": "ex:Carol"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Alice ex:age "23"^^xsd:integer .
 <span class="focus-node-error">ex:Bob</span> ex:age "twenty two" .
 <span class="focus-node-error">ex:Carol</span> ex:age "23"^^xsd:int .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:age": {
+				"@type": "xsd:integer",
+				"@value": "23"
+			}
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:age": "twenty two"
+		},
+		{
+			"@id": "ex:Carol",
+			"ex:age": {
+				"@type": "xsd:int",
+				"@value": "23"
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2401,11 +3294,39 @@ ex:NodeKindExampleShape
 	<span class="target-can-be-skipped">sh:targetObjectsOf ex:knows ;</span>
 	sh:nodeKind sh:IRI .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:NodeKindExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:nodeKind": {
+		"@id": "sh:IRI"
+	},
+	"sh:targetObjectsOf": {
+		"@id": "ex:knows"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:knows ex:Alice .
 	ex:Alice ex:knows <span class="focus-node-error">"Bob"</span> .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:knows": "Bob"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:knows": {
+				"@id": "ex:Alice"
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2460,11 +3381,49 @@ ex:MinCountExampleShape
 	sh:path ex:name ;
 	sh:minCount 1 .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MinCountExampleShape",
+	"@type": "sh:PropertyShape",
+	"sh:minCount": {
+		"@type": "xsd:integer",
+		"@value": "1"
+	},
+	"sh:path": {
+		"@id": "ex:name"
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Bob"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 	ex:Alice ex:name "Alice" .
 <span class="focus-node-error">ex:Bob</span> ex:givenName "Bob"@en .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:name": "Alice"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:givenName": {
+				"@language": "en",
+				"@value": "Bob"
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2514,10 +3473,34 @@ ex:MaxCountExampleShape
 		sh:maxCount 1 ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MaxCountExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:maxCount": {
+			"@type": "xsd:integer",
+			"@value": "1"
+		},
+		"sh:path": {
+			"@id": "ex:birthDate"
+		}
+	},
+	"sh:targetNode": {
+		"@id": "ex:Bob"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:birthDate "May 5th 1990" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:Bob",
+	"ex:birthDate": "May 5th 1990"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2543,6 +3526,36 @@ ex:NumericRangeExampleShape
 		sh:maxInclusive 150 ;
 	] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:NumericRangeExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:maxInclusive": {
+			"@type": "xsd:integer",
+			"@value": "150"
+		},
+		"sh:minInclusive": {
+			"@type": "xsd:integer",
+			"@value": "0"
+		},
+		"sh:path": {
+			"@id": "ex:age"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Bob"
+		},
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Ted"
+		}
+	]
+}</pre>
+						</div>
 					</div>
 
 					<div class="data-graph">
@@ -2550,6 +3563,30 @@ ex:NumericRangeExampleShape
 ex:Bob ex:age 23 .
 <span class="focus-node-error">ex:Alice</span> ex:age 220 .
 <span class="focus-node-error">ex:Ted</span> ex:age "twenty one" .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:age": {
+				"@type": "xsd:integer",
+				"@value": "220"
+			}
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:age": {
+				"@type": "xsd:integer",
+				"@value": "23"
+			}
+		},
+		{
+			"@id": "ex:Ted",
+			"ex:age": "twenty one"
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -2776,11 +3813,52 @@ ex:PasswordExampleShape
 		sh:maxLength 10 ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:PasswordExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:maxLength": {
+			"@type": "xsd:integer",
+			"@value": "10"
+		},
+		"sh:minLength": {
+			"@type": "xsd:integer",
+			"@value": "8"
+		},
+		"sh:path": {
+			"@id": "ex:password"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Bob"
+		},
+		{
+			"@id": "ex:Alice"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:password "123456789" .
 <span class="focus-node-error">ex:Alice</span> ex:password "1234567890ABC" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:password": "1234567890ABC"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:password": "123456789"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2841,12 +3919,54 @@ ex:PatternExampleShape
 		sh:flags "i" ;       # Ignore case
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:PatternExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:flags": "i",
+		"sh:path": {
+			"@id": "ex:bCode"
+		},
+		"sh:pattern": "^B"
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Bob"
+		},
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Carol"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:bCode "b101" .
 ex:Alice ex:bCode "B102" .
 <span class="focus-node-error">ex:Carol</span> ex:bCode "C103" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:bCode": "B102"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:bCode": "b101"
+		},
+		{
+			"@id": "ex:Carol",
+			"ex:bCode": "C103"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2913,6 +4033,51 @@ ex:SingleLineExampleShape
 		sh:singleLine false ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:SingleLineExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": [
+		{
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:path": {
+				"@id": "rdfs:label"
+			},
+			"sh:singleLine": {
+				"@type": "xsd:boolean",
+				"@value": "true"
+			}
+		},
+		{
+			"@type": "sh:PropertyShape",
+			"sh:or": {
+				"@list": [
+					{
+						"sh:datatype": {
+							"@id": "xsd:string"
+						}
+					},
+					{
+						"sh:datatype": {
+							"@id": "rdf:langString"
+						}
+					}
+				]
+			},
+			"sh:path": {
+				"@id": "rdfs:comment"
+			},
+			"sh:singleLine": {
+				"@type": "xsd:boolean",
+				"@value": "false"
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -2968,6 +4133,31 @@ ex:NewZealandLanguagesShape
 		sh:languageIn ( "en" "mi" ) ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:NewZealandLanguagesShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:languageIn": {
+			"@list": [
+				"en",
+				"mi"
+			]
+		},
+		"sh:path": {
+			"@id": "ex:prefLabel"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Mountain"
+		},
+		{
+			"@id": "ex:Berg"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<p>
 							From the example instances, <code>ex:Berg</code> will lead to constraint violations for all
@@ -2977,13 +4167,49 @@ ex:NewZealandLanguagesShape
 							<div class="turtle">
 ex:Mountain
 	ex:prefLabel "Mountain"@en ;
-	ex:prefLabel "Hill"@en-NZ ;
+	ex:prefLabel "Hill"@en-nz ;
 	ex:prefLabel "Maunga"@mi .
 
 <span class="focus-node-error">ex:Berg</span>
 	ex:prefLabel "Berg" ;
 	ex:prefLabel "Berg"@de ;
 	ex:prefLabel ex:BergLabel .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Berg",
+			"ex:prefLabel": [
+				"Berg",
+				{
+					"@language": "de",
+					"@value": "Berg"
+				},
+				{
+					"@id": "ex:BergLabel"
+				}
+			]
+		},
+		{
+			"@id": "ex:Mountain",
+			"ex:prefLabel": [
+				{
+					"@language": "en",
+					"@value": "Mountain"
+				},
+				{
+					"@language": "en-nz",
+					"@value": "Hill"
+				},
+				{
+					"@language": "mi",
+					"@value": "Maunga"
+				}
+			]
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3034,6 +4260,29 @@ ex:UniqueLangExampleShape
 		sh:uniqueLang true ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:UniqueLangExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:path": {
+			"@id": "ex:label"
+		},
+		"sh:uniqueLang": {
+			"@type": "xsd:boolean",
+			"@value": "true"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Bob"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -3045,6 +4294,39 @@ ex:Alice
 <span class="focus-node-error">ex:Bob</span>
 	ex:label "Bob"@en ;
 	ex:label "Bobby"@en .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:label": [
+				"Alice",
+				{
+					"@language": "en",
+					"@value": "Alice"
+				},
+				{
+					"@language": "fr",
+					"@value": "Alice"
+				}
+			]
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:label": [
+				{
+					"@language": "en",
+					"@value": "Bob"
+				},
+				{
+					"@language": "en",
+					"@value": "Bobby"
+				}
+			]
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3108,12 +4390,36 @@ ex:EqualExampleShape
 		sh:equals ex:givenName ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:EqualExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:equals": {
+			"@id": "ex:givenName"
+		},
+		"sh:path": {
+			"@id": "ex:firstName"
+		}
+	},
+	"sh:targetNode": {
+		"@id": "ex:Bob"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob
 	ex:firstName "Bob" ;
 	ex:givenName "Bob" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:Bob",
+	"ex:firstName": "Bob",
+	"ex:givenName": "Bob"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3169,6 +4475,28 @@ ex:DisjointExampleShape
 		sh:disjoint ex:altLabel ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:DisjointExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:disjoint": {
+			"@id": "ex:altLabel"
+		},
+		"sh:path": {
+			"@id": "ex:prefLabel"
+		}
+	},
+	"sh:targetNode": [
+		{
+			"@id": "ex:USA"
+		},
+		{
+			"@id": "ex:Germany"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -3179,6 +4507,22 @@ ex:USA
 <span class="focus-node-error">ex:Germany</span>
 	ex:prefLabel "Germany" ;
 	ex:altLabel "Germany" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Germany",
+			"ex:altLabel": "Germany",
+			"ex:prefLabel": "Germany"
+		},
+		{
+			"@id": "ex:USA",
+			"ex:altLabel": "United States",
+			"ex:prefLabel": "USA"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3231,6 +4575,20 @@ ex:LessThanExampleShape
 		sh:path ex:startDate ;
 		sh:lessThan ex:endDate ;
 	] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:LessThanExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:lessThan": {
+			"@id": "ex:endDate"
+		},
+		"sh:path": {
+			"@id": "ex:startDate"
+		}
+	}
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3329,10 +4687,35 @@ ex:NotExampleShape
 		sh:minCount 1 ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:NotExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:not": {
+		"@type": "sh:PropertyShape",
+		"sh:minCount": {
+			"@type": "xsd:integer",
+			"@value": "1"
+		},
+		"sh:path": {
+			"@id": "ex:property"
+		}
+	},
+	"sh:targetNode": {
+		"@id": "ex:InvalidInstance1"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 <span class="focus-node-error">ex:InvalidInstance1</span> ex:property "Some value" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:InvalidInstance1",
+	"ex:property": "Some value"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3405,6 +4788,53 @@ ex:ExampleAndShape
 		]
 	) .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:ExampleAndShape",
+			"@type": "sh:NodeShape",
+			"sh:and": {
+				"@list": [
+					{
+						"@id": "ex:SuperShape"
+					},
+					{
+						"sh:maxCount": {
+							"@type": "xsd:integer",
+							"@value": "1"
+						},
+						"sh:path": {
+							"@id": "ex:property"
+						}
+					}
+				]
+			},
+			"sh:targetNode": [
+				{
+					"@id": "ex:ValidInstance"
+				},
+				{
+					"@id": "ex:InvalidInstance"
+				}
+			]
+		},
+		{
+			"@id": "ex:SuperShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"sh:minCount": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				},
+				"sh:path": {
+					"@id": "ex:property"
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -3415,6 +4845,23 @@ ex:ValidInstance
 <span class="focus-node-error">ex:InvalidInstance</span>
 	ex:property "One" ;
 	ex:property "Two" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:InvalidInstance",
+			"ex:property": [
+				"One",
+				"Two"
+			]
+		},
+		{
+			"@id": "ex:ValidInstance",
+			"ex:property": "One"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3481,10 +4928,47 @@ ex:OrConstraintExampleShape
 		]
 	) .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:OrConstraintExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:or": {
+		"@list": [
+			{
+				"sh:minCount": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				},
+				"sh:path": {
+					"@id": "ex:firstName"
+				}
+			},
+			{
+				"sh:minCount": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				},
+				"sh:path": {
+					"@id": "ex:givenName"
+				}
+			}
+		]
+	},
+	"sh:targetNode": {
+		"@id": "ex:Bob"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:firstName "Robert" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:Bob",
+	"ex:firstName": "Robert"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3511,10 +4995,44 @@ ex:PersonAddressShape
 		)
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:PersonAddressShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:or": {
+			"@list": [
+				{
+					"sh:datatype": {
+						"@id": "xsd:string"
+					}
+				},
+				{
+					"sh:class": {
+						"@id": "ex:Address"
+					}
+				}
+			]
+		},
+		"sh:path": {
+			"@id": "ex:address"
+		}
+	},
+	"sh:targetClass": {
+		"@id": "ex:Person"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:Bob",
+	"ex:address": "123 Prinzengasse, Vaduz, Liechtenstein"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3590,6 +5108,52 @@ ex:XoneConstraintExampleShape
 		]
 	) .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:XoneConstraintExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:targetClass": {
+		"@id": "ex:Person"
+	},
+	"sh:xone": {
+		"@list": [
+			{
+				"sh:property": {
+					"sh:minCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:path": {
+						"@id": "ex:fullName"
+					}
+				}
+			},
+			{
+				"sh:property": [
+					{
+						"sh:minCount": {
+							"@type": "xsd:integer",
+							"@value": "1"
+						},
+						"sh:path": {
+							"@id": "ex:firstName"
+						}
+					},
+					{
+						"sh:minCount": {
+							"@type": "xsd:integer",
+							"@value": "1"
+						},
+						"sh:path": {
+							"@id": "ex:lastName"
+						}
+					}
+				]
+			}
+		]
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -3604,6 +5168,30 @@ ex:Carla a ex:Person ;
 	ex:firstName "Dory" ;
 	ex:lastName "Dunce" ;
 	ex:fullName "Dory Dunce" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person",
+			"ex:firstName": "Robert",
+			"ex:lastName": "Coin"
+		},
+		{
+			"@id": "ex:Carla",
+			"@type": "ex:Person",
+			"ex:fullName": "Carla Miller"
+		},
+		{
+			"@id": "ex:Dory",
+			"@type": "ex:Person",
+			"ex:firstName": "Dory",
+			"ex:fullName": "Dory Dunce",
+			"ex:lastName": "Dunce"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3673,6 +5261,47 @@ ex:PersonShape
 		sh:node ex:AddressShape ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:AddressShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"sh:datatype": {
+					"@id": "xsd:string"
+				},
+				"sh:maxCount": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				},
+				"sh:path": {
+					"@id": "ex:postalCode"
+				}
+			}
+		},
+		{
+			"@id": "ex:PersonShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"sh:minCount": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				},
+				"sh:node": {
+					"@id": "ex:AddressShape"
+				},
+				"sh:path": {
+					"@id": "ex:address"
+				}
+			},
+			"sh:targetClass": {
+				"@id": "ex:Person"
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -3687,6 +5316,37 @@ ex:BobsAddress
 
 ex:RetosAddress
 	ex:postalCode 5678 .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person",
+			"ex:address": {
+				"@id": "ex:BobsAddress"
+			}
+		},
+		{
+			"@id": "ex:BobsAddress",
+			"ex:postalCode": "1234"
+		},
+		{
+			"@id": "ex:Reto",
+			"@type": "ex:Person",
+			"ex:address": {
+				"@id": "ex:RetosAddress"
+			}
+		},
+		{
+			"@id": "ex:RetosAddress",
+			"ex:postalCode": {
+				"@type": "xsd:integer",
+				"@value": "5678"
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 						<div class="results-graph">
@@ -3704,6 +5364,37 @@ ex:RetosAddress
 		sh:sourceShape _:b1 ;
 	]
 ] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": {
+		"@type": "sh:ValidationResult",
+		"sh:focusNode": {
+			"@id": "ex:Reto"
+		},
+		"sh:resultMessage": "Value does not conform to shape ex:AddressShape.",
+		"sh:resultPath": {
+			"@id": "ex:address"
+		},
+		"sh:resultSeverity": {
+			"@id": "sh:Violation"
+		},
+		"sh:sourceConstraintComponent": {
+			"@id": "sh:NodeConstraintComponent"
+		},
+		"sh:sourceShape": {
+			"@id": "_:b66_b1"
+		},
+		"sh:value": {
+			"@id": "ex:RetosAddress"
+		}
+	}
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3863,6 +5554,40 @@ ex:QualifiedValueShapeExampleShape
 		sh:qualifiedMinCount 1 ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:QualifiedValueShapeExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:maxCount": {
+			"@type": "xsd:integer",
+			"@value": "2"
+		},
+		"sh:minCount": {
+			"@type": "xsd:integer",
+			"@value": "2"
+		},
+		"sh:path": {
+			"@id": "ex:parent"
+		},
+		"sh:qualifiedMinCount": {
+			"@type": "xsd:integer",
+			"@value": "1"
+		},
+		"sh:qualifiedValueShape": {
+			"sh:hasValue": {
+				"@id": "ex:female"
+			},
+			"sh:path": {
+				"@id": "ex:gender"
+			}
+		}
+	},
+	"sh:targetNode": {
+		"@id": "ex:QualifiedValueShapeExampleValidResource"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -3875,6 +5600,35 @@ ex:John
 
 ex:Jane
 	ex:gender ex:female .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Jane",
+			"ex:gender": {
+				"@id": "ex:female"
+			}
+		},
+		{
+			"@id": "ex:John",
+			"ex:gender": {
+				"@id": "ex:male"
+			}
+		},
+		{
+			"@id": "ex:QualifiedValueShapeExampleValidResource",
+			"ex:parent": [
+				{
+					"@id": "ex:John"
+				},
+				{
+					"@id": "ex:Jane"
+				}
+			]
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3909,6 +5663,70 @@ ex:HandShape
 		sh:qualifiedMinCount 4 ;
 		sh:qualifiedMaxCount 4 ;
 	] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:HandShape",
+	"@type": "sh:NodeShape",
+	"sh:property": [
+		{
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "5"
+			},
+			"sh:path": {
+				"@id": "ex:digit"
+			}
+		},
+		{
+			"sh:path": {
+				"@id": "ex:digit"
+			},
+			"sh:qualifiedMaxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:qualifiedMinCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:qualifiedValueShape": {
+				"sh:class": {
+					"@id": "ex:Thumb"
+				}
+			},
+			"sh:qualifiedValueShapesDisjoint": {
+				"@type": "xsd:boolean",
+				"@value": "true"
+			}
+		},
+		{
+			"sh:path": {
+				"@id": "ex:digit"
+			},
+			"sh:qualifiedMaxCount": {
+				"@type": "xsd:integer",
+				"@value": "4"
+			},
+			"sh:qualifiedMinCount": {
+				"@type": "xsd:integer",
+				"@value": "4"
+			},
+			"sh:qualifiedValueShape": {
+				"sh:class": {
+					"@id": "ex:Finger"
+				}
+			},
+			"sh:qualifiedValueShapesDisjoint": {
+				"@type": "xsd:boolean",
+				"@value": "true"
+			}
+		}
+	],
+	"sh:targetClass": {
+		"@id": "ex:Hand"
+	}
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3991,6 +5809,43 @@ ex:ClosedShapeExampleShape
 		sh:path ex:lastName ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:ClosedShapeExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:closed": {
+		"@type": "xsd:boolean",
+		"@value": "true"
+	},
+	"sh:ignoredProperties": {
+		"@list": [
+			{
+				"@id": "rdf:type"
+			}
+		]
+	},
+	"sh:property": [
+		{
+			"sh:path": {
+				"@id": "ex:firstName"
+			}
+		},
+		{
+			"sh:path": {
+				"@id": "ex:lastName"
+			}
+		}
+	],
+	"sh:targetNode": [
+		{
+			"@id": "ex:Alice"
+		},
+		{
+			"@id": "ex:Bob"
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -4000,6 +5855,21 @@ ex:Alice
 <span class="focus-node-error">ex:Bob</span>
 	ex:firstName "Bob" ;
 	ex:middleInitial "J" .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:firstName": "Alice"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:firstName": "Bob",
+			"ex:middleInitial": "J"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -4046,12 +5916,42 @@ ex:StanfordGraduate
 		sh:hasValue ex:Stanford ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:StanfordGraduate",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:hasValue": {
+			"@id": "ex:Stanford"
+		},
+		"sh:path": {
+			"@id": "ex:alumniOf"
+		}
+	},
+	"sh:targetNode": {
+		"@id": "ex:Alice"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:Alice
 	ex:alumniOf ex:Harvard ;
 	ex:alumniOf ex:Stanford .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:Alice",
+	"ex:alumniOf": [
+		{
+			"@id": "ex:Harvard"
+		},
+		{
+			"@id": "ex:Stanford"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -4104,10 +6004,42 @@ ex:InExampleShape
 		sh:in ( ex:Pink ex:Purple ) ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:InExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:in": {
+			"@list": [
+				{
+					"@id": "ex:Pink"
+				},
+				{
+					"@id": "ex:Purple"
+				}
+			]
+		},
+		"sh:path": {
+			"@id": "ex:color"
+		}
+	},
+	"sh:targetNode": {
+		"@id": "ex:RainbowPony"
+	}
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
 ex:RainbowPony ex:color ex:Pink .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:RainbowPony",
+	"ex:color": {
+		"@id": "ex:Pink"
+	}
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -4202,7 +6134,7 @@ ex:PersonFormShape
 	sh:property [
 		sh:path ex:postalCode ;
 		sh:name "postal code" ;
-		sh:name "zip code"@en-US ;
+		sh:name "zip code"@en-us ;
 		sh:description "The postal code of the locality" ;
 		sh:order 13 ;
 		sh:group ex:AddressGroup ;
@@ -4217,6 +6149,112 @@ ex:AddressGroup
 	a sh:PropertyGroup ;
 	sh:order 1 ;
 	rdfs:label "Address" .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:AddressGroup",
+			"@type": "sh:PropertyGroup",
+			"rdfs:label": "Address",
+			"sh:order": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			}
+		},
+		{
+			"@id": "ex:NameGroup",
+			"@type": "sh:PropertyGroup",
+			"rdfs:label": "Name",
+			"sh:order": {
+				"@type": "xsd:integer",
+				"@value": "0"
+			}
+		},
+		{
+			"@id": "ex:PersonFormShape",
+			"@type": "sh:NodeShape",
+			"sh:property": [
+				{
+					"sh:description": "The person's given name(s)",
+					"sh:group": {
+						"@id": "ex:NameGroup"
+					},
+					"sh:name": "first name",
+					"sh:order": {
+						"@type": "xsd:integer",
+						"@value": "0"
+					},
+					"sh:path": {
+						"@id": "ex:firstName"
+					}
+				},
+				{
+					"sh:description": "The person's last name",
+					"sh:group": {
+						"@id": "ex:NameGroup"
+					},
+					"sh:name": "last name",
+					"sh:order": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:path": {
+						"@id": "ex:lastName"
+					}
+				},
+				{
+					"sh:description": "The street address including number",
+					"sh:group": {
+						"@id": "ex:AddressGroup"
+					},
+					"sh:name": "street address",
+					"sh:order": {
+						"@type": "xsd:integer",
+						"@value": "11"
+					},
+					"sh:path": {
+						"@id": "ex:streetAddress"
+					}
+				},
+				{
+					"sh:description": "The suburb, city or town of the address",
+					"sh:group": {
+						"@id": "ex:AddressGroup"
+					},
+					"sh:name": "locality",
+					"sh:order": {
+						"@type": "xsd:integer",
+						"@value": "12"
+					},
+					"sh:path": {
+						"@id": "ex:locality"
+					}
+				},
+				{
+					"sh:description": "The postal code of the locality",
+					"sh:group": {
+						"@id": "ex:AddressGroup"
+					},
+					"sh:name": [
+						"postal code",
+						{
+							"@language": "en-us",
+							"@value": "zip code"
+						}
+					],
+					"sh:order": {
+						"@type": "xsd:integer",
+						"@value": "13"
+					},
+					"sh:path": {
+						"@id": "ex:postalCode"
+					}
+				}
+			]
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
