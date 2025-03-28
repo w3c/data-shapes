@@ -3,6 +3,7 @@
 
 ## Scribes
 
+* 2025-03-31: siwerner
 * 2025-03-24: AndyS
 * 2025-03-17: caribou
 * 2025-03-10: gkellogg
