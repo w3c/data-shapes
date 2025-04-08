@@ -1218,12 +1218,14 @@ ex:hasLang
 				</p>
 				<p class="syntax">
 					<span data-syntax-rule="SelectExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>select expression</a> if it is a <a>blank node</a>
-					that is the <a>subject</a> of exactly one <a>triple</a> with <code>sh:select</code> as <a>predicate</a> and a <a>literal</a> as <a>object</a>
-					with <a>datatype</a> <code>xsd:string</code>.</span>
+					that has exactly one <a>value</a> for the <a>predicate</a> <code>sh:select</code>
+					and this <a>value</a> is a <a>literal</a> with <a>datatype</a> <code>xsd:string</code>.</span>
+					<span data-syntax-rule="SelectExpression-syntax-prefixes">A <a>well-formed</a> <a>select expression</a> can have at most one <a>value</a> for the property
+					<code>sh:prefixes</code> and this value can only be an <a>IRI</a> or a <a>blank node</a>.</span><br/><br/>
 					<span data-syntax-rule="SelectExpression-query-valid">Using the <a href="#sparql-prefixes">prefix handling rules</a>, the value of <code>sh:select</code> is a valid SPARQL 1.2 SELECT query.</span>
 					<span data-syntax-rule="SelectExpression-query-output-nodes">The SPARQL query derived from the value of <code>sh:select</code> <a data-cite="sparql12-query/#selectproject">projects</a> exactly one variable in the SELECT clause.</span>
 				</p>
-				<div class="def" id="LiteralExpression-evaluation">
+				<div class="def" id="SelectExpression-evaluation">
 					<div class="def-header">EVALUATION OF SELECT EXPRESSIONS</div>
 					<p>
 						The <a>output nodes</a> of a <a>select expression</a> are the list <code>resultNodes</code> consisting of exactly the bindings of the (only)
@@ -1231,7 +1233,7 @@ ex:hasLang
 						If present in the <a>scope</a>, the value of the scope variable <code>focusNode</code> MUST be <a>pre-bound</a> as the value of the SPARQL variable <code>this</code>.
 						<br/>
 						<br/>
-						<code>eval(expr, activeGraph, scope) -> resultNodes</code>
+						<code>evalExpr(expr, activeGraph, scope) -> resultNodes</code>
 					</p>
 				</div>
 				<p><em>The remainder of this section is informative.</em></p>
@@ -1313,6 +1315,79 @@ ex:Bernd
 	a ex:Person .
 						</div>
 					</div>
+				</aside>
+			</section>
+
+			<section id="SPARQLExprExpression">
+				<h3>SPARQL Expr Expressions</h3>
+				<p>
+					A <a>node expression</a> that has a <a>value</a> for <code>sh:sparqlExpr</code> is called a <dfn>SPARQL expr expression</dfn> with the <a>function name</a>
+					<code>sh:SPARQLExprExpression</code>.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="SPARQLExprExpression-syntax-eval">A node in an RDF graph
+					is a <a>well-formed</a> <a>SPARQL expr expression</a> if it is a <a>blank node</a>
+					that has exactly one <a>value</a> for the <a>predicate</a> <code>sh:sparqlExpr</code>
+					and that <a>value</a> is a <a>literal</a> with <a>datatype</a> <code>xsd:string</code>.</span>
+					<span data-syntax-rule="SPARQLExprExpression-syntax-prefixes">A <a>well-formed</a> <a>SPARQL expr expression</a> can have at most one <a>value</a> for the property
+					<code>sh:prefixes</code> and this value is an <a>IRI</a> or a <a>blank node</a>.</span><br/><br/>
+					<span data-syntax-rule="SPARQLExprExpression-template">Let <code>$EXPR$</code> be the <a>value</a> of <code>sh:eval</code> and <code>$PREFIXES$</code>
+					be the SPARQL prefixes block resulting from the <a href="#sparql-prefixes">prefix handling rules</a> using the value of <code>sh:prefixes</code>;
+					then <code>select</code> is defined as the string where <code>$EXPR$</code> and <code>$PREFIXES$</code> are inserted as into <br/><br/><code>$PREFIXES$ SELECT ($EXPR$ AS ?result) WHERE {}</code><br/><br/></span>
+					<span data-syntax-rule="SPARQLExprExpression-query-valid"><code>select</code> is a valid SPARQL 1.2 SELECT query.</span>
+				</p>
+				<div class="def" id="SPARQLExprExpression-evaluation">
+					<div class="def-header">EVALUATION OF SPARQL EXPR EXPRESSIONS</div>
+					<p>
+						The <a>output nodes</a> of an <a>SPARQL expr expression</a> are the list <code>resultNodes</code> consisting of exactly the bindings of the (only)
+						variable that is projected from the SELECT clause of the <code>select</code> query as defined <a href="#syntax-rule-SPARQLExprExpression-template">above</a>.
+						If present in the <a>scope</a>, the value of the scope variable <code>focusNode</code> MUST be <a>pre-bound</a> as the value of the SPARQL variable <code>this</code>.
+						<br/>
+						<br/>
+						<code>evalExpr(expr, activeGraph, scope) -> resultNodes</code>
+					</p>
+				</div>
+				<p><em>The remainder of this section is informative.</em></p>
+				<aside class="example" title="A dynamically computed property using a SPARQL expr expression">
+					<p>
+						Here is an example use of an <a>SPARQL expr expression</a>, computing the values of a property shape for the property 
+						"uri length" as the length of the IRI of the focus node.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Resource-uriLength
+	a sh:PropertyShape ;
+	sh:name "uri length" ;
+	sh:path ex:uriLength ;
+	sh:values <b>[
+		sh:sparqlExpr "STRLEN(STR($this))" ;
+	]</b> ;
+	sh:datatype xsd:integer .
+						</div>
+					</div>
+					<p>
+						When applied to a focus node with URI <code>http://example.org/ns#Test</code> the result will be <code>26</code>.
+						This produces the same results as this variation:
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Resource-uriLength
+	a sh:PropertyShape ;
+	sh:name "uri length" ;
+	sh:path ex:uriLength ;
+	sh:values <b>[
+		sh:select """
+			SELECT (STRLEN(STR($this)) AS ?result)
+			WHERE {
+			}
+		""" ;
+	]</b> ;
+	sh:datatype xsd:integer .
+						</div>
+					</div>
+					<p>
+						Note that the query is executed with the current <a>focus node</a> <a>pre-bound</a> to the variable <code>this</code>.
+					</p>
 				</aside>
 			</section>
 		</section>
@@ -1651,6 +1726,7 @@ ASK {
 			<h2>Changes between SHACL 1.0 SPARQL and SHACL 1.2 SPARQL Extensions</h2>
 			<ul>
 				<li>Added the <a>node expression function</a> <a href="#SelectExpression"><code>sh:SelectExpression</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/288">Issue 288</a></li>
+				<li>Added the <a>node expression function</a> <a href="#SPARQLExprExpression"><code>sh:SPARQLExprExpression</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/315">Issue 315</a></li>
 			</ul>
 		</section>		
 		  
