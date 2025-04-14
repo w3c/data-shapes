@@ -575,6 +575,18 @@
 						if one of the <a>SHACL types</a> of <code>n</code> in <code>G</code> is <code>C</code>.
 					</div>
 				</div>
+				<div class="def">
+					<div class="term-def-header">Deep Copy</div>
+					<div>
+						For a <a>node</a> <code>n</code> in a <a>graph</a> <code>sourceGraph</code>,
+						the <dfn data-lt="deep copy">deep copy</dfn> of <code>n</code> in a <a>graph</a> <code>targetGraph</code>
+						is <code>n</code> in <code>targetGraph</code> plus, if <code>n</code> is a <a>blank node</a>,
+						any <a>triples</a> from <code>sourceGraph</code> that can be reached by transitively traversing 
+						the <a>blank nodes</a> that appear in the <a>object</a> position of a triple that can be reached
+						starting with <code>n</code> as the <a>subject</a>. This is similar to
+						the <a href="https://www.w3.org/submissions/CBD/">Concise Bounded Description</a>, but without reification.
+					</div>
+				</div>
 
 			</section>
 
@@ -2378,6 +2390,7 @@ ex:SomeClass-alternativePathExample
 			<ul>
 				<li>At <a href="#property-shapes"><code>sh:values</code> and <code>sh:defaultValue</code></a> to derive the value nodes of a property shape.</li>
 				<li>At <a href="#targetNode"><code>sh:targetNode</code></a> to dynamically compute the targets of a shape.</li>
+				<li>At <a href="#ExpressionConstraintComponent"><code>sh:expression</code></a> to validate nodes against a condition.</li>
 				<li>As parameter values of most <a href="#core-components">constraint components</a> to represent constraints that may be different depending on each focus node. <span class="todo">TODO: This change needs to be made still, see ISSUE 311.</span></li>
 				<li>At <a href="#deactivated"><code>sh:deactivated</code></a> to deactivate certain shapes under specific conditions. <span class="todo">TODO: This change needs to be made still, see ISSUE 338.</span></li>
 			</ul>
@@ -2823,10 +2836,7 @@ ex:SomeClass-alternativePathExample
 							Validation results may have a value for the property <code>sh:resultPath</code> pointing at a <a>well-formed</a> <a>SHACL property path</a>.
 							For results produced by a <a>property shape</a>, this <a>SHACL property path</a> is equivalent to the <a>value</a> of <code>sh:path</code> of the shape,
 							unless stated otherwise. <!-- sh:closed is an exception -->
-							If the <code>sh:path</code> <code>p</code> is a <a>blank node</a>, then the <code>sh:resultPath</code> is a "deep copy"
-							of <code>p</code> and any <a>triples</a> that can be reached by transitively traversing the <a>blank nodes</a>
-							that appear in the <a>object</a> position of these triples.
-							See the <a href="https://www.w3.org/submissions/CBD/">Concise Bounded Description</a>.
+							If the <code>sh:path</code> <code>p</code> is a <a>blank node</a>, then the <code>sh:resultPath</code> is a <a>deep copy</a> of <code>p</code> in the results graph.
 						</p>
 					</section>
 					<section id="results-value">
@@ -5982,6 +5992,52 @@ ex:RainbowPony ex:color ex:Pink .
 						</div>
 					</aside>
 				</section>
+		
+				<section id="ExpressionConstraintComponent">
+					<h4>sh:expression</h4>
+					<p>
+						Based on <a>node expressions</a>, this section introduces a <a>constraint component</a> called
+						<dfn data-lt="expression constraint">expression constraints</dfn>.
+						Expression constraints can be used in any <a>shape</a> to declare the condition that the
+						<a>node expression</a> specified via <code>sh:expression</code> has <code>true</code> as one of its output nodes.
+						The evaluation of these node expressions is repeated for all <a>value nodes</a> of the <a>shape</a>
+						as the <a>focus node</a>.
+					</p>
+					<p>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:ExpressionConstraintComponent</code>
+					</p>
+		
+					<div class="parameters">Parameters:</div>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Summary and Syntax Rules</th>
+						</tr>
+						<tr>
+							<td><code>sh:expression</code></td>
+							<td>
+								The <a>node expression</a> that must return <code>true</code>.
+								<span data-syntax-rule="expression-scope">The <a>values</a> of <code>sh:expression</code> at a
+								<a>shape</a> must be well-formed <a>node expressions</a>.</span>
+							</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body" data-validator="Expression">
+							Let <code>expr</code> be the <a>value</a> of <code>sh:expression</code>.
+							For each <a>value node</a> <code>v</code> 
+							and <code>scope</code> contains <code>v</code> as the value of <code>focusNode</code>
+							where <code>evalExpr(expr, activeGraph, scope)</code>
+							does not return <code>true</code> as one of its <a>output nodes</a>,
+							there is a <a>validation result</a> that has <code>v</code> as its <code>sh:value</code>
+							and a <a>deep copy</a> of <code>expr</code> in the results graph as its <code>sh:sourceConstraint</code>.
+							If the <code>expr</code> has <a>values</a> for <code>sh:message</code> in the <a>shapes graph</a>,
+							then these <a>values</a> become the (only) values for <code>sh:resultMessage</code> in the
+							<a>validation result</a>.
+						</div>
+					</div>
+				</section>
 			</section>
 		</section>
 				
@@ -6479,6 +6535,7 @@ ex:NameGroup
 				<li>Added the new constraint component <a href="#SingleLineConstraintComponent"><code>sh:singleLine</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/177">Issue 177</a></li>
 				<li>Added the new class <a href="#ShapeClass"><code>sh:ShapeClass</code></a> for implicit class targets, see <a href="https://github.com/w3c/data-shapes/issues/212">Issue 212</a></li>
 				<li>Moved SPARQL-based validators from Core to an Appendix of SHACL-SPARQL, see <a href="https://github.com/w3c/data-shapes/issues/271">Issue 271</a></li>
+				<li>Added the new constraint component <a href="#ExpressionConstraintComponent"><code>sh:expression</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/357">Issue 357</a></li>
 			</ul>
 		</section>
 	</body>
