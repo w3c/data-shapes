@@ -5,6 +5,93 @@
 		<title>SHACL 1.2 Profiling</title>
 		<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
 		<script class="remove">
+
+			function prepareSyntaxRules() {
+				document.querySelectorAll("[data-syntax-rule]").forEach(element => {
+					let ruleId = element.getAttribute("data-syntax-rule");
+					let tr = document.createElement("tr");
+					tr.classList.add("syntax-rule-tr");
+					let td1 = document.createElement("td");
+					td1.classList.add("syntax-rule-id");
+					let a = document.createElement("a");
+					a.classList.add("syntax-rule-id-a");
+					a.href = "#syntax-rule-" + ruleId;
+					a.textContent = ruleId;
+					td1.appendChild(a);
+					let td2 = document.createElement("td");
+					td2.innerHTML = element.innerHTML;
+					tr.appendChild(td1);
+					tr.appendChild(td2);
+
+					// Replace <dfn> elements inside `tr` with <a> elements
+					tr.querySelectorAll("dfn").forEach(dfn => {
+    					let a = document.createElement("a");
+    					a.textContent = dfn.textContent;
+    					dfn.replaceWith(a);
+					});
+
+					document.getElementById("syntax-rules-table").appendChild(tr);
+					element.setAttribute("id", "syntax-rule-" + ruleId);
+				});
+			}
+
+			function prepareValidators() {
+				document.querySelectorAll("[data-validator]").forEach(element => {
+					let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+					let tr = document.createElement("tr");
+					tr.classList.add("validator-tr");
+					let td = document.createElement("td");
+					tr.appendChild(td);
+					let a = document.createElement("a");
+					a.classList.add("validator-id-a");
+					a.href = `#validator-${validatorId}`;
+					a.textContent = `sh:${validatorId}`;
+					td.appendChild(a);
+					td.innerHTML += ": " + element.innerHTML;
+					document.getElementById("validators-table").appendChild(tr);
+					element.id = "validator-" + validatorId;
+				});
+			}
+
+			document.addEventListener("DOMContentLoaded", () => {
+				// Replace code div blocks in shapes, data, and results graph with tabs
+				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+					const tabs = document.createElement("aside");
+					tabs.classList.add("ds-selector-tabs");
+					graph.firstElementChild.classList.add("selected");
+
+					for (const child of graph.children) {
+						child.classList.add("tab");
+					}
+
+					tabs.append(...graph.children);
+					graph.append(tabs)
+				}
+
+				// Generate buttons for the selection logic
+				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+					const selectors = document.createElement("div");
+					selectors.classList.add("selectors");
+					selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						<button data-selects="jsonld">JSON-LD</button>
+					`
+
+					tabs.prepend(selectors);
+				}
+
+				// Add example button selection logic
+				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+					button.onclick = () => {
+						const ex = button.closest(".ds-selector-tabs");
+						ex.querySelector("button.selected").classList.remove("selected");
+						ex.querySelector(".selected").classList.remove("selected");
+						button.classList.add('selected');
+						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+					}
+				}
+			});
+
 			var respecConfig = {
 				localBiblio: {},
 
@@ -54,25 +141,19 @@
 			};
 		</script>
 		<style>
+
 			pre {
 				tab-size: 3;
 				-moz-tab-size: 3; /* Code for Firefox */
 				-o-tab-size: 3; /* Code for Opera */
-				word-wrap: normal;
 			}
 
 			th {
 				text-align: left;
 			}
-			table.rule {
-				background-color: #ebebe0;
-			}
-			table.rule td {
-				text-align: center;
-			}
-			td.up {
-				border-bottom: 1px solid black;
-			}
+			table.rule { background-color: #EBEBE0; }
+			table.rule td { text-align: center; }
+			td.up { border-bottom:1px solid black; }
 
 			td {
 				vertical-align: top;
@@ -81,7 +162,7 @@
 			.algorithm {
 				background: #fafafc;
 				border-left-style: solid;
-				border-left-width: 0.5em;
+				border-left-width: .5em;
 				border-color: #c0c0c0;
 				margin-bottom: 16px;
 				padding: 8px;
@@ -95,17 +176,9 @@
 			.def {
 				background: #fcfcfc;
 				border-left-style: solid;
-				border-left-width: 0.5em;
+				border-left-width: .5em;
 				border-color: #c0c0c0;
 				margin-bottom: 16px;
-			}
-
-			.def-sparql {
-			}
-
-			.def-sparql-body {
-				margin-top: 0px;
-				margin-bottom: 0px;
 			}
 
 			.def-text {
@@ -143,6 +216,10 @@
 			.diagram-class-properties-section {
 				border-top: 1px dashed #808080;
 				padding: 8px;
+			}
+
+			.example {
+				overflow-y: hidden !important;
 			}
 
 			.focus-node-selected {
@@ -185,10 +262,10 @@
 
 			.syntax {
 				border-left-style: solid;
-				border-left-width: 0.5em;
+				border-left-width: .5em;
 				border-color: #d0d0d0;
 				margin-bottom: 16px;
-				padding: 0.5em 1em;
+				padding: .5em 1em;
 				background-color: #f6f6f6;
 			}
 
@@ -220,8 +297,7 @@
 				margin: 16px;
 			}
 
-			.term-table td,
-			th {
+			.term-table td, th {
 				border-width: 1px;
 				border-style: solid;
 				padding: 5px;
@@ -231,103 +307,114 @@
 				color: red;
 			}
 
-			/* example pre taken / adapted from R2RML */
-			pre.example-shapes,
-			pre.example-data,
-			pre.example-results,
-			pre.example-other,
-			pre.example-sparql {
-				margin-left: 0;
-				padding: 0 2em;
-				margin-top: 1.5em;
-				padding: 1em;
-				white-space: pre !important;
+			pre {
+				word-wrap: normal;
 			}
-			pre.example-shapes:before,
-			pre.example-data:before,
-			pre.example-results:before,
-			pre.example-other:before,
-			pre.example-sparql:before {
-				background: white;
-				display: block;
-				font-family: sans-serif;
-				margin: -1em 0 0.4em -1em;
-				padding: 0.2em 1em;
+
+			.turtle {
+				font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+				font-size: 14.4px;
+				hyphens: none;
+				overflow-x: auto;
+				padding: .5em;
+				tab-size: 3;
+				-moz-tab-size: 3; /* Code for Firefox */
+				-o-tab-size: 3; /* Code for Opera */
+				text-align: start;
+				margin-bottom: -1.5em;
+				margin-top: -1.5em;
+				white-space: pre;
 			}
-			pre.example-shapes {
-				background: #deb;
-			}
-			pre.example-shapes,
-			pre.example-shapes:before {
-				border: 1px solid #bbb;
-			}
-			pre.example-shapes:before {
-				color: #888;
-				content: "Example shapes graph";
-				width: 13em;
-			}
-			pre.example-data {
+
+			.data-graph {
 				background: #eeb;
-			}
-			pre.example-data,
-			pre.example-data:before {
 				border: 1px solid #cc9;
+				margin-top: 0.3em;
 			}
-			pre.example-data:before {
+			.data-graph:before {
 				color: #996;
-				content: "Example data graph";
-				width: 13em;
+				content: "Data graph";
+				padding-left: 0.4em;
 			}
-			pre.example-results:before {
-				color: #797;
-				content: "Example validation results";
-				width: 13em;
-			}
-			pre.example-other {
-				background: #bed;
-			}
-			pre.example-other,
-			pre.example-other:before {
-				border: 1px solid #ddd;
-			}
-			pre.example-other:before {
-				color: #888;
-				content: "Example";
-				width: 13em;
-			}
-			pre.example-sparql {
-				background: #bed;
-			}
-			pre.example-sparql,
-			pre.example-sparql:before {
-				border: 1px solid #ddd;
-			}
-			pre.example-sparql:before {
-				color: #888;
-				content: "Example SPARQL";
-				width: 13em;
-			}
-			.example-results {
+
+			.results-graph {
 				background: #edb;
+				border: 1px solid #bbb;
+				margin-top: 0.3em;
 			}
-			.example-results,
-			.example-results:before,
-			.example-results th,
-			.example-results td {
-				border: 1px solid #cca;
+			.results-graph:before {
+				color: #997;
+				content: "Validation results";
+				padding-left: 0.4em;
+			}
+
+			.shapes-graph {
+				background: #deb;
+				border: 1px solid #bbb;
+				margin-top: 0.3em;
+			}
+			.shapes-graph:before {
+				color: #888;
+				content: "Shapes graph";
+				padding-left: 0.4em;
+			}
+
+			/* no dark mode, keep colors for shapes-graph, data-graph, and results graph background */
+			code.hljs {
+				--base: transparent;
+				--mono-1: #383a42;
 			}
 
 			/* our syntax menu for switching */
 			div.syntaxmenu {
 				border: 1px dotted black;
-				padding: 0.5em;
+				padding:0.5em;
 				margin: 1em;
 			}
 
 			@media print {
-				div.syntaxmenu {
-					display: none;
-				}
+				div.syntaxmenu { display:none; }
+			}
+
+			/* example tab selection */
+			.ds-selector-tabs .selectors {
+				padding: 0;
+				border-bottom: 1px solid #ccc;
+				height: 28px;
+			}
+			.ds-selector-tabs .selectors button {
+				display: inline-block;
+				min-width: 54px;
+				text-align: center;
+				font-size: 11px;
+				font-weight: bold;
+				height: 27px;
+				padding: 0 8px;
+				line-height: 27px;
+				transition: all,0.218s;
+				border-top-right-radius: 2px;
+				border-top-left-radius: 2px;
+				color: #666;
+				border: 1px solid transparent;
+			}
+			.ds-selector-tabs .selectors button:first-child {
+				margin-left: 2px;
+			}
+			.ds-selector-tabs .selectors button.selected {
+				color: #202020 !important;
+				border: 1px solid #ccc;
+				border-bottom: 1px solid #fff !important;
+			}
+			.ds-selector-tabs .selectors button:hover {
+				background-color: transparent;
+				color: #202020;
+				cursor: pointer;
+			}
+			.ds-selector-tabs .tab {
+				display: none;
+			}
+			.ds-selector-tabs .selected {
+				display: block;
 			}
 		</style>
 	</head>
@@ -354,7 +441,7 @@
 			<h2>Introduction</h2>
 			<p>SHACL Profiling is the act of creating <a href="https://www.w3.org/TR/dx-prof/#dfn-profile">profile</a> of <a href="https://www.w3.org/TR/shacl/#dfn-rdf-graph">RDF graphs</a> using SHACL...
 
-			<section id="terminolgy">
+			<section id="terminology">
 				<h3>Terminology</h3>
 
 				<p>
@@ -540,13 +627,11 @@
 					.
 				</p>
 			</section>
-			<section class="conventions">
+			<section id="conventions">
 				<h3>Document Conventions</h3>
 				<p>
-					Some examples in this document use Turtle [[turtle]]. The reader is expected to be familiar with SHACL [[shacl]] and SPARQL
-					[[sparql-query]].
+					Within this document, the following namespace prefix definitions are used:
 				</p>
-				<p>Within this document, the following namespace prefix bindings are used:</p>
 				<table class="term-table">
 					<tr>
 						<th>Prefix</th>
@@ -562,7 +647,7 @@
 					</tr>
 					<tr>
 						<td><code>sh:</code></td>
-						<td><code>http://www.w3.org/ns/shacl#</code></td>
+						<td><code><a href="http://www.w3.org/ns/shacl">http://www.w3.org/ns/shacl#</a></code></td>
 					</tr>
 					<tr>
 						<td><code>xsd:</code></td>
@@ -573,34 +658,95 @@
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
 				</table>
+
 				<p>
-					Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear. These fragments of Turtle documents use the prefix
-					bindings given above.
+					Within this document, the following JSON-LD context is used:
 				</p>
-				<pre class="example-shapes">        # This box represents a shapes graph</pre>
+				<pre class="jsonld">{
+  "@context": {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ex": "http://example.com/ns#"
+  }
+}</pre>
+				<p>
+					Note that the URI of the graph defining the SHACL vocabulary itself is equivalent to
+					the namespace above, i.e., it includes the <code>#</code>.
+					References to the SHACL vocabulary, e.g., via <code>owl:imports</code> should include the <code>#</code>.
+				</p>
+				<p>
+					Throughout the document, color-coded boxes containing RDF graphs in Turtle and JSON-LD will appear.
+					These fragments of Turtle documents use the prefix bindings given above.
+					The JSON-LD document fragments use the context given above.
+					Only the Turtle documents may highlight certain parts.
+				</p>
 
-				<pre class="example-data">        # This box represents a data graph.</pre>
+				<div class="shapes-graph">
+					<div class="turtle">
+# This box represents an input shapes graph
 
-				<pre class="example-results">        # This box represents an output results graph</pre>
-
-				<p>Formal definitions appear in blue boxes:</p>
-				<div class="def def-sparql">
-					<div class="def-header">TEXTUAL DEFINITIONS</div>
-					<pre class="def-sparql-body">          # This box contains textual definitions. </pre>
+# Triples that can be omitted are marked as grey, e.g. --
+<span class="triple-can-be-skipped">&lt;s&gt; &lt;p&gt; &lt;o&gt; .</span>
+						</div>
+				  <div class="jsonld">
+						<pre class="text">// This box represents an input shapes graph</pre>
+					  <pre class="jsonld">{
+  "@id": "ex:s",
+  "ex:p": {
+    "@id": "ex:o"
+  }
+}</pre>
+				  </div>
 				</div>
 
-				<p class="syntax">Grey boxes such as this include syntax rules that apply to the shapes graph.</p>
+				<div class="data-graph">
+					<div class="turtle">
+# This box represents an input data graph.
+# When highlighting is used in the examples:
+
+# Elements highlighted in blue are <a>focus nodes</a>
+<span class="focus-node-selected">ex:Bob</span> a ex:Person .
+
+# Elements highlighted in red are focus nodes that fail validation
+<span class="focus-node-error">ex:Alice</span> a ex:Person .
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an input data graph</pre>
+						<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person"
+		}
+	]
+}</pre>
+					</div>
+				</div>
+
+				<div class="results-graph">
+					<div class="turtle">
+# This box represents an output results graph
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an output results graph</pre>
+					</div>
+				</div>
+
+				<p class="syntax">
+					Grey boxes such as this include syntax rules that apply to the <a>shapes graph</a>.
+				</p>
 
 				<p>
-					<code>true</code>
-					denotes the RDF term
-					<code>"true"^^xsd:boolean</code>
-					.
-					<code>false</code>
-					denotes the RDF term
-					<code>"false"^^xsd:boolean</code>
-					.
+					<code>true</code> denotes the RDF term <code>"true"^^xsd:boolean</code>.
+					<code>false</code> denotes the RDF term <code>"false"^^xsd:boolean</code>.
 				</p>
+
 			</section>
 			<section id="conformance">
 				<p>TODO</p>
