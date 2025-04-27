@@ -3,7 +3,9 @@
 
 ## Scribes
 
-* 2025-04-14: simonsteycall
+* 2025-04-28: 
+* 2025-04-21: (No meeting)
+* 2025-04-14: simonstey
 * 2025-04-07: PapoutsoglouE
 * 2025-03-31: siwerner
 * 2025-03-24: AndyS
