@@ -3,7 +3,8 @@
 
 ## Scribes
 
-* 2025-04-28: 
+* 2025-05-05: 
+* 2025-04-28: Robert
 * 2025-04-21: (No meeting)
 * 2025-04-14: simonstey
 * 2025-04-07: PapoutsoglouE
