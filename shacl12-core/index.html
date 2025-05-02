@@ -1359,7 +1359,7 @@ ex:MultiplePatternsShape
 							If <code>s</code> is a <a>shape</a> in a <a>shapes graph</a> <code>SG</code> and <code>s</code> has
 							<a>value</a> <code>expr</code> for <code>sh:targetNode</code> in <code>SG</code>,
 							then the <a>output nodes</a> of <code>expr</code> are <a>targets</a>
-							for the data graph <code>DG</code> as <a>active graph</a>.
+							for the data graph <code>DG</code> as <a>focus graph</a>.
 						</div>
 						<p><em>The remainder of this section is informative.</em></p>
 						<p>
@@ -2405,14 +2405,15 @@ ex:SomeClass-alternativePathExample
 			</div>
 			<div class="def" id="node-expression-evaluation">
 				<div class="def-header">EVALUATION OF NODE EXPRESSIONS</div>
-				The <dfn>evaluation</dfn> of a node expression is defined as a function <code>evalExpr(expr, activeGraph, scope) -> outputNodes</code>
+				The <dfn>evaluation</dfn> of a node expression is defined as a function <code>evalExpr(expr, focusGraph, focusNode, scope) -> outputNodes</code>
 				where
 				<ul>
 					<li><code>expr</code> is a <a>node expression</a> in a <a>shapes graph</a>.
 					During evaluation, the engine can access <a>triples</a> related to <code>expr</code> in the <a>shapes graph</a>.</li>
-					<li><code>activeGraph</code> is a <a>graph</a>, called the <dfn>active graph</dfn>.</li>
+					<li><code>focusGraph</code> is a <a>graph</a>, called the <dfn>focus graph</dfn>. This is the default query graph for the evaluation of the node expression.</li>
+					<li><code>focusNode</code> is a <a>node</a>, called the <dfn>input focus node</dfn>. This variable may have no value.</li>
 					<li><code>scope</code> is a map from <a href="https://www.w3.org/TR/sparql12-query/#defn_QueryVariable">variable names</a> to individual <a>nodes</a>.
-						The value of the variable <code>focusNode</code> (if it exists) is called the <dfn>input focus node</dfn>.
+					The empty map is written as <code>{}</code>.
 					</li>
 				</ul>
 				The result of the evaluation of a node expression is a list of <a>nodes</a> (possibly empty and with duplicates) called the <dfn>output nodes</dfn>.
@@ -2439,7 +2440,7 @@ ex:SomeClass-alternativePathExample
 						The <a>output nodes</a> of an <a>IRI expression</a> are the list consisting of exactly the <a>node expression</a> itself:
 						<br/>
 						<br/>
-						<code>evalExpr(expr, activeGraph, scope) -> [expr]</code>
+						<code>evalExpr(expr, focusGraph, focusNode, scope) -> [expr]</code>
 					</p>
 				</div>
 			</section>
@@ -2458,7 +2459,7 @@ ex:SomeClass-alternativePathExample
 						The <a>output nodes</a> of a <a>literal expression</a> are the list consisting of exactly the <a>node expression</a> itself:
 						<br/>
 						<br/>
-						<code>evalExpr(expr, activeGraph, scope) -> [expr]</code>
+						<code>evalExpr(expr, focusGraph, focusNode, scope) -> [expr]</code>
 					</p>
 				</div>
 			</section>
@@ -2918,13 +2919,11 @@ ex:SomeClass-alternativePathExample
 						</li>
 						<li>
 							If <code>e</code> is the <a>value</a> of <code>sh:values</code> at the <a>property shape</a>,
-							then add the <a>output nodes</a> of <code>evalExpr(e, <a>data graph</a>, scope)</code> where <code>scope</code>
-							contains the <a>focus node</a> as the value of the variable <code>focusNode</code>.
+							then add the <a>output nodes</a> of <code>evalExpr(e, <a>data graph</a>, <a>focus node</a>, {})</code>.
 						</li>
 						<li>
 							If the set is still empty and <code>d</code> is the <a>value</a> of <code>sh:defaultValue</code> at the <a>property shape</a>,
-							then add the <a>output nodes</a> of <code>evalExpr(d, <a>data graph</a>, scope)</code> where <code>scope</code>
-							contains the <a>focus node</a> as the value of the variable <code>focusNode</code>.
+							then add the <a>output nodes</a> of <code>evalExpr(d, <a>data graph</a>, <a>focus node</a>, {})</code>.
 						</li>
 					</ol>
 				</section>
@@ -4741,12 +4740,14 @@ ex:NotExampleShape
 					<p>
 						Note that although <code>sh:and</code> has a <a>SHACL list</a> of shapes as its value,
 						the order of those shapes does not impact the validation results.
+						For implementations that use shortcut evaluation semantics, the order may impact the efficiency of validation.
+						It is recommended to put earlier in the list constraints that are easier to evaluate, or are more likely to fail.
 					</p>
 					<p>
 						The following example illustrates the use of <code>sh:and</code> in a shape to specify the condition
 						that certain focus nodes have exactly one value of <code>ex:property</code>.
 						This is achieved via the conjunction of a separate named shape (<code>ex:SuperShape</code>) which specifies
-						the minimum count, and a blank node shape that additionally specifies the maximum count.
+						the minimum count, and a property shape that additionally specifies the maximum count.
 						As shown here, <code>sh:and</code> can be used to implement a specialization mechanism between shapes.
 					</p>
 					<aside class="example">
@@ -4888,6 +4889,8 @@ ex:ValidInstance
 					<p>
 						Note that although <code>sh:or</code> has a <a>SHACL list</a> of shapes as its value,
 						the order of those shapes does not impact the validation results.
+						For implementations that use shortcut evaluation semantics, the order may impact the efficiency of validation.
+						It is recommended to put earlier in the list constraints that are easier to evaluate, or are more likely to succeed.
 					</p>
 					<p>
 						The following example illustrates the use of <code>sh:or</code> in a shape to specify the condition
@@ -6044,7 +6047,7 @@ ex:RainbowPony ex:color ex:Pink .
 						Based on <a>node expressions</a>, this section introduces a <a>constraint component</a> called
 						<dfn data-lt="expression constraint">expression constraints</dfn>.
 						Expression constraints can be used in any <a>shape</a> to declare the condition that the
-						<a>node expression</a> specified via <code>sh:expression</code> has <code>true</code> as one of its output nodes.
+						<a>node expression</a> specified via <code>sh:expression</code> has <code>true</code> as its only output node.
 						The evaluation of these node expressions is repeated for all <a>value nodes</a> of the <a>shape</a>
 						as the <a>focus node</a>.
 					</p>
@@ -6072,9 +6075,8 @@ ex:RainbowPony ex:color ex:Pink .
 						<div class="def-text-body" data-validator="Expression">
 							Let <code>$expr</code> be a <a>value</a> of <code>sh:expression</code>.
 							For each <a>value node</a> <code>v</code> 
-							and <code>scope</code> contains <code>v</code> as the value of <code>focusNode</code>
-							where <code>evalExpr($expr, activeGraph, scope)</code>
-							does not return <code>true</code> as one of its <a>output nodes</a>,
+							where <code>evalExpr(expr, <a>data graph</a>, v, {})</code>
+							does not return the list consisting of exactly <code>true</code> as its <a>output nodes</a>,
 							there is a <a>validation result</a> that has <code>v</code> as its <code>sh:value</code>
 							and a <a>deep copy</a> of <code>$expr</code> in the results graph as its <code>sh:sourceConstraint</code>.
 							If the <code>$expr</code> has <a>values</a> for <code>sh:message</code> in the <a>shapes graph</a>,
