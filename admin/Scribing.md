@@ -3,7 +3,8 @@
 
 ## Scribes
 
-* 2025-05-12:  
+* 2025-05-19:  
+* 2025-05-12: YoucTagh
 * 2025-05-05: ajnelson-nist
 * 2025-04-28: Robert
 * 2025-04-21: (No meeting)
