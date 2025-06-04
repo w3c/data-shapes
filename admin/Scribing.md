@@ -3,7 +3,8 @@
 
 ## Scribes
 
-* 2025-06-02:   
+* 2025-06-09: David
+* 2025-06-02: AndyS
 * 2025-05-26: PapoutsoglouE
 * 2025-05-19: AndyS
 * 2025-05-12: YoucTagh
