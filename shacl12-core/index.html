@@ -5824,7 +5824,8 @@ ex:HandShape
 							<td><code>sh:closed</code></td>
 							<td>
 								Set to <code>true</code> to close the shape.
-								<span data-syntax-rule="closed-datatype">The values of <code>sh:closed</code> in a shape are literals with datatype <code>xsd:boolean</code>.</span>
+								<span data-syntax-rule="closed-datatype">The values of <code>sh:closed</code> in a shape are literals with datatype <code>xsd:boolean</code>
+									or the <a>IRI</a> <code>sh:ByTypes</code>.</span>
 							</td>
 						</tr>
 						<tr>
@@ -5841,14 +5842,41 @@ ex:HandShape
 						<div class="def-text-body" data-validator="Closed">
 							Let <code>$closed</code> be a <a>parameter value</a> for <code>sh:closed</code>.
 							Let <code>$ignoredProperties</code> be a <a>value</a> for <code>sh:ignoredProperties</code>.
-							If <code>$closed</code> is <code>true</code> then
-							there is a <a>validation result</a> for each <a>triple</a> that has a <a>value node</a> as its
-							<a>subject</a> and a <a>predicate</a> that is not explicitly enumerated as a <a>value</a> of <code>sh:path</code>
-							in any of the <a>property shapes</a> declared via <code>sh:property</code> at the current shape.
+							<br/><br/>
+							If <code>$closed</code> is <code>true</code> or <code>sh:ByTypes</code> and <code>P</code>
+							is the set of properties defined as below
+							then there is a <a>validation result</a> for each <a>triple</a> that has a <a>value node</a> as its
+							<a>subject</a> and a <a>predicate</a> that is not in <code>P</code>.
 							If <code>$ignoredProperties</code> has a value then the properties enumerated as <a>members</a> of this <a>SHACL list</a>
 							are also permitted for the <a>value node</a>.
 							The <a>validation result</a> MUST have the <a>predicate</a> of the triple as its <code>sh:resultPath</code>,
 							and the <a>object</a> of the triple as its <code>sh:value</code>.
+							<br/><br/>
+							If <code>$closed</code> is <code>true</code> then <code>P</code> is the set of <a>IRI</a> properties
+							that can be reached from the current shape via the SPARQL path <code>sh:property/sh:path</code>.
+							<br/><br/>
+							If <code>$closed</code> is <code>sh:ByTypes</code> then <code>P</code> is the set of <a>IRI</a> properties
+							that can be reached from the value node via the following algorithm, plus <code>rdf:type</code>:
+							<div style="margin: 20px">
+							<code>
+function collectProperties(S)<br />
+&nbsp;&nbsp;add all IRI properties that can be reached from S via the SPARQL path<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sh:property/sh:path<br />
+&nbsp;&nbsp;if S is a SHACL instance of rdfs:Class in the shapes graph {<br />
+&nbsp;&nbsp;&nbsp;&nbsp;for each triple in the shapes graph matching (S rdfs:subClassOf ?o)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;collectProperties(?o)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;for each triple in the shapes graph matching (?s sh:targetClass S)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;collectProperties(?s)<br />
+&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;if S is a SHACL instance of sh:NodeShape in the shapes graph<br />
+&nbsp;&nbsp;&nbsp;&nbsp;for each triple in the shapes graph matching (S sh:node ?o)<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;collectProperties(?o)<br />
+<br />
+for each rdf:type T of the value node in the data graph<br />
+&nbsp;&nbsp;collectProperties(T)<br />
+</code></div>
+							Note that implementations need to avoid infinite loops in the algorithm above by preventing
+							to visit the same S twice.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -5936,6 +5964,15 @@ ex:Alice
 							</div>
 						</div>
 					</aside>
+					<p>
+						The use case for <code>sh:closed sh:ByTypes</code> includes properties that are declared
+						in superclasses of the types of the current value node (via <code>rdfs:subClassOf</code>),
+						as well as other shapes that are linked to those types via <code>sh:targetClass</code> and
+						the shapes that can be reached from one node shape to the other via <code>sh:node</code>.
+						Examples for <code>sh:ByTypes</code>> can be found in the test case library:
+						<a href="../shacl12-test-suite/tests/core/node/closed-003.ttl">closed-003.ttl</a>,
+						<a href="../shacl12-test-suite/tests/core/node/closed-004.ttl">closed-004.ttl</a>.
+					</p>
 				</section>
 				
 				<section id="HasValueConstraintComponent">
