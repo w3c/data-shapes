@@ -2756,6 +2756,7 @@ ex:SomeClass-alternativePathExample
 					</p>
 					<ul>
 						<li><a href="#AndConstraintComponent">sh:and</a></li>
+						<li><a href="#MemberShapeConstraintComponent">sh:memberShape</a></li>
 						<li><a href="#NotConstraintComponent">sh:not</a></li>
 						<li><a href="#OrConstraintComponent">sh:or</a></li>
 						<li><a href="#PropertyConstraintComponent">sh:property</a></li>
@@ -2810,7 +2811,7 @@ ex:SomeClass-alternativePathExample
 					<a>conforms</a> to a given <a>shape</a>, and <code>false</code> otherwise.
 				</p>
 				<p id="conformance-nested">
-					Note that some <a>constraint components</a> of SHACL Core (e.g., those of <code>sh:not</code>, <code>sh:or</code> and <code>sh:node</code>)
+					Note that some <a>constraint components</a> of SHACL Core (e.g., those of <code>sh:not</code>, <code>sh:or</code>, <code>sh:node</code> and <code>sh:memberShape</code>)
 					rely on conformance checking.
 					In these cases, the <a>validation results</a> used to determine the outcome of conformance checking are
 					separated from those of the surrounding validation process and typically do not end up in the same validation report
@@ -5689,6 +5690,185 @@ ex:RetosAddress
 						This includes cases where the same <a>focus node</a> is validated against the same <a>property shape</a>
 						although it is reached via different paths in the <a>shapes graph</a>.
 					</p>
+				</section>
+				
+				<section id="MemberShapeConstraintComponent">
+					<h4>sh:memberShape</h4>
+					<p>
+						<code>sh:memberShape</code> requires that each <a>value node</a> be the head of a well-formed RDF list,
+						and that each member of that list conforms to the given <a>node shape</a>.
+					</p>
+					<p>
+						<span class="component-class">Constraint Component IRI</span>: <code>sh:MemberShapeConstraintComponent</code>
+					</p>
+
+					<div class="parameters">Parameters:</div>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Summary and Syntax Rules</th>
+						</tr>
+						<tr>
+							<td><code>sh:memberShape</code></td>
+							<td>
+								The shape that all members of RDF lists must conform to.
+								<span data-syntax-rule="memberShape-node">The value of <code>sh:memberShape</code> must be a <a>well-formed</a> <a>node shapes</a>.</span>
+								<span data-syntax-rule="memberShape-scope"><a>Node shapes</a> cannot have any value for <code>sh:memberShape</code>.</span>
+								<span data-syntax-rule="memberShape-maxCount">A shape has at most one value for <code>sh:memberShape</code>.</span>
+							</td>
+						</tr>
+					</table>
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body" data-validator="MemberShape">
+							Let <code>$memberShape</code> be a <a>value</a> of <code>sh:memberShape</code>.
+							Each <a>value node</a> <code>v</code> must be a well-formed RDF list - a <a>failure</a> MUST be produced if <code>v</code> is not a well-formed RDF list.
+							For each member <code>m</code> of the list <code>v</code>:
+							A <a>failure</a> MUST be produced if the <a>conformance checking</a> of <code>m</code> against <code>$memberShape</code> produces a <a>failure</a>.
+							Otherwise, if <code>m</code> does not <a>conform</a> to <code>$memberShape</code>,
+							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code> and information about the non-conforming member.
+						</div>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						In the following example, all values of the property <code>ex:speakerOrder</code> must be RDF lists, and each member of those lists must be an IRI.
+					</p>
+					<aside class="example">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:AgendaShape
+	a sh:NodeShape ;
+	<span class="target-can-be-skipped">sh:targetClass ex:Agenda ;</span>
+	sh:property [
+		sh:path ex:speakerOrder ;
+		sh:memberShape [
+			sh:nodeKind sh:IRI ;
+		] ;
+		sh:maxCount 1 ;
+	] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:AgendaShape",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:maxCount": {
+			"@type": "xsd:integer",
+			"@value": "1"
+		},
+		"sh:memberShape": {
+			"sh:nodeKind": {
+				"@id": "sh:IRI"
+			}
+		},
+		"sh:path": {
+			"@id": "ex:speakerOrder"
+		}
+	},
+	"sh:targetClass": {
+		"@id": "ex:Agenda"
+	}
+}</pre>
+							</div>
+						</div>
+						<div class="data-graph">
+							<div class="turtle">
+ex:agenda1 a ex:Agenda ;
+	ex:speakerOrder ( ex:Alice ex:Bob ex:Charlie ) .
+
+<span class="focus-node-error">ex:agenda2</span> a ex:Agenda ;
+	ex:speakerOrder ( ex:Alice ex:Bob [ rdfs:label "Charlie" ] ) .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:agenda1",
+			"@type": "ex:Agenda",
+			"ex:speakerOrder": {
+				"@list": [
+					{
+						"@id": "ex:Alice"
+					},
+					{
+						"@id": "ex:Bob"
+					},
+					{
+						"@id": "ex:Charlie"
+					}
+				]
+			}
+		},
+		{
+			"@id": "ex:agenda2",
+			"@type": "ex:Agenda",
+			"ex:speakerOrder": {
+				"@list": [
+					{
+						"@id": "ex:Alice"
+					},
+					{
+						"@id": "ex:Bob"
+					},
+					{
+						"rdfs:label": "Charlie"
+					}
+				]
+			}
+		}
+	]
+}</pre>
+							</div>
+						</div>
+						<div class="results-graph">
+							<div class="turtle">
+[	a sh:ValidationReport ;
+	sh:conforms false ;
+	sh:result [
+		a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:agenda2 ;
+		sh:resultPath ex:speakerOrder ;
+		sh:value _:list2 ;
+		sh:resultMessage "List member does not have the required node kind sh:IRI." ;
+		sh:sourceConstraintComponent sh:MemberShapeConstraintComponent ;
+		sh:sourceShape _:b1 ;
+	]
+] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": {
+		"@type": "sh:ValidationResult",
+		"sh:focusNode": {
+			"@id": "ex:agenda2"
+		},
+		"sh:resultMessage": "List member does not have the required node kind sh:IRI.",
+		"sh:resultPath": {
+			"@id": "ex:speakerOrder"
+		},
+		"sh:resultSeverity": {
+			"@id": "sh:Violation"
+		},
+		"sh:sourceConstraintComponent": {
+			"@id": "sh:MemberShapeConstraintComponent"
+		},
+		"sh:sourceShape": {
+			"@id": "_:b1"
+		},
+		"sh:value": {
+			"@id": "_:list2"
+		}
+	}
+}</pre>
+							</div>
+						</div>
+					</aside>
 				</section>
 				
 				<section id="QualifiedValueShapeConstraintComponent">
