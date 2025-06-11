@@ -503,6 +503,8 @@
 						<dfn data-cite="rdf12-concepts#dfn-literal" data-lt="literal|literals">literal</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-datatype" data-lt="datatype">datatype</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-blank-node" data-lt="blank node|blank nodes">blank node</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-triple-term" data-lt="triple term|triple terms">triple term</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-reifier" data-lt="reifier">reifier</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-node" data-lt="node|nodes">node</dfn> of an RDF graph,
 						<dfn data-cite="rdf12-concepts#dfn-rdf-term" data-lt="term|terms">RDF term</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-subject" data-lt="subject|subjects">subject</dfn>,
@@ -1964,13 +1966,21 @@ ex:MyInstance
 					<h4>Deactivating a Shape</h4>
 					<p class="syntax">
 						<span data-syntax-rule="deactivated-maxCount">Shapes can have at most one value for the property <code>sh:deactivated</code>.</span>
-						<span data-syntax-rule="deactivated-datatype">The value of <code>sh:deactivated</code> in a shape must be either <code>true</code> or <code>false</code>.</span>
+						<span data-syntax-rule="deactivated-datatype">The value of <code>sh:deactivated</code> in a shape is a <a>node expression</a>
+						that must have either <code>true</code> or <code>false</code> as the (only) <a>output node</a>.</span>
 					</p>
 					<p>
-						A shape that has the <a>value</a> <code>true</code> for the property <code>sh:deactivated</code> is called <dfn data-lt="deactivate">deactivated</dfn>.
+						Let <code>expr</code> be the <a>value</a> of <code>sh:deactivated</code> in a <a>shape</a>.
+						If <code>evalExpr(expr, <a>data graph</a>, <a>focus node</a>, {})</code> produces <code>true</code> as its only
+						<a>output node</a>, the shape is called <dfn data-lt="deactivate">deactivated</dfn>.
 						All RDF terms <a>conform</a> to a deactivated shape.
 					</p>
 					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						In SHACL Core, the only valid values for <code>sh:deactivated</code> are the 
+						<a href="#LiteralExpression">constant literal node expressions</a>
+						<code>true</code> and <code>false</code>.
+					</p>
 					<p>
 						Use cases of this feature include shape reuse and debugging.
 						In scenarios where shapes from other graphs or files are imported into a given <a>shapes graph</a>,
@@ -2081,9 +2091,11 @@ ex:JohnDoe a ex:Person .
 				</p>
 				<p>
 					Informally, property shapes specify constraints that need to be met with respect to <a>nodes</a> that can be reached from the
-					<a>focus node</a> by either (a) directly following a given property (specified as an <a>IRI</a>), (b) directly following any other <a>SHACL property path</a>
-					(specified using <code>sh:path</code>), (c) evaluating the node expression (specified using <code>sh:values</code>),
-					or, (d) if no other values exist, evaluating the node expression (specified using <code>sh:defaultValue</code>).
+					<a>focus node</a> by 
+					(a) directly following a given property (specified as an <a>IRI</a> using <code>sh:path</code>),
+					(b) directly following any other <a>SHACL property path</a> (specified using <code>sh:path</code>), 
+					(c) evaluating the node expression specified using <code>sh:values</code>, or,
+					(d) if no other values exist, evaluating the node expression specified using <code>sh:defaultValue</code>.
 				</p>
 				<p>
 					Note that support for <code>sh:values</code> and <code>sh:defaultValue</code> is not required by SHACL Core,
@@ -2399,7 +2411,7 @@ ex:SomeClass-alternativePathExample
 				<li>At <a href="#property-shapes"><code>sh:values</code> and <code>sh:defaultValue</code></a> to derive the value nodes of a property shape.</li>
 				<li>At <a href="#targetNode"><code>sh:targetNode</code></a> to dynamically compute the targets of a shape.</li>
 				<li>At <a href="#ExpressionConstraintComponent"><code>sh:expression</code></a> to validate nodes against a condition.</li>
-				<li>At <a href="#deactivated"><code>sh:deactivated</code></a> to deactivate certain shapes under specific conditions. <span class="todo">TODO: This change needs to be made still, see ISSUE 338.</span></li>
+				<li>At <a href="#deactivated"><code>sh:deactivated</code></a> to deactivate certain shapes under specific conditions.</li>
 			</ul>
 			<p>
 				Readers who are only interested in SHACL Core can typically skip this section.
@@ -2525,6 +2537,10 @@ ex:SomeClass-alternativePathExample
 				<p>
 					The data graph is expected to include all the ontology axioms related to the data and especially all the
 					<code>rdfs:subClassOf</code> triples in order for SHACL to correctly identify class targets and validate Core SHACL constraints.
+				</p>
+				<p class="note">
+					<code>owl:imports</code> in the data graph is not enacted, in order to avoid uncontrolled increase of validation work. If you want to validate 
+					several related ontologies, pass all of them to the SHACL processor (together or one by one), do not rely on <code>owl:imports</code> links.
 				</p>
 			</section>
 			
@@ -5030,6 +5046,53 @@ ex:Bob ex:address "123 Prinzengasse, Vaduz, Liechtenstein" .
 							</div>
 						</div>
 					</aside>
+
+					<p>
+						Note that all constraints in SHACL get ANDed for execution. Consider the following example:
+					</p>
+
+<aside class="example">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:shapeRoot a sh:NodeShape;
+  	sh:or
+    	(ex:shapeA ex:shapeB),
+    	(ex:shapeC ex:shapeD).
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:shapeRoot",
+	"@type": "sh:NodeShape",
+	"sh:or": [
+	{
+		"@list": [
+		{
+			"@id": "ex:shapeA"
+		},
+		{
+			"@id": "ex:shapeB"
+		}
+		]
+	},
+	{
+		"@list": [
+		{
+			"@id": "ex:shapeC"
+		},
+		{
+			"@id": "ex:shapeD"
+		}
+		]
+	}
+	]
+}</pre>
+							</div>
+						</div>
+					</aside>
+					<p>
+						The correct interpretation is (<code>shapeA</code> OR <code>shapeB</code>) AND (<code>shapeC</code> OR <code>shapeD</code>).
+						The target nodes need to conform to <code>shapeA</code> or <code>shapeB</code>, and then also <code>shapeC</code> or <code>shapeD</code>.
+					</p>
 				</section>
 				
 				<section id="XoneConstraintComponent">
@@ -5727,6 +5790,102 @@ ex:HandShape
 		"@id": "ex:Hand"
 	}
 }</pre>
+							</div>
+						</div>
+					</aside>
+				</section>
+
+				<section id="ReifierShapeShapeConstraintComponent">
+					<h4>sh:reifierShape, sh:reificationRequired</h4>
+					<p>
+						<code>sh:reifierShape</code> can be used to link a <a>property shape</a> with one or more <a>node shapes</a>.
+						Any <a>reifier</a> must conform to these node shapes.
+					</p>
+
+					<div class="parameters">Parameters:</div>
+					<table class="term-table">
+						<tr>
+							<th>Property</th>
+							<th>Summary and Syntax Rules</th>
+						</tr>
+						<tr>
+							<td><code>sh:reifierShape</code></td>
+							<td>
+								The <a>node shape</a> that a reifier for this triple must conform to.
+								<span data-syntax-rule="reifierShape-node">
+									The values of <code>sh:reifierShape</code> must be <a>well-formed</a> <a>node shapes</a>.
+									If a value for <code>sh:reifierShape</code> is given, <code>sh:path</code> values are constrained to IRIs.
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<td><code>sh:reificationRequired</code></td>
+							<td>
+								This is an <a>optional parameter</a> of <code>sh:ReifierShapeConstraintComponent</code>.
+								If set to <code>true</code>, there must be at least one reification value for the focus node/path combination in the <a>data graph</a>.
+								<span data-syntax-rule="reificationRequired-datatype">The values of <code>sh:reificationRequired</code> in a shape are literals with datatype <code>xsd:boolean</code>.</span>
+							</td>
+						</tr>
+					</table>
+
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION</div>
+						<div class="def-text-body" data-validator="ReifierShape">
+							Let <code>t</code> be the <a>triple term</a> (<a>focus node</a>,  <code>$path</code>, <a>value node</a>).
+							For each <a>reifier</a> for the <a>triple term</a> <code>t</code>, a failure MUST be produced if validating the <a>reifier</a> against the <a>node shape</a> <code>$reifierShape</code> with the <a>reifier</a> as <a>focus node</a> produces a <a>failure</a>.
+							For each <a>reifier</a> <code>t</code> that does not conform to <code>$reifierShape</code>, there is a validation result with <code>t</code> as <code>sh:value</code>.
+						</div>
+					</div>
+
+					<div class="def def-text">
+						<div class="def-header">TEXTUAL DEFINITION of sh:reificationRequired</div>
+						<div class="def-text-body" data-validator="ReificationRequired">
+							If <code>$reificationRequired</code> is set to <code>true</code> and there is no reified statement for the <a>triple term</a> <code>t</code> in the <a>data graph</a>, there is a validation result with <code>t</code> as <code>sh:value</code>.
+						</div>
+					</div>
+
+					<aside class="example">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:ProvenanceShape
+  a sh:NodeShape ;
+  sh:property [
+    sh:path ex:date ;
+    sh:datatype xsd:date ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path ex:author ;
+    sh:nodeKind sh:IRI ;
+    sh:maxCount 1 ;
+  ] .
+
+ex:PersonShape
+  a sh:NodeShape ;
+  sh:targetClass ex:Person ;
+  sh:property ex:PersonShape-age .
+
+ex:PersonShape-age
+  a sh:PropertyShape ;
+  sh:path ex:age ;
+  sh:datatype xsd:integer ;
+  sh:maxCount 1 ;
+  sh:reifierShape ex:ProvenanceShape ;
+  sh:reificationRequired true .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld"></pre>
+							</div>
+						</div>
+						<div class="data-graph">
+							<div class="turtle">
+ex:Bob ex:age 23 {|
+  ex:date "2019-12-05"^^xsd:date .
+  ex:author ex:Claire
+|}.
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld"></pre>
 							</div>
 						</div>
 					</aside>
@@ -6590,7 +6749,7 @@ ex:NameGroup
 		<section class="appendix informative" id="changes-12">
 			<h2>Changes between SHACL 1.0 Core and SHACL 1.2 Core</h2>
 			<ul>
-				<li>Introduced <a>node expressions</a> as an extension point to dynamically compute lists of nodes. Generalized <code>sh:targetNode</code> and <code>sh:defaultValue</code>, and introduced <code>sh:values</code> to support node expressions.</li>
+				<li>Introduced <a>node expressions</a> as an extension point to dynamically compute lists of nodes. Generalized <code>sh:targetNode</code>, <code>sh:deactivated</code> and <code>sh:defaultValue</code>, and introduced <code>sh:values</code> to support node expressions.</li>
 				<li>Added the new constraint component <a href="#SingleLineConstraintComponent"><code>sh:singleLine</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/177">Issue 177</a></li>
 				<li>Added the new class <a href="#ShapeClass"><code>sh:ShapeClass</code></a> for implicit class targets, see <a href="https://github.com/w3c/data-shapes/issues/212">Issue 212</a></li>
 				<li>Moved SPARQL-based validators from Core to an Appendix of SHACL-SPARQL, see <a href="https://github.com/w3c/data-shapes/issues/271">Issue 271</a></li>
