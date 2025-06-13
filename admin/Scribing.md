@@ -3,6 +3,7 @@
 
 ## Scribes
 
+* 2025-06-16: simonstey
 * 2025-06-09: David
 * 2025-06-02: AndyS
 * 2025-05-26: PapoutsoglouE
