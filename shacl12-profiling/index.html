@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en-US">
+	<head>
+		<meta charset="utf-8" />
+		<title>SHACL 1.2 Profiling</title>
+		<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
+		<script class="remove">
+
+			function prepareSyntaxRules() {
+				document.querySelectorAll("[data-syntax-rule]").forEach(element => {
+					let ruleId = element.getAttribute("data-syntax-rule");
+					let tr = document.createElement("tr");
+					tr.classList.add("syntax-rule-tr");
+					let td1 = document.createElement("td");
+					td1.classList.add("syntax-rule-id");
+					let a = document.createElement("a");
+					a.classList.add("syntax-rule-id-a");
+					a.href = "#syntax-rule-" + ruleId;
+					a.textContent = ruleId;
+					td1.appendChild(a);
+					let td2 = document.createElement("td");
+					td2.innerHTML = element.innerHTML;
+					tr.appendChild(td1);
+					tr.appendChild(td2);
+
+					// Replace <dfn> elements inside `tr` with <a> elements
+					tr.querySelectorAll("dfn").forEach(dfn => {
+    					let a = document.createElement("a");
+    					a.textContent = dfn.textContent;
+    					dfn.replaceWith(a);
+					});
+
+					document.getElementById("syntax-rules-table").appendChild(tr);
+					element.setAttribute("id", "syntax-rule-" + ruleId);
+				});
+			}
+
+			function prepareValidators() {
+				document.querySelectorAll("[data-validator]").forEach(element => {
+					let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+					let tr = document.createElement("tr");
+					tr.classList.add("validator-tr");
+					let td = document.createElement("td");
+					tr.appendChild(td);
+					let a = document.createElement("a");
+					a.classList.add("validator-id-a");
+					a.href = `#validator-${validatorId}`;
+					a.textContent = `sh:${validatorId}`;
+					td.appendChild(a);
+					td.innerHTML += ": " + element.innerHTML;
+					document.getElementById("validators-table").appendChild(tr);
+					element.id = "validator-" + validatorId;
+				});
+			}
+
+			document.addEventListener("DOMContentLoaded", () => {
+				// Replace code div blocks in shapes, data, and results graph with tabs
+				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+					const tabs = document.createElement("aside");
+					tabs.classList.add("ds-selector-tabs");
+					graph.firstElementChild.classList.add("selected");
+
+					for (const child of graph.children) {
+						child.classList.add("tab");
+					}
+
+					tabs.append(...graph.children);
+					graph.append(tabs)
+				}
+
+				// Generate buttons for the selection logic
+				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+					const selectors = document.createElement("div");
+					selectors.classList.add("selectors");
+					selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						<button data-selects="jsonld">JSON-LD</button>
+					`
+
+					tabs.prepend(selectors);
+				}
+
+				// Add example button selection logic
+				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+					button.onclick = () => {
+						const ex = button.closest(".ds-selector-tabs");
+						ex.querySelector("button.selected").classList.remove("selected");
+						ex.querySelector(".selected").classList.remove("selected");
+						button.classList.add('selected');
+						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+					}
+				}
+			});
+
+			var respecConfig = {
+				localBiblio: {},
+
+				specStatus: "ED",
+				group: "wg/data-shapes",
+				github: "w3c/data-shapes",
+				//preProcess:     [  ],
+				edDraftURI: "https://w3c.github.io/data-shapes/shacl12-profiling/",
+				shortName: "shacl12-profiling",
+				copyrightStart: "2025",
+				xref: ["RDF12-CONCEPTS", "SHACL-CORE"],
+
+				// (fix and) RemoveMe
+				lint: { "no-unused-dfns": false },
+
+				editors: [
+					{
+						name:       "Simon Werner",
+						company:    "Taxonic",
+						companyURL: "https://www.taxonic.com/",
+						mailto:     "simon.werner@taxonic.com",
+						w3cid:      164386
+					},
+					{
+						name:       "Alexandre Bertails",
+						company:    "Netflix Inc.",
+						companyURL: "https://www.netflix.com/",
+						mailto:     "abertails@netflix.com",
+						w3cid:      43745
+					},
+					{
+						name:       "Yousouf Taghzouti",
+						company:    "Inria",
+						companyURL: "https://www.inria.fr/",
+						mailto:     "yousouf.taghzouti@inria.fr",
+						w3cid:      143054
+					},
+					{
+						name:       "Nicholas Car",
+						company:    "KurrawongAI",
+						companyURL: "https://kurrawong.ai/",
+						mailto:     "nick@kurrawong.ai",
+						w3cid:      70131
+					},					{
+						name:       "Scott Henninger",
+						company:    "JPMorgan Chase & Co.",
+						companyURL: "https://www.jpmorganchase.com/",
+						mailto:     "scotthenninger@gmail.com",
+						w3cid:      80464
+					},
+					
+				]
+			};
+		</script>
+		<style>
+
+			pre {
+				tab-size: 3;
+				-moz-tab-size: 3; /* Code for Firefox */
+				-o-tab-size: 3; /* Code for Opera */
+			}
+
+			th {
+				text-align: left;
+			}
+			table.rule { background-color: #EBEBE0; }
+			table.rule td { text-align: center; }
+			td.up { border-bottom:1px solid black; }
+
+			td {
+				vertical-align: top;
+			}
+
+			.algorithm {
+				background: #fafafc;
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #c0c0c0;
+				margin-bottom: 16px;
+				padding: 8px;
+			}
+
+			.arg {
+				font-weight: bold;
+				color: #000080;
+			}
+
+			.def {
+				background: #fcfcfc;
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #c0c0c0;
+				margin-bottom: 16px;
+			}
+
+			.def-text {
+			}
+
+			.def-text-body {
+			}
+
+			.def-header {
+				color: #a0a0a0;
+				font-size: 16px;
+				padding-bottom: 8px;
+			}
+
+			.diagram-class {
+				border: 1px solid black;
+				border-radius: 4px;
+				width: 360px;
+			}
+
+			.diagram-class-name {
+				font-size: 16px;
+				font-weight: bold;
+				text-align: center;
+			}
+
+			.diagram-class-properties {
+				border-top: 1px solid black;
+			}
+
+			.diagram-class-properties-start {
+				padding: 8px;
+			}
+
+			.diagram-class-properties-section {
+				border-top: 1px dashed #808080;
+				padding: 8px;
+			}
+
+			.example {
+				overflow-y: hidden !important;
+			}
+
+			.focus-node-selected {
+				color: blue;
+			}
+			.focus-node-error {
+				color: red;
+			}
+
+			.triple-can-be-skipped {
+				color: grey;
+			}
+			.focus-node-error {
+				color: red;
+			}
+
+			.target-can-be-skipped {
+				color: darkslategray;
+				font-style: italic;
+			}
+
+			.component-class {
+				font-weight: bold;
+				font-size: 16px;
+			}
+
+			.parameter-context {
+				font-weight: bold;
+				font-size: 16px;
+			}
+
+			.parameters {
+				font-weight: bold;
+				font-size: 16px;
+			}
+
+			.part-header {
+				font-weight: bold;
+			}
+
+			.syntax {
+				border-left-style: solid;
+				border-left-width: .5em;
+				border-color: #d0d0d0;
+				margin-bottom: 16px;
+				padding: .5em 1em;
+				background-color: #f6f6f6;
+			}
+
+			.syntax-rule-id {
+				padding-right: 10px;
+			}
+
+			.syntax-rule-id-a {
+				white-space: nowrap;
+			}
+
+			.validator-id-a {
+				font-weight: bold;
+				white-space: nowrap;
+			}
+
+			.term {
+				font-style: italic;
+			}
+
+			.term-def-header {
+				font-style: italic;
+				font-weight: bold;
+			}
+
+			.term-table {
+				border-collapse: collapse;
+				border-color: #000000;
+				margin: 16px;
+			}
+
+			.term-table td, th {
+				border-width: 1px;
+				border-style: solid;
+				padding: 5px;
+			}
+
+			.todo {
+				color: red;
+			}
+
+			pre {
+				word-wrap: normal;
+			}
+
+			.turtle {
+				font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+				font-size: 14.4px;
+				hyphens: none;
+				overflow-x: auto;
+				padding: .5em;
+				tab-size: 3;
+				-moz-tab-size: 3; /* Code for Firefox */
+				-o-tab-size: 3; /* Code for Opera */
+				text-align: start;
+				margin-bottom: -1.5em;
+				margin-top: -1.5em;
+				white-space: pre;
+			}
+
+			.data-graph {
+				background: #eeb;
+				border: 1px solid #cc9;
+				margin-top: 0.3em;
+			}
+			.data-graph:before {
+				color: #996;
+				content: "Data graph";
+				padding-left: 0.4em;
+			}
+
+			.results-graph {
+				background: #edb;
+				border: 1px solid #bbb;
+				margin-top: 0.3em;
+			}
+			.results-graph:before {
+				color: #997;
+				content: "Validation results";
+				padding-left: 0.4em;
+			}
+
+			.shapes-graph {
+				background: #deb;
+				border: 1px solid #bbb;
+				margin-top: 0.3em;
+			}
+			.shapes-graph:before {
+				color: #888;
+				content: "Shapes graph";
+				padding-left: 0.4em;
+			}
+
+			/* no dark mode, keep colors for shapes-graph, data-graph, and results graph background */
+			code.hljs {
+				--base: transparent;
+				--mono-1: #383a42;
+			}
+
+			/* our syntax menu for switching */
+			div.syntaxmenu {
+				border: 1px dotted black;
+				padding:0.5em;
+				margin: 1em;
+			}
+
+			@media print {
+				div.syntaxmenu { display:none; }
+			}
+
+			/* example tab selection */
+			.ds-selector-tabs .selectors {
+				padding: 0;
+				border-bottom: 1px solid #ccc;
+				height: 28px;
+			}
+			.ds-selector-tabs .selectors button {
+				display: inline-block;
+				min-width: 54px;
+				text-align: center;
+				font-size: 11px;
+				font-weight: bold;
+				height: 27px;
+				padding: 0 8px;
+				line-height: 27px;
+				transition: all,0.218s;
+				border-top-right-radius: 2px;
+				border-top-left-radius: 2px;
+				color: #666;
+				border: 1px solid transparent;
+			}
+			.ds-selector-tabs .selectors button:first-child {
+				margin-left: 2px;
+			}
+			.ds-selector-tabs .selectors button.selected {
+				color: #202020 !important;
+				border: 1px solid #ccc;
+				border-bottom: 1px solid #fff !important;
+			}
+			.ds-selector-tabs .selectors button:hover {
+				background-color: transparent;
+				color: #202020;
+				cursor: pointer;
+			}
+			.ds-selector-tabs .tab {
+				display: none;
+			}
+			.ds-selector-tabs .selected {
+				display: block;
+			}
+		</style>
+	</head>
+	<body>
+		<section id="abstract">
+			<p>
+				This document defines extensions of the SHACL Shapes Constraint Language created to allow for the profiling of specifications.
+			</p>
+			<p>
+				SHACL is a language for validating RDF graphs against a set of conditions, so this document's scope is limited to the profiling of RDF graph models, including SHACL-defined models.
+			</p>
+
+			<p style="text-indent: 100px;">
+				The namespace for SHACL Profiling terms is <code><a href="http://www.w3.org/ns/dcat#">http://www.w3.org/ns/shpr#</a></code>
+			</p>
+			<p style="text-indent: 100px;">
+				The suggested prefix for the SHACL Profiling namespace is <code>shpr</code>
+			</p>
+		</section>
+
+		<section id="sotd"></section>
+
+		<section id="introduction">
+			<h2>Introduction</h2>
+			<p>SHACL Profiling is the act of creating
+			a <a href="https://www.w3.org/TR/dx-prof/#dfn-profile">profile</a>
+			of an <a href="https://www.w3.org/TR/shacl/#dfn-rdf-graph">RDF graph</a>
+			using SHACL...
+
+			<section id="terminology">
+				<h3>Terminology</h3>
+
+				<p>
+					Terminology used throughout this document is consistent with several sources:
+				</p>
+				<ol>
+					<li>the main SHACL [[shacl]] specification
+						<ul>
+							<li>which references terms from RDF [[rdf11-concepts]]</li>
+							<li>technical terns for SHACL</li>
+						</ul>
+					</li>
+					<li>the Profiles Vocabulary [[dx-prof]], a W3C Dataset Exchange Working Group Note
+						<ul><li>which defines general terms to do with profiling including the terms "profiling" / "profile"</li></ul>
+					</li>
+				</ol>
+				<p>
+					The SHACL terms include
+					<dfn data-lt="bindings">
+						<a href="https://www.w3.org/TR/shacl/#dfn-binding">binding</a>
+					</dfn>
+					,
+					<dfn data-lt="blank nodes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-blank-node">blank node</a>
+					</dfn>
+					,
+					<dfn data-lt="conform|conforms">
+						<a href="https://www.w3.org/TR/shacl/#dfn-conforms">conformance</a>
+					</dfn>
+					,
+					<dfn data-lt="constraints">
+						<a href="https://www.w3.org/TR/shacl/#dfn-constraint">constraint</a>
+					</dfn>
+					,
+					<dfn data-lt="constraint components">
+						<a href="https://www.w3.org/TR/shacl/#dfn-constraint-component">constraint component</a>
+					</dfn>
+					,
+					<dfn data-lt="data graphs">
+						<a href="https://www.w3.org/TR/shacl/#dfn-data-graph">data graph</a>
+					</dfn>
+					,
+					<dfn data-lt="datatypes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-datatype">datatype</a>
+					</dfn>
+					,
+					<dfn data-lt="failures">
+						<a href="https://www.w3.org/TR/shacl/#dfn-failure">failure</a>
+					</dfn>
+					,
+					<dfn data-lt="focus nodes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-focus-node">focus node</a>
+					</dfn>
+					,
+					<dfn data-lt="RDF graphs|graphs|graph">
+						<a href="https://www.w3.org/TR/shacl/#dfn-rdf-graph">RDF graph</a>
+					</dfn>
+					,
+					<dfn><a href="https://www.w3.org/TR/shacl/#dfn-ill-formed">ill-formed</a></dfn>
+					,
+					<dfn data-lt="IRIs"><a href="https://www.w3.org/TR/shacl/#dfn-iri">IRI</a></dfn>
+					,
+					<dfn data-lt="literals">
+						<a href="https://www.w3.org/TR/shacl/#dfn-literal">literal</a>
+					</dfn>
+					,
+					<dfn data-lt="local names">
+						<a href="https://www.w3.org/TR/shacl/#dfn-local-name">local name</a>
+					</dfn>
+					,
+					<dfn data-lt="members">
+						<a href="https://www.w3.org/TR/shacl/#dfn-members">member</a>
+					</dfn>
+					,
+					<dfn data-lt="nodes|RDF node">
+						<a href="https://www.w3.org/TR/shacl/#dfn-node">node</a>
+					</dfn>
+					,
+					<dfn data-lt="node shapes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-node-shape">node shape</a>
+					</dfn>
+					,
+					<dfn data-lt="objects">
+						<a href="https://www.w3.org/TR/shacl/#dfn-object">object</a>
+					</dfn>
+					,
+					<dfn data-lt="parameters">
+						<a href="https://www.w3.org/TR/shacl/#dfn-parameters">parameter</a>
+					</dfn>
+					,
+					<dfn data-lt="pre-bind|pre-bound">
+						<a href="https://www.w3.org/TR/shacl/#pre-binding">pre-binding</a>
+					</dfn>
+					,
+					<dfn data-lt="predicates">
+						<a href="https://www.w3.org/TR/shacl/#dfn-predicate">predicate</a>
+					</dfn>
+					,
+					<dfn data-lt="property paths">
+						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-property-path">property path</a>
+					</dfn>
+					,
+					<dfn data-lt="property shapes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-property-shape">property shape</a>
+					</dfn>
+					,
+					<dfn data-lt="RDF terms|terms|term">
+						<a href="https://www.w3.org/TR/shacl/#dfn-rdf-term">RDF term</a>
+					</dfn>
+					,
+					<dfn data-lt="SHACL instances">
+						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-instance">SHACL instance</a>
+					</dfn>
+					,
+					<dfn data-lt="SHACL lists">
+						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-list">SHACL list</a>
+					</dfn>
+					,
+					<dfn data-lt="SHACL subclasses">
+						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-subclass">SHACL subclass</a>
+					</dfn>
+					,
+					<dfn data-lt="shapes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-shape">shape</a>
+					</dfn>
+					,
+					<dfn data-lt="shapes graphs">
+						<a href="https://www.w3.org/TR/shacl/#dfn-shapes-graph">shapes graph</a>
+					</dfn>
+					,
+					<dfn data-lt="solutions">
+						<a href="https://www.w3.org/TR/shacl/#dfn-solution">solution</a>
+					</dfn>
+					,
+					<dfn data-lt="subjects">
+						<a href="https://www.w3.org/TR/shacl/#dfn-subject">subject</a>
+					</dfn>
+					,
+					<dfn data-lt="targets">
+						<a href="https://www.w3.org/TR/shacl/#dfn-target">target</a>
+					</dfn>
+					,
+					<dfn data-lt="triples">
+						<a href="https://www.w3.org/TR/shacl/#dfn-rdf-triple">triple</a>
+					</dfn>
+					,
+					<dfn><a href="https://www.w3.org/TR/shacl/#dfn-validation">validation</a></dfn>
+					,
+					<dfn data-lt="validation reports">
+						<a href="https://www.w3.org/TR/shacl/#dfn-validation-report">validation report</a>
+					</dfn>
+					,
+					<dfn data-lt="validation results">
+						<a href="https://www.w3.org/TR/shacl/#dfn-validation-results">validation result</a>
+					</dfn>
+					,
+					<dfn data-lt="validators">
+						<a href="https://www.w3.org/TR/shacl/#dfn-validators">validator</a>
+					</dfn>
+					,
+					<dfn data-lt="values">
+						<a href="https://www.w3.org/TR/shacl/#dfn-value">value</a>
+					</dfn>
+					,
+					<dfn data-lt="value nodes">
+						<a href="https://www.w3.org/TR/shacl/#dfn-value-nodes">value node</a>
+					</dfn>
+					.
+				</p>
+				<p>
+					The general profiling terms include
+					<dfn data-lt="specification|specifications">
+						<a href="https://www.w3.org/TR/dx-prof/#dfn-specification">specification</a>
+					</dfn>
+					,
+					<dfn data-lt="data profile|profile|profiles">
+						<a href="https://www.w3.org/TR/dx-prof/#dfn-profile">[data] profile</a>
+					</dfn>
+					,
+					<dfn data-lt="metadata">
+						<a href="https://www.w3.org/TR/dx-prof/#dfn-metadata">metadata</a>
+					</dfn>
+					.
+				</p>
+			</section>
+			<section id="conventions">
+				<h3>Document Conventions</h3>
+				<p>
+					Within this document, the following namespace prefix definitions are used:
+				</p>
+				<table class="term-table">
+					<tr>
+						<th>Prefix</th>
+						<th>Namespace</th>
+					</tr>
+					<tr>
+						<td><code>rdf:</code></td>
+						<td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
+					</tr>
+					<tr>
+						<td><code>rdfs:</code></td>
+						<td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:</code></td>
+						<td><code><a href="http://www.w3.org/ns/shacl">http://www.w3.org/ns/shacl#</a></code></td>
+					</tr>
+					<tr>
+						<td><code>xsd:</code></td>
+						<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
+					</tr>
+					<tr>
+						<td><code>ex:</code></td>
+						<td><code>http://example.com/ns#</code></td>
+					</tr>
+				</table>
+
+				<p>
+					Within this document, the following JSON-LD context is used:
+				</p>
+				<pre class="jsonld">{
+  "@context": {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ex": "http://example.com/ns#"
+  }
+}</pre>
+				<p>
+					Note that the URI of the graph defining the SHACL vocabulary itself is equivalent to
+					the namespace above, i.e., it includes the <code>#</code>.
+					References to the SHACL vocabulary, e.g., via <code>owl:imports</code> should include the <code>#</code>.
+				</p>
+				<p>
+					Throughout the document, color-coded boxes containing RDF graphs in Turtle and JSON-LD will appear.
+					The color and title of a box indicate whether it is a Shapes graph, a Data graph, or something else.
+					The Turtle document fragments use the prefix bindings given above.
+					The JSON-LD document fragments use the context given above.
+					Only the Turtle documents will have parts highlighted.
+				</p>
+
+				<div class="shapes-graph">
+					<div class="turtle">
+# This box represents an input shapes graph
+
+# Triples that can be omitted are marked as grey, e.g. --
+<span class="triple-can-be-skipped">&lt;s&gt; &lt;p&gt; &lt;o&gt; .</span>
+						</div>
+				  <div class="jsonld">
+						<pre class="text">// This box represents an input shapes graph</pre>
+					  <pre class="jsonld">{
+  "@id": "ex:s",
+  "ex:p": {
+    "@id": "ex:o"
+  }
+}</pre>
+				  </div>
+				</div>
+
+				<div class="data-graph">
+					<div class="turtle">
+# This box represents an input data graph.
+# When highlighting is used in the examples:
+
+# Elements highlighted in blue are <a>focus nodes</a>
+<span class="focus-node-selected">ex:Bob</span> a ex:Person .
+
+# Elements highlighted in red are focus nodes that fail validation
+<span class="focus-node-error">ex:Alice</span> a ex:Person .
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an input data graph</pre>
+						<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person"
+		}
+	]
+}</pre>
+					</div>
+				</div>
+
+				<div class="results-graph">
+					<div class="turtle">
+# This box represents an output results graph
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an output results graph</pre>
+					</div>
+				</div>
+
+				<p class="syntax">
+					Grey boxes such as this include syntax rules that apply to the <a>shapes graph</a>.
+				</p>
+
+				<p>
+					<code>true</code> denotes the RDF term <code>"true"^^xsd:boolean</code>.
+					<code>false</code> denotes the RDF term <code>"false"^^xsd:boolean</code>.
+				</p>
+
+			</section>
+			<section id="conformance">
+				<p>TODO</p>
+			</section>
+		</section>
+
+		<section id="section">
+			<h2>Section</h2>
+			<p>Content.</p>
+		</section>
+
+		<section id="syntax-rules" class="appendix">
+			<h2>Summary of Syntax Rules from this Document</h2>
+		</section>
+
+		<section id="security">
+			<h2>Security Considerations</h2>
+			<p>TODO</p>
+		</section>
+
+		<section id="privacy">
+			<h2>Privacy Considerations</h2>
+			<p>TODO</p>
+		</section>
+
+		<section id="ack" class="appendix informative">
+			<h2>Acknowledgements</h2>
+			<p>Many people contributed to this document, including members of the RDF Data Shapes Working Group.</p>
+		</section>
+
+		<section id="internationalization">
+			<h2>Internationalization Considerations</h2>
+			<p>TODO</p>
+		</section>
+
+		<section id="index"></section>
+
+		<section class="appendix" id="issue-summary">
+			<!-- A list of issues will magically appear here -->
+		</section>
+	</body>
+</html>
