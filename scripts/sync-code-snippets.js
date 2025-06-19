@@ -15,11 +15,14 @@ rdf.formats.import(pretty)
 
 const ignore = new Set([
   'shacl12-core/5', // can be removed when https://github.com/rubensworks/jsonld-streaming-parser.js/issues/130 is fixed
-  'shacl12-core/74' // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-core/74', // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-sparql/3', // can be removed when https://github.com/rubensworks/jsonld-streaming-parser.js/issues/130 is fixed
+  'shacl12-sparql/6', // can be removed when https://github.com/rubensworks/jsonld-streaming-parser.js/issues/130 is fixed
 ])
 
 const jsonldContext = {
   '@context': {
+    owl: 'http://www.w3.org/2002/07/owl#',
     rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
     rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
     sh: 'http://www.w3.org/ns/shacl#',
@@ -29,6 +32,7 @@ const jsonldContext = {
 }
 
 const turtlePrefixes = `
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix sh: <http://www.w3.org/ns/shacl#>.
