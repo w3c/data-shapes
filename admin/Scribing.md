@@ -3,7 +3,7 @@
 
 ## Scribes
 
-* 2025-06-23:  
+* 2025-06-23: (No meeting)
 * 2025-06-16: simonstey
 * 2025-06-09: David
 * 2025-06-02: AndyS
