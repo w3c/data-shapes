@@ -3,6 +3,8 @@
 
 ## Scribes
 
+* 2025-07-07:  
+* 2025-06-30: mgberg
 * 2025-06-23: (No meeting)
 * 2025-06-16: simonstey
 * 2025-06-09: David
