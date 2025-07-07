@@ -52,7 +52,46 @@
 					element.id = "validator-" + validatorId;
 				});
 			}
-		
+
+			document.addEventListener("DOMContentLoaded", () => {
+				// Replace code div blocks in shapes, data, and results graph with tabs
+				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+					const tabs = document.createElement("aside");
+					tabs.classList.add("ds-selector-tabs");
+					graph.firstElementChild.classList.add("selected");
+
+					for (const child of graph.children) {
+						child.classList.add("tab");
+					}
+
+					tabs.append(...graph.children);
+					graph.append(tabs)
+				}
+
+				// Generate buttons for the selection logic
+				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+					const selectors = document.createElement("div");
+					selectors.classList.add("selectors");
+					selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						<button data-selects="jsonld">JSON-LD</button>
+					`
+
+					tabs.prepend(selectors);
+				}
+
+				// Add example button selection logic
+				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+					button.onclick = () => {
+						const ex = button.closest(".ds-selector-tabs");
+						ex.querySelector("button.selected").classList.remove("selected");
+						ex.querySelector(".selected").classList.remove("selected");
+						button.classList.add('selected');
+						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+					}
+				}
+			});
+
 			var respecConfig = {
 				group: "wg/data-shapes",
 				github: "w3c/data-shapes",
@@ -319,6 +358,52 @@
 				padding-left: 0.4em;
 			}
 
+			/* no dark mode, keep colors for shapes-graph, data-graph, and results graph background */
+			code.hljs {
+				--base: transparent;
+				--mono-1: #383a42;
+			}
+
+			/* example tab selection */
+			.ds-selector-tabs .selectors {
+				padding: 0;
+				border-bottom: 1px solid #ccc;
+				height: 28px;
+			}
+			.ds-selector-tabs .selectors button {
+				display: inline-block;
+				min-width: 54px;
+				text-align: center;
+				font-size: 11px;
+				font-weight: bold;
+				height: 27px;
+				padding: 0 8px;
+				line-height: 27px;
+				transition: all,0.218s;
+				border-top-right-radius: 2px;
+				border-top-left-radius: 2px;
+				color: #666;
+				border: 1px solid transparent;
+			}
+			.ds-selector-tabs .selectors button:first-child {
+				margin-left: 2px;
+			}
+			.ds-selector-tabs .selectors button.selected {
+				color: #202020 !important;
+				border: 1px solid #ccc;
+				border-bottom: 1px solid #fff !important;
+			}
+			.ds-selector-tabs .selectors button:hover {
+				background-color: transparent;
+				color: #202020;
+				cursor: pointer;
+			}
+			.ds-selector-tabs .tab {
+				display: none;
+			}
+			.ds-selector-tabs .selected {
+				display: block;
+			}
 		</style>
 	</head>
 	<body>
@@ -446,6 +531,10 @@
 						<th>Namespace</th>
 					</tr>
 					<tr>
+						<td><code>owl:</code></td>
+						<td><code>http://www.w3.org/2002/07/owl#</code></td>
+					</tr>
+					<tr>
 						<td><code>rdf:</code></td>
 						<td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
 					</tr>
@@ -466,6 +555,20 @@
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
 				</table>
+
+				<p>
+					Within this document, the following JSON-LD context is used:
+				</p>
+				<pre class="jsonld">{
+  "@context": {
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ex": "http://example.com/ns#"
+  }
+}</pre>
 				<p>
 					Note that the URI of the graph defining the SHACL vocabulary itself is equivalent to
 					the namespace above, i.e. it includes the <code>#</code>.
@@ -480,7 +583,16 @@
 # This box represents an input shapes graph
 
 # Triples that can be omitted are marked as grey e.g.
-<span class="triple-can-be-skipped">&lt;s&gt; &lt;p&gt; &lt;o&gt; .</span>
+<span class="triple-can-be-skipped">&lt;s&gt; ex:p &lt;o&gt; .</span>
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an input shapes graph</pre>
+						<pre class="jsonld">{
+	"@id": "s",
+	"ex:p": {
+		"@id": "o"
+	}
+}</pre>
 					</div>
 				</div>
 
@@ -495,11 +607,29 @@
 # Elements highlighted in red are focus nodes that fail validation
 <span class="focus-node-error">ex:Alice</span> a ex:Person .
 					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person"
+		}
+	]
+}</pre>
+					</div>
 				</div>
 
 				<div class="results-graph">
 					<div class="turtle">
 # This box represents an output results graph
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an output results graph</pre>
+						<pre class="jsonld">{}</pre>
 					</div>
 				</div>
 
@@ -597,7 +727,34 @@ ex:LanguageExampleShape
 	] .
 
 ex:
-	sh:declare ...   # See <a href="#prefixes-example">prefix declarations</a>	
+	sh:declare [] .   # See <a href="#prefixes-example">prefix declarations</a>
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:LanguageExampleShape",
+			"@type": "sh:NodeShape",
+			"sh:sparql": {
+				"@type": "sh:SPARQLConstraint",
+				"sh:message": "Values are literals with German language tag.",
+				"sh:prefixes": {
+					"@id": "http://example.com/ns#"
+				},
+				"sh:select": "\n\t\t\tSELECT $this (ex:germanLabel AS ?path) ?value\n\t\t\tWHERE {\n\t\t\t\t$this ex:germanLabel ?value .\n\t\t\t\tFILTER (!isLiteral(?value) || !langMatches(lang(?value), \"de\"))\n\t\t\t}\n\t\t\t"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Country"
+			}
+		},
+		{
+			"@id": "http://example.com/ns#",
+			"sh:declare": {
+				"@id": "_:b1"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 					<p>
@@ -612,6 +769,28 @@ ex:ValidCountry a ex:Country ;
 	  
 <span class="focus-node-error">ex:InvalidCountry</span> a ex:Country ;
 	ex:germanLabel "Spain"@en .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:InvalidCountry",
+			"@type": "ex:Country",
+			"ex:germanLabel": {
+				"@language": "en",
+				"@value": "Spain"
+			}
+		},
+		{
+			"@id": "ex:ValidCountry",
+			"@type": "ex:Country",
+			"ex:germanLabel": {
+				"@language": "de",
+				"@value": "Spanien"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 	
@@ -630,6 +809,37 @@ ex:ValidCountry a ex:Country ;
 		# ...
 	]
 ] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": {
+		"@type": "sh:ValidationResult",
+		"sh:focusNode": {
+			"@id": "ex:InvalidCountry"
+		},
+		"sh:resultPath": {
+			"@id": "ex:germanLabel"
+		},
+		"sh:resultSeverity": {
+			"@id": "sh:Violation"
+		},
+		"sh:sourceConstraintComponent": {
+			"@id": "sh:SPARQLConstraintComponent"
+		},
+		"sh:sourceShape": {
+			"@id": "ex:LanguageExampleShape"
+		},
+		"sh:value": {
+			"@language": "en",
+			"@value": "Spain"
+		}
+	}
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -663,7 +873,37 @@ ex:LanguageExamplePropertyShape
 	] .
 
 ex:
-	sh:declare ...   # See <a href="#prefixes-example">prefix declarations</a>	
+	sh:declare [] .   # See <a href="#prefixes-example">prefix declarations</a>
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:LanguageExamplePropertyShape",
+			"@type": "sh:PropertyShape",
+			"sh:path": {
+				"@id": "ex:germanLabel"
+			},
+			"sh:sparql": {
+				"@type": "sh:SPARQLConstraint",
+				"sh:message": "Values are literals with German language tag.",
+				"sh:prefixes": {
+					"@id": "http://example.com/ns#"
+				},
+				"sh:select": "\n\t\t\tSELECT $this ?value\n\t\t\tWHERE {\n\t\t\t\t$this $PATH ?value .\n\t\t\t\tFILTER (!isLiteral(?value) || !langMatches(lang(?value), \"de\"))\n\t\t\t}\n\t\t\t"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Country"
+			}
+		},
+		{
+			"@id": "http://example.com/ns#",
+			"sh:declare": {
+				"@id": "_:b1"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -719,6 +959,31 @@ ex:
 	] ;
 	a owl:Ontology ;    # Optional
 	owl:imports sh: .   # Optional
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "http://example.com/ns#",
+	"@type": "owl:Ontology",
+	"owl:imports": {
+		"@id": "http://www.w3.org/ns/shacl#"
+	},
+	"sh:declare": [
+		{
+			"sh:namespace": {
+				"@type": "xsd:anyURI",
+				"@value": "http://example.com/ns#"
+			},
+			"sh:prefix": "ex"
+		},
+		{
+			"sh:namespace": {
+				"@type": "xsd:anyURI",
+				"@value": "http://schema.org/"
+			},
+			"sh:prefix": "schema"
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -932,9 +1197,9 @@ sh:PatternConstraintComponent
 		sh:path sh:flags ;
 		sh:optional true ;
 	] ;
-	sh:validator shimpl:hasPattern .
+	sh:validator ex:hasPattern .
 
-shimpl:hasPattern
+ex:hasPattern
 	a sh:SPARQLAskValidator ;
 	sh:message "Value does not match pattern {$pattern}" ;
 	sh:ask """
@@ -942,6 +1207,41 @@ shimpl:hasPattern
 			FILTER (!isBlank($value) &amp;&amp; 
 				IF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern)))
 		}""" .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:hasPattern",
+			"@type": "sh:SPARQLAskValidator",
+			"sh:ask": "\n\t\tASK { \n\t\t\tFILTER (!isBlank($value) && \n\t\t\t\tIF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern)))\n\t\t}",
+			"sh:message": "Value does not match pattern {$pattern}"
+		},
+		{
+			"@id": "sh:PatternConstraintComponent",
+			"@type": "sh:ConstraintComponent",
+			"sh:parameter": [
+				{
+					"sh:path": {
+						"@id": "sh:pattern"
+					}
+				},
+				{
+					"sh:optional": {
+						"@type": "xsd:boolean",
+						"@value": "true"
+					},
+					"sh:path": {
+						"@id": "sh:flags"
+					}
+				}
+			],
+			"sh:validator": {
+				"@id": "ex:hasPattern"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -1083,6 +1383,33 @@ ex:LanguageConstraintComponentUsingSELECT
 			"""
 	] .
 								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:LanguageConstraintComponentUsingSELECT",
+	"@type": "sh:ConstraintComponent",
+	"rdfs:label": "Language constraint component",
+	"sh:labelTemplate": "Values are literals with language \"{$lang}\"",
+	"sh:parameter": {
+		"sh:datatype": {
+			"@id": "xsd:string"
+		},
+		"sh:description": "The language tag, e.g. \"de\".",
+		"sh:minLength": {
+			"@type": "xsd:integer",
+			"@value": "2"
+		},
+		"sh:name": "language",
+		"sh:path": {
+			"@id": "ex:lang"
+		}
+	},
+	"sh:propertyValidator": {
+		"@type": "sh:SPARQLSelectValidator",
+		"sh:message": "Values are literals with language \"{?lang}\"",
+		"sh:select": "\n\t\t\tSELECT DISTINCT $this ?value\n\t\t\tWHERE {\n\t\t\t\t$this $PATH ?value .\n\t\t\t\tFILTER (!isLiteral(?value) || !langMatches(lang(?value), $lang))\n\t\t\t}\n\t\t\t"
+	}
+}</pre>
+								</div>
 							</div>
 						</aside>
 						<p>
@@ -1102,6 +1429,29 @@ ex:LanguageExampleShape
 		sh:path ex:englishLabel ;
 		ex:lang "en" ;
 	] .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@id": "ex:LanguageExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:property": [
+		{
+			"ex:lang": "de",
+			"sh:path": {
+				"@id": "ex:germanLabel"
+			}
+		},
+		{
+			"ex:lang": "en",
+			"sh:path": {
+				"@id": "ex:englishLabel"
+			}
+		}
+	],
+	"sh:targetClass": {
+		"@id": "ex:Country"
+	}
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1158,6 +1508,41 @@ ex:hasLang
 			FILTER (isLiteral($value) &amp;&amp; langMatches(lang($value), $lang))
 		}
 		""" .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:hasLang",
+			"@type": "sh:SPARQLAskValidator",
+			"sh:ask": "\n\t\tASK {\n\t\t\tFILTER (isLiteral($value) && langMatches(lang($value), $lang))\n\t\t}\n\t\t",
+			"sh:message": "Values are literals with language \"{$lang}\""
+		},
+		{
+			"@id": "ex:LanguageConstraintComponentUsingASK",
+			"@type": "sh:ConstraintComponent",
+			"rdfs:label": "Language constraint component",
+			"sh:labelTemplate": "Values are literals with language \"{$lang}\"",
+			"sh:parameter": {
+				"sh:datatype": {
+					"@id": "xsd:string"
+				},
+				"sh:description": "The language tag, e.g. \"de\".",
+				"sh:minLength": {
+					"@type": "xsd:integer",
+					"@value": "2"
+				},
+				"sh:name": "language",
+				"sh:path": {
+					"@id": "ex:lang"
+				}
+			},
+			"sh:validator": {
+				"@id": "ex:hasLang"
+			}
+		}
+	]
+}</pre>
 								</div>
 							</div>
 						</aside>
@@ -1385,6 +1770,40 @@ ex:Person-fullName
 		sh:namespace "http://example.org/ns#"^^xsd:anyURI ;
 	] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Person-fullName",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:name": "full name",
+			"sh:path": {
+				"@id": "ex:fullName"
+			},
+			"sh:values": {
+				"sh:prefixes": {
+					"@id": "http://example.org/ns"
+				},
+				"sh:select": "\n\t\t\tSELECT ?fullName\n\t\t\tWHERE {\n\t\t\t\t$this ex:firstName ?firstName .\n\t\t\t\t$this ex:lastName ?lastName .\n\t\t\t\tBIND (CONCAT(?firstName, \" \", ?lastName) AS ?fullName) .\n\t\t\t}\n\t\t"
+			}
+		},
+		{
+			"@id": "http://example.org/ns",
+			"@type": "owl:Ontology",
+			"sh:declare": {
+				"sh:namespace": {
+					"@type": "xsd:anyURI",
+					"@value": "http://example.org/ns#"
+				},
+				"sh:prefix": "ex"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 					<p>
 						This example also illustrates the use of <code>sh:prefixes</code> to insert PREFIX declarations into the beginning of the query before parsing.
@@ -1414,6 +1833,17 @@ ex:ChildShape
 		"""
 	]</b> .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:ChildShape",
+	"@type": "sh:NodeShape",
+	"rdfs:comment": "This shape applies to all persons under 18 years of age.",
+	"rdfs:label": "Child shape",
+	"sh:targetNode": {
+		"sh:select": "\n\t\t\tPREFIX ex: &lt;http://example.org/ns#&gt;\n\t\t\tSELECT ?person\n\t\t\tWHERE {\n\t\t\t\t?person a/rdfs:subClassOf* ex:Person .\n\t\t\t\t?person ex:age ?age .\n\t\t\t\tFILTER (?age &lt; 18) .\n\t\t\t}\n\t\t"
+	}
+}</pre>
+						</div>
 					</div>
 					<p>
 						From the following data graph, only <code>ex:Benjamin</code> is a target node.
@@ -1430,6 +1860,32 @@ ex:Klaus
 
 ex:Bernd
 	a ex:Person .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Benjamin",
+			"@type": "ex:Person",
+			"ex:age": {
+				"@type": "xsd:integer",
+				"@value": "17"
+			}
+		},
+		{
+			"@id": "ex:Bernd",
+			"@type": "ex:Person"
+		},
+		{
+			"@id": "ex:Klaus",
+			"@type": "ex:Person",
+			"ex:age": {
+				"@type": "xsd:integer",
+				"@value": "48"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -1484,6 +1940,22 @@ ex:Resource-uriLength
 	]</b> ;
 	sh:datatype xsd:integer .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:Resource-uriLength",
+	"@type": "sh:PropertyShape",
+	"sh:datatype": {
+		"@id": "xsd:integer"
+	},
+	"sh:name": "uri length",
+	"sh:path": {
+		"@id": "ex:uriLength"
+	},
+	"sh:values": {
+		"sh:sparqlExpr": "STRLEN(STR($this))"
+	}
+}</pre>
+						</div>
 					</div>
 					<p>
 						When applied to a focus node with URI <code>http://example.org/ns#Test</code> the result will be <code>26</code>.
@@ -1503,6 +1975,22 @@ ex:Resource-uriLength
 		""" ;
 	]</b> ;
 	sh:datatype xsd:integer .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:Resource-uriLength",
+	"@type": "sh:PropertyShape",
+	"sh:datatype": {
+		"@id": "xsd:integer"
+	},
+	"sh:name": "uri length",
+	"sh:path": {
+		"@id": "ex:uriLength"
+	},
+	"sh:values": {
+		"sh:select": "\n\t\t\tSELECT (STRLEN(STR($this)) AS ?result)\n\t\t\tWHERE {\n\t\t\t}\n\t\t"
+	}
+}</pre>
 						</div>
 					</div>
 					<p>
