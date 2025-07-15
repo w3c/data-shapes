@@ -74,7 +74,7 @@ shsh:ShapeShape
 		sh:ignoredProperties, sh:in, sh:languageIn, sh:lessThan, sh:lessThanOrEquals, sh:maxCount, sh:maxExclusive,
 		sh:maxInclusive, sh:maxLength, sh:memberShape, sh:minCount, sh:minExclusive, sh:minInclusive, sh:minLength, sh:node, sh:nodeKind,
 		sh:not, sh:or, sh:pattern, sh:property, sh:qualifiedMaxCount, sh:qualifiedMinCount, sh:qualifiedValueShape,
-		sh:qualifiedValueShape, sh:qualifiedValueShapesDisjoint, sh:qualifiedValueShapesDisjoint, sh:uniqueLang, sh:xone ,
+		sh:qualifiedValueShape, sh:qualifiedValueShapesDisjoint, sh:qualifiedValueShapesDisjoint, sh:uniqueLang, sh:xone,
 		sh:minListLength, sh:maxListLength, sh:uniqueMembers ;
 
 	sh:targetObjectsOf sh:memberShape ; # memberShape-node
@@ -123,14 +123,16 @@ shsh:ShapeShape
 		sh:maxCount 1 ;                 # deactivated-maxCount
 		sh:datatype xsd:boolean ;       # deactivated-datatype
 	] ;
-
 	sh:property [
 		sh:path sh:and ;
-		sh:node shsh:ListShape ;        # and-node
+		sh:memberShape shsh:ShapeShape ;   # and-memberShape
 	] ;
 	sh:property [
 		sh:path sh:class ;
-		sh:nodeKind sh:IRI ;            # class-nodeKind
+		sh:or (
+			[ sh:nodeKind sh:IRI ]
+			[ sh:memberShape [ sh:nodeKind sh:IRI ] ]
+		) ;            # class-nodeKind
 	] ;
 	sh:property [
 		sh:path sh:closed ;
@@ -139,16 +141,16 @@ shsh:ShapeShape
 	] ;
 	sh:property [
 		sh:path sh:ignoredProperties ;
-		sh:node shsh:ListShape ;        # ignoredProperties-node
-		sh:maxCount 1 ;                 # multiple-parameters
-	] ;
-	sh:property [
-		sh:path ( sh:ignoredProperties [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:nodeKind sh:IRI ;            # ignoredProperties-members-nodeKind
+		sh:memberShape [ sh:nodeKind sh:IRI ] ; # languageIn-members-datatype
+		sh:minListLength 1 ;                    # languageIn-members-datatype
+		sh:maxCount 1 ;                         # multiple-parameters
 	] ;
 	sh:property [
 		sh:path sh:datatype ;
-		sh:nodeKind sh:IRI ;            # datatype-nodeKind
+		sh:or (
+			[ sh:nodeKind sh:IRI ]
+			[ sh:memberShape [ sh:nodeKind sh:IRI ] ]
+		) ;            # datatype-nodeKind
 		sh:maxCount 1 ;                 # datatype-maxCount
 	] ;
 	sh:property [
@@ -161,17 +163,14 @@ shsh:ShapeShape
 	] ;
 	sh:property [
 		sh:path sh:in ;
-		sh:maxCount 1 ;                 # in-maxCount		
-		sh:node shsh:ListShape ;        # in-node
+		sh:maxCount 1 ;                     # in-maxCount
+		sh:minListLength 1 ;                # in-minListLength
 	] ;
 	sh:property [
 		sh:path sh:languageIn ;
-		sh:maxCount 1 ;                 # languageIn-maxCount
-		sh:node shsh:ListShape ;        # languageIn-node
-	] ;
-	sh:property [
-		sh:path ( sh:languageIn [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:datatype xsd:string ;        # languageIn-members-datatype
+		sh:maxCount 1 ;                             # languageIn-maxCount
+		sh:minListLength 1 ;                        # languageIn-minListLength
+		sh:memberShape [ sh:datatype xsd:string ] ; # languageIn-members-datatype
 	] ;
 	sh:property [
 		sh:path sh:lessThan ;
@@ -185,7 +184,7 @@ shsh:ShapeShape
 		sh:path sh:maxCount ;
 		sh:datatype xsd:integer ;       # maxCount-datatype
 		sh:maxCount 1 ;                 # maxCount-maxCount
-		sh:minInclusive 0 ;              # maxCount-minInclusive
+		sh:minInclusive 0 ;             # maxCount-minInclusive
 	] ;
 	sh:property [
 		sh:path sh:maxExclusive ;
@@ -253,7 +252,7 @@ shsh:ShapeShape
 	] ;
 	sh:property [
 		sh:path sh:or ;
-		sh:node shsh:ListShape ;        # or-node
+		sh:memberShape shsh:ShapeShape ; # or-memberShape
 	] ;
 	sh:property [
 		sh:path sh:pattern ;
@@ -295,7 +294,7 @@ shsh:ShapeShape
 	] ;
 	sh:property [
 		sh:path sh:xone ;
-		sh:node shsh:ListShape ;        # xone-node
+		sh:memberShape shsh:ShapeShape ; # xone-memberShape
 	] .
 	
 shsh:NodeShapeShape
@@ -346,11 +345,7 @@ shsh:ShapesListShape
 	sh:targetObjectsOf sh:and ;         # and-members-node
 	sh:targetObjectsOf sh:or ;          # or-members-node
 	sh:targetObjectsOf sh:xone ;        # xone-members-node
-	sh:property [
-		sh:path ( [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
-		sh:node shsh:ShapeShape ;
-	] .
-
+	sh:memberShape shsh:ShapeShape .
 
 # A path of blank node path syntax, used to simulate recursion
 _:PathPath
@@ -377,13 +372,15 @@ shsh:PathNodeShape
 	sh:xone (                           # path-metarule
 			[ sh:nodeKind sh:IRI ]          # 2.3.1.1: Predicate path
 			[ sh:nodeKind sh:BlankNode ;    # 2.3.1.2: Sequence path
-			  sh:node shsh:PathListWithAtLeast2Members ;
+			  sh:memberShape shsh:PathShape ; # sequence-memberShape
+				sh:minListLength 2 ;            # sequence-minListLength
 			]
 			[ sh:nodeKind sh:BlankNode ;    # 2.3.1.3: Alternative path
 			  sh:closed true ;
 			  sh:property [
 			    sh:path sh:alternativePath ;
-			    sh:node shsh:PathListWithAtLeast2Members ;
+			    sh:memberShape shsh:PathShape ; # alternativePath-memberShape
+			    sh:minListLength 2 ;            # alternativePath-minListLength
 			    sh:minCount 1 ;
 			    sh:maxCount 1 ;
 			  ]
@@ -421,14 +418,6 @@ shsh:PathNodeShape
 			  ] 
 			]
 		) .
-
-shsh:PathListWithAtLeast2Members
-	a sh:NodeShape ;
-	sh:node shsh:ListShape ;
-	sh:property [
-		sh:path [ sh:oneOrMorePath rdf:rest ] ;
-		sh:minCount 2 ;    # 1 other list node plus rdf:nil
-	] .
 
 shsh:ShapesGraphShape
 	a sh:NodeShape ;
