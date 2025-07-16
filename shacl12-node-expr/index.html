@@ -5,6 +5,93 @@
 		<title>SHACL 1.2 Node Expressions</title>
 		<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
 		<script class="remove">
+		
+			function prepareSyntaxRules() {
+				document.querySelectorAll("[data-syntax-rule]").forEach(element => {
+					let ruleId = element.getAttribute("data-syntax-rule");
+					let tr = document.createElement("tr");
+					tr.classList.add("syntax-rule-tr");
+					let td1 = document.createElement("td");
+					td1.classList.add("syntax-rule-id");
+					let a = document.createElement("a");
+					a.classList.add("syntax-rule-id-a");
+					a.href = "#syntax-rule-" + ruleId;
+					a.textContent = ruleId;
+					td1.appendChild(a);
+					let td2 = document.createElement("td");
+					td2.innerHTML = element.innerHTML;
+					tr.appendChild(td1);
+					tr.appendChild(td2);
+
+					// Replace <dfn> elements inside `tr` with <a> elements
+					tr.querySelectorAll("dfn").forEach(dfn => {
+    					let a = document.createElement("a");
+    					a.textContent = dfn.textContent;
+    					dfn.replaceWith(a);
+					});
+
+					document.getElementById("syntax-rules-table").appendChild(tr);
+					element.setAttribute("id", "syntax-rule-" + ruleId);
+				});
+			}
+		
+			function prepareValidators() {
+				document.querySelectorAll("[data-validator]").forEach(element => {
+					let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+					let tr = document.createElement("tr");
+					tr.classList.add("validator-tr");
+					let td = document.createElement("td");
+					tr.appendChild(td);
+					let a = document.createElement("a");
+					a.classList.add("validator-id-a");
+					a.href = `#validator-${validatorId}`;
+					a.textContent = `sh:${validatorId}`;
+					td.appendChild(a);
+					td.innerHTML += ": " + element.innerHTML;
+					document.getElementById("validators-table").appendChild(tr);
+					element.id = "validator-" + validatorId;
+				});
+			}
+
+			document.addEventListener("DOMContentLoaded", () => {
+				// Replace code div blocks in shapes, data, and results graph with tabs
+				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+					const tabs = document.createElement("aside");
+					tabs.classList.add("ds-selector-tabs");
+					graph.firstElementChild.classList.add("selected");
+
+					for (const child of graph.children) {
+						child.classList.add("tab");
+					}
+
+					tabs.append(...graph.children);
+					graph.append(tabs)
+				}
+
+				// Generate buttons for the selection logic
+				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+					const selectors = document.createElement("div");
+					selectors.classList.add("selectors");
+					selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						<button data-selects="jsonld">JSON-LD</button>
+					`
+
+					tabs.prepend(selectors);
+				}
+
+				// Add example button selection logic
+				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+					button.onclick = () => {
+						const ex = button.closest(".ds-selector-tabs");
+						ex.querySelector("button.selected").classList.remove("selected");
+						ex.querySelector(".selected").classList.remove("selected");
+						button.classList.add('selected');
+						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+					}
+				}
+			});
+
 			var respecConfig = {
 				localBiblio: {},
 
@@ -36,6 +123,13 @@
 						w3cid: "164266"
 					},
 					{
+						name:       "Holger Knublauch",
+						company:    "TopQuadrant, Inc.",
+						companyURL: "https://topquadrant.com/",
+						mailto:     "holger@topquadrant.com",
+						w3cid:      46500
+					},
+					{
 						name: "Simon Steyskal",
 						company: "Siemens AG",
 						companyURL: "https://siemens.com",
@@ -46,44 +140,33 @@
 			};
 		</script>
 		<style>
+
 			pre {
 				tab-size: 3;
-				-moz-tab-size: 3;
-				/* Code for Firefox */
-				-o-tab-size: 3;
-				/* Code for Opera */
-				word-wrap: normal;
+				-moz-tab-size: 3; /* Code for Firefox */
+				-o-tab-size: 3; /* Code for Opera */
 			}
 
 			th {
 				text-align: left;
 			}
-
-			table.rule {
-				background-color: #ebebe0;
-			}
-
-			table.rule td {
-				text-align: center;
-			}
-
-			td.up {
-				border-bottom: 1px solid black;
-			}
-
+			table.rule { background-color: #EBEBE0; }
+			table.rule td { text-align: center; }
+			td.up { border-bottom:1px solid black; }
+			
 			td {
 				vertical-align: top;
 			}
-
+			
 			.algorithm {
 				background: #fafafc;
 				border-left-style: solid;
-				border-left-width: 0.5em;
+				border-left-width: .5em;
 				border-color: #c0c0c0;
 				margin-bottom: 16px;
 				padding: 8px;
 			}
-
+			
 			.arg {
 				font-weight: bold;
 				color: #000080;
@@ -92,60 +175,55 @@
 			.def {
 				background: #fcfcfc;
 				border-left-style: solid;
-				border-left-width: 0.5em;
+				border-left-width: .5em;
 				border-color: #c0c0c0;
 				margin-bottom: 16px;
 			}
-
-			.def-sparql {
-			}
-
-			.def-sparql-body {
-				margin-top: 0px;
-				margin-bottom: 0px;
-			}
-
+			
 			.def-text {
 			}
-
+			
 			.def-text-body {
 			}
-
+			
 			.def-header {
 				color: #a0a0a0;
 				font-size: 16px;
 				padding-bottom: 8px;
 			}
-
+			
 			.diagram-class {
-				border: 1px solid black;
-				border-radius: 4px;
+				border: 1px solid black; 
+				border-radius: 4px; 
 				width: 360px;
 			}
-
+			
 			.diagram-class-name {
-				font-size: 16px;
-				font-weight: bold;
+				font-size: 16px; 
+				font-weight: bold; 
 				text-align: center;
 			}
-
+			
 			.diagram-class-properties {
-				border-top: 1px solid black;
+				border-top: 1px solid black; 
 			}
-
+			
 			.diagram-class-properties-start {
 				padding: 8px;
 			}
-
+			
 			.diagram-class-properties-section {
 				border-top: 1px dashed #808080;
 				padding: 8px;
 			}
 
+			.example {
+				overflow-y: hidden !important;
+			}
+			
 			.focus-node-selected {
 				color: blue;
 			}
-
 			.focus-node-error {
 				color: red;
 			}
@@ -153,7 +231,6 @@
 			.triple-can-be-skipped {
 				color: grey;
 			}
-
 			.focus-node-error {
 				color: red;
 			}
@@ -162,17 +239,17 @@
 				color: darkslategray;
 				font-style: italic;
 			}
-
+			
 			.component-class {
 				font-weight: bold;
 				font-size: 16px;
 			}
-
+			
 			.parameter-context {
 				font-weight: bold;
 				font-size: 16px;
 			}
-
+			
 			.parameters {
 				font-weight: bold;
 				font-size: 16px;
@@ -181,168 +258,162 @@
 			.part-header {
 				font-weight: bold;
 			}
-
+			
 			.syntax {
 				border-left-style: solid;
-				border-left-width: 0.5em;
+				border-left-width: .5em;
 				border-color: #d0d0d0;
 				margin-bottom: 16px;
-				padding: 0.5em 1em;
+				padding: .5em 1em;
 				background-color: #f6f6f6;
 			}
-
+			
 			.syntax-rule-id {
 				padding-right: 10px;
 			}
-
+			
 			.syntax-rule-id-a {
 				white-space: nowrap;
 			}
-
+			
 			.validator-id-a {
 				font-weight: bold;
 				white-space: nowrap;
 			}
-
+		
 			.term {
 				font-style: italic;
 			}
-
+			
 			.term-def-header {
 				font-style: italic;
 				font-weight: bold;
 			}
-
+		
 			.term-table {
 				border-collapse: collapse;
 				border-color: #000000;
 				margin: 16px;
 			}
 
-			.term-table td,
-			th {
+			.term-table td, th {
 				border-width: 1px;
 				border-style: solid;
 				padding: 5px;
 			}
-
+		
 			.todo {
 				color: red;
 			}
-
-			/* example pre taken / adapted from R2RML */
-			pre.example-shapes,
-			pre.example-data,
-			pre.example-results,
-			pre.example-other,
-			pre.example-sparql {
-				margin-left: 0;
-				padding: 0 2em;
-				margin-top: 1.5em;
-				padding: 1em;
-				white-space: pre !important;
+			
+			pre {
+				word-wrap: normal;
 			}
 
-			pre.example-shapes:before,
-			pre.example-data:before,
-			pre.example-results:before,
-			pre.example-other:before,
-			pre.example-sparql:before {
-				background: white;
-				display: block;
-				font-family: sans-serif;
-				margin: -1em 0 0.4em -1em;
-				padding: 0.2em 1em;
+			.turtle {
+				font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+				font-size: 14.4px;
+				hyphens: none;
+				overflow-x: auto;
+				padding: .5em;
+				tab-size: 3;
+				-moz-tab-size: 3; /* Code for Firefox */
+				-o-tab-size: 3; /* Code for Opera */
+				text-align: start;
+				margin-bottom: -1.5em;
+				margin-top: -1.5em;
+				white-space: pre;
 			}
 
-			pre.example-shapes {
-				background: #deb;
-			}
-
-			pre.example-shapes,
-			pre.example-shapes:before {
-				border: 1px solid #bbb;
-			}
-
-			pre.example-shapes:before {
-				color: #888;
-				content: "Example shapes graph";
-				width: 13em;
-			}
-
-			pre.example-data {
-				background: #eeb;
-			}
-
-			pre.example-data,
-			pre.example-data:before {
+			.data-graph { 
+				background: #eeb; 
 				border: 1px solid #cc9;
+				margin-top: 0.3em;
+			}
+			.data-graph:before { 
+				color: #996; 
+				content: "Data graph"; 
+				padding-left: 0.4em;
+			}
+			
+			.results-graph { 
+				background: #edb; 
+				border: 1px solid #bbb;
+				margin-top: 0.3em;
+			}
+			.results-graph:before { 
+				color: #997; 
+				content: "Validation results"; 
+				padding-left: 0.4em;
+			}
+			
+			.shapes-graph { 
+				background: #deb; 
+				border: 1px solid #bbb;
+				margin-top: 0.3em;
+			}
+			.shapes-graph:before { 
+				color: #888; 
+				content: "Shapes graph"; 
+				padding-left: 0.4em;
 			}
 
-			pre.example-data:before {
-				color: #996;
-				content: "Example data graph";
-				width: 13em;
-			}
-
-			pre.example-results:before {
-				color: #797;
-				content: "Example validation results";
-				width: 13em;
-			}
-
-			pre.example-other {
-				background: #bed;
-			}
-
-			pre.example-other,
-			pre.example-other:before {
-				border: 1px solid #ddd;
-			}
-
-			pre.example-other:before {
-				color: #888;
-				content: "Example";
-				width: 13em;
-			}
-
-			pre.example-sparql {
-				background: #bed;
-			}
-
-			pre.example-sparql,
-			pre.example-sparql:before {
-				border: 1px solid #ddd;
-			}
-
-			pre.example-sparql:before {
-				color: #888;
-				content: "Example SPARQL";
-				width: 13em;
-			}
-
-			.example-results {
-				background: #edb;
-			}
-
-			.example-results,
-			.example-results:before,
-			.example-results th,
-			.example-results td {
-				border: 1px solid #cca;
+			/* no dark mode, keep colors for shapes-graph, data-graph, and results graph background */
+			code.hljs {
+				--base: transparent;
+				--mono-1: #383a42;
 			}
 
 			/* our syntax menu for switching */
 			div.syntaxmenu {
 				border: 1px dotted black;
-				padding: 0.5em;
-				margin: 1em;
+				padding:0.5em;
+				margin: 1em; 
 			}
 
 			@media print {
-				div.syntaxmenu {
-					display: none;
-				}
+				div.syntaxmenu { display:none; }
+			}
+
+			/* example tab selection */
+			.ds-selector-tabs .selectors {
+				padding: 0;
+				border-bottom: 1px solid #ccc;
+				height: 28px;
+			}
+			.ds-selector-tabs .selectors button {
+				display: inline-block;
+				min-width: 54px;
+				text-align: center;
+				font-size: 11px;
+				font-weight: bold;
+				height: 27px;
+				padding: 0 8px;
+				line-height: 27px;
+				transition: all,0.218s;
+				border-top-right-radius: 2px;
+				border-top-left-radius: 2px;
+				color: #666;
+				border: 1px solid transparent;
+			}
+			.ds-selector-tabs .selectors button:first-child {
+				margin-left: 2px;
+			}
+			.ds-selector-tabs .selectors button.selected {
+				color: #202020 !important;
+				border: 1px solid #ccc;
+				border-bottom: 1px solid #fff !important;
+			}
+			.ds-selector-tabs .selectors button:hover {
+				background-color: transparent;
+				color: #202020;
+				cursor: pointer;
+			}
+			.ds-selector-tabs .tab {
+				display: none;
+			}
+			.ds-selector-tabs .selected {
+				display: block;
 			}
 		</style>
 	</head>
@@ -365,169 +436,67 @@
 
 			<section id="terminolgy">
 				<h3>Terminology</h3>
-
-				<p class="ednote">Connect to definitions in RDF 1.2 Concepts.</p>
-
-				<p>
-					The terminology used throughout this document is consistent with the definitions in the main SHACL [[shacl]] specification, which references
-					terms from RDF [[rdf11-concepts]]. This includes the terms
-					<dfn data-lt="bindings">
-						<a href="https://www.w3.org/TR/shacl/#dfn-binding">binding</a>
-					</dfn>
-					,
-					<dfn data-lt="blank nodes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-blank-node">blank node</a>
-					</dfn>
-					,
-					<dfn data-lt="conform|conforms">
-						<a href="https://www.w3.org/TR/shacl/#dfn-conforms">conformance</a>
-					</dfn>
-					,
-					<dfn data-lt="constraints">
-						<a href="https://www.w3.org/TR/shacl/#dfn-constraint">constraint</a>
-					</dfn>
-					,
-					<dfn data-lt="constraint components">
-						<a href="https://www.w3.org/TR/shacl/#dfn-constraint-component">constraint component</a>
-					</dfn>
-					,
-					<dfn data-lt="data graphs">
-						<a href="https://www.w3.org/TR/shacl/#dfn-data-graph">data graph</a>
-					</dfn>
-					,
-					<dfn data-lt="datatypes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-datatype">datatype</a>
-					</dfn>
-					,
-					<dfn data-lt="failures">
-						<a href="https://www.w3.org/TR/shacl/#dfn-failure">failure</a>
-					</dfn>
-					,
-					<dfn data-lt="focus nodes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-focus-node">focus node</a>
-					</dfn>
-					,
-					<dfn data-lt="RDF graphs|graphs|graph">
-						<a href="https://www.w3.org/TR/shacl/#dfn-rdf-graph">RDF graph</a>
-					</dfn>
-					,
-					<dfn><a href="https://www.w3.org/TR/shacl/#dfn-ill-formed">ill-formed</a></dfn>
-					,
-					<dfn data-lt="IRIs"><a href="https://www.w3.org/TR/shacl/#dfn-iri">IRI</a></dfn>
-					,
-					<dfn data-lt="literals">
-						<a href="https://www.w3.org/TR/shacl/#dfn-literal">literal</a>
-					</dfn>
-					,
-					<dfn data-lt="local names">
-						<a href="https://www.w3.org/TR/shacl/#dfn-local-name">local name</a>
-					</dfn>
-					,
-					<dfn data-lt="members">
-						<a href="https://www.w3.org/TR/shacl/#dfn-members">member</a>
-					</dfn>
-					,
-					<dfn data-lt="nodes|RDF node">
-						<a href="https://www.w3.org/TR/shacl/#dfn-node">node</a>
-					</dfn>
-					,
-					<dfn data-lt="node shapes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-node-shape">node shape</a>
-					</dfn>
-					,
-					<dfn data-lt="objects">
-						<a href="https://www.w3.org/TR/shacl/#dfn-object">object</a>
-					</dfn>
-					,
-					<dfn data-lt="parameters">
-						<a href="https://www.w3.org/TR/shacl/#dfn-parameters">parameter</a>
-					</dfn>
-					,
-					<dfn data-lt="pre-bind|pre-bound">
-						<a href="https://www.w3.org/TR/shacl/#pre-binding">pre-binding</a>
-					</dfn>
-					,
-					<dfn data-lt="predicates">
-						<a href="https://www.w3.org/TR/shacl/#dfn-predicate">predicate</a>
-					</dfn>
-					,
-					<dfn data-lt="property paths">
-						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-property-path">property path</a>
-					</dfn>
-					,
-					<dfn data-lt="property shapes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-property-shape">property shape</a>
-					</dfn>
-					,
-					<dfn data-lt="RDF terms|terms|term">
-						<a href="https://www.w3.org/TR/shacl/#dfn-rdf-term">RDF term</a>
-					</dfn>
-					,
-					<dfn data-lt="SHACL instances">
-						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-instance">SHACL instance</a>
-					</dfn>
-					,
-					<dfn data-lt="SHACL lists">
-						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-list">SHACL list</a>
-					</dfn>
-					,
-					<dfn data-lt="SHACL subclasses">
-						<a href="https://www.w3.org/TR/shacl/#dfn-shacl-subclass">SHACL subclass</a>
-					</dfn>
-					,
-					<dfn data-lt="shapes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-shape">shape</a>
-					</dfn>
-					,
-					<dfn data-lt="shapes graphs">
-						<a href="https://www.w3.org/TR/shacl/#dfn-shapes-graph">shapes graph</a>
-					</dfn>
-					,
-					<dfn data-lt="solutions">
-						<a href="https://www.w3.org/TR/shacl/#dfn-solution">solution</a>
-					</dfn>
-					,
-					<dfn data-lt="subjects">
-						<a href="https://www.w3.org/TR/shacl/#dfn-subject">subject</a>
-					</dfn>
-					,
-					<dfn data-lt="targets">
-						<a href="https://www.w3.org/TR/shacl/#dfn-target">target</a>
-					</dfn>
-					,
-					<dfn data-lt="triples">
-						<a href="https://www.w3.org/TR/shacl/#dfn-rdf-triple">triple</a>
-					</dfn>
-					,
-					<dfn><a href="https://www.w3.org/TR/shacl/#dfn-validation">validation</a></dfn>
-					,
-					<dfn data-lt="validation reports">
-						<a href="https://www.w3.org/TR/shacl/#dfn-validation-report">validation report</a>
-					</dfn>
-					,
-					<dfn data-lt="validation results">
-						<a href="https://www.w3.org/TR/shacl/#dfn-validation-results">validation result</a>
-					</dfn>
-					,
-					<dfn data-lt="validators">
-						<a href="https://www.w3.org/TR/shacl/#dfn-validators">validator</a>
-					</dfn>
-					,
-					<dfn data-lt="values">
-						<a href="https://www.w3.org/TR/shacl/#dfn-value">value</a>
-					</dfn>
-					,
-					<dfn data-lt="value nodes">
-						<a href="https://www.w3.org/TR/shacl/#dfn-value-nodes">value node</a>
-					</dfn>
-					.
-				</p>
+				<div class="def" id="rdf-terminology">
+					<div class="term-def-header">Basic RDF Terminology</div>
+					<div>
+						This document uses the terms 
+						<dfn data-cite="rdf12-concepts#dfn-rdf-graph" data-lt="graph|graphs|RDF graphs">RDF graph</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-rdf-triple" data-lt="triple|triples">RDF triple</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-iri" data-lt="IRI|IRIs">IRI</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-literal" data-lt="literal|literals">literal</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-blank-node" data-lt="blank node|blank nodes">blank node</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-node" data-lt="node|nodes">node</dfn> of an RDF graph,
+						<dfn data-cite="rdf12-concepts#dfn-datatype" data-lt="datatype|datatypes">datatype</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-rdf-term" data-lt="term|terms">RDF term</dfn>, and
+						<dfn data-cite="rdf12-concepts#dfn-subject" data-lt="subject|subjects">subject</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-predicate" data-lt="predicate|predicates">predicate</dfn>, and
+						<dfn data-cite="rdf12-concepts#dfn-object" data-lt="object|objects">object</dfn> of RDF triples
+						as defined in RDF 1.2 Concepts and Abstract Syntax [[!rdf12-concepts]].
+					</div>
+				</div>
+				<div class="def" id="shacl-terminology">
+					<div class="term-def-header">Basic SHACL Terminology</div>
+					<div>
+						This document uses the terms
+						<dfn data-cite="shacl12-core#dfn-focus-node" data-lt="focus node|focus nodes">focus node</dfn>,
+						<dfn data-cite="shacl12-core#dfn-value" data-lt="value">value</dfn>,
+						<dfn data-cite="shacl12-core#dfn-value-node" data-lt="value node|value nodes">value node</dfn>,
+						<dfn data-cite="shacl12-core#dfn-constraint" data-lt="constraint|constraints">constraint</dfn>,
+						<dfn data-cite="shacl12-core#dfn-constraint-component" data-lt="constraint component|constraint components">constraint component</dfn>,
+						<dfn data-cite="shacl12-core#dfn-parameter" data-lt="parameter|parameters">parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-mandatory-parameter" data-lt="mandatory parameter|mandatory parameters">mandatory parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-optional-parameter" data-lt="optional parameter|optional parameters">optional parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-parameter-value" data-lt="parameter value">parameter value</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shape" data-lt="shape|shapes">shape</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-shape" data-lt="node shape|node shapes">node shape</dfn>,
+						<dfn data-cite="shacl12-core#dfn-property-shape" data-lt="property shape|property shapes">property shape</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-property-path" data-lt="shacl property path|shacl property paths">SHACL property path</dfn>,
+						<dfn data-cite="shacl12-core#dfn-sparql-property-path" data-lt="sparql property path|sparql property paths">SPARQL property path</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shapes-graph" data-lt="shapes graph">shapes graph</dfn>,
+						<dfn data-cite="shacl12-core#dfn-target" data-lt="target|targets">target</dfn>,
+						<dfn data-cite="shacl12-core#dfn-validators" data-lt="validator|validators">validator</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-expression" data-lt="node expression|node expresssions">node expression</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-expression-function" data-lt="node expression function|node expresssion functions">node expression function</dfn>,
+						<dfn data-cite="shacl12-core#dfn-function-name" data-lt="node expression function name">function name</dfn>,
+						<dfn data-cite="shacl12-core#dfn-key-parameter" data-lt="key parameter">key parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-output-nodes" data-lt="output nodes">output nodes</dfn>,
+						<dfn data-cite="shacl12-core#dfn-focus-graph" data-lt="focus graph">focus graph</dfn>,
+						<dfn data-cite="shacl12-core#dfn-conform" data-lt="conform|conforms">conform</dfn>,
+						<dfn data-cite="shacl12-core#dfn-failure" data-lt="failure|failures">failure</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-instance" data-lt="shacl instance">SHACL instance</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-subclass" data-lt="shacl subclass">SHACL subclass</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-type" data-lt="shacl type">SHACL type</dfn>,
+						<dfn data-cite="shacl12-core#dfn-well-formed" data-lt="well-formed">well-formed</dfn>,
+						as defined in the SHACL 1.2 Core specification [[!shacl12-core]].
+					</div>
+				</div>
 			</section>
 			<section class="conventions">
 				<h3>Document Conventions</h3>
 				<p>
-					Some examples in this document use Turtle [[turtle]]. The reader is expected to be familiar with SHACL [[shacl]] and SPARQL
-					[[sparql-query]].
+					Some examples in this document use Turtle [[rdf12-turtle]].
+					The reader is expected to be familiar with SHACL [[shacl12-core]] and SPARQL
+					[[sparql12-query]].
 				</p>
 				<p>Within this document, the following namespace prefix bindings are used:</p>
 				<table class="term-table">
@@ -592,9 +561,156 @@
 
 
 
-		<section id="section">
-			<h2>Section</h2>
-			<p>Content.</p>
+		<section id="library">
+			<h2>Node Expression Library</h2>
+			<p>
+				This section defines all <a>node expression functions</a> that are built into SHACL engines
+				that implement this specification.
+			</p>
+			<section id="library-constants">
+				<h3>Constant Node Expressions</h3>
+				<p>
+					The <a>node expression functions</a> in this section were already introduced in the SHACL Core
+					specificiation but are repeated here to keep this document self-contained.
+				</p>
+				
+				<section id="IRIExpression">
+					<h3>IRI Expressions</h3>
+					<p>
+						A <a>node expression</a> that is a <a>IRI</a> is called an <dfn>IRI expression</dfn> with the <a>function name</a>
+						<code>sh:IRIExpression</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="IRIExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>IRI expression</a> if it is an <a>IRI</a>.</span>
+					</p>
+					<div class="def" id="IRIExpression-evaluation">
+						<div class="def-header">EVALUATION OF IRI EXPRESSIONS</div>
+						<p>
+							The <a>output nodes</a> of an <a>IRI expression</a> are the list consisting of exactly the <a>node expression</a> itself:
+							<br/>
+							<br/>
+							<code>evalExpr(expr, focusGraph, focusNode, scope) -> [expr]</code>
+						</p>
+					</div>
+				</section>
+				
+				<section id="LiteralExpression">
+					<h3>Literal Expressions</h3>
+					<p>
+						A <a>node expression</a> that is a <a>literal</a> is called a <dfn>literal expression</dfn> with the <a>function name</a>
+						<code>sh:LiteralExpression</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="LiteralExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>literal expression</a> if it is a <a>literal</a>.</span>
+					</p>
+					<div class="def" id="LiteralExpression-evaluation">
+						<div class="def-header">EVALUATION OF LITERAL EXPRESSIONS</div>
+						<p>
+							The <a>output nodes</a> of a <a>literal expression</a> are the list consisting of exactly the <a>node expression</a> itself:
+							<br/>
+							<br/>
+							<code>evalExpr(expr, focusGraph, focusNode, scope) -> [expr]</code>
+						</p>
+					</div>
+				</section>
+
+			</section>
+			<section>
+				<h2>Basic Node Expressions</h2>
+
+				<section id="VarExpression">
+					<h3>Var Expressions</h3>
+					<p>
+						A <a>blank node</a> that has a <a>value</a> for <code>sh:var</code>
+						is called a <dfn>var expression</dfn> with the <a>function name</a> <code>sh:VarExpression</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="VarExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>var expression</a> if it is a <a>blank node</a>
+						that is the <a>subject</a> of exactly one <a>triple</a> in the <a>shapes graph</a> and the <a>predicate</a> of this <a>triple</a> is <code>sh:var</code>
+						and the <a>object</a> of this <a>triple</a> is an <code>xsd:string</code> <a>literal</a> with a minimum length of <code>1</code>.</span>
+					</p>
+					<div class="def" id="VarExpression-evaluation">
+						<div class="def-header">EVALUATION OF VAR EXPRESSIONS</div>
+						<p>
+							Let <code>var</code> be the <a>value</a> of <code>sh:var</code> in the <a>var expression</a>.
+							The <a>output nodes</a> of the <a>var expression</a> are computed as follows, in order:
+						</p>
+						<ol>
+							<li>if <code>var</code> is <code>"focusNode"</code> then <code>evalExpr(expr, focusGraph, focusNode, scope) -> [focusNode]</code></li>
+							<li>if <code>var</code> is in the <code>scope</code> then <code>evalExpr(expr, focusGraph, focusNode, scope) -> [ scope[var] ]</code></li>
+							<li>otherwise <code>evalExpr(expr, focusGraph, focusNode, scope) -> []</code></li>
+						</ol>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						The following example illustrates the use of a <a>var expression</a> pointing at the current <a>focus node</a>
+						to state that the default value of the <code>ex:loves</code> relationship is the current instance of <code>ex:Person</code>,
+						creating a self-reference.
+					</p>
+					<p>
+						<aside class="example" title="A var expression stating that any Person loves him or herself by default.">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:Person
+	a sh:ShapeClass ;
+	sh:property ex:Person-loves .
+
+ex:Person-loves
+	a sh:PropertyShape ;
+	sh:path ex:loves ;
+	sh:defaultValue <b>[ sh:var "focusNode" ] .</b>
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
+				</section>
+
+				<section id="PathExpression">
+					<h3>Path Expressions</h3>
+					<p>
+						A <a>blank node</a> that has a <a>value</a> for <code>sh:path</code>
+						is called a <dfn>path expression</dfn> with the <a>function name</a> <code>sh:PathExpression</code>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="PathExpression-syntax">A node in an RDF graph is a <a>well-formed</a> <a>path expression</a> if it is a <a>blank node</a>
+						that is the <a>subject</a> of exactly one <a>triple</a> in the <a>shapes graph</a> where the <a>predicate</a> is <code>sh:path</code>
+						and the <a>object</a> is a <a>well-formed</a> <a>SHACL property path</a>.
+						The <a>path expression</a> may be the subject of exactly one more <a>triple</a>, with the <a>predicate</a> of that <a>triple</a>
+						being <code>sh:nodes</code> and the <a>object</a> a <a>well-formed</a> <a>node expression</a>.
+						</span>
+					</p>
+					<div class="def" id="PathExpression-evaluation">
+						<div class="def-header">EVALUATION OF PATH EXPRESSIONS</div>
+						<p>
+							Let <code>path</code> be the <a>value</a> of <code>sh:path</code>,
+							and <code>nodes</code> be the <a>value</a> of <code>sh:nodes</code> in the <a>path expression</a>.
+							If <code>sh:nodes</code> is not given, <code>nodes</code> is the list consistent of exactly the <a>focus node</a>.
+							The <a>output nodes</a> of the <a>path expression</a> are the list of <a>nodes</a> produced by TODO
+
+						</p>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						The following example illustrates the use of a <a>path expression</a> TODO
+					</p>
+					<p>
+						<aside class="example" title="TODO">
+							<div class="shapes-graph">
+								<div class="turtle">
+									TODO
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
+				</section>
+
+			</section>
 		</section>
 
 		<section id="syntax-rules" class="appendix">
