@@ -627,6 +627,26 @@
 				</section>
 			</section>
 
+			<section id="failure-handling">
+				<h2>Handling of Failures</h2>
+				<p>
+					Node expressions may produce a <a>failure</a> instead of a list of <a>output nodes</a>.
+					Some node expressions evaluate other, nested node expressions.
+					For example, <a href="#IfExpression">If Expressions</a> evaluate nested expressions for
+					<code>sh:if</code>, <code>sh:then</code> and <code>sh:else</code>.
+					In general, if any such nested expressions produce a <a>failure</a> then the surrounding
+					expression also produces the same <a>failure</a>.
+				</p>
+				<p><em>The remainder of this section is informative.</em></p>
+				<p>
+					Note that this policy impacts the evaluation order of node expressions.
+					For example, <code>sh:if</code> expressions are evaluated first and <code>sh:then</code>
+					will be evaluated only if the <code>sh:if</code> has returned <code>( true )</code>.
+					Even if the <code>sh:else</code> branch would produce a <a>failure</a>, the output would
+					still only be the output nodes of the <code>sh:then</code> branch.
+				</p>
+			</section>
+
 		</section>
 
 		<section id="library">
@@ -759,13 +779,13 @@ ex:Person-loves
 						as a <a>IRI expression</a>.
 						As a result, all <a>well-formed</a> list expressions have at least one <a>member</a>.
 					</p>
-					<p>
+					<p id="ListExpressionExample">
 						The following example declares a property for instances of <code>owl:Class</code>
 						where the values are derived from the values of the path <code>rdfs:subClassOf*</code>
 						but with the constants from the list <code>( owl:Thing rdfs:Resource )</code> removed using
 						<a href="#MinusExpression"><code>sh:minus</code></a>.
 					</p>
-					<p id="ListExpressionExample">
+					<p>
 						<aside class="example" title="A list expression that is used to enumerate the values of a sh:minus expression.">
 							<div class="shapes-graph">
 								<div class="turtle">
@@ -881,6 +901,48 @@ skos:ConceptScheme-topConceptCount
 					<p class="todo">TODO: Add second example that uses sh:nodes</p>
 				</section>
 
+				<section id="ExistsExpression">
+					<h3>Exists Expressions</h3>
+					<p class="syntax">
+						<span data-syntax-rule="ExistsExpression-syntax">
+							A <a>blank node</a> that is the <a>subject</a> of the following properties
+							is called an <dfn>exists expression</dfn> with the <a>function name</a> <code>sh:ExistsExpression</code>:
+							<table class="term-table">
+								<thead>
+									<th>Property</th>
+									<th>Constraints</th>
+									<th>Description</th>
+								</thead>
+								<tbody>
+									<tr>
+										<td><b><code>sh:exists</code></b></td>
+										<td>
+											A <a>well-formed</a> <a>node expression</a>.
+										</td>
+										<td>
+											A node expression. If this evaluates to a list with at least one member
+											then the output nodes are <code>( true )</code>, otherwise <code>( false )</code>.
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</span>
+					</p>
+					<div class="def" id="ExistsExpression-evaluation">
+						<div class="def-header">EVALUATION OF EXISTS EXPRESSIONS</div>
+						<p>
+							Let <code>exists</code> be the <a>value</a> of <code>sh:exists</code> in the <a>exists expression</a>.
+							Let <code>N</code> be the nodes produced by <code>evalExpr(exists, focusGraph, focusNode, scope)</code>.
+							The <a>output nodes</a> of the <a>exists expression</a> are <code>( true )</code> if and only if
+							<code>N</code> has at least one member, otherwise the output nodes are <code>( false )</code>.
+						</p>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						The <a href="#IfExpressionExample">Example for <code>sh:if</code></a> uses <code>sh:exists</code>.
+					</p>
+				</section>
+
 				<section id="IfExpression">
 					<h3>If Expressions</h3>
 					<p class="syntax">
@@ -931,18 +993,60 @@ skos:ConceptScheme-topConceptCount
 					<div class="def" id="IfExpression-evaluation">
 						<div class="def-header">EVALUATION OF IF EXPRESSIONS</div>
 						<p>
-							TODO
+							Let <code>if</code> be the <a>value</a> of <code>sh:if</code>,
+							<code>then</code> be the <a>value</a> of <code>sh:then</code> and
+							<code>else</code> be the <a>value</a> of <code>sh:else</code> for the <a>if expression</a>.
+							Let <code>IFs</code> be the nodes produced by <code>evalExpr(if, focusGraph, focusNode, scope)</code>.
+							If <code>IFs</code> is the list <code>( true )</code> then the <a>output nodes</a> of the <a>if expression</a>
+							are the nodes produced by <code>evalExpr(then, focusGraph, focusNode, scope)</code> or the empty list if <code>then</code> has no value.
+							Otherwise, the <a>output nodes</a> are the nodes produced by <code>evalExpr(else, focusGraph, focusNode, scope)</code> or the empty list if <code>else</code> has no value.
+							Implementations MUST apply lazy evaluation techniques so that the <code>sh:then</code> or
+							<code>sh:else</code> branches are only evaluated when necessary.
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Add example</p>
+					<p id="IfExpressionExample">
+						The following example illustrates the use of <code>sh:if</code> to compute the
+						values of a derived property <code>ex:fillColor</code> that may be queried to
+						compute the colors of cities on a map.
+						In the example, instances of <code>ex:City</code> that have a value for <code>ex:capitalOf</code>
+						will be displayed in <code>"blue"</code> while the others will be <code>"red"</code>.
+					</p>
+					<p>
+						<aside class="example" title="An example if expression computing the fill color of a city">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:City
+	a sh:ShapeClass ;
+	sh:property ex:City-fillColor .
+
+ex:City-fillColor
+    a sh:PropertyShape ;
+    sh:path ex:fillColor ;
+    sh:datatype xsd:string ;
+    sh:name "fill color" ;
+    sh:values [
+        <b>sh:if [
+            sh:exists [
+                sh:path ex:capitalOf ;
+            ] ;
+        ] ;
+        sh:then "blue" ;
+        sh:else "red" ;</b>
+    ] .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 			</section>
 
 			<section id="library-list-operators">
 				<h2>List Operator Expressions</h2>
-
 				<section id="DistinctExpression">
 					<h3>Distinct Expressions</h3>
 					<p class="syntax">
