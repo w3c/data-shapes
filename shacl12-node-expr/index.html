@@ -553,17 +553,170 @@
 			</section>
 		</section>
 
+		<section id="introduction">
+			<h2>Introduction to Node Expressions</h2>
+			<p><em>This section is informative.</em></p>
+			<p>
+				SHACL <a>shapes graphs</a> can declare node expressions as values of various properties
+				such as <code>sh:targetNode</code>, <code>sh:values</code> and <code>sh:deactivated</code>.
+				Node expressions are represented by RDF nodes and can be evaluated to produce a list of <a>output nodes</a>.
+				For example when used at <code>sh:targetNode</code>, a node expression produces the list
+				of target nodes of a <a>shape</a>.
+				When used at <code>sh:values</code>, a node expression produces the derived values of a property.
+			</p>
+			<p>
+				The following example contains a node expression that states that the <a>target</a> nodes of
+				the shape <code>ex:EstonianCompanyShape</code> are the instances of <code>ex:Company</code> where
+				the <code>ex:headQuarterCountry</code> is <code>ex:Estonia</code>.
+			</p>
+			<p>
+				<aside class="example" title="A node expression used to compute the target nodes of a shape.">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:EstonianCompanyShape
+	a sh:NodeShape ;
+	sh:targetNode <b>[
+		sh:nodes [
+			sh:instancesOf ex:Company ;
+		] ;
+		sh:filterShape [
+			sh:property [
+				sh:path ex:headQuarterCountry ;
+				sh:hasValue ex:Estonia ;
+			]
+		]
+	]</b> .
+						</div>
+						<div class="jsonld">
+							TODO
+						</div>
+					</div>
+				</aside>
+			</p>
+			<p>
+				The following diagram illustrates how this node expression is interpreted, from a logical point of view.
+				During validation, a SHACL processor will determine the <a>target</a> nodes of the shape
+				by evaluating the <a>filterShape expression</a>.
+				The filterShape expression, however, first evaluates its input expression, which is specified via <code>sh:nodes</code>
+				and is an <a>instancesOf expression</a>.
+				This will produce all instances of the given class <code>ex:Company</code>.
+				The <a>sh:filterShape</a> is then applied to all of these instances, to only keep the companies
+				that <a>conform</a> to the provided <a>shape</a> by having their headquarter in Estonia.
+			</p>
+			<div>
+				<img 
+				alt="Illustration of the data flow between node expressions"
+				src="images/FilterShapeExampleDiagram.png"
+				width="800px"
+				>
+			</div>
+			<p>
+				The same scenario as above can also be expressed using SPARQL <a href="shacl12-sparql#SelectExpression">select expressions</a>.
+				Specific implementations of the SHACL node expressions may (for example for performance reasons)
+				internally convert node expressions such as the <code>sh:filterShape</code> above to SPARQL.
+			</p>
+			<p>
+				<aside class="example" title="A SPARQL select expression used to compute the target nodes of a shape.">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:EstonianCompanyShape
+	a sh:NodeShape ;
+	sh:targetNode <b>[
+		sh:select """
+			SELECT ?company
+			WHERE {
+				?company rdf:type/rdfs:subClassOf* ex:Company .
+				?company ex:headQuarterCountry ex:Estonia .
+			}
+		"""
+	]</b> .
+						</div>
+						<div class="jsonld">
+							TODO
+						</div>
+					</div>
+				</aside>
+			</p>
+			<p>
+				The next example uses a node expression to compute the values of the property <code>ex:employeeCount</code>
+				as the number of values of the property <code>ex:employee</code> at each instance of <code>ex:Company</code>.
+			</p>
+			<p>
+				<aside class="example" title="A node expression used to compute the values of a derived property.">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Company
+	a sh:ShapeClass ;
+	sh:property ex:Company-employee ;
+	sh:property ex:Company-employeeCount .
+
+ex:Company-employee
+	a sh:PropertyShape ;
+	sh:name "employees" ;
+	sh:description "The company's employee(s)." ;
+	sh:path ex:employee ;
+	sh:class ex:Person .
+
+ex:Company-employeeCount
+	a sh:PropertyShape ;
+	sh:name "employee count" ;
+	sh:description "The number of employees, automatically computed." ;
+	sh:path ex:employeeCount ;
+	sh:datatype xsd:integer ;
+	sh:values <b>[
+		sh:count [
+			sh:path ex:employee ;
+		]
+	]</b> .
+						</div>
+						<div class="jsonld">
+							TODO
+						</div>
+					</div>
+				</aside>
+			</p>
+			<p>
+				A difference between this example and the previous examples about <code>sh:targetNode</code>
+				is that these node expressions are evaluated against a given <a>focus node</a>.
+				So when a data visualization needs to render an instance of <code>ex:Company</code>,
+				the currently displayed company is the <a>focus node</a>, from which the number of employees
+				will be fetched.
+			</p>
+			<p class="todo">Clarify when these derived properties can be used (e.g. in sh:path expressions but not as triples elsewhere)</p>
+		</section>
+
 		<section id="syntax">
 			<h2>Node Expression Syntax</h2>
 			<p>
 				This section introduces the general syntax of SHACL <a>node expressions</a>.
 			</p>
+			<p>
+				The term <a>node expression function</a> refers to the <em>kind</em> or <em>type</em>
+				of a <a>node expression</a>.
+				For example, <code>sh:FilterShapeExpression</code> is a <a>node expression function</a>
+				while a specific instance of this function in the <a>graph</a> is the <a>node expression</a> itself.
+			</p>
+			<p>
+				The most basic node expression functions are <a>constant node expressions</a>, which are either
+				<a>literals</a> or <a>IRIs</a> and simply evaluate to these constants.
+				All other node expressions are represented by <a>blank nodes</a> and come in the following two variations.
+			</p>
+			<ul>
+				<li>
+					<a>List parameter functions</a> are comparable to traditional functions in, for example, SPARQL
+					and are represented by a <a>blank node</a> that is subject of a single triple with a SHACL list as its object.
+				</li>
+				<li>
+					<a>Named parameter functions</a> are represented by a <a>blank node</a> that is subject of one or more
+					triples, including the <a>key property</a> of the node expression function.
+				</li>
+			</ul>
 
 			<section id="ConstantNodeExpression">
 				<h3>Constant Node Expressions</h3>
 				<p>
-					The <a>node expression functions</a> in this section were introduced in the SHACL Core
-					specification but are repeated here to keep this document self-contained.
+					The <a>node expression functions</a> in this section are called <dfn>constant node expressions</dfn>.
+					They were introduced in the SHACL Core specification but are repeated here to keep this document self-contained.
 				</p>
 				
 				<section id="IRIExpression">
@@ -619,8 +772,8 @@
 						...
 					</p>
 				</section>
-				<section id="NamedArgumentFunctions">
-					<h3>Named Argument Functions</h3>
+				<section id="NamedParameterFunctions">
+					<h3>Named Parameter Functions</h3>
 					<p>
 						...
 					</p>
