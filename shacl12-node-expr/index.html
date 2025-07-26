@@ -520,6 +520,10 @@
 						<td><code>http://www.w3.org/ns/shacl#</code></td>
 					</tr>
 					<tr>
+						<td><code>skos:</code></td>
+						<td><code>http://www.w3.org/2004/02/skos/core#</code></td>
+					</tr>
+					<tr>
 						<td><code>xsd:</code></td>
 						<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
 					</tr>
@@ -625,6 +629,26 @@
 						...
 					</p>
 				</section>
+			</section>
+
+			<section id="failure-handling">
+				<h2>Handling of Failures</h2>
+				<p>
+					Node expressions may produce a <a>failure</a> instead of a list of <a>output nodes</a>.
+					Some node expressions evaluate other, nested node expressions.
+					For example, <a href="#IfExpression">If Expressions</a> evaluate nested expressions for
+					<code>sh:if</code>, <code>sh:then</code> and <code>sh:else</code>.
+					In general, if any such nested expressions produce a <a>failure</a> then the surrounding
+					expression also produces the same <a>failure</a>.
+				</p>
+				<p><em>The remainder of this section is informative.</em></p>
+				<p>
+					Note that this policy impacts the evaluation order of node expressions.
+					For example, <code>sh:if</code> expressions are evaluated first and <code>sh:then</code>
+					will be evaluated only if the <code>sh:if</code> has returned <code>( true )</code>.
+					Even if the <code>sh:else</code> branch would produce a <a>failure</a>, the output would
+					still only be the output nodes of the <code>sh:then</code> branch.
+				</p>
 			</section>
 
 		</section>
@@ -759,7 +783,40 @@ ex:Person-loves
 						as a <a>IRI expression</a>.
 						As a result, all <a>well-formed</a> list expressions have at least one <a>member</a>.
 					</p>
-					<p class="todo">TODO: Add example</p>
+					<p id="ListExpressionExample">
+						The following example declares a property for instances of <code>rdfs:Class</code>
+						where the values are derived from the values of the path <code>rdfs:subClassOf*</code>
+						but with the constants from the list <code>( owl:Thing rdfs:Resource )</code> removed using
+						<a href="#MinusExpression"><code>sh:minus</code></a>.
+					</p>
+					<p>
+						<aside class="example" title="A list expression that is used to enumerate the values of a sh:minus expression.">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:ClassShape
+	a sh:NodeShape ;
+	sh:targetClass rdfs:Class ;
+	sh:property ex:ClassShape-superClassesExceptRoots .
+
+ex:ClassShape-superClassesExceptRoots
+	a sh:PropertyShape ;
+	sh:path ex:superClassesExceptRoots ;
+	sh:description "The superclasses of this, except for owl:Thing and rdfs:Resource." ;
+	sh:values [
+		sh:nodes [
+			# This returns all transitive superclasses of the current focus node
+			sh:path [ sh:zeroOrMorePath rdfs:subClassOf ] ;
+		] ;
+		# This removes any superclasses that are in the list below
+		sh:minus <b>( owl:Thing rdfs:Resource )</b> ;
+	] .</b>
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="PathExpression">
@@ -848,6 +905,48 @@ skos:ConceptScheme-topConceptCount
 					<p class="todo">TODO: Add second example that uses sh:nodes</p>
 				</section>
 
+				<section id="ExistsExpression">
+					<h3>Exists Expressions</h3>
+					<p class="syntax">
+						<span data-syntax-rule="ExistsExpression-syntax">
+							A <a>blank node</a> that is the <a>subject</a> of the following properties
+							is called an <dfn>exists expression</dfn> with the <a>function name</a> <code>sh:ExistsExpression</code>:
+							<table class="term-table">
+								<thead>
+									<th>Property</th>
+									<th>Constraints</th>
+									<th>Description</th>
+								</thead>
+								<tbody>
+									<tr>
+										<td><b><code>sh:exists</code></b></td>
+										<td>
+											A <a>well-formed</a> <a>node expression</a>.
+										</td>
+										<td>
+											A node expression. If this evaluates to a list with at least one member
+											then the output nodes are <code>( true )</code>; otherwise, the output nodes are <code>( false )</code>.
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</span>
+					</p>
+					<div class="def" id="ExistsExpression-evaluation">
+						<div class="def-header">EVALUATION OF EXISTS EXPRESSIONS</div>
+						<p>
+							Let <code>exists</code> be the <a>value</a> of <code>sh:exists</code> in the <a>exists expression</a>.
+							Let <code>N</code> be the list of nodes produced by <code>evalExpr(exists, focusGraph, focusNode, scope)</code>.
+							The <a>output nodes</a> of the <a>exists expression</a> are <code>( true )</code> if and only if
+							<code>N</code> has at least one member; otherwise, the output nodes are <code>( false )</code>.
+						</p>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						The <a href="#IfExpressionExample">Example for <code>sh:if</code></a> uses <code>sh:exists</code>.
+					</p>
+				</section>
+
 				<section id="IfExpression">
 					<h3>If Expressions</h3>
 					<p class="syntax">
@@ -898,11 +997,54 @@ skos:ConceptScheme-topConceptCount
 					<div class="def" id="IfExpression-evaluation">
 						<div class="def-header">EVALUATION OF IF EXPRESSIONS</div>
 						<p>
-							TODO
+							Let <code>if</code> be the <a>value</a> of <code>sh:if</code>,
+							<code>then</code> be the <a>value</a> of <code>sh:then</code>, and
+							<code>else</code> be the <a>value</a> of <code>sh:else</code> for the <a>if expression</a>.
+							Let <code>IFs</code> be the nodes produced by <code>evalExpr(if, focusGraph, focusNode, scope)</code>.
+							If <code>IFs</code> is the list <code>( true )</code>, then the <a>output nodes</a> of the <a>if expression</a>
+							are the nodes produced by <code>evalExpr(then, focusGraph, focusNode, scope)</code>, or the empty list if <code>then</code> has no value.
+							Otherwise, the <a>output nodes</a> are the nodes produced by <code>evalExpr(else, focusGraph, focusNode, scope)</code>, or the empty list if <code>else</code> has no value.
+							Implementations MUST apply lazy evaluation techniques, so the <code>sh:then</code> or
+							<code>sh:else</code> branches are only evaluated when necessary.
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Add example</p>
+					<p id="IfExpressionExample">
+						The following example illustrates the use of <code>sh:if</code> to compute the
+						values of a derived property <code>ex:fillColor</code> that may be queried to
+						compute the colors of cities on a map.
+						In the example, instances of <code>ex:City</code> that have a value for <code>ex:capitalOf</code>
+						will be displayed in <code>"blue"</code>, while the others will be <code>"red"</code>.
+					</p>
+					<p>
+						<aside class="example" title="An example &quot;if&quot; expression computing the fill color of a city">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:City
+	a sh:ShapeClass ;
+	sh:property ex:City-fillColor .
+
+ex:City-fillColor
+    a sh:PropertyShape ;
+    sh:path ex:fillColor ;
+    sh:datatype xsd:string ;
+    sh:name "fill color" ;
+    sh:values [
+        <b>sh:if [
+            sh:exists [
+                sh:path ex:capitalOf ;
+            ] ;
+        ] ;
+        sh:then "blue" ;
+        sh:else "red" ;</b>
+    ] .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 			</section>
@@ -947,7 +1089,44 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p id="DistinctExpressionExample">
+						The following example declares a derived property <code>ex:superClassesIncludingRoot</code>
+						that is computed as the <a href="#UnionExpression">union</a> of the (transitive) values of <code>rdfs:subClassOf</code>
+						and the <a href="#ListExpression">list expression</a> <code>( rdfs:Resource )</code>.
+						Since the asserted values of <code>rdfs:subClassOf</code> may already include <code>rdfs:Resource</code>
+						(for example, due to an active inference engine on the data graph), <code>sh:distinct</code> will make
+						sure that the output nodes do not include <code>rdfs:Resource</code> twice.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:distinct to return a list of superclasses including rdfs:Resource but not including duplicates">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:ClassShape
+	a sh:NodeShape ;
+	sh:targetClass rdfs:Class ;
+	sh:property ex:ClassShape-superClassesIncludingRoot .
+
+ex:ClassShape-superClassesIncludingRoot
+	a sh:PropertyShape ;
+	sh:path ex:superClassesIncludingRoot ;
+	sh:description "The superclasses of this, always including rdfs:Resource." ;
+	sh:values [
+		<b>sh:distinct [
+			sh:union (
+				[
+					sh:path [ sh:zeroOrMorePath rdfs:subClassOf ] ;
+				]
+				( rdfs:Resource )
+			)
+		] ;</b>
+	] .</b>
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="IntersectionExpression">
@@ -986,7 +1165,30 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p id="IntersectionExpressionExample">
+						The following example uses <code>sh:intersection</code> as a <code>sh:targetNode</code> node expression.
+						This shape will target all nodes that are <a>SHACL instances</a> of <code>ex:Australian</code> and
+						<code>ex:German</code> at the same time.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:intersection to compute the target nodes of a shape">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:DualCitizenShape
+	a sh:NodeShape ;
+	sh:targetNode [
+		<b>sh:intersection (
+			[ sh:instancesOf ex:Australian ]
+			[ sh:instancesOf ex:German ]
+		)</b>
+	] .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="UnionExpression">
@@ -1027,9 +1229,11 @@ skos:ConceptScheme-topConceptCount
 					<p><em>The remainder of this section is informative.</em></p>
 					<p>
 						Note that a <a>union expression</a> may produce duplicate <a>output nodes</a> if the individual output nodes overlap.
-						Use <a href="DistinctExpression">sh:distinct</a> to eliminate duplicates.
+						Use <a href="#DistinctExpression">sh:distinct</a> to eliminate duplicates.
 					</p>
-					<p class="todo">TODO: Example</p>
+					<p>
+						The <a href="#DistinctExpressionExample">Example for <code>sh:distinct</code></a> uses <code>sh:union</code>.
+					</p>
 				</section>
 
 				<section id="MinusExpression">
@@ -1080,7 +1284,92 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p>
+						The <a href="#ListExpressionExample">List Expression example</a> uses <code>sh:minus</code>.
+					</p>
+				</section>
+
+				<section id="FilterShapeExpression">
+					<h3>FilterShape Expressions</h3>
+					<p class="syntax">
+						<span data-syntax-rule="FilterShapeExpression-syntax">
+							A <a>blank node</a> that is the <a>subject</a> of the following properties
+							is called a <dfn>filterShape expression</dfn> with the <a>function name</a> <code>sh:FilterShapeExpression</code>:
+							<table class="term-table">
+								<thead>
+									<th>Property</th>
+									<th>Constraints</th>
+									<th>Description</th>
+								</thead>
+								<tbody>
+									<tr>
+										<td><b><code>sh:filterShape</code></b></td>
+										<td>
+											A <a>well-formed</a> <a>shape</a>.
+										</td>
+										<td>
+											The shape that all input nodes need to conform to.
+										</td>
+									</tr>
+									<tr>
+										<td><b><code>sh:nodes</code></b></td>
+										<td>
+											A <a>well-formed</a> <a>node expression</a>.
+										</td>
+										<td>
+											A node expression producing the nodes that are validated.
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</span>
+					</p>
+					<div class="def" id="FilterShapeExpression-evaluation">
+						<div class="def-header">EVALUATION OF FILTERSHAPE EXPRESSIONS</div>
+						<p>
+							Let <code>filterShape</code> be the <a>value</a> of <code>sh:filterShape</code>,
+							and <code>nodes</code> be the <a>value</a> of <code>sh:nodes</code> in a <a>filterShape expression</a>.
+							The <a>output nodes</a> of the <a>filterShape expression</a> are the <a>output nodes</a> of
+							<code>evalExpr(nodes, focusGraph, focusNode, scope)</code> except those that do not <a>conform</a> to
+							the <a>shape</a> <code>filterShape</code>, preserving the order in the list.
+						</p>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						The following example illustrates the use of <code>sh:filterShape</code> to return a subset
+						of values of the <code>ex:child</code> property where the <code>ex:gender</code> property
+						has the value <code>"male"</code>.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:filterShape to compute the children that are male">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:Person
+	a sh:ShapeClass ;
+	sh:property ex:Person-maleChildren .
+
+ex:Person-maleChildren
+	a sh:PropertyShape ;
+	sh:path ex:maleChildren ;
+	sh:class ex:Person ;
+	sh:values <b>[
+		sh:nodes</b> [
+			sh:path ex:child ;
+		] ;
+		<b>sh:filterShape [
+			sh:property [
+				sh:path ex:gender ;
+				sh:hasValue "male" ;
+			]
+		] ;
+	]</b> .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="LimitExpression">
@@ -1130,7 +1419,44 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p id="LimitExpressionExample">
+						The following example illustrates the use of <code>sh:limit</code> to compute the
+						values of a derived property <code>ex:oldestChildren</code> to be a sub-list of
+						values of <code>ex:child</code> at the current <a>focus node</a> (which is an instance of
+						the class <code>ex:Person</code>).
+						The values are computed by first fetching the values of <code>ex:child</code>, then
+						ordering them by their <code>ex:dateOfBirth</code>, and finally getting only
+						<code>2</code> of these children at most.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:limit to compute the oldest two children">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:PersonShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:property ex:PersonShape-oldestTwoChildren .
+
+ex:PersonShape-oldestTwoChildren
+	a sh:PropertyShape ;
+	sh:path ex:oldestTwoChildren ;
+	sh:class ex:Person ;
+	sh:values <b>[
+		sh:nodes</b> [
+			sh:nodes [
+				sh:path ex:child ;
+			] ;
+			sh:orderBy ex:dateOfBirth ;
+		] ;
+		<b>sh:limit 2 ;
+	]</b> .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="OffsetExpression">
@@ -1180,12 +1506,52 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p id="OffsetExpressionExample">
+						The following example illustrates the use of <code>sh:offset</code> to compute the
+						values of a derived property <code>ex:remainingChildren</code> to be a sub-list of
+						values of <code>ex:child</code> at the current <a>focus node</a> (which is an instance of
+						the class <code>ex:Person</code>).
+						The values are computed by first fetching the values of <code>ex:child</code>, then
+						ordering them by their <code>ex:dateOfBirth</code>, and finally skipping the first
+						of these children.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:offset to compute all but the oldest child">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:PersonShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:property ex:PersonShape-remainingChildren .
+
+ex:PersonShape-remainingChildren
+	a sh:PropertyShape ;
+	sh:path ex:remainingChildren ;
+	sh:class ex:Person ;
+	sh:values <b>[
+		sh:nodes</b> [
+			sh:nodes [
+				sh:path ex:child ;
+			] ;
+			sh:orderBy ex:dateOfBirth ;
+		] ;
+		<b>sh:offset 1 ;
+	]</b> .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="OrderByExpression">
 					<h3>OrderBy Expressions</h3>
 					<p class="todo">TODO: This should be cleaned up from the SHACL-AF definition and requires thought</p>
+					<p>
+						The <a href="#LimitExpressionExample">Example of <code>sh:limit</code></a> also illustrates <code>sh:orderBy</code>.
+					</p>
 				</section>
 
 			</section>
@@ -1229,7 +1595,38 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p>
+						The following example illustrates the use of <code>sh:count</code> to derive a property
+						<code>ex:topConceptCount</code> as the number of values of the <code>skos:hasTopConcept</code>
+						property in a <code>skos:ConceptScheme</code>.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:count to compute the number of values of another property">
+							<div class="shapes-graph">
+								<div class="turtle">
+skos:ConceptScheme
+	a rdfs:Class, sh:NodeShape ;
+	sh:property skos:ConceptScheme-topConceptCount .
+
+skos:ConceptScheme-topConceptCount
+	a sh:PropertyShape ;
+	sh:path ex:topConceptCount ;
+	sh:datatype xsd:integer ;
+	sh:description "The number of top concepts in this scheme." ;
+	sh:maxCount 1 ;
+	sh:name "top concept count" ;
+	sh:values [
+		sh:count [
+			sh:path skos:hasTopConcept ;
+		] ;
+	] .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="MinExpression">
@@ -1269,7 +1666,40 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p id="MinExpressionExample">
+						The following example illustrates the use of <code>sh:min</code> to derive a property
+						<code>ex:minStartDate</code> as the smallest value of the values that can be reached using the
+						property path <code>ex:exployee/ex:startDate</code>.
+						In other words, it walks through all employees of the given company and returns the earliest
+						date on which an employee started.
+					</p>
+					<p>
+						<aside class="example" title="Using sh:min to compute the smallest value in a property path">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:CompanyShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Company ;
+	sh:property ex:CompanyShape-minStartDate .
+
+ex:CompanyShape-minStartDate
+	a sh:PropertyShape ;
+	sh:path ex:minStartDate ;
+	sh:datatype xsd:date ;
+	sh:maxCount 1 ;
+	sh:name "min start date" ;
+	sh:values [
+		sh:min [
+			sh:path ( ex:employee ex:startDate ) ;
+		] ;
+	] .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="MaxExpression">
@@ -1309,7 +1739,10 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p>
+						The <a href="#MinExpressionExample">Example for <code>sh:min</code></a> can be easily adapted
+						for <code>sh:max</code>.
+					</p>
 				</section>
 
 				<section id="SumExpression">
@@ -1349,7 +1782,73 @@ skos:ConceptScheme-topConceptCount
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
-					<p class="todo">TODO: Example</p>
+					<p>
+						Note that <code>sh:sum</code> needs to be used with care and may be often misunderstood,
+						when used with property paths.
+						The problem is that when a <a>path expression</a> is used as input to a <a>sum expression</a>,
+						the path expression will have eliminated duplicates before they can be processed by the <code>sh:sum</code>.
+						As a result, only the distinct values will be added up.
+					</p>
+					<p class="todo">TODO: Find good example, or drop the feature if none makes sense</p>
+				</section>
+
+			</section>
+
+			<section id="misc">
+				<h2>Miscellaneous Node Expressions</h2>
+				<p>
+					This section enumerates node expression functions that did not fit into other categories.
+				</p>
+
+				<section id="InstancesOfExpression">
+					<h3>InstancesOf Expressions</h3>
+					<p class="syntax">
+						<span data-syntax-rule="InstancesOfExpression-syntax">
+							A <a>blank node</a> that is the <a>subject</a> of the following properties
+							is called an <dfn>instancesOf expression</dfn> with the <a>function name</a> <code>sh:InstancesOfExpression</code>:
+							<table class="term-table">
+								<thead>
+									<th>Property</th>
+									<th>Constraints</th>
+									<th>Description</th>
+								</thead>
+								<tbody>
+									<tr>
+										<td><b><code>sh:instancesOf</code></b></td>
+										<td>
+											<code>sh:nodeKind sh:IRI</code>
+										</td>
+										<td>
+											The class that the <a>output nodes</a> must be instances of.
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</span>
+					</p>
+					<div class="def" id="InstanceOfExpression-evaluation">
+						<div class="def-header">EVALUATION OF INSTANCESOF EXPRESSIONS</div>
+						<p>
+							Let <code>type</code> be the <a>value</a> of <code>sh:instancesOf</code> in an <a>instancesOf expression</a>.
+							The <a>output nodes</a> of the <a>instancesOf expression</a> are the <a>nodes</a> that are <a>SHACL instances</a>
+							of <code>type</code> in the <a>focus graph</a>.
+						</p>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						Note that the definition of <code>SHACL instance</code> includes instances of subclasses of the given class.
+						So if the <a>focus graph</a> contains <code>ex:SubClass rdfs:subClassOf ex:SuperClass</code> and <code>ex:SubInstance a ex:SubClass</code>
+						then <code>ex:SubInstance</code> will also be returned as instance of <code>ex:SuperClass</code>.
+					</p>
+					<p>
+						The interpretation of <code>sh:instancesOf</code> is similar to <code>sh:targetClass</code> and <code>sh:class</code>.
+					</p>
+					<p>
+						Users of this node expression function should be aware that the list of output nodes may be very large.
+					</p>
+					<p>
+						The <a href="#IntersectionExpressionExample">Example for <code>sh:intersection</code></a> uses <code>sh:instanceOf</code>.
+					</p>
 				</section>
 
 			</section>
