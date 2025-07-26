@@ -4,7 +4,7 @@
 ## Scribes
 
 * 2025-07-28: 
-* 2025-07-21: 
+* 2025-07-21: nicholascar & AndyS
 * 2025-07-14: edmondchuc
 * 2025-07-07: ajnelson-nist
 * 2025-06-30: mgberg
