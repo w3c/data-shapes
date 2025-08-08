@@ -2294,65 +2294,133 @@ ex:Germany
 					as an <a>IRI expression</a> that evaluates to a set containing the same <a>node shape</a>.
 				</p>
 				<p>
-					In the following example, all values of the property <code>ex:address</code> must fulfill the
-					constraints expressed by the <a>shape</a> <code>ex:AddressShape</code>.
+					The following example demonstrates how <code>sh:nodeByExpression</code> could be used in the context of the <a href="https://www.w3.org/TR/vocab-data-cube/">W3C Data Cube Vocabulary</a>.
+					Building upon examples 5 and 6 from the Data Cube Vocabulary documentation, Data Structure Definition is extended with the property <code>eg:hasShape</code>,
+					which links to an associated <a>node shape</a> to which relevant <code>qb:Observation</code> instances must conform.
+					To validate that every <code>qb:Observation</code> instance conforms to the appropriate shape, <code>sh:nodeByExpression</code> with a <a>Path Expression</a>
+					is used to locate the shape at the property path <code>qb:dataSet/qb:structure/eg:hasShape</code> from each <code>qb:Observation</code> instance.
 				</p>
 				<aside class="example">
 					<div class="shapes-graph">
 						<div class="turtle">
-ex:AddressShape
+eg:dsd1-shape
 	a sh:NodeShape ;
-	sh:property [
-		sh:path ex:postalCode ;
-		sh:datatype xsd:string ;
+	sh:property [  # _:b1
+		sh:path sdmx-dimension:refTime ;
+		sh:datatype xsd:date ;
+		sh:minCount 1 ;
 		sh:maxCount 1 ;
+	] ;
+	sh:property [  # _:b2
+		sh:path eg-measure:quantity ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		sh:minInclusive 0 ;
+	] ;
+	sh:property [  # _:b3
+		sh:path eg-measure:weight ;
+		sh:datatype xsd:decimal ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+		sh:minInclusive 0.0 ;
 	] .
 
-ex:PersonShape
+eg:ObservationShape
 	a sh:NodeShape ;
-	sh:targetClass ex:Person ;
-	sh:property [   # _:b1
-		sh:path ex:address ;
-		sh:minCount 1 ;
-		sh:nodeByExpression ex:AddressShape ;
+	sh:targetClass qb:Observation ;
+	sh:nodeByExpression [
+		sh:path (qb:dataSet qb:structure eg:hasShape) ;
 	] .
 						</div>
 						<div class="jsonld">
 							<pre class="jsonld">{
 	"@graph": [
 		{
-			"@id": "ex:AddressShape",
+			"@id": "eg:dsd1-shape",
 			"@type": "sh:NodeShape",
-			"sh:property": {
-				"sh:datatype": {
-					"@id": "xsd:string"
+			"sh:property": [
+				{
+					"@id": "_:b1",
+					"sh:path": {
+						"@id": "sdmx-dimension:refTime"
+					},
+					"sh:datatype": {
+						"@id": "xsd:date"
+					},
+					"sh:minCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:maxCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					}
 				},
-				"sh:maxCount": {
-					"@type": "xsd:integer",
-					"@value": "1"
+				{
+					"@id": "_:b2",
+					"sh:path": {
+						"@id": "eg-measure:quantity"
+					},
+					"sh:datatype": {
+						"@id": "xsd:integer"
+					},
+					"sh:minCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:maxCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:minInclusive": {
+						"@type": "xsd:integer",
+						"@value": "0"
+					}
 				},
-				"sh:path": {
-					"@id": "ex:postalCode"
+				{
+					"@id": "_:b3",
+					"sh:path": {
+						"@id": "eg-measure:weight"
+					},
+					"sh:datatype": {
+						"@id": "xsd:decimal"
+					},
+					"sh:minCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:maxCount": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					},
+					"sh:minInclusive": {
+						"@type": "xsd:decimal",
+						"@value": "0.0"
+					}
 				}
-			}
+			]
 		},
 		{
-			"@id": "ex:PersonShape",
+			"@id": "eg:ObservationShape",
 			"@type": "sh:NodeShape",
-			"sh:property": {
-				"sh:minCount": {
-					"@type": "xsd:integer",
-					"@value": "1"
-				},
-				"sh:nodeByExpression": {
-					"@id": "ex:AddressShape"
-				},
-				"sh:path": {
-					"@id": "ex:address"
-				}
-			},
 			"sh:targetClass": {
-				"@id": "ex:Person"
+				"@id": "qb:Observation"
+			},
+			"sh:nodeByExpression": {
+				"sh:path": {
+					"@list": [
+						{
+							"@id": "qb:dataSet"
+						},
+						{
+							"@id": "qb:structure"
+						},
+						{
+							"@id": "eg:hasShape"
+						}
+					]
+				}
 			}
 		}
 	]
@@ -2361,45 +2429,108 @@ ex:PersonShape
 					</div>
 					<div class="data-graph">
 						<div class="turtle">
-ex:Bob a ex:Person ;
-	ex:address ex:BobsAddress .
+eg:dataset1
+	a qb:DataSet ;
+	qb:structure eg:dsd1 .
 
-ex:BobsAddress
-	ex:postalCode "1234" .
+eg:dsd1
+	a qb:DataStructureDefinition ;
+	rdfs:comment "shipments by time (multiple measures approach)"@en ;
+	eg:hasShape eg:dsd1-shape ;
+	qb:component [
+		qb:dimension sdmx-dimension:refTime;
+	] ;
+	qb:component [
+		qb:measure eg-measure:quantity ;
+	] ;
+	qb:component [
+		qb:measure eg-measure:weight ;
+	] .
 
-<span class="focus-node-error">ex:Reto</span> a ex:Person ;
-	ex:address ex:RetosAddress .
+eg:obs1a
+	a qb:Observation;
+	qb:dataSet eg:dataset1;
+	sdmx-dimension:refTime "2010-07-30"^^xsd:date;
+	eg-measure:weight 1.3 ;
+	eg-measure:quantity 42 .
 
-ex:RetosAddress
-	ex:postalCode 5678 .
+<span class="focus-node-error">eg:obs1b</span>
+	a qb:Observation;
+	qb:dataSet eg:dataset1;
+	sdmx-dimension:refTime "2010-07-31T12:00:00"^^xsd:dateTime;
+	eg-measure:weight 1.4 .
 						</div>
 						<div class="jsonld">
 							<pre class="jsonld">{
 	"@graph": [
 		{
-			"@id": "ex:Bob",
-			"@type": "ex:Person",
-			"ex:address": {
-				"@id": "ex:BobsAddress"
+			"@id": "eg:dataset1",
+			"@type": "qb:DataSet",
+			"qb:structure": {
+				"@id": "eg:dsd1"
 			}
 		},
 		{
-			"@id": "ex:BobsAddress",
-			"ex:postalCode": "1234"
-		},
-		{
-			"@id": "ex:Reto",
-			"@type": "ex:Person",
-			"ex:address": {
-				"@id": "ex:RetosAddress"
+			"@id": "eg:dsd1",
+			"@type": "qb:DataStructureDefinition",
+			"rdfs:comment": {
+				"@language": "en",
+				"@value": "shipments by time (multiple measures approach)"
 			}
+			"eg:hasShape": {
+				"@id": "eg:dsd1-shape"
+			},
+			"qb:component": [
+				{
+					"qb:dimension": {
+						"@id": "sdmx-dimension:refTime"
+					}
+				},
+				{
+					"qb:measure": {
+						"@id": "eg-measure:quantity"
+					}
+				},
+				{
+					"qb:measure": {
+						"@id": "eg-measure:weight"
+					}
+				}
+			]
 		},
 		{
-			"@id": "ex:RetosAddress",
-			"ex:postalCode": {
+			"@id": "eg:obs1a",
+			"@type": "qb:Observation",
+			"qb:dataSet": {
+				"@id": "eg:dataset1"
+			},
+			"sdmx-dimension:refTime": {
+				"@type": "xsd:date",
+				"@value": "2010-07-30"
+			},
+			"eg-measure:quantity": {
 				"@type": "xsd:integer",
-				"@value": "5678"
+				"@value": "42"
+			},
+			"eg-measure:weight": {
+				"@type": "xsd:decimal",
+				"@value": "1.3"
 			}
+		},
+		{
+			"@id": "eg:obs1b",
+			"@type": "qb:Observation",
+			"qb:dataSet": {
+				"@id": "eg:dataset1"
+			},
+			"sdmx-dimension:refTime": {
+				"@type": "xsd:dateTime",
+				"@value": "2010-07-31T12:00:00"
+			}
+			"eg-measure:weight": {
+				"@type": "xsd:decimal",
+				"@value": "1.4"
+			},
 		}
 	]
 }</pre>
@@ -2412,14 +2543,32 @@ ex:RetosAddress
 	sh:result [
 		a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
-		sh:focusNode ex:Reto ;
-		sh:resultPath ex:address ;
-		sh:value ex:RetosAddress ;
-		sh:resultMessage "Value does not conform to shape ex:AddressShape." ;
-		sh:sourceConstraint ex:AddressShape ;
+		sh:focusNode eg:obs1b;
+		sh:value eg:obs1b ;
+		sh:resultMessage "Value does not conform to shape eg:dsd1-shape." ;
+		sh:sourceConstraint eg:dsd1-shape ;
 		sh:sourceConstraintComponent sh:NodeByExpressionConstraintComponent ;
-		sh:sourceShape _:b1 ;
-	]
+		sh:sourceShape eg:ObservationShape ;
+		sh:detail [
+			a sh:ValidationResult ;
+			sh:resultSeverity sh:Violation ;
+			sh:focusNode eg:obs1b ;
+			sh:resultPath sdmx-dimension:refTime ;
+			sh:value "2010-07-31T12:00:00"^^xsd:dateTime ;
+			sh:resultMessage "Value does not have datatype xsd:date" ;
+			sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+			sh:sourceShape _:b1 ;
+		] ;
+		sh:detail [
+			a sh:ValidationResult ;
+			sh:resultSeverity sh:Violation ;
+			sh:focusNode eg:obs1b ;
+			sh:resultPath eg-measure:quantity ;
+			sh:resultMessage "Less than 1 values" ;
+			sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+			sh:sourceShape _:b2 ;
+		] ;
+	] ;
 ] .
 						</div>
 						<div class="jsonld">
@@ -2431,28 +2580,69 @@ ex:RetosAddress
 	},
 	"sh:result": {
 		"@type": "sh:ValidationResult",
-		"sh:focusNode": {
-			"@id": "ex:Reto"
-		},
-		"sh:resultMessage": "Value does not conform to shape ex:AddressShape.",
-		"sh:resultPath": {
-			"@id": "ex:address"
-		},
 		"sh:resultSeverity": {
 			"@id": "sh:Violation"
 		},
+		"sh:focusNode": {
+			"@id": "eg:obs1b"
+		},
+		"sh:value": {
+			"@id": "eg:obs1b"
+		},
+		"sh:resultMessage": "Value does not conform to shape eg:dsd1-shape.",
 		"sh:sourceConstraint": {
-			"@id": "ex:AddressShape"
+			"@id": "eg:dsd1-shape"
 		},
 		"sh:sourceConstraintComponent": {
 			"@id": "sh:NodeByExpressionConstraintComponent"
 		},
 		"sh:sourceShape": {
-			"@id": "_:b66_b1"
+			"@id": "eg:ObservationShape"
 		},
-		"sh:value": {
-			"@id": "ex:RetosAddress"
-		}
+		"sh:detail": [
+			{
+				"@type": "sh:ValidationResult",
+				"sh:resultSeverity": {
+					"@id": "sh:Violation"
+				},
+				"sh:focusNode": {
+					"@id": "eg:obs1b"
+				},
+				"sh:resultPath": {
+					"@id": "sdmx-dimension:refTime"
+				},
+				"sh:value": {
+					"@type": "xsd:dateTime",
+					"@value": "2010-07-31T12:00:00"
+				},
+				"sh:resultMessage": "Value does not have datatype xsd:date",
+				"sh:sourceConstraintComponent": {
+					"@id": "sh:DatatypeConstraintComponent"
+				},
+				"sh:sourceShape": {
+					"@id": "_:b1"
+				}
+			},
+			{
+				"@type": "sh:ValidationResult",
+				"sh:resultSeverity": {
+					"@id": "sh:Violation"
+				},
+				"sh:focusNode": {
+					"@id": "eg:obs1b"
+				},
+				"sh:resultPath": {
+					"@id": "eg-measure:quantity"
+				},
+				"sh:resultMessage": "Less than 1 values",
+				"sh:sourceConstraintComponent": {
+					"@id": "sh:MinCountConstraintComponent"
+				},
+				"sh:sourceShape": {
+					"@id": "_:b2"
+				}
+			}
+		]
 	}
 }</pre>
 						</div>
