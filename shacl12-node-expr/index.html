@@ -522,6 +522,10 @@
 						<td><code>http://www.w3.org/2004/02/skos/core#</code></td>
 					</tr>
 					<tr>
+						<td><code>sparql:</code></td>
+						<td><code>http://www.w3.org/ns/sparql#</code></td>
+					</tr>
+					<tr>
 						<td><code>xsd:</code></td>
 						<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
 					</tr>
@@ -2147,7 +2151,7 @@ ex:CompanyShape-minStartDate
 					<div class="def-text-body" data-validator="Expression">
 						Let <code>$expr</code> be a <a>value</a> of <code>sh:expression</code>.
 						For each <a>value node</a> <code>v</code> 
-						where <code>evalExpr(expr, <a>data graph</a>, v, {})</code>
+						where <code>evalExpr(expr, <a>data graph</a>, focusNode, {value: v})</code>
 						does not return the list consisting of exactly <code>true</code> as its <a>output nodes</a>,
 						there is a <a>validation result</a> that has <code>v</code> as its <code>sh:value</code>
 						and a <a>deep copy</a> of <code>$expr</code> in the results graph as its <code>sh:sourceConstraint</code>.
@@ -2156,6 +2160,68 @@ ex:CompanyShape-minStartDate
 						<a>validation result</a>.
 					</div>
 				</div>
+				<p><em>The remainder of this section is informative.</em></p>
+				<p>
+					Note that the scope in the evaluation of expression constraints contains the variable <code>value</code>
+					for the current <a>value node</a> while the variable <code>focusNode</code> is the <a>focus node</a>.
+				</p>
+				<p>
+					The following example uses a <a href="shacl12-sparql#SPARQLExprExpression">SPARQL Expr Expression</a> to declare
+					the constraint that the values of <code>ex:ibanNumber</code> must start with the same two (upper-case) letters as
+					the values of the path <code>ex:country/ex:code</code>.
+				</p>
+				<aside class="example">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:AccountShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Account ;
+    sh:property ex:AccountShape-ibanNumber .
+
+ex:AccountShape-ibanNumber
+    a sh:PropertyShape ;
+    sh:path ex:ibanNumber ;
+    sh:expression [
+	    sh:message "IBAN numbers must start with the country code, in upper-case letters." ;
+        sparql:strstarts (
+            [ sh:var "value" ]
+            [ 
+                sparql:ucase (
+                    [
+                        sh:path ( ex:country ex:code )
+                        sh:nodes [ sh:var "focusNode" ]
+                    ]
+                )
+            ]
+        )
+    ] .
+						</div>
+						<div class="jsonld">
+							TODO
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:ValidGermanAccount
+    a ex:Account ;
+    ex:ibanNumber "DE123456..." ;
+    ex:country ex:Germany .
+
+<span class="focus-node-error">ex:InvalidGermanAccount</span>
+    a ex:Account ;
+    ex:ibanNumber "DE987654..." ;
+    ex:country ex:Estonia .
+
+ex:Estonia
+    a ex:Country ;
+    ex:code "ee" .
+
+ex:Germany
+    a ex:Country ;
+    ex:code "de" .
+						</div>
+					</div>
+				</aside>
 			</section>
 
 			<section id="NodeByExpressionConstraintComponent">
