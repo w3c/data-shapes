@@ -3,7 +3,10 @@
 
 ## Scribes
 
-* 2025-07-28: 
+* 2025-08-18: 
+* 2025-08-11: 
+* 2025-08-04: PapoutsoglouE
+* 2025-07-28: DavidHabgood
 * 2025-07-21: nicholascar & AndyS
 * 2025-07-14: edmondchuc
 * 2025-07-07: ajnelson-nist
