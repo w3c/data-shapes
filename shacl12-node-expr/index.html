@@ -481,6 +481,7 @@
 						<dfn data-cite="shacl12-core#dfn-conform" data-lt="conform|conforms">conform</dfn>,
 						<dfn data-cite="shacl12-core#dfn-conformance-check" data-lt="conformance check">conformance check</dfn>,
 						<dfn data-cite="shacl12-core#dfn-failure" data-lt="failure|failures">failure</dfn>,
+						<dfn data-cite="shacl12-core#dfn-validation">validation</dfn>,
 						<dfn data-cite="shacl12-core#dfn-shacl-instance" data-lt="shacl instance">SHACL instance</dfn>,
 						<dfn data-cite="shacl12-core#dfn-shacl-subclass" data-lt="shacl subclass">SHACL subclass</dfn>,
 						<dfn data-cite="shacl12-core#dfn-shacl-type" data-lt="shacl type">SHACL type</dfn>,
@@ -557,9 +558,8 @@
 			</section>
 		</section>
 
-		<section id="getting-started">
+		<section id="getting-started" class="informative">
 			<h2>Getting started with Node Expressions</h2>
-			<p><em>This section is informative.</em></p>
 			<p>
 				A SHACL <a>shapes graph</a> can declare node expressions as values of various properties where dynamic computation is useful,
 				such as <code>sh:targetNode</code>, <code>sh:values</code> and <code>sh:deactivated</code>.
@@ -2645,6 +2645,142 @@ eg:obs1a
 				</aside>
 			</section>
 			
+		</section>
+
+		<section id="dynamic-shacl">
+			<h2>Dynamic SHACL</h2>
+			<p>
+				This section defines <dfn>Dynamic SHACL</dfn> as a dialect of SHACL that some implementations MAY support.
+			</p>
+			<p>
+				In Dynamic SHACL any <a>parameter</a> of a <a>constraint</a> can be a <a>node expression</a>,
+				excluding those that do <em>not</em> allow <a>blank nodes</a> (such as <code>sh:node</code>)
+				but including those that take <a>SHACL lists</a> as values (such as <code>sh:class</code>, <code>sh:datatype</code> and <code>sh:in</code>).
+				During <a>validation</a>, such <a>node expressions</a> are evaluated in the <a>data graph</a>,
+				using the current <a>focus node</a>.
+				The resulting <a>nodes</a> will be used as <a>parameters</a> for the <a>constraint</a>.
+			</p>
+			<section class="informative">
+				<h3>Example: Dynamic Minimum Age of Presidents</h3>
+				<p>
+					As a use case of <a>Dynamic SHACL</a>, assume we want to express that the legal minimum age
+					of a president is 18 unless the country is USA, where it is 40.
+				</p>
+				<aside class="example" title="Example of Dynamic SHACL using a node expression at sh:minInclusive">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:PresidentShape
+    a sh:NodeShape ;
+	sh:targetClass ex:President ;
+    sh:property ex:PresidentShape-age ;
+.
+ex:PresidentShape-age
+    a sh:PropertyShape ;
+    sh:path ex:age ;
+    <b>sh:minInclusive [
+        shnex:if [
+            sparql:eq (
+                [ shnex:path ex:country ]
+                ex:USA
+            )
+        ]
+        shnex:then 40 ;
+        shnex:else 18 ;
+    ]</b> .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">
+								TODO
+							</pre>
+						</div>
+					</div>
+				</aside>
+			</section>
+			<section class="informative">
+				<h3>Example: Dynamic Enumerations</h3>
+				<p>
+					As a use case of <a>Dynamic SHACL</a>, assume the following <a>data graph</a>.
+				</p>
+				<aside class="example" title="Example data graph with addresses">
+					<div class="data-graph">
+						<div class="turtle">
+ex:ArizonaAddress1
+    a ex:Address ;
+    ex:street "123 John Muir Ave" ;
+    ex:country ex:USA ;
+    ex:state "AZ" ;
+.
+ex:QueenslandAddress1
+    a ex:Address ;
+    ex:street "123 Bob Katter Cl" ;
+    ex:country ex:Australia ;
+    ex:state "QLD" ;
+.
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">
+								TODO
+							</pre>
+						</div>
+					</div>
+				</aside>
+				<p>
+					We want to express that the valid values of <code>ex:state</code> depend on the value of <code>ex:country</code>
+					at the given focus node.
+					For example, the valid values for country <code>ex:USA</code> would be <code>( "AL" "AK" "AZ" ... )</code>
+					while values values for country <code>ex:Australia</code> would be <code>( "ACT" "NSW" "NT" "QLD" "SA" "TAS" "VIC" "WA" )</code>.
+					This fact can be represented as part of the data:
+				</p>
+				<aside class="example" title="The valid states can be attached to each country">
+					<div class="data-graph">
+						<div class="turtle">
+ex:Australia
+    a ex:Country ;
+    ex:stateCode "ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA" ;
+.
+ex:USA
+    a ex:Country ;
+    ex:stateCode "AL", "AK", "AZ", "AR" ; # ...
+.
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">
+								TODO
+							</pre>
+						</div>
+					</div>
+				</aside>
+				<p>
+					Using this extra information, we can now define a <code>sh:in</code> constraint using a <a>Path Expression</a>:
+				</p>
+				<aside class="example" title="Example of Dynamic SHACL using a node expression at sh:in">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Address
+    a sh:ShapeClass ;
+    sh:property ex:Address-state ;
+.
+ex:Address-state
+    a sh:PropertyShape ;
+    sh:path ex:state ;
+    <b>sh:in [
+        shnex:path ( ex:country ex:stateCode )
+    ]</b> .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">
+								TODO
+							</pre>
+						</div>
+					</div>
+				</aside>
+				<p>
+					During validation, a Dynamic SHACL engine will evaluate the path expression at <code>sh:in</code>
+					and use the resulting nodes as members of the allowed values.
+					So, when the value of <code>ex:country</code> is <code>ex:USA</code>, it will look up the
+					state codes that are linked to <code>ex:USA</code>.
+				</p>
+			</section>
 		</section>
 
 		<section id="security">
