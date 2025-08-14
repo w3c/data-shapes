@@ -8,6 +8,7 @@
     <script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
     <script src="https://www.w3.org/Tools/respec/respec-highlight" class="remove"></script>
     <script src="../scripts/highlightjs-line-numbers.min.js" class="remove"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
 
     <script class="remove">
 
@@ -32,7 +33,27 @@
             });
         }
 
-       async function initLineNr(config, doc, utils) {
+                async function loadJSONLD() {
+            const worker = await new Promise(resolve => {
+                require(["core/worker"], ({ worker }) => resolve(worker));
+            });
+            const action = "highlight-load-lang";
+            const langURL = new URL("../scripts/jsonld.js", window.location).href;
+            const propName = "jsonld_hljs";
+            const lang = "jsonld";
+            worker.postMessage({ action, langURL, propName, lang });
+            return new Promise(resolve => {
+                worker.addEventListener("message", function listener({ data }) {
+                    const { action: responseAction, lang: responseLang } = data;
+                    if (responseAction === action && responseLang === lang) {
+                        worker.removeEventListener("message", listener);
+                        resolve();
+                    }
+                });
+            });
+        }
+
+        async function initLineNr(config, doc, utils) {
 
 
             function parseLineNumbers(str) {
@@ -89,16 +110,16 @@
                 // singleLine:true,
                 // startFrom: 5,
             });
-             await new Promise((resolve) => setTimeout(resolve, 1000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
             applyLineHighlights();
 
         }
 
         var respecConfig = {
             localBiblio: {},
-            preProcess: [loadTurtle],
-            postProcess: [async (config,doc,utils) => {
-               
+            preProcess: [loadTurtle,loadJSONLD],
+            postProcess: [async (config, doc, utils) => {
+
                 initLineNr(config, doc, utils);
                 console.log(doc.querySelector('table.hljs-ln'));
             }],
@@ -455,7 +476,40 @@
         code {
             white-space: pre-wrap;
             overflow: auto;
+            padding: unset!important;
         }
+
+        /* Container styling */
+code.hljs.turtle {
+    width: 100%;
+    display: block;
+    overflow-x: auto; /* Allows horizontal scrolling if needed */
+}
+
+/* Table styling */
+table.hljs-ln {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+/* Table cells */
+table.hljs-ln td {
+    vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word; /* Better browser support */
+}
+
+/* First column (for the divs) - fixed width */
+table.hljs-ln td:first-child {
+    width: 30px; /* Adjust as needed */
+    flex-shrink: 0;
+}
+
+/* Second column (for the content) - takes remaining space */
+table.hljs-ln td:nth-child(2) {
+    width: calc(100% - 30px);
+}
     </style>
 </head>
 
@@ -507,24 +561,24 @@
 
     <section id="whatsnew">
         <h2>What's New in SHACL 1.2</h2>
-        <pre class="turtle" data-highlight-lines="3,8-10"> <!-- or <pre class="html"> -->
-ex:PersonShape
-	a sh:NodeShape ;
-	sh:targetClass ex:Person ;    # Applies to all persons
-	sh:property [                 # _:b1
-		sh:path ex:ssn ;           # constrains the values of ex:ssn
-		sh:maxCount 1 ;
-		sh:datatype xsd:string ;
-		sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
-	] ;
-	sh:property [                 # _:b2
-		sh:path ex:worksFor ;
-		sh:class ex:Company ;
-		sh:nodeKind sh:IRI ;
-	] ;
-	sh:closed true ;
-	sh:ignoredProperties ( rdf:type ) .
-</pre>
+        <pre class="turtle" data-highlight-lines="3,8-10"> 
+            ex:PersonShape
+                a sh:NodeShape ;
+                sh:targetClass ex:Person ;    # Applies to all persons
+                sh:property [                 # _:b1
+                    sh:path ex:ssn ;           # constrains the values of ex:ssn
+                    sh:maxCount 1 ;
+                    sh:datatype xsd:string ;
+                    sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
+                ] ;
+                sh:property [                 # _:b2
+                    sh:path ex:worksFor ;
+                    sh:class ex:Company ;
+                    sh:nodeKind sh:IRI ;
+                ] ;
+                sh:closed true ;
+                sh:ignoredProperties ( rdf:type ) .
+        </pre>
     </section>
 
     <section id="specifications">
@@ -568,14 +622,95 @@ ex:PersonShape
 
     <section id="x">
         <h2>Section X</h2>
-        <pre> <!-- or <pre class="html"> -->
-<script>
-    function magic() {
-        const noop = "this";
-        doThat(noop);
-    }
-</script>
-</pre>
+<pre class="jsonld" data-highlight-lines="5-9">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": [
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Alice"
+			},
+			"sh:resultPath": {
+				"@id": "ex:ssn"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:PatternConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b1"
+			},
+			"sh:value": "987-65-432A"
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Bob"
+			},
+			"sh:resultPath": {
+				"@id": "ex:ssn"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:MaxCountConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b1"
+			}
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Calvin"
+			},
+			"sh:resultPath": {
+				"@id": "ex:worksFor"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:ClassConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b2"
+			},
+			"sh:value": {
+				"@id": "ex:UntypedCompany"
+			}
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Calvin"
+			},
+			"sh:resultPath": {
+				"@id": "ex:birthDate"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:ClosedConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "sh:PersonShape"
+			},
+			"sh:value": {
+				"@type": "xsd:date",
+				"@value": "1971-07-07"
+			}
+		}
+	]
+}</pre>
         <p class="todo">TODO: This section will describe...</p>
     </section>
 
