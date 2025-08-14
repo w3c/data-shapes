@@ -1107,6 +1107,418 @@ ex:PersonShape
 			</section>			
 		</section>
 
+		<section id="getting-started-section">
+   			<h2>Getting Started with SHACL Core</h2>
+			<p>
+				In this section, we'll walk you through a simple example that introduces the basics of SHACL Core. You'll see how to describe what your data should look like, and how SHACL checks if your data meets that description.
+			</p>
+			<section>
+				<h3>
+					Simple Example:
+				</h3>
+				<p>
+					Imagine you have a set of people—Alice, Bob, Calvin—and you want to make sure:
+				</p>
+				
+				<ol>
+					<li>
+						Every <b>Person</b> has at most one Social Security Number (SSN), and that SSN needs to be a properly formatted text (like <code>123-45-6789</code>).
+					</li>
+					<li>
+						A <b>Person</b> can work for one or more companies—but those companies must be typed as a <code>ex:Company</code> in your data.
+					</li>
+					<li>
+						<b>No other properties</b> are allowed for a <b>Person</b>, other than the SSN (<code></code>ex:ssn</code>), the work affiliation (<code>ex:worksFor</code>), and the mandatory typing (<code>rdf:type</code>).
+					</li>
+				</ol>
+				<p>
+					That's what our shape (think "rulebook") will enforce on the data.
+				</p>
+			</section>
+			<section>
+				<h3>
+					Our Sample Data (Data Graph)
+				</h3>
+				
+				Here's the data we want to check:
+
+				<div class="data-graph">
+					<div class="turtle">
+ex:Alice a ex:Person ;
+	ex:ssn "987-65-432A" .          # SSN has a typo or bad format
+
+ex:Bob a ex:Person ;
+	ex:ssn "123-45-6789", "124-35-6789" .  # Two SSNs (too many)
+
+ex:Calvin a ex:Person ;
+	ex:birthDate "1971-07-07"^^xsd:date ;  # Extra birthDate
+	ex:worksFor ex:UntypedCompany .        # Untyped company
+					</div>
+					<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"@type": "ex:Person",
+			"ex:ssn": "987-65-432A"
+		},
+		{
+			"@id": "ex:Bob",
+			"@type": "ex:Person",
+			"ex:ssn": [
+				"123-45-6789",
+				"124-35-6789"
+			]
+		},
+		{
+			"@id": "ex:Calvin",
+			"@type": "ex:Person",
+			"ex:birthDate": {
+				"@type": "xsd:date",
+				"@value": "1971-07-07"
+			},
+			"ex:worksFor": {
+				"@id": "ex:UntypedCompany"
+			}
+		}
+	]
+}</pre>
+						</div>
+				</div>
+				<p>
+					<b>What's wrong here?</b>
+					<ul>
+						<li>
+							<b>Alice</b> has an SSN—but it doesn't match the correct pattern.
+						</li>
+						<li>
+							<b>Bob</b> has two SSNs, but we only allow one.
+						</li>
+						<li>
+							<b>Calvin</b> works for something called <code>ex:UntypedCompany</code>, but that item isn't labeled as a <code>ex:Company</code>; plus, Calvin has a <code>ex:birthDate</code>, which we don't allow.
+						</li>
+					</ul>
+				</p>
+			</section>
+			<section>
+				<h3>
+					Writing the Shape (Shapes Graph)
+				</h3>
+				<p>
+					Here's how we say it clearly using SHACL's Turtle syntax, as well as JSON-LD and SHACL-C:
+				</p>
+
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;         # This shape applies to all Persons
+
+    sh:property [
+        sh:path ex:ssn ;
+        sh:maxCount 1 ;                # At most one SSN
+        sh:datatype xsd:string ;               # Must be a string 
+        sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;  # and look like 123-45-6789
+    ] ;
+
+    sh:property [
+        sh:path ex:worksFor ;
+        sh:nodeKind sh:IRI ;            # Must be an IRI
+        sh:class ex:Company ;           # and point to a typed Company
+    ] ;
+
+    sh:closed true ;                     # No other properties are allowed
+    sh:ignoredProperties ( rdf:type ) .  # except for rdf:type
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@id": "ex:PersonShape",
+	"@type": "sh:NodeShape",
+	"sh:closed": {
+		"@type": "xsd:boolean",
+		"@value": "true"
+	},
+	"sh:ignoredProperties": {
+		"@list": [
+			{
+				"@id": "rdf:type"
+			}
+		]
+	},
+	"sh:property": [
+		{
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:path": {
+				"@id": "ex:ssn"
+			},
+			"sh:pattern": "^\\d{3}-\\d{2}-\\d{4}$"
+		},
+		{
+			"sh:class": {
+				"@id": "ex:Company"
+			},
+			"sh:nodeKind": {
+				"@id": "sh:IRI"
+			},
+			"sh:path": {
+				"@id": "ex:worksFor"
+			}
+		}
+	],
+	"sh:targetClass": {
+		"@id": "ex:Person"
+	}
+}</pre>
+					</div>
+					<div class="shaclc"><pre class="shaclc">shape ex:PersonShape -&gt; ex:Person {
+	closed=true ignoredProperties=[rdf:type] .
+	ex:ssn xsd:string [0..1] pattern="^\\d{3}-\\d{2}-\\d{4}$" .
+	ex:worksFor IRI ex:Company .
+}</pre></div></div>
+			<p>
+				<b>Let's break that down:</b>
+			</p>	
+			<ul>
+				<li>
+					<code>sh:targetClass ex:Person</code> means "apply this rule to all people".
+				</li>
+				<li>
+					The first <code>sh:property</code> block ensures:
+					<li>
+						SSNs are strings (<code>sh:datatype xsd:string</code>),
+					</li>
+					<li>
+						Only one is allowed (<code>sh:maxCount 1</code>),
+					</li>
+					<li>
+						And it must follow the typical U.S. SSN format (<code>sh:pattern "^\d{3}-\d{2}-\d{4}$"</code>).
+					</li>
+				</li>
+				<li>
+					The second `sh:property` block says:
+					<li>
+						If someone has a <code>ex:worksFor</code> property, its value must be an IRI and point to something that's a <code>ex:Company</code>.
+					</li>
+				</li>
+				<li>
+					<code>sh:closed true</code> means no properties beyond those listed are allowed (except ones explicitly ignored).
+				</li>
+				<li>
+					<code>sh:ignoredProperties ( rdf:type )</code> lets <code>rdf:type</code> slip through even though it's not in the allowed property list.
+				</li>
+			</ul>
+		</section>
+		<section>
+			<h3>
+				Running the Validation (Validation Report)
+			</h3>
+			<p>
+				When we run SHACL validation on our <b>data graph</b> using our <b>shapes graph</b>, the validator checks each Person against the rules we wrote.
+			</p>
+			<p>
+				In plain English, here’s what it finds:
+			</p>
+			<ul>
+				<li>
+					<b>Alice</b>: SSN doesn’t match the expected pattern (<code>987-65-432A</code> has a letter where a digit should be).
+				</li>
+				<li>
+					<b>Bob</b>: Has more than one SSN (two values found, but <code>sh:maxCount</code> says only one is allowed).
+				</li>
+				<li>
+					<b>Calvin</b>:
+					<ul>
+						<li>
+							Works for something (<code>ex:UntypedCompany</code>) that isn’t declared as a <code>ex:Company</code>.
+						</li>
+						<li>
+							Has an extra property <code>ex:birthDate</code> that isn’t allowed by the shape.
+						</li>
+					</ul>
+				</li>
+			</ul>
+				<p>
+					Here’s what a SHACL validation report for this example might look like (simplified for readability):
+				</p>
+
+				<div class="results-graph">
+						<div class="turtle">
+[	a sh:ValidationReport ;
+	sh:conforms false ;
+	sh:result
+	[	a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Alice ;
+		sh:resultPath ex:ssn ;
+		sh:value "987-65-432A" ;
+		sh:sourceConstraintComponent sh:PatternConstraintComponent ;
+		sh:sourceShape _:b1 ; # ... blank node _:b1 on ex:ssn above ...
+    	sh:resultMessage "Value does not match pattern "^\d{3}-\d{2}-\d{4}$"" ;
+	] ,
+	[	a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Bob ;
+		sh:resultPath ex:ssn ;
+		sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
+		sh:sourceShape _:b1 ; # ... blank node _:b1 on ex:ssn above ...
+    	sh:resultMessage "More than 1 values" ;
+	] ,
+	[	a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Calvin ;
+		sh:resultPath ex:worksFor ;
+		sh:value ex:UntypedCompany ;
+		sh:sourceConstraintComponent sh:ClassConstraintComponent ;
+		sh:sourceShape _:b2 ; # ... blank node _:b2 on ex:worksFor above ...
+    	sh:resultMessage "Value does not have class ex:Company" ;
+	] ,
+	[	a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Calvin ;
+		sh:resultPath ex:birthDate ;
+		sh:value "1971-07-07"^^xsd:date ;
+		sh:sourceConstraintComponent sh:ClosedConstraintComponent ;
+		sh:sourceShape sh:PersonShape ;
+    	sh:resultMessage "Predicate is not allowed (closed shape)" ;
+	] 
+] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": [
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Alice"
+			},
+			"sh:resultPath": {
+				"@id": "ex:ssn"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:PatternConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b1"
+			},
+			"sh:value": "987-65-432A",
+			"sh:resultMessage": "Value does not match pattern '^\d{3}-\d{2}-\d{4}$'"
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Bob"
+			},
+			"sh:resultPath": {
+				"@id": "ex:ssn"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:MaxCountConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b1"
+			},
+			"sh:resultMessage": "More than 1 values"
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Calvin"
+			},
+			"sh:resultPath": {
+				"@id": "ex:worksFor"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:ClassConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "_:b2"
+			},
+			"sh:value": {
+				"@id": "ex:UntypedCompany"
+			},
+			"sh:resultMessage": "Value does not have class ex:Company"
+		},
+		{
+			"@type": "sh:ValidationResult",
+			"sh:focusNode": {
+				"@id": "ex:Calvin"
+			},
+			"sh:resultPath": {
+				"@id": "ex:birthDate"
+			},
+			"sh:resultSeverity": {
+				"@id": "sh:Violation"
+			},
+			"sh:sourceConstraintComponent": {
+				"@id": "sh:ClosedConstraintComponent"
+			},
+			"sh:sourceShape": {
+				"@id": "sh:PersonShape"
+			},
+			"sh:value": {
+				"@type": "xsd:date",
+				"@value": "1971-07-07"
+			},
+			"sh:resultMessage": "Predicate is not allowed (closed shape)"
+		}
+	]
+}</pre>
+						</div>
+					</div>
+			<p><b>How to read the report:</b></p>
+			<ul>
+				<li>
+					<code>sh:ValidationReport</code> is the overall report, with <code>sh:conforms false</code> meaning at least one rule failed.
+				</li>
+				<li>
+					Each <code>sh:ValidationResult</code> is one problem found:
+					<ul>
+						<li>
+							<code>sh:resultSeverity</code> — tells you how serious the problem is. In this example, all issues are <code>sh:Violation</code> (the highest and default severity).
+						</li>
+						<li>
+							<code>sh:focusNode</code> — the data node that failed.
+						</li>
+						<li>
+							<code>sh:resultPath</code> — the property involved.
+						</li>
+						<li>
+							<code>sh:value</code> — the actual value that triggered the failure.
+						</li>
+						<li>
+							<code>sh:sourceConstraintComponent</code> — which kind of rule was broken (max count, pattern, class, etc.).
+						</li>
+						<li>
+							<code>sh:sourceShape</code> — the shape that defined the rule.
+						</li>
+						<li>
+							<code>sh:resultMessage</code> — a human-readable explanation.
+						</li>
+					</ul>
+				</li>
+			</ul>
+  			</section>
+		</section>
+
 		<section id="constraints-section">
 			<h2>Shapes and Constraints</h2>
 			
