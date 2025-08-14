@@ -16,7 +16,7 @@ function turtle_hljs() {
 
   var IRI_LITERAL = {// https://www.w3.org/TR/turtle/#grammar-production-IRIREF
     className: 'literal',
-    relevance: 1, // XML tags look also like relative IRIs
+    relevance: 8, // XML tags look also like relative IRIs
     begin: /</,
     end: />/,
     illegal: /[^\x00-\x20<>"{}|^`]/, // TODO: https://www.w3.org/TR/turtle/#grammar-production-UCHAR
@@ -38,9 +38,15 @@ function turtle_hljs() {
   
   var PNAME = {
     begin: PNAME_NS_or_LN,
-    relevance: 0,
+    relevance: 5,
     className: 'symbol',
   };
+// Add a pattern to catch PREFIX declarations (very distinctive in Turtle)
+var PREFIX_DECLARATION = {
+  begin: /(@prefix|@base|prefix|base)\s+/i,
+  className: 'keyword',
+  relevance: 15, // High relevance for distinctive Turtle syntax
+};
 
   var BLANK_NODE = {
     begin: BLANK_NODE_LABEL,
@@ -88,6 +94,7 @@ function turtle_hljs() {
     keywords: KEYWORDS,
     aliases: ['turtle', 'ttl', 'n3', 'ntriples'],
     contains: [
+      PREFIX_DECLARATION,
       LANGTAG,
       DATATYPE,
       IRI_LITERAL,

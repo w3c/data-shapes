@@ -8,9 +8,74 @@
     <script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
     <script src="https://www.w3.org/Tools/respec/respec-highlight" class="remove"></script>
     <script src="../scripts/highlightjs-line-numbers.min.js" class="remove"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
 
     <script class="remove">
+        function prepareValidators() {
+            document.querySelectorAll("[data-validator]").forEach(element => {
+                let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+                let tr = document.createElement("tr");
+                tr.classList.add("validator-tr");
+                let td = document.createElement("td");
+                tr.appendChild(td);
+                let a = document.createElement("a");
+                a.classList.add("validator-id-a");
+                a.href = `#validator-${validatorId}`;
+                a.textContent = `sh:${validatorId}`;
+                td.appendChild(a);
+                td.innerHTML += ": " + element.innerHTML;
+                document.getElementById("validators-table").appendChild(tr);
+                element.id = "validator-" + validatorId;
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Replace code div blocks in shapes, data, and results graph with tabs
+            for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+                const tabs = document.createElement("aside");
+                tabs.classList.add("ds-selector-tabs");
+                graph.firstElementChild.classList.add("selected");
+
+                for (const child of graph.children) {
+                    child.classList.add("tab");
+                }
+
+                tabs.append(...graph.children);
+                graph.append(tabs)
+            }
+
+            // Generate buttons for the selection logic
+            for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+                const selectors = document.createElement("div");
+                selectors.classList.add("selectors");
+
+                // Check if shaclc div exists in this tab group
+                const hasShaclc = tabs.querySelector(".shaclc");
+
+                selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						<button data-selects="jsonld">JSON-LD</button>
+						${hasShaclc ? '<button data-selects="shaclc">SHACL-C</button>' : ''}
+					`
+
+                tabs.prepend(selectors);
+            }
+
+            for (const block of document.querySelectorAll('.shaclc')) {
+                block.innerHTML = `<i>SHACL-C specification is unstable - SHACL-C document fragments in this document are informative</i>${block.innerHTML}`;
+            }
+
+            // Add example button selection logic
+            for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+                button.onclick = () => {
+                    const ex = button.closest(".ds-selector-tabs");
+                    ex.querySelector("button.selected").classList.remove("selected");
+                    ex.querySelector(".selected").classList.remove("selected");
+                    button.classList.add('selected');
+                    ex.querySelector("." + button.dataset.selects).classList.add("selected");
+                }
+            }
+        });
 
 
         async function loadTurtle() {
@@ -33,7 +98,7 @@
             });
         }
 
-                async function loadJSONLD() {
+        async function loadJSONLD() {
             const worker = await new Promise(resolve => {
                 require(["core/worker"], ({ worker }) => resolve(worker));
             });
@@ -117,7 +182,7 @@
 
         var respecConfig = {
             localBiblio: {},
-            preProcess: [loadTurtle,loadJSONLD],
+            preProcess: [prepareValidators, loadTurtle, loadJSONLD],
             postProcess: [async (config, doc, utils) => {
 
                 initLineNr(config, doc, utils);
@@ -476,40 +541,145 @@
         code {
             white-space: pre-wrap;
             overflow: auto;
-            padding: unset!important;
+            padding: unset !important;
         }
 
         /* Container styling */
-code.hljs.turtle {
-    width: 100%;
-    display: block;
-    overflow-x: auto; /* Allows horizontal scrolling if needed */
-}
+        code.hljs.turtle {
+            width: 100%;
+            display: block;
+            overflow-x: auto;
+            /* Allows horizontal scrolling if needed */
+        }
 
-/* Table styling */
-table.hljs-ln {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
-}
+        /* Table styling */
+        table.hljs-ln {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
 
-/* Table cells */
-table.hljs-ln td {
-    vertical-align: top;
-    word-wrap: break-word;
-    overflow-wrap: break-word; /* Better browser support */
-}
+        /* Table cells */
+        table.hljs-ln td {
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            /* Better browser support */
+        }
 
-/* First column (for the divs) - fixed width */
-table.hljs-ln td:first-child {
-    width: 30px; /* Adjust as needed */
-    flex-shrink: 0;
-}
+        /* First column (for the divs) - fixed width */
+        table.hljs-ln td:first-child {
+            width: 30px;
+            /* Adjust as needed */
+            flex-shrink: 0;
+        }
 
-/* Second column (for the content) - takes remaining space */
-table.hljs-ln td:nth-child(2) {
-    width: calc(100% - 30px);
-}
+        /* Second column (for the content) - takes remaining space */
+        table.hljs-ln td:nth-child(2) {
+            width: calc(100% - 30px);
+        }
+
+        .data-graph {
+            background: #eeb;
+            border: 1px solid #cc9;
+            margin-top: 0.3em;
+        }
+
+        .data-graph:before {
+            color: #996;
+            content: "Data graph";
+            padding-left: 0.4em;
+        }
+
+        .results-graph {
+            background: #edb;
+            border: 1px solid #bbb;
+            margin-top: 0.3em;
+        }
+
+        .results-graph:before {
+            color: #997;
+            content: "Validation results";
+            padding-left: 0.4em;
+        }
+
+        .shapes-graph {
+            background: #deb;
+            border: 1px solid #bbb;
+            margin-top: 0.3em;
+        }
+
+        .shapes-graph:before {
+            color: #888;
+            content: "Shapes graph";
+            padding-left: 0.4em;
+        }
+
+        /* no dark mode, keep colors for shapes-graph, data-graph, and results graph background */
+        code.hljs {
+            --base: transparent;
+            --mono-1: #383a42;
+        }
+
+        /* our syntax menu for switching */
+        div.syntaxmenu {
+            border: 1px dotted black;
+            padding: 0.5em;
+            margin: 1em;
+        }
+
+        @media print {
+            div.syntaxmenu {
+                display: none;
+            }
+        }
+
+        /* example tab selection */
+        .ds-selector-tabs .selectors {
+            padding: 0;
+            border-bottom: 1px solid #ccc;
+            height: 28px;
+        }
+
+        .ds-selector-tabs .selectors button {
+            display: inline-block;
+            min-width: 54px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            height: 27px;
+            padding: 0 8px;
+            line-height: 27px;
+            transition: all, 0.218s;
+            border-top-right-radius: 2px;
+            border-top-left-radius: 2px;
+            color: #666;
+            border: 1px solid transparent;
+        }
+
+        .ds-selector-tabs .selectors button:first-child {
+            margin-left: 2px;
+        }
+
+        .ds-selector-tabs .selectors button.selected {
+            color: #202020 !important;
+            border: 1px solid #ccc;
+            border-bottom: 1px solid #fff !important;
+        }
+
+        .ds-selector-tabs .selectors button:hover {
+            background-color: transparent;
+            color: #202020;
+            cursor: pointer;
+        }
+
+        .ds-selector-tabs .tab {
+            display: none;
+        }
+
+        .ds-selector-tabs .selected {
+            display: block;
+        }
     </style>
 </head>
 
@@ -561,7 +731,44 @@ table.hljs-ln td:nth-child(2) {
 
     <section id="whatsnew">
         <h2>What's New in SHACL 1.2</h2>
-        <pre class="turtle" data-highlight-lines="3,8-10"> 
+        <h3>Turtle Syntax Highlighting</h3>
+        <pre class="turtle">
+            ex:MultiplePatternsShape
+                a sh:NodeShape ;
+                sh:property [
+                    sh:path ex:name ;
+                    sh:pattern "^Start" ;
+                    sh:flags "i" ;
+                ] ;
+                sh:property [
+                    sh:path ex:name ;
+                    sh:pattern "End$" ;
+                ] .
+        </pre>
+        <h3>JSON-LD Syntax Highlighting</h3>
+        <pre class="jsonld">{
+            "@id": "ex:MultiplePatternsShape",
+            "@type": "sh:NodeShape",
+            "sh:property": [
+                {
+                    "sh:flags": "i",
+                    "sh:path": {
+                        "@id": "ex:name"
+                    },
+                    "sh:pattern": "^Start"
+                },
+                {
+                    "sh:path": {
+                        "@id": "ex:name"
+                    },
+                    "sh:pattern": "End$"
+                }
+            ]
+         }
+        </pre>
+
+        <h3>Line Highlighting</h3>
+        <pre class="turtle" data-highlight-lines="3,8-10">
             ex:PersonShape
                 a sh:NodeShape ;
                 sh:targetClass ex:Person ;    # Applies to all persons
@@ -579,50 +786,8 @@ table.hljs-ln td:nth-child(2) {
                 sh:closed true ;
                 sh:ignoredProperties ( rdf:type ) .
         </pre>
-    </section>
 
-    <section id="specifications">
-        <h2>Specifications</h2>
-        <h3>
-            SHACL 1.2
-        </h3>
-        <dl>
-            <dt>SHACL 1.2 Overview (this document)</dt>
-            <dd>overviews the set of SHACL specifications</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-core/">SHACL 1.2 Core</a></dt>
-            <dd>defines the Core of SHACL</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-sparql/">SHACL 1.2 SPARQL Extensions</a></dt>
-            <dd>defines SPARQL-related extensions of the SHACL</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-node-expr/">SHACL 1.2 Node Expressions</a></dt>
-            <dd>defines graph expressions used to determine focus nodes in SHACL</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-inf-rules/">SHACL 1.2 Inference Rules</a></dt>
-            <dd>defines SHACL's methods of rule-based inference</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-ui/">SHACL 1.2 UI</a></dt>
-            <dd>defines SHACL's use for User Interface generation</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-compact-syntax/">SHACL 1.2 Compact Syntax</a></dt>
-            <dd>defines an RDF syntax for expressing SHACL concepts</dd>
-            <dt><a href="https://w3c.github.io/data-shapes/shacl12-profiling/">SHACL 1.2 Profiling</a></dt>
-            <dd>defines the use of SHACL for profiling data, including SHACL data</dd>
-        </dl>
-
-        <h3>
-            SHACL 1.0
-        </h3>
-        <p><em>The original SHACL specifications, now deprecated in favour of SHACL 1.2 specifications, above.</em></p>
-        <dl>
-            <dt><a href="https://www.w3.org/TR/2017/REC-shacl-20170720/">SHACL</a></dt>
-            <dd>the original SHACL Shapes Constraint Language definition</dd>
-            <dt><a href="https://www.w3.org/TR/2017/NOTE-shacl-af-20170608/">SHACL Advanced Features</a></dt>
-            <dd>a Working Group Note about "features to define custom targets, annotation properties, user-defined
-                functions, node expressions and rules"</dd>
-            <dt><a href="https://www.w3.org/TR/shacl-js/">SHACL Javascript Extensions</a></dt>
-            <dd>a Working Group Note about JavaScript-based extension mechanism for the Shapes Constraint Language</dd>
-        </dl>
-    </section>
-
-    <section id="x">
-        <h2>Section X</h2>
-<pre class="jsonld" data-highlight-lines="5-9">{
+        <pre class="jsonld" data-highlight-lines="5-9">{
 	"@type": "sh:ValidationReport",
 	"sh:conforms": {
 		"@type": "xsd:boolean",
