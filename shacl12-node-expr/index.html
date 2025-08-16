@@ -25,7 +25,7 @@
 	
 				const { Parser, Store } = N3;
 				// Use local TTL file relative to site root
-				const RAW_TTL = "shacl12-vocabularies/shnex-sparql.ttl";
+				const RAW_TTL = "../shacl12-vocabularies/shnex-sparql.ttl";
 	
 				// Common predicate IRIs
 				const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -33,7 +33,8 @@
 				const RDFS_COMMENT = "http://www.w3.org/2000/01/rdf-schema#comment";
 				const RDFS_ISDEFINEDBY = "http://www.w3.org/2000/01/rdf-schema#isDefinedBy";
 				const SHNEX_SPECREF = "http://www.w3.org/ns/shnex#specRef";
-				const SHNEX_CATEGORY = "http://www.w3.org/ns/shnex#category";
+				const SHNEX_CATEGORY = "http://www.w3.org/ns/shnex-sparql#category";
+				const SHNEX_EXAMPLE = "http://www.w3.org/ns/shnex-sparql#example";
 				const DC_DESCRIPTION = "http://purl.org/dc/terms/description";
 				const OWL_SEEALSO = "http://www.w3.org/2002/07/owl#seeAlso";
 	
@@ -82,7 +83,11 @@
 						// fallback to first candidate (may be a relative or non-http IRI)
 						specLink = specCandidates[0];
 					}
-	
+					let examples = valuesFor(s, SHNEX_EXAMPLE);
+					const example = examples.length ? examples[0] : localName(s);
+
+
+
 					// category from shnex:category if present, otherwise derive from rdf:type
 					let category = valuesFor(s, SHNEX_CATEGORY)[0];
 					if (!category) {
@@ -99,6 +104,7 @@
 						label,
 						description,
 						specLink,
+						example,
 						category
 					});
 				}
@@ -107,13 +113,8 @@
 				entries.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
 	
 				// Build UI: explanatory paragraph + category filter + accessible table
-				const intro = document.createElement('div');
+				const intro = document.getElementById('sparql-functions-container');
 				intro.innerHTML = `
-					<h2>SPARQL Functions</h2>
-					<p>
-						SHACL engines may use the functions listed below to evaluate node-expression functions using SPARQL semantics.
-						Each row links to the authoritative specification reference for the function and provides a short description and category.
-					</p>
 				`;
 	
 				// Category filter control
@@ -137,7 +138,7 @@
 						<tr>
 							<th scope="col">Function name</th>
 							<th scope="col">Short description</th>
-							<th scope="col">Spec reference</th>
+							<th scope="col">Example</th>
 							<th scope="col">Category</th>
 						</tr>
 					</thead>
@@ -169,7 +170,10 @@
 	
 					// Spec reference cell (show absolute URL clickable when available)
 					const uriCell = document.createElement('td');
-					if (e.specLink) {
+					if(e.example) {
+						uriCell.innerHTML = `<code class="turtle">${escapeHtml(e.example)}</code>`;
+					}
+	/* 				if (e.specLink) {
 						const a2 = document.createElement('a');
 						a2.href = e.specLink;
 						a2.textContent = e.specLink;
@@ -181,7 +185,7 @@
 					} else {
 						uriCell.textContent = e.uri;
 					}
-	
+	 */
 					// Category cell
 					const catCell = document.createElement('td');
 					catCell.textContent = e.category || '';
@@ -206,10 +210,11 @@
 				});
 	
 				// Replace container content with new UI
-				container.innerHTML = '';
-				container.appendChild(intro);
-				container.appendChild(filterDiv);
-				container.appendChild(table);
+		
+				//container.appendChild(intro);
+				intro.innerHTML = "";
+				intro.appendChild(filterDiv);
+				intro.appendChild(table);
 	
 			} catch (err) {
 				container.innerHTML = `<p class="error">Error loading SPARQL functions: ${escapeHtml(err.message)}</p>`;
@@ -804,7 +809,7 @@
 						<dfn data-cite="shacl12-core#dfn-output-nodes" data-lt="output nodes">output nodes</dfn>,
 						<dfn data-cite="shacl12-core#dfn-focus-graph" data-lt="focus graph">focus graph</dfn>,
 						<dfn data-cite="shacl12-core#dfn-evaluation">evaluation</dfn>,
-						<dfn data-cite="shacl12-core#dfn-evaluation-failure">evaluation failure</dfn>,
+						<dfn data-cite="shacl12-core#dfn-evaluation-failure" data-lt="evaluation failure">evaluation failure</dfn>,
 						<dfn data-cite="shacl12-core#dfn-conform" data-lt="conform|conforms">conform</dfn>,
 						<dfn data-cite="shacl12-core#dfn-conformance-check" data-lt="conformance check">conformance check</dfn>,
 						<dfn data-cite="shacl12-core#dfn-failure" data-lt="failure|failures">failure</dfn>,
@@ -2434,9 +2439,26 @@ ex:CompanyShape-minStartDate
 	<section id="sparql-functions">
 		<h2>SPARQL Functions</h2>
 		<p>
-			This section introduces SHACL [[sparql12-query]] that can be used in node expressions.
+			This section introduces SHACL SPARQL function expressions based on [[sparql12-query]] that can be used in node expressions.
 		</p>
-
+		<p class="syntax">
+			<span data-syntax-rule="sparql-syntax">
+				A <a>blank node</a> that uses a SPARQL function URI <code>sparql:&lt;NAME&gt;</code>
+				as its predicate with an <code>rdf:List</code> of arguments as its object
+				is called a <dfn>SHACL SPARQL function expression</dfn> with the corresponding SPARQL <a>function name</a>.
+			</span>
+		</p>
+		<div class="def" id="sparql-function-evaluation">
+			<div class="def-header">EVALUATION OF SPARQL FUNCTION EXPRESSIONS</div>
+			<p>
+				The evaluation follows the SPARQL semantics for the corresponding SPARQL function.
+				Each item in the <code>rdf:List</code> is evaluated as a <a>node expression</a> to produce argument values,
+				which are then passed to the SPARQL function implementation.
+				If the SPARQL function produces a single result value, it is wrapped as a singleton list containing that output node.
+				If the SPARQL function produces no result or an error, the expression produces an empty list or an <a>evaluation failure</a> respectively.
+			</p>
+		</div>
+		<div id="sparql-functions-container"></div>
 	</section>
 	
 		<section id="constraint-components">
@@ -2510,6 +2532,7 @@ ex:AccountShape
 ex:AccountShape-ibanNumber
     a sh:PropertyShape ;
     sh:path ex:ibanNumber ;
+    sh:datatype xsd:string ;
     sh:message "IBAN numbers must start with the country code, in upper-case letters." ;
     <b>sh:expression [
         sparql:strstarts (
@@ -2756,115 +2779,6 @@ eg:ObservationShape
 }</pre>
 						</div>
 					</div>
-					<div class="data-graph">
-						<div class="turtle">
-eg:dataset1
-	a qb:DataSet ;
-	qb:structure eg:dsd1 .
-
-eg:dsd1
-	a qb:DataStructureDefinition ;
-	rdfs:comment "shipments by time (multiple measures approach)"@en ;
-	eg:hasShape eg:dsd1-shape ;
-	qb:component [
-		qb:dimension sdmx-dimension:refTime;
-	] ;
-	qb:component [
-		qb:measure eg-measure:quantity ;
-	] ;
-	qb:component [
-		qb:measure eg-measure:weight ;
-	] .
-
-eg:obs1a
-	a qb:Observation;
-	qb:dataSet eg:dataset1;
-	sdmx-dimension:refTime "2010-07-30"^^xsd:date;
-	eg-measure:weight 1.3 ;
-	eg-measure:quantity 42 .
-
-<span class="focus-node-error">eg:obs1b</span>
-	a qb:Observation;
-	qb:dataSet eg:dataset1;
-	sdmx-dimension:refTime "2010-07-31T12:00:00"^^xsd:dateTime;
-	eg-measure:weight 1.4 .
-						</div>
-						<div class="jsonld">
-							<pre class="jsonld">{
-	"@graph": [
-		{
-			"@id": "eg:dataset1",
-			"@type": "qb:DataSet",
-			"qb:structure": {
-				"@id": "eg:dsd1"
-			}
-		},
-		{
-			"@id": "eg:dsd1",
-			"@type": "qb:DataStructureDefinition",
-			"rdfs:comment": {
-				"@language": "en",
-				"@value": "shipments by time (multiple measures approach)"
-			}
-			"eg:hasShape": {
-				"@id": "eg:dsd1-shape"
-			},
-			"qb:component": [
-				{
-					"qb:dimension": {
-						"@id": "sdmx-dimension:refTime"
-					}
-				},
-				{
-					"qb:measure": {
-						"@id": "eg-measure:quantity"
-					}
-				},
-				{
-					"qb:measure": {
-						"@id": "eg-measure:weight"
-					}
-				}
-			]
-		},
-		{
-			"@id": "eg:obs1a",
-			"@type": "qb:Observation",
-			"qb:dataSet": {
-				"@id": "eg:dataset1"
-			},
-			"sdmx-dimension:refTime": {
-				"@type": "xsd:date",
-				"@value": "2010-07-30"
-			},
-			"eg-measure:quantity": {
-				"@type": "xsd:integer",
-				"@value": "42"
-			},
-			"eg-measure:weight": {
-				"@type": "xsd:decimal",
-				"@value": "1.3"
-			}
-		},
-		{
-			"@id": "eg:obs1b",
-			"@type": "qb:Observation",
-			"qb:dataSet": {
-				"@id": "eg:dataset1"
-			},
-			"sdmx-dimension:refTime": {
-				"@type": "xsd:dateTime",
-				"@value": "2010-07-31T12:00:00"
-			}
-			"eg-measure:weight": {
-				"@type": "xsd:decimal",
-				"@value": "1.4"
-			},
-		}
-	]
-}</pre>
-						</div>
-					</div>
 					<div class="results-graph">
 						<div class="turtle">
 [	a sh:ValidationReport ;
@@ -2901,6 +2815,114 @@ eg:obs1a
 ] .
 						</div>
 						<div class="jsonld">
+							<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": {
+		"@type": "sh:ValidationResult",
+		"sh:resultSeverity": {
+			"@id": "sh:Violation"
+		},
+		"sh:focusNode": {
+			"@id": "eg:obs1b"
+		},
+		"sh:value": {
+			"@id": "eg:obs1b"
+		},
+		"sh:resultMessage": "Value does not conform to shape eg:dsd1-shape.",
+		"sh:sourceConstraint": {
+			"@id": "eg:dsd1-shape"
+		},
+		"sh:sourceConstraintComponent": {
+			"@id": "sh:NodeByExpressionConstraintComponent"
+		},
+		"sh:sourceShape": {
+			"@id": "eg:ObservationShape"
+		},
+		"sh:detail": [
+			{
+				"@type": "sh:ValidationResult",
+				"sh:resultSeverity": {
+					"@id": "sh:Violation"
+				},
+				"sh:focusNode": {
+					"@id": "eg:obs1b"
+				},
+				"sh:resultPath": {
+					"@id": "sdmx-dimension:refTime"
+				},
+				"sh:value": {
+					"@type": "xsd:dateTime",
+					"@value": "2010-07-31T12:00:00"
+				},
+				"sh:resultMessage": "Value does not have datatype xsd:date",
+				"sh:sourceConstraintComponent": {
+					"@id": "sh:DatatypeConstraintComponent"
+				},
+				"sh:sourceShape": {
+					"@id": "_:b1"
+				}
+			},
+			{
+				"@type": "sh:ValidationResult",
+				"sh:resultSeverity": {
+					"@id": "sh:Violation"
+				},
+				"sh:focusNode": {
+					"@id": "eg:obs1b"
+				},
+				"sh:resultPath": {
+					"@id": "eg-measure:quantity"
+				},
+				"sh:resultMessage": "Less than 1 values",
+				"sh:sourceConstraintComponent": {
+					"@id": "sh:MinCountConstraintComponent"
+				},
+				"sh:sourceShape": {
+					"@id": "_:b2"
+				}
+			}
+		]
+	}
+}</pre>
+						</div>
+					</div>
+				</aside>
+			</section>
+			
+		</section>
+
+		<section id="security">
+			<h2>Security Considerations</h2>
+			<p>TODO</p>
+		</section>
+
+		<section id="privacy">
+			<h2>Privacy Considerations</h2>
+			<p>TODO</p>
+		</section>
+
+		<section id="ack" class="appendix informative">
+			<h2>Acknowledgements</h2>
+			<p>Many people contributed to this document, including members of the RDF Data Shapes Working Group.</p>
+		</section>
+
+		<section id="internationalization">
+			<h2>Internationalization Considerations</h2>
+			<p>TODO</p>
+		</section>
+
+		<section id="index">
+		</section>
+
+		<section class="appendix" id="issue-summary">
+			<!-- A list of issues will magically appear here -->
+		</section>
+	</body>
+</html>
 							<pre class="jsonld">{
 	"@type": "sh:ValidationReport",
 	"sh:conforms": {
