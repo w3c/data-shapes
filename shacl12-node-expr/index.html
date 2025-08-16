@@ -8,156 +8,212 @@
 	<script class="remove">
 
 
-		// Auto-generate SPARQL function subsections grouped by type and section
+		// Auto-generate SPARQL functions table from local TTL for node-expr UI
 		async function generateSparqlFunctionSections() {
 			const container = document.getElementById('sparql-functions');
-
+	
 			try {
-				// Load N3 library dynamically
+				// Load N3 library dynamically (lightweight Turtle parsing)
 				const script = document.createElement('script');
 				script.src = 'https://unpkg.com/n3/browser/n3.min.js';
 				document.head.appendChild(script);
-
-				// Wait for N3 to load
+	
+				// Wait for N3 to load without blocking initial DOM rendering
 				await new Promise((resolve) => {
 					script.onload = resolve;
 				});
-
+	
 				const { Parser, Store } = N3;
-				const RAW_TTL = "https://raw.githubusercontent.com/w3c/sparql-query/main/sparql-ns.ttl";
+				// Use local TTL file relative to site root
+				const RAW_TTL = "shacl12-vocabularies/shnex-sparql.ttl";
+	
+				// Common predicate IRIs
 				const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+				const RDFS_LABEL = "http://www.w3.org/2000/01/rdf-schema#label";
 				const RDFS_COMMENT = "http://www.w3.org/2000/01/rdf-schema#comment";
 				const RDFS_ISDEFINEDBY = "http://www.w3.org/2000/01/rdf-schema#isDefinedBy";
-
-				const CATS = {
-					"http://www.w3.org/ns/sparql#Function": "Function",
-					"http://www.w3.org/ns/sparql#FunctionalForm": "Functional form",
-					"http://www.w3.org/ns/sparql#Aggregate": "Aggregate"
-				};
-
-				// Fetch and parse SPARQL functions
+				const SHNEX_SPECREF = "http://www.w3.org/ns/shnex#specRef";
+				const SHNEX_CATEGORY = "http://www.w3.org/ns/shnex#category";
+				const DC_DESCRIPTION = "http://purl.org/dc/terms/description";
+				const OWL_SEEALSO = "http://www.w3.org/2002/07/owl#seeAlso";
+	
+				// Types that indicate functions
+				const SPARQL_FUNCTION = "http://www.w3.org/ns/sparql#Function";
+				const SPARQL_AGGREGATE = "http://www.w3.org/ns/sparql#Aggregate";
+				const SPARQL_FUNCTIONALFORM = "http://www.w3.org/ns/sparql#FunctionalForm";
+	
+				// Fetch and parse the local TTL
 				const res = await fetch(RAW_TTL);
 				if (!res.ok) throw new Error("Failed to fetch TTL: " + res.status);
 				const ttl = await res.text();
-
-				// Parse function sections from TTL comments
-				const functionSections = parseFunctionSections(ttl);
-
+	
 				const parser = new Parser({ format: "text/turtle" });
 				const quads = parser.parse(ttl);
 				const store = new Store(quads);
-
-				// Find all SPARQL functions
-				const subjectsSet = new Map();
-
-				for (const [uri, label] of Object.entries(CATS)) {
-					const quadsType = store.getQuads(null, RDF_TYPE, uri, null);
-					for (const q of quadsType) {
-						const s = q.subject.id;
-						const entry = subjectsSet.get(s) || { uri: s, types: new Set(), comments: [], isDefinedBy: [] };
-						entry.types.add(label);
-						subjectsSet.set(s, entry);
+	
+				// Helper to read literal/object values
+				function valuesFor(subject, predicate) {
+					return store.getQuads(subject, predicate, null, null).map(q => (q.object.value || q.object.id));
+				}
+	
+				// Collect all subjects that are functions/aggregates/functional forms
+				const funcSubjects = new Set();
+				for (const t of [SPARQL_FUNCTION, SPARQL_AGGREGATE, SPARQL_FUNCTIONALFORM]) {
+					for (const q of store.getQuads(null, RDF_TYPE, t, null)) {
+						funcSubjects.add(q.subject.id);
 					}
 				}
-
-				// Enrich with comments and definitions
-				for (const entry of subjectsSet.values()) {
-					const cs = store.getQuads(entry.uri, RDFS_COMMENT, null, null);
-					for (const c of cs) {
-						entry.comments.push(c.object.value || c.object.id);
+	
+				// Build entries
+				const entries = [];
+				for (const s of funcSubjects) {
+					const labels = valuesFor(s, RDFS_LABEL);
+					const label = labels.length ? labels[0] : localName(s);
+	
+					// description may be in dc:description or rdfs:comment; join multiple with ' — '
+					const descs = [...valuesFor(s, DC_DESCRIPTION), ...valuesFor(s, RDFS_COMMENT)];
+					const description = descs.length ? descs.join(' — ') : '';
+	
+					// spec links preference: rdfs:isDefinedBy, then shnex:specRef, then owl:seeAlso
+					const specCandidates = [...valuesFor(s, RDFS_ISDEFINEDBY), ...valuesFor(s, SHNEX_SPECREF), ...valuesFor(s, OWL_SEEALSO)];
+					// pick first absolute http(s) URL
+					let specLink = specCandidates.find(u => typeof u === 'string' && /^https?:\/\//i.test(u));
+					if (!specLink && specCandidates.length > 0) {
+						// fallback to first candidate (may be a relative or non-http IRI)
+						specLink = specCandidates[0];
 					}
-					const ids = store.getQuads(entry.uri, RDFS_ISDEFINEDBY, null, null);
-					for (const id of ids) {
-						entry.isDefinedBy.push(id.object.value || id.object.id);
+	
+					// category from shnex:category if present, otherwise derive from rdf:type
+					let category = valuesFor(s, SHNEX_CATEGORY)[0];
+					if (!category) {
+						// inspect rdf:types for fallback token
+						const types = store.getQuads(s, RDF_TYPE, null, null).map(q => q.object.id);
+						if (types.includes(SPARQL_AGGREGATE)) category = "aggregate";
+						else if (types.includes(SPARQL_FUNCTION)) category = "other";
+						else if (types.includes(SPARQL_FUNCTIONALFORM)) category = "other";
+						else category = "other";
 					}
-				}
-
-				// Group functions by section and type
-				const functionGroups = groupFunctionsBySection(Array.from(subjectsSet.values()), functionSections, ttl);
-
-				// Generate grouped subsections
-				container.innerHTML = `<h2>SPARQL Functions</h2>
-			<p>
-				This section introduces SHACL <a href="https://www.w3.org/TR/sparql11-query/">SPARQL functions</a> that can be used in node expressions.
-			</p>`;
-
-				// Create sections for each group
-				for (const [groupName, functions] of Object.entries(functionGroups)) {
-					if (functions.length === 0) continue;
-
-					const groupSection = document.createElement('section');
-					groupSection.id = `SparqlGroup-${groupName.replace(/\s+/g, '')}`;
-
-					const groupTitle = document.createElement('h3');
-					groupTitle.textContent = groupName;
-					groupSection.appendChild(groupTitle);
-
-					// Sort functions within each group
-					functions.sort((a, b) => {
-						const aLocal = localName(a.uri).toLowerCase();
-						const bLocal = localName(b.uri).toLowerCase();
-						return aLocal.localeCompare(bLocal);
+	
+					entries.push({
+						uri: s,
+						label,
+						description,
+						specLink,
+						category
 					});
-
-					for (const entry of functions) {
-						const functionName = localName(entry.uri);
-						const sectionId = `SparqlFunction-${functionName}`;
-						const description = entry.comments.length ? entry.comments.join(' ') : 'SPARQL function available as a node expression.';
-						const category = Array.from(entry.types).join(', ');
-						const definitionLinks = entry.isDefinedBy.length ?
-							entry.isDefinedBy.map(d => `<a href="${escapeHtml(d)}">${escapeHtml(d)}</a>`).join('<br>') :
-							'';
-
-						const section = document.createElement('section');
-						section.id = sectionId;
-						section.innerHTML += `
-							<h4>${escapeHtml(functionName)} (${category})</h4>
-							<p class="syntax">
-								<span data-syntax-rule="${sectionId}-syntax">
-									A <a>blank node</a> that uses the SPARQL function URI <code>${escapeHtml(entry.uri)}</code>
-									as its predicate with an <code>rdf:List</code> of arguments as its object
-									is called a <dfn>${functionName.toLowerCase()} expression</dfn> with the <a>function name</a> <code>${escapeHtml(entry.uri)}</code>.
-								</span>
-							</p>
-							<div class="def" id="${sectionId}-evaluation">
-								<div class="def-header">EVALUATION OF ${functionName.toUpperCase()} EXPRESSIONS</div>
-								<p>
-									The evaluation follows the SPARQL semantics for the <code>${escapeHtml(functionName)}</code> function.
-									Each item in the <code>rdf:List</code> is evaluated as a <a>node expression</a> to produce argument values,
-									which are then passed to the SPARQL function implementation.
-									The result is wrapped as a singleton list containing the function's output node.
-								</p>
-							</div>
-							<p><em>This section is informative.</em></p>
-							<p>
-								<strong>Description:</strong> ${escapeHtml(description)}
-							</p>
-							${definitionLinks ? `<p><strong>Defined by:</strong> ${definitionLinks}</p>` : ''}
-							<aside class="example" title="Using ${escapeHtml(functionName)} in a node expression">
-								<div class="shapes-graph">
-									<div class="turtle">
-# Example using ${escapeHtml(functionName)}
-_:result ${escapeHtml(entry.uri)} ( 
-	# Add appropriate arguments here
-) .
-									</div>
-								</div>
-							</aside>
-						`;
-
-						groupSection.appendChild(section);
+				}
+	
+				// Sort entries by label
+				entries.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+	
+				// Build UI: explanatory paragraph + category filter + accessible table
+				const intro = document.createElement('div');
+				intro.innerHTML = `
+					<h2>SPARQL Functions</h2>
+					<p>
+						SHACL engines may use the functions listed below to evaluate node-expression functions using SPARQL semantics.
+						Each row links to the authoritative specification reference for the function and provides a short description and category.
+					</p>
+				`;
+	
+				// Category filter control
+				const categories = Array.from(new Set(entries.map(e => e.category))).sort((a,b)=> a.localeCompare(b));
+				const filterDiv = document.createElement('div');
+				filterDiv.style.margin = '0.4em 0';
+				filterDiv.innerHTML = `<label for="sparql-category-filter">Filter by category: </label>`;
+				const select = document.createElement('select');
+				select.id = 'sparql-category-filter';
+				select.innerHTML = `<option value="All">All</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+				filterDiv.appendChild(select);
+	
+				// Table
+				const table = document.createElement('table');
+				table.id = 'sparql-functions-table';
+				table.setAttribute('summary','List of SPARQL functions with description, spec link and category');
+				table.style.width = '100%';
+				table.innerHTML = `
+					<caption>SPARQL functions usable in SHACL node expressions</caption>
+					<thead>
+						<tr>
+							<th scope="col">Function name</th>
+							<th scope="col">Short description</th>
+							<th scope="col">Spec reference</th>
+							<th scope="col">Category</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				`;
+	
+				const tbody = table.querySelector('tbody');
+	
+				// Populate rows
+				for (const e of entries) {
+					const tr = document.createElement('tr');
+					tr.setAttribute('data-category', e.category || 'other');
+	
+					// Function name cell: label linked to spec URL (open in new tab); if no specLink, link to function URI
+					const nameCell = document.createElement('td');
+					const linkHref = (e.specLink && /^https?:\/\//i.test(e.specLink)) ? e.specLink : e.specLink || e.uri;
+					const a = document.createElement('a');
+					a.href = linkHref;
+					a.textContent = e.label || localName(e.uri);
+					if (/^https?:\/\//i.test(linkHref)) {
+						a.target = '_blank';
+						a.rel = 'noopener';
 					}
-
-					container.appendChild(groupSection);
+					nameCell.appendChild(a);
+	
+					// Description cell
+					const descCell = document.createElement('td');
+					descCell.textContent = e.description || '';
+	
+					// Spec reference cell (show absolute URL clickable when available)
+					const uriCell = document.createElement('td');
+					if (e.specLink) {
+						const a2 = document.createElement('a');
+						a2.href = e.specLink;
+						a2.textContent = e.specLink;
+						if (/^https?:\/\//i.test(e.specLink)) {
+							a2.target = '_blank';
+							a2.rel = 'noopener';
+						}
+						uriCell.appendChild(a2);
+					} else {
+						uriCell.textContent = e.uri;
+					}
+	
+					// Category cell
+					const catCell = document.createElement('td');
+					catCell.textContent = e.category || '';
+	
+					tr.appendChild(nameCell);
+					tr.appendChild(descCell);
+					tr.appendChild(uriCell);
+					tr.appendChild(catCell);
+					tbody.appendChild(tr);
 				}
-
-				if (Object.keys(functionGroups).length === 0) {
-					container.innerHTML = '<p>No SPARQL functions found.</p>';
-				}
-
+	
+				// Wire up filtering
+				select.addEventListener('change', () => {
+					const val = select.value;
+					for (const row of tbody.querySelectorAll('tr')) {
+						if (val === 'All' || row.getAttribute('data-category') === val) {
+							row.style.display = '';
+						} else {
+							row.style.display = 'none';
+						}
+					}
+				});
+	
+				// Replace container content with new UI
+				container.innerHTML = '';
+				container.appendChild(intro);
+				container.appendChild(filterDiv);
+				container.appendChild(table);
+	
 			} catch (err) {
 				container.innerHTML = `<p class="error">Error loading SPARQL functions: ${escapeHtml(err.message)}</p>`;
-				console.error('Error generating SPARQL function sections:', err);
+				console.error('Error generating SPARQL functions table:', err);
 			}
 		}
 
