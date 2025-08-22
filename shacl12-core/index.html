@@ -2591,8 +2591,6 @@ ex:SomeClass-alternativePathExample
 			<ul>
 				<li>At <a href="#property-shapes"><code>sh:values</code> and <code>sh:defaultValue</code></a> to derive the value nodes of a property shape.</li>
 				<li>At <a href="#targetNode"><code>sh:targetNode</code></a> to dynamically compute the targets of a shape.</li>
-				<li>At <a href="#NodeByExpressionConstraintComponent"><code>sh:nodeByExpression</code></a> to validate nodes against a dynamically computed set of node shapes.</li>
-				<li>At <a href="#ExpressionConstraintComponent"><code>sh:expression</code></a> to validate nodes against a condition.</li>
 				<li>At <a href="#deactivated"><code>sh:deactivated</code></a> to deactivate certain shapes under specific conditions.</li>
 			</ul>
 			<p>
@@ -3541,11 +3539,18 @@ ex:Estonia rdfs:label "Estonia", "Estland"@de .
 						<tr>
 							<td><code>sh:nodeKind</code></td>
 							<td>
-								The node kind (IRI, blank node, literal or combinations of these) of all value nodes.
-								<span data-syntax-rule="nodeKind-in">The values of <code>sh:nodeKind</code> in a shape are one of the following six instances of the class <code>sh:NodeKind</code>:
-								<code>sh:BlankNode</code>, <code>sh:IRI</code>, <code>sh:Literal</code> 
-								<code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.</span>
+								The node kind (IRI, blank node, literal, triple term, or combination of these) of all value nodes.
 								<span data-syntax-rule="nodeKind-maxCount">A shape has at most one value for <code>sh:nodeKind</code>.</span>
+								The value of <code>sh:nodeKind</code> in a shape is either an IRI or a blank node that is a well-formed SHACL list where all members are IRIs.
+								<br /><br />
+								<span data-syntax-rule="nodeKind-in">
+									If the values of <code>sh:nodeKind</code> are IRIs, then the values of <code>sh:nodeKind</code> in a shape are one of the following seven instances of the class <code>sh:NodeKind</code>:
+									<code>sh:BlankNode</code>, <code>sh:IRI</code>, <code>sh:Literal</code>
+									<code>sh:BlankNodeOrIRI</code>, <code>sh:BlankNodeOrLiteral</code>, <code>sh:IRIOrLiteral</code>, and <code>sh:TripleTerm</code>.
+									<br /><br />
+									If the values of <code>sh:nodeKind</code> are well-formed SHACL lists, then members of those lists in a shape are one of the following four instances of the class <code>sh:NodeKind</code>:
+									<code>sh:BlankNode</code>, <code>sh:IRI</code>, <code>sh:Literal</code>, and <code>sh:TripleTerm</code>.
+								</span>
 							</td>
 						</tr>
 					</tbody></table>
@@ -3553,12 +3558,17 @@ ex:Estonia rdfs:label "Estonia", "Estland"@de .
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body" data-validator="NodeKind">
 							Let <code>$nodeKind</code> be a <a>parameter value</a> for <code>sh:nodeKind</code>.
+							Let <code>$nodeKinds</code> be a set of <a>IRIs</a> so that
+							when <code>$nodeKind</code> is an <a>IRI</a> then the set only consists of exactly that IRI,
+							and when <code>$nodeKind</code> is a <a>blank node</a> <a>SHACL list</a> then the set consists of
+							exactly the members of the list.<br /><br />
 							For each <a>value node</a>
-							that does not match <code>$nodeKind</code>,
+							that matches none of the <code>$nodeKinds</code>,
 							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
 							Any <a>IRI</a> matches only <code>sh:IRI</code>, <code>sh:BlankNodeOrIRI</code> and <code>sh:IRIOrLiteral</code>.
 							Any <a>blank node</a> matches only <code>sh:BlankNode</code>, <code>sh:BlankNodeOrIRI</code> and <code>sh:BlankNodeOrLiteral</code>.
 							Any <a>literal</a> matches only <code>sh:Literal</code>, <code>sh:BlankNodeOrLiteral</code> and <code>sh:IRIOrLiteral</code>.
+							Any <a>triple term</a> matches only <code>sh:TripleTerm</code>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -3591,7 +3601,7 @@ ex:NodeKindExampleShape
 						<div class="data-graph">
 							<div class="turtle">
 ex:Bob ex:knows ex:Alice .
-	ex:Alice ex:knows <span class="focus-node-error">"Bob"</span> .
+ex:Alice ex:knows <span class="focus-node-error">"Bob"</span> .
 							</div>
 							<div class="jsonld">
 								<pre class="jsonld">{
@@ -3605,6 +3615,67 @@ ex:Bob ex:knows ex:Alice .
 			"ex:knows": {
 				"@id": "ex:Alice"
 			}
+		}
+	]
+}</pre>
+							</div>
+						</div>
+					</aside>
+					<p>
+						The following example illustrates the list-based syntax, meaning that all values of <code>ex:knows</code>
+						need to be IRIs or blank nodes, at any subject.
+					</p>
+					<aside class="example">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:NodeKindExampleShape
+	a sh:NodeShape ;
+	<span class="target-can-be-skipped">sh:targetObjectsOf ex:knows ;</span>
+	sh:nodeKind ( sh:BlankNode sh:IRI ) .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:NodeKindExampleShape",
+	"@type": "sh:NodeShape",
+	"sh:nodeKind": {
+		"@list": [
+			{
+				"@id": "sh:BlankNode"
+			},
+			{
+				"@id": "sh:IRI"
+			}
+		]
+	},
+	"sh:targetObjectsOf": {
+		"@id": "ex:knows"
+	}
+}</pre>
+							</div>
+						</div>
+						<div class="data-graph">
+							<div class="turtle">
+ex:Bob ex:knows ex:Alice .
+ex:Bob ex:knows _:john .
+ex:Alice ex:knows <span class="focus-node-error">"Bob"</span> .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Alice",
+			"ex:knows": "Bob"
+		},
+		{
+			"@id": "ex:Bob",
+			"ex:knows": [
+				{
+					"@id": "ex:Alice"
+				},
+				{
+					"@id": "_:b1"
+				}
+			]
 		}
 	]
 }</pre>
@@ -6812,238 +6883,6 @@ ex:Bob ex:age 23 {|
 					</aside>
 				</section>
 			
-			<section id="NodeByExpressionConstraintComponent">
-					<h4>sh:nodeByExpression</h4>
-					<p>
-						<code>sh:nodeByExpression</code> specifies the condition that each <a>value node</a> conforms to the
-						<a>node shapes</a> produced by a <a>node expression</a>.
-						The evaluation of these node expressions is repeated for all <a>value nodes</a> of the <a>shape</a>
-						as the <a>focus node</a>.
-					</p>
-					<p>
-						<span class="component-class">Constraint Component IRI</span>: <code>sh:NodeByExpressionConstraintComponent</code>
-					</p>
-
-					<div class="parameters">Parameters:</div>
-					<table class="term-table">
-						<tr>
-							<th>Property</th>
-							<th>Summary and Syntax Rules</th>
-						</tr>
-						<tr>
-							<td><code>sh:nodeByExpression</code></td>
-							<td>
-								The <a>node shapes</a> that all value nodes need to conform to.
-								<span data-syntax-rule="nodeByExpression-scope">The <a>values</a> of <code>sh:nodeByExpression</code> in a shape must be <a>well-formed</a> <a>node expressions</a>.</span>
-							</td>
-						</tr>
-					</table>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body" data-validator="NodeByExpression">
-Let <code>$expr</code> be a <a>value</a> of <code>sh:nodeByExpression</code>.
-For each <a>value node</a> <code>v</code>: perform a <a>conformance check</a> of
-<code>v</code> against each <a>output node</a> of <code>evalExpr(expr,
-<a>data graph</a>, v, {})</code> <code>s</code>. A <a>failure</a>
-MUST be produced if the <a>conformance check</a> of <code>v</code> against
-<code>s</code> produces a <a>failure</a>. Otherwise, if <code>v</code> does
-not <a>conform</a> to <code>s</code>, there is a <a>validation result</a>
-with <code>v</code> as <code>sh:value</code> and a <a>deep copy</a> of
-<code>s</code> as <code>sh:sourceConstraint</code>.
-						</div>
-					</div>
-					<p><em>The remainder of this section is informative.</em></p>
-					<p>
-						<code>sh:nodeByExpression</code> functions similarly to <code>sh:node</code>, but instead of referencing a fixed <a>node shape</a>,
-						a referenced <a>node expression</a> is used to dynamically compute the set of <a>node shapes</a> to which each <a>value node</a> must conform.
-					</p>
-					<p>
-						There are three key differences between <code>sh:nodeByExpression</code> and <a href="#NodeConstraintComponent"><code>sh:node</code></a>:
-						<ol>
-							<li>
-								<code>sh:nodeByExpression</code> references a <a>node expression</a> instead of a fixed <a>node shape</a> as <code>sh:node</code> does.
-							</li>
-							<li>
-								<code>sh:nodeByExpression</code> cannot reference a <a>node shape</a> that is a <a>blank node</a> as a value like <code>sh:node</code> can,
-								as a <a>blank node</a> would be interpreted as a <a>node expression</a>.
-							</li>
-							<li>
-								<a>Results</a> generated by <code>sh:nodeByExpression</code> additionally include a value for `sh:sourceConstraint`.
-							</li>
-
-						</ol>
-					</p>
-					<p>
-						Note that <code>sh:node</code> and <code>sh:nodeByExpression</code> exhibit the same behavior when given a <a>value</a> that is an <a>IRI</a> of a <a>node shape</a>.
-						In this case, <code>sh:node</code> directly validates against the specified <a>node shape</a>, whereas <code>sh:nodeByExpression</code> interprets the <a>IRI</a>
-						as an <a>IRI expression</a> that evaluates to a set containing the same <a>node shape</a>.
-					</p>
-					<p>
-						In the following example, all values of the property <code>ex:address</code> must fulfill the
-						constraints expressed by the <a>shape</a> <code>ex:AddressShape</code>.
-					</p>
-										<aside class="example">
-						<div class="shapes-graph">
-							<div class="turtle">
-ex:AddressShape
-	a sh:NodeShape ;
-	sh:property [
-		sh:path ex:postalCode ;
-		sh:datatype xsd:string ;
-		sh:maxCount 1 ;
-	] .
-
-ex:PersonShape
-	a sh:NodeShape ;
-	sh:targetClass ex:Person ;
-	sh:property [   # _:b1
-		sh:path ex:address ;
-		sh:minCount 1 ;
-		sh:nodeByExpression ex:AddressShape ;
-	] .
-							</div>
-							<div class="jsonld">
-								<pre class="jsonld">{
-	"@graph": [
-		{
-			"@id": "ex:AddressShape",
-			"@type": "sh:NodeShape",
-			"sh:property": {
-				"sh:datatype": {
-					"@id": "xsd:string"
-				},
-				"sh:maxCount": {
-					"@type": "xsd:integer",
-					"@value": "1"
-				},
-				"sh:path": {
-					"@id": "ex:postalCode"
-				}
-			}
-		},
-		{
-			"@id": "ex:PersonShape",
-			"@type": "sh:NodeShape",
-			"sh:property": {
-				"sh:minCount": {
-					"@type": "xsd:integer",
-					"@value": "1"
-				},
-				"sh:nodeByExpression": {
-					"@id": "ex:AddressShape"
-				},
-				"sh:path": {
-					"@id": "ex:address"
-				}
-			},
-			"sh:targetClass": {
-				"@id": "ex:Person"
-			}
-		}
-	]
-}</pre>
-							</div>
-						</div>
-						<div class="data-graph">
-							<div class="turtle">
-ex:Bob a ex:Person ;
-	ex:address ex:BobsAddress .
-
-ex:BobsAddress
-	ex:postalCode "1234" .
-
-<span class="focus-node-error">ex:Reto</span> a ex:Person ;
-	ex:address ex:RetosAddress .
-
-ex:RetosAddress
-	ex:postalCode 5678 .
-							</div>
-							<div class="jsonld">
-								<pre class="jsonld">{
-	"@graph": [
-		{
-			"@id": "ex:Bob",
-			"@type": "ex:Person",
-			"ex:address": {
-				"@id": "ex:BobsAddress"
-			}
-		},
-		{
-			"@id": "ex:BobsAddress",
-			"ex:postalCode": "1234"
-		},
-		{
-			"@id": "ex:Reto",
-			"@type": "ex:Person",
-			"ex:address": {
-				"@id": "ex:RetosAddress"
-			}
-		},
-		{
-			"@id": "ex:RetosAddress",
-			"ex:postalCode": {
-				"@type": "xsd:integer",
-				"@value": "5678"
-			}
-		}
-	]
-}</pre>
-							</div>
-						</div>
-						<div class="results-graph">
-							<div class="turtle">
-[	a sh:ValidationReport ;
-	sh:conforms false ;
-	sh:result [
-		a sh:ValidationResult ;
-		sh:resultSeverity sh:Violation ;
-		sh:focusNode ex:Reto ;
-		sh:resultPath ex:address ;
-		sh:value ex:RetosAddress ;
-		sh:resultMessage "Value does not conform to shape ex:AddressShape." ;
-		sh:sourceConstraint ex:AddressShape ;
-		sh:sourceConstraintComponent sh:NodeByExpressionConstraintComponent ;
-		sh:sourceShape _:b1 ;
-	]
-] .
-							</div>
-							<div class="jsonld">
-								<pre class="jsonld">{
-	"@type": "sh:ValidationReport",
-	"sh:conforms": {
-		"@type": "xsd:boolean",
-		"@value": "false"
-	},
-	"sh:result": {
-		"@type": "sh:ValidationResult",
-		"sh:focusNode": {
-			"@id": "ex:Reto"
-		},
-		"sh:resultMessage": "Value does not conform to shape ex:AddressShape.",
-		"sh:resultPath": {
-			"@id": "ex:address"
-		},
-		"sh:resultSeverity": {
-			"@id": "sh:Violation"
-		},
-		"sh:sourceConstraint": {
-			"@id": "ex:AddressShape"
-		},
-		"sh:sourceConstraintComponent": {
-			"@id": "sh:NodeByExpressionConstraintComponent"
-		},
-		"sh:sourceShape": {
-			"@id": "_:b66_b1"
-		},
-		"sh:value": {
-			"@id": "ex:RetosAddress"
-		}
-	}
-}</pre>
-							</div>
-						</div>
-					</aside>
-				</section>
 			</section>
 			
 			<section id="core-components-others">
@@ -7412,53 +7251,6 @@ ex:RainbowPony ex:color ex:Pink .
 							</div>
 						</div>
 					</aside>
-				</section>
-		
-				<section id="ExpressionConstraintComponent">
-					<h4>sh:expression</h4>
-					<p>
-						Based on <a>node expressions</a>, this section introduces a <a>constraint component</a> called
-						<dfn data-lt="expression constraint">expression constraints</dfn>.
-						Expression constraints can be used in any <a>shape</a> to declare the condition that the
-						<a>node expression</a> specified via <code>sh:expression</code> has <code>true</code> as its only output node.
-						The evaluation of these node expressions is repeated for all <a>value nodes</a> of the <a>shape</a>
-						as the <a>focus node</a>.
-					</p>
-					<p>
-						<span class="component-class">Constraint Component IRI</span>: <code>sh:ExpressionConstraintComponent</code>
-					</p>
-		
-					<div class="parameters">Parameters:</div>
-					<table class="term-table">
-						<thead><tr>
-							<th>Property</th>
-							<th>Summary and Syntax Rules</th>
-						</tr>
-						</thead>
-				<tbody>
-						<tr>
-							<td><code>sh:expression</code></td>
-							<td>
-								The <a>node expression</a> that must return <code>true</code>.
-								<span data-syntax-rule="expression-scope">The <a>values</a> of <code>sh:expression</code> at a
-								<a>shape</a> must be well-formed <a>node expressions</a>.</span>
-							</td>
-						</tr>
-					</tbody></table>
-					<div class="def def-text">
-						<div class="def-header">TEXTUAL DEFINITION</div>
-						<div class="def-text-body" data-validator="Expression">
-							Let <code>$expr</code> be a <a>value</a> of <code>sh:expression</code>.
-							For each <a>value node</a> <code>v</code> 
-							where <code>evalExpr(expr, <a>data graph</a>, v, {})</code>
-							does not return the list consisting of exactly <code>true</code> as its <a>output nodes</a>,
-							there is a <a>validation result</a> that has <code>v</code> as its <code>sh:value</code>
-							and a <a>deep copy</a> of <code>$expr</code> in the results graph as its <code>sh:sourceConstraint</code>.
-							If the <code>$expr</code> has <a>values</a> for <code>sh:message</code> in the <a>shapes graph</a>,
-							then these <a>values</a> become the (only) values for <code>sh:resultMessage</code> in the
-							<a>validation result</a>.
-						</div>
-					</div>
 				</section>
 			</section>
 		</section>
@@ -7963,11 +7755,10 @@ ex:NameGroup
 				<li>Added the new constraint component <a href="#SingleLineConstraintComponent"><code>sh:singleLine</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/177">Issue 177</a></li>
 				<li>Added the new class <a href="#ShapeClass"><code>sh:ShapeClass</code></a> for implicit class targets; see <a href="https://github.com/w3c/data-shapes/issues/212">Issue 212</a></li>
 				<li>Moved SPARQL-based validators from Core to an Appendix of SHACL-SPARQL; see <a href="https://github.com/w3c/data-shapes/issues/271">Issue 271</a></li>
-				<li>Added the new constraint component <a href="#ExpressionConstraintComponent"><code>sh:expression</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/357">Issue 357</a></li>
-				<li>Added the new constraint component <a href="#NodeByExpressionConstraintComponent"><code>sh:nodeByExpression</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/408">Issue 408</a></li>
 				<li>Added new <a href="#core-components-list">List constraint components</a>, see <a href="https://github.com/w3c/data-shapes/issues/391">Issue 391</a> and <a href="https://github.com/w3c/data-shapes/issues/414">Issue 414</a></li>
 				<li>Added the new value <code>sh:ByTypes</code> for <a href="#ClosedConstraintComponent"><code>sh:closed</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/172">Issue 172</a></li>
 				<li>The values of <a href="#ClassConstraintComponent"><code>sh:class</code></a> and <a href="#DatatypeConstraintComponent"><code>sh:datatype</code></a> can now also be lists, indicating a union of choices; see <a href="https://github.com/w3c/data-shapes/issues/160">Issue 160</a></li>
+				<li>The values of <a href="#NodeKindConstraintComponent"><code>sh:nodeKind</code></a> can now also be lists, indicating a union of choices; see <a href="https://github.com/w3c/data-shapes/issues/407">Issue 407</a></li>
 				<li>Added the new constraint component <a href="#ReifierShapeShapeConstraintComponent"><code>sh:ReifierShape</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/300">Issue 300</a></li>
 				<li>Added parameter <a href="#subClassOfInShapesGraph"></a> to look up rdfs:subClassOf triples in the union of the shapes graph and the data graph; see <a href="https://github.com/w3c/data-shapes/issues/185">Issue 185</a></li>
 				<li>Generalized <a href="#order"></a> to also allow xsd:integers; see <a href="https://github.com/w3c/data-shapes/issues/479">Issue 479</a></li>
