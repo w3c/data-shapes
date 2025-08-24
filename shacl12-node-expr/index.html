@@ -600,8 +600,8 @@ ex:EstonianCompanyShape
 			<p>
 				The following diagram illustrates how this node expression is interpreted, from a logical point of view.
 				During validation, a SHACL processor will determine the <a>target</a> nodes of the shape
-				by evaluating the <a>filterShape expression</a>.
-				However, the filterShape expression first evaluates its input expression, which is specified via <code>sh:nodes</code>
+				by evaluating the <a>filter shape expression</a>.
+				However, the filter shape expression first evaluates its input expression, which is specified via <code>sh:nodes</code>
 				and is an <a>instancesOf expression</a>.
 				This will produce all instances of the given class, <code>ex:Company</code>.
 				The <code>shnex:filterShape</code> is then applied to all of these instances, to keep only the companies
@@ -669,7 +669,7 @@ ex:Company-employeeCount
 	sh:datatype xsd:integer ;
 	sh:values <b>[
 		shnex:count [
-			shnex:path ex:employee ;
+			shnex:pathValues ex:employee ;
 		]
 	]</b> .
 						</div>
@@ -859,14 +859,14 @@ ex:Person-displayName
 	sh:values <b>[
 		ex:coalesce (
 			[
-				# This is a path expression that is expected to return zero or one values
-				shnex:path ex:fullName ;
+				# This is a path values expression that is expected to return zero or one values
+				shnex:pathValues ex:fullName ;
 			]
 			[
 				ex:concat (
-					[ shnex:path ex:firstName ]    # Path expression with at most one value
+					[ shnex:pathValues ex:firstName ]    # Path values expression with at most one value
 					" "                         # A constant literal expression
-					[ shnex:path ex:lastName ]     # Path expression with at most one value
+					[ shnex:pathValues ex:lastName ]     # Path values expression with at most one value
 				)
 			]
 		)
@@ -1055,7 +1055,7 @@ ex:ClassShape-superClassesExceptRoots
 	sh:values [
 		shnex:nodes [
 			# This returns all transitive superclasses of the current focus node
-			shnex:path [ sh:zeroOrMorePath rdfs:subClassOf ] ;
+			shnex:pathValues [ sh:zeroOrMorePath rdfs:subClassOf ] ;
 		] ;
 		# This removes any superclasses that are in the list below
 		shnex:minus <b>( owl:Thing rdfs:Resource )</b> ;
@@ -1069,12 +1069,12 @@ ex:ClassShape-superClassesExceptRoots
 					</p>
 				</section>
 
-				<section id="PathExpression">
-					<h3>Path Expressions</h3>
+				<section id="PathValuesExpression">
+					<h3>Path Values Expressions</h3>
 					<p class="syntax">
-						<span data-syntax-rule="PathExpression-syntax">
+						<span data-syntax-rule="PathValuesExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
-							is called a <dfn>path expression</dfn> with the <a>function name</a> <code>shnex:PathExpression</code>:
+							is called a <dfn>path values expression</dfn> with the <a>function name</a> <code>shnex:PathValuesExpression</code>:
 							<table class="term-table">
 								<thead>
 									<th>Property</th>
@@ -1083,7 +1083,7 @@ ex:ClassShape-superClassesExceptRoots
 								</thead>
 								<tbody>
 									<tr>
-										<td><b><code>shnex:path</code></b></td>
+										<td><b><code>shnex:pathValues</code></b></td>
 										<td>
 											Must be a <a>well-formed</a> <a>SHACL property path</a>.
 										</td>
@@ -1092,13 +1092,13 @@ ex:ClassShape-superClassesExceptRoots
 										</td>
 									</tr>
 									<tr>
-										<td><code>shnex:nodes</code></td>
+										<td><code>shnex:focusNode</code></td>
 										<td>
 											Optional, must be a <a>well-formed</a> <a>node expression</a>.
 										</td>
 										<td>
-											A node expression producing the <a>focus nodes</a>, defaulting
-											to the current focus node from the evaluation context.
+											A node expression producing the <a>focus node</a>,
+											defaulting to the current focus node from the evaluation context.
 										</td>
 									</tr>
 								</tbody>
@@ -1106,27 +1106,33 @@ ex:ClassShape-superClassesExceptRoots
 						</span>
 					</p>
 					<div class="def" id="PathExpression-evaluation">
-						<div class="def-header">EVALUATION OF PATH EXPRESSIONS</div>
+						<div class="def-header">EVALUATION OF PATH VALUES EXPRESSIONS</div>
 						<p>
-							Let <code>path</code> be the <a>value</a> of <code>shnex:path</code>,
-							and <code>nodes</code> be the <a>value</a> of <code>shnex:nodes</code> in the <a>path expression</a>.
-							If <code>shnex:nodes</code> is not given, <code>nodes</code> is the list consistent of exactly the <a>focus node</a>.
-							Let <code>N</code> be the nodes produced by <code>evalExpr(nodes, focusGraph, focusNode, scope)</code>.
-							The <a>output nodes</a> of the <a>path expression</a> are the list of <a>nodes</a> produced by concatenating
-							the <a>value nodes</a> of the <code>path</code> at each <a>node</a> in <code>N</code>.
-							<span class="todo">TODO: Clarify if those can contain duplicates.</span>
+							Let <code>$pathValues</code> be the <a>value</a> of <code>shnex:pathValues</code>,
+							and <code>$focusNode</code> be the <a>value</a> of <code>shnex:focusNode</code> in the <a>path values expression</a>.
+							If <code>shnex:focusNode</code> is not given, <code>$focusNode</code> is the list consisting of exactly the <a>focus node</a>.
+							Let <code>N</code> be the nodes produced by <code>evalExpr($focusNode, focusGraph, focusNode, scope)</code>.
+							If <code>N</code> has 0 members or more than 1 member, then the <a>output nodes</a> are the empty list.
+							Otherwise, the <a>output nodes</a> of the <a>path values expression</a> are the list of <a>value nodes</a> of the <code>path</code>
+							for the (only) member of <code>N</code>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
 					<p>
-						The following example illustrates the use of a <a>path expression</a> to compute the value
+						Note that by definition, <a>value nodes</a> may be derived properties, based on <code>sh:values</code>
+						or <code>sh:defaultValue</code>.
+						This means that if the provided <code>shnex:pathValues</code> path is an <a>IRI</a>, then a path values expression
+						may cause the evaluation of other node expressions, as a simple kind of rule chaining.
+					</p>
+					<p>
+						The following example illustrates the use of a <a>path values expression</a> to compute the value
 						of the property <code>ex:topConceptCount</code>.
-						The path expression returns the values of <code>skos:hasTopConcept</code> at each <code>skos:ConceptScheme</code>
+						The expression returns the values of <code>skos:hasTopConcept</code> at each <code>skos:ConceptScheme</code>
 						and these are processed by the <a href="#CountExpression"><code>shnex:count</code></a> to return the
 						number of top concepts.
 					</p>
 					<p>
-						<aside class="example" title="TODO">
+						<aside class="example" title="A path values expression computing the number of top concepts in a scheme">
 							<div class="shapes-graph">
 								<div class="turtle">
 skos:ConceptScheme
@@ -1142,7 +1148,7 @@ skos:ConceptScheme-topConceptCount
 	sh:name "top concept count" ;
 	sh:values [
 		shnex:count [
-			<b>shnex:path skos:hasTopConcept</b> ;
+			<b>shnex:pathValues skos:hasTopConcept</b> ;
 		] ;
 	] .								
 								</div>
@@ -1151,8 +1157,31 @@ skos:ConceptScheme-topConceptCount
 								</div>
 							</div>
 						</aside>
+					<p>
+						The next example illustrates the use of a <a>path values expression</a> together with a specific focus node
+						(instead of the default focus node provided by the evaluation context).
+						The shape targets all <a>subjects</a> that have <code>skos:Concept</code> as their <code>rdf:type</code>
+						with a dynamically computed <code>sh:targetNode</code> expression.
+						In other words, the target nodes are the direct instances of <code>skos:Concept</code> based on asserted
+						<code>rdf:type</code> triples, not including the subclasses of <code>skos:Concept</code>.
 					</p>
-					<p class="todo">TODO: Add second example that uses shnex:nodes</p>
+					<p>
+						<aside class="example" title="TODO">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:DirectInstancesOfConceptShape
+    a sh:NodeShape ;
+    sh:targetNode [
+	    <b>shnex:pathValues [ sh:inversePath rdf:type ] ;
+		shnex:focusNode skos:Concept ;</b>
+    ] .
+								</div>
+								<div class="jsonld">
+									TODO
+								</div>
+							</div>
+						</aside>
+					</p>
 				</section>
 
 				<section id="ExistsExpression">
@@ -1282,7 +1311,7 @@ ex:City-fillColor
     sh:values [
         <b>shnex:if [
             shnex:exists [
-                shnex:path ex:capitalOf ;
+                shnex:pathValues ex:capitalOf ;
             ] ;
         ] ;
         shnex:then "blue" ;
@@ -1364,7 +1393,7 @@ ex:ClassShape-superClassesIncludingRoot
 		<b>shnex:distinct [
 			shnex:union (
 				[
-					shnex:path [ sh:zeroOrMorePath rdfs:subClassOf ] ;
+					shnex:pathValues [ sh:zeroOrMorePath rdfs:subClassOf ] ;
 				]
 				( rdfs:Resource )
 			)
@@ -1540,11 +1569,11 @@ ex:DualCitizenShape
 				</section>
 
 				<section id="FilterShapeExpression">
-					<h3>FilterShape Expressions</h3>
+					<h3>Filter Shape Expressions</h3>
 					<p class="syntax">
 						<span data-syntax-rule="FilterShapeExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
-							is called a <dfn>filterShape expression</dfn> with the <a>function name</a> <code>shnex:FilterShapeExpression</code>:
+							is called a <dfn>filter shape expression</dfn> with the <a>function name</a> <code>shnex:FilterShapeExpression</code>:
 							<table class="term-table">
 								<thead>
 									<th>Property</th>
@@ -1575,11 +1604,11 @@ ex:DualCitizenShape
 						</span>
 					</p>
 					<div class="def" id="FilterShapeExpression-evaluation">
-						<div class="def-header">EVALUATION OF FILTERSHAPE EXPRESSIONS</div>
+						<div class="def-header">EVALUATION OF FILTER SHAPE EXPRESSIONS</div>
 						<p>
 							Let <code>filterShape</code> be the <a>value</a> of <code>shnex:filterShape</code>,
-							and <code>nodes</code> be the <a>value</a> of <code>shnex:nodes</code> in a <a>filterShape expression</a>.
-							The <a>output nodes</a> of the <a>filterShape expression</a> are the <a>output nodes</a> of
+							and <code>nodes</code> be the <a>value</a> of <code>shnex:nodes</code> in a <a>filter shape expression</a>.
+							The <a>output nodes</a> of the <a>filter shape expression</a> are the <a>output nodes</a> of
 							<code>evalExpr(nodes, focusGraph, focusNode, scope)</code> except those that do not <a>conform</a> to
 							the <a>shape</a> <code>filterShape</code>, preserving the order in the list.
 						</p>
@@ -1604,7 +1633,7 @@ ex:Person-maleChildren
 	sh:class ex:Person ;
 	sh:values <b>[
 		shnex:nodes</b> [
-			shnex:path ex:child ;
+			shnex:pathValues ex:child ;
 		] ;
 		<b>shnex:filterShape [
 			sh:property [
@@ -1694,7 +1723,7 @@ ex:PersonShape-oldestTwoChildren
 	sh:values <b>[
 		shnex:nodes</b> [
 			shnex:nodes [
-				shnex:path ex:child ;
+				shnex:pathValues ex:child ;
 			] ;
 			shnex:orderBy ex:dateOfBirth ;
 		] ;
@@ -1781,7 +1810,7 @@ ex:PersonShape-remainingChildren
 	sh:values <b>[
 		shnex:nodes</b> [
 			shnex:nodes [
-				shnex:path ex:child ;
+				shnex:pathValues ex:child ;
 			] ;
 			shnex:orderBy ex:dateOfBirth ;
 		] ;
@@ -1867,7 +1896,7 @@ skos:ConceptScheme-topConceptCount
 	sh:name "top concept count" ;
 	sh:values [
 		shnex:count [
-			shnex:path skos:hasTopConcept ;
+			shnex:pathValues skos:hasTopConcept ;
 		] ;
 	] .
 								</div>
@@ -1940,7 +1969,7 @@ ex:CompanyShape-minStartDate
 	sh:name "min start date" ;
 	sh:values [
 		shnex:min [
-			shnex:path ( ex:employee ex:startDate ) ;
+			shnex:pathValues ( ex:employee ex:startDate ) ;
 		] ;
 	] .
 								</div>
@@ -2035,8 +2064,8 @@ ex:CompanyShape-minStartDate
 					<p>
 						Note that <code>shnex:sum</code> needs to be used with care and may be often misunderstood,
 						when used with property paths.
-						The problem is that when a <a>path expression</a> is used as input to a <a>sum expression</a>,
-						the path expression will have eliminated duplicates before they can be processed by the <code>shnex:sum</code>.
+						The problem is that when a <a>path values expression</a> is used as input to a <a>sum expression</a>,
+						the path values expression will have eliminated duplicates before they can be processed by the <code>shnex:sum</code>.
 						As a result, only the distinct values will be added up.
 					</p>
 					<p class="todo">TODO: Find good example, or drop the feature if none makes sense</p>
@@ -2183,7 +2212,7 @@ ex:AccountShape-ibanNumber
             [ 
                 sparql:ucase (
                     [
-                        shnex:path ( ex:country ex:code )
+                        shnex:pathValues ( ex:country ex:code )
                         shnex:nodes [ shnex:var "focusNode" ]
                     ]
                 )
@@ -2292,7 +2321,7 @@ ex:Germany
 					The following example demonstrates how <code>sh:nodeByExpression</code> could be used in the context of the <a href="https://www.w3.org/TR/vocab-data-cube/">W3C Data Cube Vocabulary</a>.
 					Building upon examples 5 and 6 from the Data Cube Vocabulary documentation, Data Structure Definition is extended with the property <code>eg:hasShape</code>,
 					which links to an associated <a>node shape</a> to which relevant <code>qb:Observation</code> instances must conform.
-					To validate that every <code>qb:Observation</code> instance conforms to the appropriate shape, <code>sh:nodeByExpression</code> with a <a>Path Expression</a>
+					To validate that every <code>qb:Observation</code> instance conforms to the appropriate shape, <code>sh:nodeByExpression</code> with a <a>path values expression</a>
 					is used to locate the shape at the property path <code>qb:dataSet/qb:structure/eg:hasShape</code> from each <code>qb:Observation</code> instance.
 				</p>
 				<aside class="example">
@@ -2325,7 +2354,7 @@ eg:ObservationShape
 	a sh:NodeShape ;
 	sh:targetClass qb:Observation ;
 	sh:nodeByExpression [
-		shnex:path (qb:dataSet qb:structure eg:hasShape) ;
+		shnex:pathValues (qb:dataSet qb:structure eg:hasShape) ;
 	] .
 						</div>
 						<div class="jsonld">
@@ -2403,7 +2432,7 @@ eg:ObservationShape
 				"@id": "qb:Observation"
 			},
 			"sh:nodeByExpression": {
-				"shnex:path": {
+				"shnex:pathValues": {
 					"@list": [
 						{
 							"@id": "qb:dataSet"
