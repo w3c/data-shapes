@@ -27,8 +27,8 @@ var localBibliography = {
     publisher: "Journal of Web Semantics"
   },
   SAFETY: {
-    title: "Saftety of recursive horn clauses with infinite relations",
-    href: "http://arxiv.org/abs/cs.LO/9809032",
+    title: "Safety of recursive horn clauses with infinite relations",
+    href: "https://doi.org/10.1145/28659.28694",
     authors: [
       "R. Ramakrishnan",
       "F. Bancilhon",
