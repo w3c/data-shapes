@@ -3,8 +3,10 @@
 
 ## Scribes
 
-* 2025-08-18: 
-* 2025-08-11: 
+* 2025-09-01: 
+* 2025-08-25: Alex
+* 2025-08-18: Edmond
+* 2025-08-11: Robert
 * 2025-08-04: PapoutsoglouE
 * 2025-07-28: DavidHabgood
 * 2025-07-21: nicholascar & AndyS
