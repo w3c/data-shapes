@@ -2141,20 +2141,60 @@ ex:CompanyShape-minStartDate
 			<h2>Custom Node Expressions</h2>
 			<p>
 				SHACL includes vocabulary terms that can be used to define new <a>node expression functions</a>
-				by wrapping another (parameterized) <a>node expression</a>.
-				This makes it possible to extend the library of available SHACL node expressions without hard-coded
-				changes to an engine.
+				by wrapping other (parameterized) <a>node expressions</a>.
+				This makes it possible to extend the library of available SHACL node expressions without having to
+				hard-code changes to an engine.
 			</p>
-			<p class="todo">
-				TODO: Describe syntax and semantics.
-				In a nutshell, these declarations use the same syntax as the built-in functions,
-				but also carry a sh:bodyExpression.
-				In this body, you can access the input node expressions using shnex:arg.
-				This will recursively evaluate those nested expressions.
-				As these are lists, we cannot use shnex:var (which only supports individual nodes).
-			</p>
-			<section class="informative">
-				<h3>Example: User-Defined Named Parameter Function</h3>
+
+			<section>
+				<h3>Custom Named Parameter Functions</h3>
+				<p class="syntax">
+					<span data-syntax-rule="CustomNamedParameterFunction-syntax">
+						A <dfn>custom named parameter function</dfn> is an <a>IRI</a> in a <a>shapes graph</a>
+						that is a <a>SHACL instance</a> of <code>sh:NamedParameterExpressionFunction</code> and
+						a <a>SHACL subclass</a> of <code>sh:NamedParameterExpression</code>.
+						It has a single <a>value</a> for <code>sh:bodyExpression</code> that is a <a>well-formed</a>
+						<a>node expression</a>.
+						<br/><br/>
+						A <a>custom named parameter function</a> declares one or more <a>parameters</a> as <a>values</a>
+						of <code>sh:parameter</code>, where each such <a>parameter</a> has exactly one <a>value</a> for
+						<code>sh:path</code> and that value is an <a>IRI</a>.
+						At least one of the parameters has <code>sh:keyParameter true</code>, declaring the <a>key parameters</a>
+						for the function.
+						The <a>key parameters</a> of all <a>node expression functions</a>
+						(including the built-in ones from the <code>shnex:</code> namespace) must be disjoint.
+						<br/><br/>
+						<a>Custom named parameter functions</a> can reference the declared <a>parameters</a> using an
+						<a>arg expression</a> such as <code>[ shnex:arg ex:param ]</code>, where the <a>value</a> of <code>shnex:arg</code>
+						matches the <a>IRI</a> of the <a>parameter</a>'s <code>sh:path</code>.
+					</span>
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="CustomNamedParameterExpression-syntax">
+						A <dfn>custom named parameter expression</dfn> is a <a>node expression</a>
+						represented by a <a>blank node</a> that has exactly one <a>value</a> for at least one of
+						the <a>key parameters</a>.
+					</span>
+				</p>
+				<div class="def" id="CustomNamedParameterExpression-evaluation">
+					<div class="def-header">EVALUATION OF CUSTOM NAMED PARAMETER EXPRESSIONS</div>
+					<p>
+						Let <code>expr</code> be a <a>custom named parameter expression</a> with the
+						<a>custom named parameter function</a> <code>f</code>.
+						Let <code>body</code> be the <a>value</a> of <code>sh:bodyExpression</code> at <code>f</code>
+						in the <a>shapes graph</a>.
+						<br/><br/>
+						Let <code>argScope</code> be a map of (parameter) <a>nodes</a> as keys and (argument) <a>nodes</a>
+						as values, so that each <a>parameter</a> of <code>f</code> has the <a>value</a> of the parameter's
+						<code>sh:path</code> from <code>expr</code>.
+						For example, if <code>f</code> declares just one <a>parameter</a> with <code>sh:path</code> <code>ex:param</code>
+						and <code>expr</code> is <code>[ ex:param 42 ]</code> then <code>argScope</code> is <code>{ ex:param : 42 }</code>.
+						<br/><br/>
+						The <a>output nodes</a> of <code>expr</code> are computed using
+						<code>evalExpr(expr, focusGraph, focusNode, scope) -> evalExpr(body, focusGraph, focusNode, argScope)</code>
+					</p>
+				</div>
+				<p><em>The remainder of this section is informative.</em></p>
 				<p>
 					The following example defines a new <a>node expression function</a> <code>ex:AverageExpression</code>
 					that takes another node expression as input using the <a>key parameter</a> <code>ex:average</code>
@@ -2175,7 +2215,7 @@ ex:AverageExpression
             [ shnex:sum [ shnex:arg ex:average ] ]
             [ shnex:count [ shnex:arg ex:average ] ]
         )
-    ]
+    ] ;
 .
 ex:AverageExpression-average
     a sh:Parameter ;
@@ -2206,8 +2246,51 @@ ex:CompanyShape-averageIncome
 					</div>
 				</aside>
 			</section>
-			<section class="informative">
-				<h3>Example: User-Defined List Parameter Function</h3>
+
+			<section>
+				<h3>Custom List Parameter Functions</h3>
+				<p class="syntax">
+					<span data-syntax-rule="CustomListParameterFunction-syntax">
+						A <dfn>custom list parameter function</dfn> is an <a>IRI</a> in a <a>shapes graph</a>
+						that is a <a>SHACL instance</a> of <code>sh:ListParameterExpressionFunction</code> and
+						a <a>SHACL subclass</a> of <code>sh:ListParameterExpression</code>.
+						The <a>IRI</a> of a <a>custom list parameter function</a> is its <a>list parameter property</a>.
+						It has a single <a>value</a> for <code>sh:bodyExpression</code> that is a <a>well-formed</a>
+						<a>node expression</a>.
+						<br/><br/>
+						<a>Custom list parameter functions</a> can reference the arguments using an
+						<a>arg expression</a> such as <code>[ shnex:arg 0 ]</code> and <code>[ shnex:arg 1 ]</code>
+						where the <code>xsd:integer</code> <code>n</code> corresponds to the <code>n</code>th <a>member</a>
+						of the arguments list, starting with <code>0</code> as the first member.
+					</span>
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="CustomListParameterExpression-syntax">
+						A <dfn>custom list parameter expression</dfn> is a <a>node expression</a>
+						represented by a <a>blank node</a> that is the <a>subject</a> of exactly one <a>triple</a>
+						and the <a>predicate</a> of that triple is the <a>list parameter property</a> of a
+						<a>custom list parameter function</a> in the <a>shapes graph</a>.
+					</span>
+				</p>
+				<div class="def" id="CustomListParameterExpression-evaluation">
+					<div class="def-header">EVALUATION OF CUSTOM LIST PARAMETER EXPRESSIONS</div>
+					<p>
+						Let <code>expr</code> be a <a>custom list parameter expression</a> with the
+						<a>custom list parameter function</a> <code>f</code>.
+						Let <code>body</code> be the <a>value</a> of <code>sh:bodyExpression</code> at <code>f</code>
+						in the <a>shapes graph</a>.
+						<br/><br/>
+						Let <code>argScope</code> be a map of (parameter index) <a>nodes</a> as keys and (argument) <a>nodes</a>
+						as values, so that each list argument of <code>expr</code> has the index of the argument as an
+						<code>xsd:integer</code> as key, starting with <code>0</code> for the first argument.
+						For example, if <code>expr</code> has arguments <code>( 38 4 )</code> then the
+						<code>argScope</code> is <code>{ 0 : 38, 1 : 4 }</code>.
+						<br/><br/>
+						The <a>output nodes</a> of <code>expr</code> are computed using
+						<code>evalExpr(expr, focusGraph, focusNode, scope) -> evalExpr(body, focusGraph, focusNode, argScope)</code>
+					</p>
+				</div>
+				<p><em>The remainder of this section is informative.</em></p>
 				<p>
 					The following example defines a new <a>node expression function</a> <code>ex:spacedConcat</code>
 					that takes two nodes as input and returns a string concatenating the two nodes with a space in between.
@@ -2304,7 +2387,7 @@ ex:Person-fullName
 					Both <code>shnex:arg</code> and <code>shnex:var</code> access values from the scope.
 					The difference is that <code>shnex:arg</code> interprets the values as node expressions, while
 					<code>shnex:var</code> treats the values as individual nodes.
-					As a result, a custom node expression can evaluate nested node expressions that as passed in as arguments.
+					As a result, a custom node expression can evaluate nested node expressions that are passed in as arguments.
 				</p>
 			</section>
 		</section>
