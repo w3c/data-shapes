@@ -25,8 +25,8 @@ The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/sha
 
 * [SHACL 1.2 Inference Rules](https://w3c.github.io/data-shapes/shacl12-inf-rules/)
 * [SHACL 1.2 SHACL-SHACL](https://w3c.github.io/data-shapes/shacl12-shacl-shacl)
-* SHACL 1.2 UI - not drafted yet
-* SHACL 1.2 Profiling - not drafted yet
+* [SHACL 1.2 UI](https://w3c.github.io/data-shapes/shacl12-ui/)
+* [SHACL 1.2 Profiling](https://w3c.github.io/data-shapes/shacl12-profiling/)
 
 All of the above specifications are drafts that are automatically rebuilt on pushes to this repository.
 
