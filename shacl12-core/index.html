@@ -769,30 +769,80 @@
 					A <a>shapes graph</a> is ill-formed if it contains at least one ill-formed node.
 				</p>
 			</section>
-
-			<section class="informative">
-				<h3>SHACL Example</h3>
+			
+			<section id="shacl-rdfs">
+				<h3>Relationship between SHACL and RDFS inferencing</h3>
 				<p>
-					The following example <a>data graph</a> contains three <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
+					SHACL uses the RDF and RDFS vocabularies, but full RDFS inferencing is not required.
 				</p>
-				<aside class="example">
+				<p>
+					However, SHACL processors MAY operate on RDF graphs that include entailments [[!sparql12-entailment]],
+					whether pre-computed before being submitted to a SHACL processor or performed on the fly as
+					part of SHACL processing (without modifying either <a>data graph</a> or <a>shapes graph</a>).
+					To support processing of entailments, SHACL includes the property
+					<code>sh:entailment</code> to indicate the inferencing that is required
+					by a given <a>shapes graph</a>.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="entailment-nodeKind">The <a>values</a> of the property <code>sh:entailment</code> are IRIs.</span>
+					Common values for this property are covered by [[!sparql12-entailment]].
+				</p>
+				<p>
+					SHACL implementations MAY, but are not required to, support entailment regimes.
+					If a <a>shapes graph</a> contains any <a>triple</a> with the <a>predicate</a> <code>sh:entailment</code> and <a>object</a> <code>E</code>
+					and the SHACL processor does not support <code>E</code> as an entailment regime for the given <a>data graph</a>,
+					then the processor MUST signal a <a>failure</a>.
+					Otherwise, the SHACL processor MUST provide the entailments for all of the values of <code>sh:entailment</code> in the <a>shapes graph</a>,
+					and any inferred triples MUST be returned by all queries against the <a>data graph</a> during the <a>validation</a> process.
+				</p>
+			</section>			
+		</section>
+
+		<section id="getting-started" class="informative">
+   			<h2>Getting Started with SHACL Core</h2>
+			<p>
+				In this section, we will walk you through a simple example that introduces the basics of SHACL Core.
+				You will learn to describe how your data should look, and how a SHACL processor checks whether your data meets that description.
+			</p>
+			<section>
+				<h3>Use Case</h3>
+				<p>
+					Imagine you have a set of entities (Alice, Bob, Calvin) and you want explain to a computer or another human that
+				</p>
+				<ol>
+					<li>
+						there is a class called <code>ex:Person</code> that is the type of these entities
+					</li>
+					<li>
+						every instance of <code>ex:Person</code> has at most one Social Security Number (SSN), and that SSN needs to be a properly formatted text (like <code>123-45-6789</code>)
+					</li>
+					<li>
+						every instance of <code>ex:Person</code> can work for one or more companies, but those companies must be typed as a <code>ex:Company</code> in your data
+					</li>
+					<li>
+						no other properties are allowed for an <code>ex:Person</code>, other than the SSN (<code></code>ex:ssn</code>), the work affiliation (<code>ex:worksFor</code>), and the mandatory typing (<code>rdf:type</code>)
+					</li>
+				</ol>
+			</section>
+			<section>
+				<h3>Our Sample Data (Data Graph)</h3>
+				<p>
+					Here is the data we want to describe and validate:
+				</p>
+				<aside class="example" title="Sample Instance Data">
 					<div class="data-graph">
 						<div class="turtle">
-ex:Alice
-	a ex:Person ;
-	ex:ssn "987-65-432A" .
-  
-ex:Bob
-	a ex:Person ;
-	ex:ssn "123-45-6789" ;
-	ex:ssn "124-35-6789" .
-  
-ex:Calvin
-	a ex:Person ;
-	ex:birthDate "1971-07-07"^^xsd:date ;
-	ex:worksFor ex:UntypedCompany .
-						</div>
-						<div class="jsonld">
+ex:Alice a ex:Person ;
+    ex:ssn "987-65-432A" .                 # SSN has a typo or bad format
+
+ex:Bob a ex:Person ;
+    ex:ssn "123-45-6789", "124-35-6789" .  # Two SSNs (too many)
+
+ex:Calvin a ex:Person ;
+    ex:birthDate "1971-07-07"^^xsd:date ;  # Extra birthDate
+    ex:worksFor ex:UntypedCompany .        # Untyped company
+					</div>
+					<div class="jsonld">
 							<pre class="jsonld">{
 	"@graph": [
 		{
@@ -824,120 +874,220 @@ ex:Calvin
 						</div>
 					</div>
 					<p>
-						The following conditions are shown in the example:
+						<b>What is wrong here?</b>
+						<ul>
+							<li>
+								<b>Alice</b> has an SSN — but it does not match the correct pattern.
+							</li>
+							<li>
+								<b>Bob</b> has two SSNs, but we only allow one.
+							</li>
+							<li>
+								<b>Calvin</b> works for something called <code>ex:UntypedCompany</code>,
+								but that entity is not labeled as an <code>ex:Company</code>.
+								Furthermore, Calvin has an <code>ex:birthDate</code>, which we do not allow in our data.
+							</li>
+						</ul>
 					</p>
-					<ul>
-						<li>
-							A <a>SHACL instance</a> of <code>ex:Person</code> can have at most one <a>value</a> for the property <code>ex:ssn</code>,
-							and this <a>value</a> is a <a>literal</a> with the datatype <code>xsd:string</code> that matches
-							a specified regular expression.
-						</li>
-						<li>
-							A <a>SHACL instance</a> of <code>ex:Person</code> can have unlimited <a>values</a> for the property <code>ex:worksFor</code>,
-							and these <a>values</a> are <a>IRIs</a> and <a>SHACL instances</a> of <code>ex:Company</code>.
-						</li>
-						<li>
-							A <a>SHACL instance</a> of <code>ex:Person</code> cannot have <a>values</a> for any other property apart from
-							<code>ex:ssn</code>, <code>ex:worksFor</code> and <code>rdf:type</code>.
-						</li>
-					</ul>
-					<p>
-						The aforementioned conditions can be represented as <a>shapes</a> and <a>constraints</a> in the following <a>shapes graph</a>:
-					</p>
+				</aside>
+			</section>
+			<section>
+				<h3>Writing the Shapes and Classes (Shapes Graph)</h3>
+				<p>
+					Here is a self-contained example of how to represent our domain of interest.
+					In SHACL terminology, this is called a <a>shapes graph</a>, but you can also think
+					of this as a <em>domain model</em> or an <em>ontology</em>.
+				</p>
+
+				<aside class="example" title="Classes and Shapes to describe our domain of interest">
 					<div class="shapes-graph">
 						<div class="turtle">
+ex:Person
+    a                    rdfs:Class ;               # or owl:Class
+    rdfs:subClassOf      rdfs:Resource ;            # or owl:Thing
+    rdfs:label           "Person" ;
+    rdfs:comment         "A human being." ;
+.
 ex:PersonShape
-	a sh:NodeShape ;
-	sh:targetClass ex:Person ;    # Applies to all persons
-	sh:property [                 # _:b1
-		sh:path ex:ssn ;           # constrains the values of ex:ssn
-		sh:maxCount 1 ;
-		sh:datatype xsd:string ;
-		sh:pattern "^\\d{3}-\\d{2}-\\d{4}$" ;
-	] ;
-	sh:property [                 # _:b2
-		sh:path ex:worksFor ;
-		sh:class ex:Company ;
-		sh:nodeKind sh:IRI ;
-	] ;
-	sh:closed true ;
-	sh:ignoredProperties ( rdf:type ) .
-						</div>
-						<div class="jsonld">
-							<pre class="jsonld">{
-	"@id": "ex:PersonShape",
-	"@type": "sh:NodeShape",
-	"sh:closed": {
-		"@type": "xsd:boolean",
-		"@value": "true"
-	},
-	"sh:ignoredProperties": {
-		"@list": [
-			{
-				"@id": "rdf:type"
-			}
-		]
-	},
-	"sh:property": [
-		{
-			"sh:datatype": {
-				"@id": "xsd:string"
-			},
-			"sh:maxCount": {
-				"@type": "xsd:integer",
-				"@value": "1"
-			},
-			"sh:path": {
-				"@id": "ex:ssn"
-			},
-			"sh:pattern": "^\\d{3}-\\d{2}-\\d{4}$"
-		},
-		{
-			"sh:class": {
-				"@id": "ex:Company"
-			},
-			"sh:nodeKind": {
-				"@id": "sh:IRI"
-			},
-			"sh:path": {
-				"@id": "ex:worksFor"
-			}
-		}
-	],
-	"sh:targetClass": {
-		"@id": "ex:Person"
-	}
+    a                    sh:NodeShape ;
+    rdfs:label           "Person shape" ;
+    rdfs:comment         "A shape that applies to all instances of Person." ;
+    sh:targetClass       ex:Person ;
+    sh:property          ex:PersonShape-ssn ;
+    sh:property          ex:PersonShape-worksFor ;
+    sh:closed            true ;                     # No other properties are allowed
+    sh:ignoredProperties ( rdf:type ) ;             # except for rdf:type
+.
+ex:PersonShape-ssn
+    a                    sh:PropertyShape ;
+    sh:path              ex:ssn ;                   # The values of ex:ssn are valid if:
+    sh:maxCount          1 ;                        # there is at most one SSN
+    sh:datatype          xsd:string ;               # the value must be a string
+    sh:pattern           "^\\d{3}-\\d{2}-\\d{4}$" ; # the value must look like "123-45-6789"
+    sh:name              "social security number" ;
+    sh:description       "A person's unique identifier in the US." ;
+.
+ex:PersonShape-worksFor
+    a                    sh:PropertyShape ;
+    sh:path              ex:worksFor ;              # The values of ex:worksFor are valid if:
+    sh:nodeKind          sh:IRI ;                   # they are IRIs (and, e.g., not literals)
+    sh:class             ex:Company ;               # they are instances of Company
+    sh:name              "works for" ;
+    sh:description       "The companies that a person works for." ;
+.
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@graph": [
+        {
+            "@id": "ex:Person",
+            "rdfs:subClassOf": {
+                "@id": "rdfs:Resource"
+            },
+            "@type": "rdfs:Class",
+            "rdfs:label": "Person",
+            "rdfs:comment": "A human being."
+        },
+        {
+            "@id": "ex:PersonShape",
+            "@type": "sh:NodeShape",
+            "rdfs:label": "Person shape",
+            "rdfs:comment": "A shape that applies to all instances of Person.",
+            "sh:property": [
+                {
+                    "@id": "ex:PersonShape-worksFor"
+                },
+                {
+                    "@id": "ex:PersonShape-ssn"
+                }
+            ],
+            "sh:closed": {
+                "@value": "true",
+                "@type": "xsd:boolean"
+            },
+            "sh:targetClass": {
+                "@id": "ex:Person"
+            },
+            "sh:ignoredProperties": {
+                "@list": [
+                    {
+                        "@id": "rdf:type"
+                    }
+                ]
+            }
+        },
+        {
+            "@id": "ex:PersonShape-worksFor",
+            "@type": "sh:PropertyShape",
+            "sh:nodeKind": {
+                "@id": "sh:IRI"
+            },
+            "sh:class": {
+                "@id": "ex:Company"
+            },
+            "sh:name": "works for",
+            "sh:path": {
+                "@id": "ex:worksFor"
+            },
+            "sh:description": "The companies that a person works for."
+        },
+        {
+            "@id": "ex:PersonShape-ssn",
+            "@type": "sh:PropertyShape",
+            "sh:name": "social security number",
+            "sh:path": {
+                "@id": "ex:ssn"
+            },
+            "sh:maxCount": {
+                "@value": "1",
+                "@type": "xsd:integer"
+            },
+            "sh:description": "A person's unique identifier in the US.",
+            "sh:datatype": {
+                "@id": "xsd:string"
+            },
+            "sh:pattern": "^\\d{3}-\\d{2}-\\d{4}$"
+        }
+	]
 }</pre>
-						</div>
+					</div>
 					<div class="shaclc"><pre class="shaclc">shape ex:PersonShape -&gt; ex:Person {
 	closed=true ignoredProperties=[rdf:type] .
 	ex:ssn xsd:string [0..1] pattern="^\\d{3}-\\d{2}-\\d{4}$" .
-	ex:worksFor IRI ex:Company .
-}</pre></div></div>
+	ex:worksFor IRI ex:Company .  # TODO: This needs to be updated
+}</pre>
+						</div>
+					</div>
+					<p>
+						<b>Let us break that down:</b>
+					</p>	
+					<ul>
+						<li>
+							<code>sh:targetClass ex:Person</code> means "apply this constraint to all people".
+						</li>
+						<li>
+							The first <code>sh:property</code> definition declares that:
+							<ul>
+								<li>
+									SSNs are strings (<code>sh:datatype xsd:string</code>),
+								</li>
+								<li>
+									Only one is allowed (<code>sh:maxCount 1</code>),
+								</li>
+								<li>
+									And it must follow the typical U.S. SSN format (<code>sh:pattern "^\d{3}-\d{2}-\d{4}$"</code>).
+								</li>
+							</ul>
+						</li>
+						<li>
+							The second <code>sh:property</code> definition declares that:
+							<ul>
+								<li>
+									If someone has a <code>ex:worksFor</code> property, its value must be an IRI and point to something that's a <code>ex:Company</code>.
+								</li>
+							</ul>
+						</li>
+						<li>
+							<code>sh:closed true</code> means no properties beyond those listed are allowed (except any that are explicitly ignored).
+						</li>
+						<li>
+							<code>sh:ignoredProperties ( rdf:type )</code> lets <code>rdf:type</code> slip through even though it's not in the allowed property list.
+						</li>
+					</ul>
 				</aside>
+			</section>
+			<section>
+				<h3>Running the Validation (Validation Report)</h3>
 				<p>
-					We can use the shape declaration above to illustrate some of the key terminology used by SHACL.
-					The <a>target</a> for the <a>shape</a> <code>ex:PersonShape</code> is the set of all <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
-					This is specified using the property <code>sh:targetClass</code>.
-					During the validation, these target nodes become <a>focus nodes</a> for the shape.
-					The <a>shape</a> <code>ex:PersonShape</code> is a <a>node shape</a>, which means that it applies to the focus nodes.
-					It declares <a>constraints</a> on the <a>focus nodes</a>, for example using the <a>parameters</a> <code>sh:closed</code> and <code>sh:ignoredProperties</code>.
-					The <a>node shape</a> also declares two other constraints with the property <code>sh:property</code>,
-					and each of these is backed by a <a>property shape</a>. 
-					These <a>property shapes</a> declare additional <a>constraints</a> using <a>parameters</a> such as <code>sh:datatype</code> and <code>sh:maxCount</code>.
+					When we run SHACL validation on our <a>data graph</a> using our <a>shapes graph</a>, the validator checks each Person against the constraints that we wrote.
 				</p>
 				<p>
-					Some of the <a>property shapes</a> specify parameters from multiple <a>constraint components</a> in order to
-					restrict multiple aspects of the <a>property values</a>.
-					For example, in the <a>property shape</a> for <code>ex:ssn</code>, parameters from three <a>constraint components</a> are used.
-					The <a>parameters</a> of these <a>constraint components</a> are <code>sh:datatype</code>, <code>sh:pattern</code> and <code>sh:maxCount</code>.
-					For each <a>focus node</a> the <a>property values</a> of <code>ex:ssn</code> will be validated against all three components.
+					In plain English, here is what it finds:
 				</p>
+				<ul>
+					<li>
+						<b>Alice</b>: SSN does not match the expected pattern (<code>987-65-432A</code> has a letter where a digit should be).
+					</li>
+					<li>
+						<b>Bob</b>: Has more than one SSN (two values found, but <code>sh:maxCount</code> says only one is allowed).
+					</li>
+					<li>
+						<b>Calvin</b>:
+						<ul>
+							<li>
+								Works for something (<code>ex:UntypedCompany</code>) that is not declared as a <code>ex:Company</code>.
+							</li>
+							<li>
+								Has an extra property <code>ex:birthDate</code> that is not allowed by the shape.
+							</li>
+						</ul>
+					</li>
+				</ul>
 				<p>
-					SHACL <a>validation</a> based on the provided <a>data graph</a> and <a>shapes graph</a> would produce the following <a>validation report</a>.
-					See the section <a href="#validation-report">Validation Report</a> for details on the format.
+					Here is what a SHACL validation report for this example might look like (simplified for readability):
 				</p>
-				<aside class="example">
+
+				<aside class="example" title="Output produced by a SHACL validation engine">
 					<div class="results-graph">
 						<div class="turtle">
 [	a sh:ValidationReport ;
@@ -949,14 +1099,16 @@ ex:PersonShape
 		sh:resultPath ex:ssn ;
 		sh:value "987-65-432A" ;
 		sh:sourceConstraintComponent sh:PatternConstraintComponent ;
-		sh:sourceShape _:b1 ; # ... blank node _:b1 on ex:ssn above ...
+		sh:sourceShape ex:PersonShape-ssn ;
+    	sh:resultMessage "Value does not match pattern "^\d{3}-\d{2}-\d{4}$"" ;
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
 		sh:focusNode ex:Bob ;
 		sh:resultPath ex:ssn ;
 		sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
-		sh:sourceShape _:b1 ; # ... blank node _:b1 on ex:ssn above ...
+		sh:sourceShape ex:PersonShape-ssn ;
+    	sh:resultMessage "More than 1 values" ;
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
@@ -964,7 +1116,8 @@ ex:PersonShape
 		sh:resultPath ex:worksFor ;
 		sh:value ex:UntypedCompany ;
 		sh:sourceConstraintComponent sh:ClassConstraintComponent ;
-		sh:sourceShape _:b2 ; # ... blank node _:b2 on ex:worksFor above ...
+		sh:sourceShape ex:PersonShape-worksFor ;
+    	sh:resultMessage "Value does not have class ex:Company" ;
 	] ,
 	[	a sh:ValidationResult ;
 		sh:resultSeverity sh:Violation ;
@@ -973,6 +1126,7 @@ ex:PersonShape
 		sh:value "1971-07-07"^^xsd:date ;
 		sh:sourceConstraintComponent sh:ClosedConstraintComponent ;
 		sh:sourceShape sh:PersonShape ;
+    	sh:resultMessage "Predicate is not allowed (closed shape)" ;
 	] 
 ] .
 						</div>
@@ -999,9 +1153,10 @@ ex:PersonShape
 				"@id": "sh:PatternConstraintComponent"
 			},
 			"sh:sourceShape": {
-				"@id": "_:b1"
+				"@id": "ex:PersonShape-ssn"
 			},
-			"sh:value": "987-65-432A"
+			"sh:value": "987-65-432A",
+			"sh:resultMessage": "Value does not match pattern '^\d{3}-\d{2}-\d{4}$'"
 		},
 		{
 			"@type": "sh:ValidationResult",
@@ -1018,8 +1173,9 @@ ex:PersonShape
 				"@id": "sh:MaxCountConstraintComponent"
 			},
 			"sh:sourceShape": {
-				"@id": "_:b1"
-			}
+				"@id": "ex:PersonShape-ssn"
+			},
+			"sh:resultMessage": "More than 1 values"
 		},
 		{
 			"@type": "sh:ValidationResult",
@@ -1036,11 +1192,12 @@ ex:PersonShape
 				"@id": "sh:ClassConstraintComponent"
 			},
 			"sh:sourceShape": {
-				"@id": "_:b2"
+				"@id": "ex:PersonShape-worksFor"
 			},
 			"sh:value": {
 				"@id": "ex:UntypedCompany"
-			}
+			},
+			"sh:resultMessage": "Value does not have class ex:Company"
 		},
 		{
 			"@type": "sh:ValidationResult",
@@ -1057,58 +1214,124 @@ ex:PersonShape
 				"@id": "sh:ClosedConstraintComponent"
 			},
 			"sh:sourceShape": {
-				"@id": "sh:PersonShape"
+				"@id": "ex:PersonShape"
 			},
 			"sh:value": {
 				"@type": "xsd:date",
 				"@value": "1971-07-07"
-			}
+			},
+			"sh:resultMessage": "Predicate is not allowed (closed shape)"
 		}
 	]
 }</pre>
 						</div>
 					</div>
 				</aside>
+				<p><b>How to read the report:</b></p>
+				<ul>
+					<li>
+						<code>sh:ValidationReport</code> is the overall report, with <code>sh:conforms false</code> meaning that there was at least one violation.
+					</li>
+					<li>
+						Each <code>sh:ValidationResult</code> is one problem found:
+						<ul>
+							<li>
+								<code>sh:resultSeverity</code> — tells you how serious the problem is. In this example, all issues are <code>sh:Violation</code> (the highest and default severity).
+							</li>
+							<li>
+								<code>sh:focusNode</code> — the data node that failed.
+							</li>
+							<li>
+								<code>sh:resultPath</code> — the property involved.
+							</li>
+							<li>
+								<code>sh:value</code> — the actual value that triggered the failure.
+							</li>
+							<li>
+								<code>sh:sourceConstraintComponent</code> — which kind of constraint was broken (max count, pattern, class, etc.).
+							</li>
+							<li>
+								<code>sh:sourceShape</code> — the shape that defined the constraint.
+							</li>
+							<li>
+								<code>sh:resultMessage</code> — a human-readable explanation.
+							</li>
+						</ul>
+					</li>
+				</ul>
+  			</section>
+			<section>
+				<h3>Syntactic Variations of Shapes and Classes</h3>
 				<p>
-					The <a>validation results</a> are enclosed in a <a>validation report</a>.
-					The first <a>validation result</a> is produced because <code>ex:Alice</code> has a <a>value</a> for <code>ex:ssn</code>
-					that does not match the regular expression specified by the property <code>sh:pattern</code>.
-					The second <a>validation result</a> is produced because <code>ex:Bob</code> has more than the permitted number of <a>values</a>
-					for the property <code>ex:ssn</code> as specified by the <code>sh:maxCount</code> of 1.
-					The third <a>validation result</a> is produced because <code>ex:Calvin</code> has a <a>value</a> for <code>ex:worksFor</code>
-					that does not have an <code>rdf:type</code> triple that makes it a <a>SHACL instance</a> of <code>ex:Company</code>.
-					The forth <a>validation result</a> is produced because the <a>shape</a> <code>ex:PersonShape</code> has the	property <code>sh:closed</code> set to <code>true</code>
-					but <code>ex:Calvin</code> uses the property <code>ex:birthDate</code> which is neither one of the predicates from any of the 
-					<a>property shapes</a> of the shape, nor one of the properties listed using <code>sh:ignoredProperties</code>.
+					While SHACL is primarily designed to represent shapes, it also borrows terms and concepts such as
+					<code>rdfs:Class</code> and <code>rdfs:subClassOf</code> from the RDF Schema namespace.
+					Some people prefer to keep those concepts separate, as shown in the original example above
+					which had separate entities for <code>ex:Person</code> and <code>ex:PersonShape</code>.
+					However, it is also possible to couple them more closely together, and use <code>sh:ShapeClass</code>
+					to declare both a class and a shape at the same time.
+				</p>
+				<p>
+					Furthermore, sometimes you will see property shapes declared as <a>blank nodes</a> instead of <a>IRIs</a>.
+					This is a more compact notation, but it means that the property shape cannot easily be referenced from
+					the outside; for example, if some other graph wants to reuse a node shape but deactivate a property shape.
+				</p>
+				<p>
+					The following Turtle example shows these two syntactic variations in action.
+				</p>
+				<aside class="example" title="A more compact representation of the shapes graph">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Person
+    a                    sh:ShapeClass ;             # or rdfs:Class, sh:NodeShape
+    rdfs:subClassOf      rdfs:Resource ;             # or owl:Thing
+    rdfs:label           "Person" ;
+    rdfs:comment         "A human being." ;
+    sh:property [
+        sh:path          ex:ssn ;                    # The values of ex:ssn are valid if:
+        sh:maxCount      1 ;                         # there is at most one SSN
+        sh:datatype      xsd:string ;                # the value must be a string
+        sh:pattern       "^\\d{3}-\\d{2}-\\d{4}$" ;  # the value must look like "123-45-6789"
+        sh:name          "social security number" ;
+        sh:description   "A person's unique identifier in the US." ;
+    ] ;
+    sh:property [
+        sh:path          ex:worksFor ;               # The values of ex:worksFor are valid if:
+        sh:nodeKind      sh:IRI ;                    # they are IRIs (so, e.g., not literals)
+        sh:class         ex:Company ;                # they are instances of Company
+        sh:name          "works for" ;
+        sh:description   "The companies that a person works for." ;
+    ] ;
+    sh:closed            true ;                      # No other properties are allowed
+    sh:ignoredProperties ( rdf:type ) ;              # except for rdf:type
+.
+						</div>
+					</div>
+				</aside>
+			</section>
+			<section>
+				<h3>Introducing some SHACL Terminology</h3>
+				<p>
+					We can use the shape declarations above to introduce some of the formal terminology used by SHACL.
+					This may help you read the remainder of this specification.
+				</p>
+				<p>
+					The <a>target</a> for the <a>shape</a> <code>ex:PersonShape</code> is the set of all <a>SHACL instances</a> of the <a>class</a> <code>ex:Person</code>.
+					This is specified using the property <code>sh:targetClass</code>.
+					During the validation, these target nodes become <a>focus nodes</a> for the shape.
+					The <a>shape</a> <code>ex:PersonShape</code> is a <a>node shape</a>, which means that it applies to the focus nodes.
+					It declares <a>constraints</a> on the <a>focus nodes</a>, for example using the <a>parameters</a> <code>sh:closed</code> and <code>sh:ignoredProperties</code>.
+					The <a>node shape</a> also declares two other constraints with the property <code>sh:property</code>,
+					and each of these is backed by a <a>property shape</a>. 
+					These <a>property shapes</a> declare additional <a>constraints</a> using <a>parameters</a> such as <code>sh:datatype</code> and <code>sh:maxCount</code>.
+				</p>
+				<p>
+					Some of the <a>property shapes</a> specify parameters from multiple <a>constraint components</a> in order to
+					restrict multiple aspects of the <a>property values</a>.
+					For example, in the <a>property shape</a> for <code>ex:ssn</code>, parameters from three <a>constraint components</a> are used.
+					The <a>parameters</a> of these <a>constraint components</a> are <code>sh:datatype</code>, <code>sh:pattern</code> and <code>sh:maxCount</code>.
+					For each <a>focus node</a> the <a>property values</a> of <code>ex:ssn</code> will be validated against all three components.
 				</p>
 			</section>
-			
-			<section id="shacl-rdfs">
-				<h3>Relationship between SHACL and RDFS inferencing</h3>
-				<p>
-					SHACL uses the RDF and RDFS vocabularies, but full RDFS inferencing is not required.
-				</p>
-				<p>
-					However, SHACL processors MAY operate on RDF graphs that include entailments [[!sparql12-entailment]] -
-					either pre-computed before being submitted to a SHACL processor or performed on the fly as
-					part of SHACL processing (without modifying either <a>data graph</a> or <a>shapes graph</a>).
-					To support processing of entailments, SHACL includes the property
-					<code>sh:entailment</code> to indicate what inferencing is required
-					by a given <a>shapes graph</a>.
-				</p>
-				<p class="syntax">
-					<span data-syntax-rule="entailment-nodeKind">The <a>values</a> of the property <code>sh:entailment</code> are IRIs.</span>
-					Common values for this property are covered by [[!sparql12-entailment]].
-				</p>
-				<p>
-					SHACL implementations MAY, but are not required to, support entailment regimes.
-					If a <a>shapes graph</a> contains any <a>triple</a> with the <a>predicate</a> <code>sh:entailment</code> and <a>object</a> <code>E</code>
-					and the SHACL processor does not support <code>E</code> as an entailment regime for the given <a>data graph</a>
-					then the processor MUST signal a <a>failure</a>.
-					Otherwise, the SHACL processor MUST provide the entailments for all of the values of <code>sh:entailment</code> in the <a>shapes graph</a>,
-					and any inferred triples MUST be returned by all queries against the <a>data graph</a> during the <a>validation</a> process.
-				</p>
-			</section>			
 		</section>
 
 		<section id="constraints-section">
