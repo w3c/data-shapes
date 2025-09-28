@@ -1083,19 +1083,24 @@ ex:MultiplePatternsShape
 						<dfn data-lt="target declaration">Target declarations</dfn> of a <a>shape</a> in a <a>shapes graph</a> are
 						<a>triples</a> with the <a>shape</a> as the <a>subject</a> and certain properties described in this document
 						(e.g., <code>sh:targetClass</code>) as <a>predicates</a>.
+						Furthermore, <a href="#explicit-shape-target">sh:shape</a> <a>triples</a> can declare targets in the <a>data graph</a>.
 						Target declarations can be used to produce <a>focus nodes</a> for a <a>shape</a>.
 						The <dfn>target</dfn> of a <a>target declaration</a> is the set of RDF terms produced
 						by applying the rules described in the remainder of this section to the <a>data graph</a>.
 						The <dfn data-lt="target of the shape">target of a shape</dfn> is the union of all RDF terms produced by the individual
-						<a>targets</a> that are declared by the <a>shape</a> in the <a>shapes graph</a>.
+						<a>targets</a> that are declared for the <a>shape</a>.
 					</p>
 					<p>
 						SHACL Core includes the following kinds of targets:
-						<a href="#targetNode">node targets</a>,
-						<a href="#targetClass">class-based targets</a> (including <a href="#implicit-targetClass">implicit class-based targets</a>),
-						<a href="#targetSubjectsOf">subjects-of targets</a>, and
-						<a href="#targetObjectsOf">objects-of targets</a>.
 					</p>
+					<ul>
+						<li><a href="#targetNode">node targets</a></li>
+						<li><a href="#targetClass">class-based targets</a> (including <a href="#implicit-targetClass">implicit class-based targets</a>)</li>
+						<li><a href="#targetSubjectsOf">subjects-of targets</a></li>
+						<li><a href="#targetObjectsOf">objects-of targets</a></li>
+						<li><a href="#targetWhere">where targets</a></li>
+						<li><a href="#explicit-shape-target">explicit shape targets</a></li>
+					</ul>
 					<p><em>The remainder of this introduction is informative.</em></p>
 					<p>
 						RDF terms produced by targets are not required to exist as nodes in the <a>data graph</a>.
@@ -1326,6 +1331,120 @@ ex:Bob ex:livesIn ex:NewYork .
 							In the example above, only <code>ex:Bob</code> is validated against the given shape,
 							because it is the <a>object</a> of a <a>triple</a> that has <code>ex:knows</code> as its <a>predicate</a>.
 						</p>
+					</section>
+					
+					<section id="targetWhere">
+						<h4>Where Targets (sh:targetWhere)</h4>
+						<p class="syntax">
+							A <dfn>where target</dfn> is specified with the <code>sh:targetWhere</code> predicate.
+							<span data-syntax-rule="targetWhere-node">Each value of <code>sh:targetWhere</code> in a shape is a <a>well-formed</a> <a>shape</a>.</span>
+						</p>
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a shape in a shapes graph <code>SG</code> and <code>s</code> has <a>value</a> <code>w</code> for
+							<code>sh:targetWhere</code> in <code>SG</code> then the set of <a>nodes</a> in a data graph
+							<code>DG</code> that <a>conform</a> to <code>w</code> is a <a>target</a> from <code>DG</code> for <code>s</code> in <code>SG</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
+						<aside class="example">
+							<div class="shapes-graph">
+								<div class="turtle">
+
+ex:AdultPerson
+    a sh:NodeShape ;
+    sh:targetWhere [
+        sh:class ex:Person ;
+        sh:property [
+            sh:path ex:age ;
+            sh:minCount 1 ;
+            sh:minInclusive 18 ;
+        ]
+    ] ;
+    sh:property [
+        sh:path ex:votedFor ;
+        sh:class ex:Person ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+	] .
+								</div>
+								<div class="jsonld">
+									<pre class="jsonld">TODO</pre>
+								</div>
+								<div class="shaclc">
+									<pre class="shaclc">TODO</pre>
+								</div>
+							</div>
+
+							<div class="data-graph">
+								<div class="turtle">
+ex:Alice a ex:Person .
+
+<span class="focus-node-selected">ex:Bob</span> a ex:Person ;
+    ex:age 21 .
+								</div>
+	
+						</aside>
+						<p>
+							In this example, only <code>ex:Bob</code> is a focus node of <code>ex:AdultPerson</code>
+							because he conforms to the two constraints defined by the <code>sh:targetWhere</code> shape.
+							Based on the <code>sh:class</code> constraint, he is a <a>SHACL instance</a> of <code>ex:Person</code>
+							and his <code>ex:age</code> is 18 or greater.
+							However, as the <code>ex:AdultPerson</code> shape states that all adults must have one value for <code>ex:votedFor</code>,
+							<code>ex:Bob</code> does not conform to <code>ex:AdultPerson</code>.
+						</p>
+						<p class="note">
+							Note that <code>sh:targetWhere</code> can be interpreted as a "definition" providing
+							necessary and sufficient conditions for a shape.
+							It can therefore potentially be used for "classification" tasks, e.g., to collect all nodes
+							that fulfill a given set of conditions.
+						</p>
+						<p class="note">
+							As a word of caution, performance of the computation of <a>where targets</a> can differ between implementations.
+							In the worst case, an engine will need to iterate over all nodes in the data graph to filter them one-by-one.
+						</p>
+					</section>
+					
+					<section id="explicit-shape-target">
+						<h4>Explicit shape targets (sh:shape)</h4>
+						<p class="syntax">
+							An <dfn>explicit shape target</dfn> is specified using the <code>sh:shape</code> predicate.
+							<span data-syntax-rule="shape-nodeKind">Each <a>value</a> of <code>sh:shape</code> is an <a>IRI</a>.</span>
+						</p>
+						<div class="def">
+							<div class="def-header">TEXTUAL DEFINITION</div>
+							If <code>s</code> is a <a>shape</a> in a <a>shapes graph</a> and
+							<code>n</code> is a <a>node</a> in the <a>data graph</a>.
+							If <code>n</code> has <a>value</a> <code>s</code> for <code>sh:shape</code> in the <a>data graph</a>,
+							then <code>n</code> is a <a>target</a> for <code>s</code>.
+						</div>
+						<p><em>The remainder of this section is informative.</em></p>
+						<p class="note">
+							<code>sh:shape</code> is different from <code>sh:targetNode</code>, although both can be used to
+							link individual nodes with shapes.
+							<code>sh:shape</code> points from a specific <a>subject</a> node to an <a>object</a> shape.
+							Furthermore, while the <code>sh:targetNode</code> triples are queried from the <a>shapes graph</a>,
+							the <code>sh:shape</code> triples are expected in the <a>data graph</a>.
+						</p>
+						<p>
+							With the example data below, only <code>ex:Alice</code> is the target of the provided shape:
+						</p>
+						<aside class="example">
+							<div class="shapes-graph">
+								<div class="turtle">
+ex:PersonShape
+	a sh:NodeShape .
+								</div>
+							<div class="shaclc"><pre class="shaclc">TODO</pre></div></div>
+							<div class="data-graph">
+								<div class="turtle">
+<span class="focus-node-selected">ex:Alice</span>
+    a ex:Person ;
+    sh:shape ex:PersonShape .
+
+ex:Bob a ex:Person .
+								</div>
+							</div>
+						</aside>
 					</section>
 				</section>
 
@@ -5497,6 +5616,7 @@ ex:NameGroup
 				<li>Added parameter <a href="#subClassOfInShapesGraph"></a> to look up rdfs:subClassOf triples in the union of the shapes graph and the data graph; see <a href="https://github.com/w3c/data-shapes/issues/185">Issue 185</a></li>
 				<li>Generalized <a href="#order"></a> to also allow xsd:integers; see <a href="https://github.com/w3c/data-shapes/issues/479">Issue 479</a></li>
 				<li>Added annotation property <a href="#codeIdentifier"></a>; see <a href="https://github.com/w3c/data-shapes/issues/559">Issue 559</a></li>
+				<li>Added the target types <a href="#targetWhere"><code>sh:targetWhere</code></a> and <a href="#explicit-shape-target"><code>sh:shape</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/517">Issue 517</a></li>
 			</ul>
 		</section>
   </body>
