@@ -1,4 +1,4 @@
-![](w3c-no-bars.svg)
+![](w3c.svg)
 
 # Data Shapes WG Repository
 
