@@ -548,21 +548,211 @@
     </p>
   </section>
   <section id="explicit">
-    <h3>Explicit Packaging</h3>
+    <h3>Use of named graphs in files</h3>
     <p>
-      SHACL, as with much other RDF data, is often managed and distributed in files. This is simple but limited: files
-      of RDF data act as anonymous <a href="https://www.w3.org/TR/rdf12-concepts/#dfn-default-graph">default graph</a>
-      that contain the RDF but cannot be identified or referenced directly, only by file name.
+      <strong>
+        SHACL information SHOULD be serialized using graph-aware RDF formats.
+      </strong>
     </p>
     <p>
-      If RDF data is stored in a <a href="https://www.w3.org/TR/rdf12-concepts/#dfn-named-graph">named graph</a> instead
-      of a file, then the set of RDF data will be identified with an IRI and this may be dereferenced to access the RDF.
-      This does not prevent the use of files to contain the RDF, however to both store RDF data in a file <em>and</em> a
-      named graph, a
+      SHACL, as with much other RDF data, is often managed and distributed in files. Files of RDF data in graph-unaware
+      formats uch as act as Turtle [[turtle]], N-Triples [[rdf12-n-triples]] etc., act as
+      <a href="https://www.w3.org/TR/rdf12-concepts/#dfn-default-graph">default graphs</a> that cannot be identified or
+      referenced directly in RDF data: they can only be referenced by file name and when loaded into RDF databases,
+      they do not have a guaranteed identity as they may be placed into a that system's default graph or any other which
+      has no way of being consistently identified across systems.
     </p>
     <p>
-      Even the use of Named Graphs to contain SHACL, such as may be achieve by using a context-aware RDF format such as
-      Trig [[trig]] or JSON-LD [[json-ld]], isn't explicit enough...
+      If RDF data is stored in <a href="https://www.w3.org/TR/rdf12-concepts/#dfn-named-graph">named graph</a> in files
+      using graph-aware RDF formats, such as TriG [[trig]], <a href="https://en.wikipedia.org/wiki/TriX_(serialization_format)">TriX</a>,
+      JSON-LD [[json-ld]], N-Quads [[rdf12-n-quads]], then the set of RDF data will be identified with an IRI within
+      the RDF data and this may be both referenced within RDF databases and also dereferenced (resolved) on the
+      Internet.
+    </p>
+    <p>
+      An example of three SHACL Shapes, <code>ex:shape-1</code> &amp; <code>ex:shape-2</code> stored in named graph
+      <code>ex:graph-x</code> and <code>ex:shape-3</code> stored in named graph <code>ex:graph-y</code> serialized as RDF
+      using the TriG & JSON-LD formats, is as follows:
+    </p>
+    <div class="shapes-graph">
+      <div class="turtle">
+ex:graph-x {
+  ex:shape-1
+      a sh:NodeShape ;
+      schema:name "Shape 1" ;
+  .
+
+  ex:shape-2
+      a sh:NodeShape ;
+      schema:name "Shape 2" ;
+  .
+}
+ex:graph-y {
+  ex:shape-3
+      a sh:NodeShape ;
+      schema:name "Shape 3" ;
+  .
+}
+      </div>
+      <div class="jsonld">
+        <pre class="jsonld">[
+  {
+  "@context": {
+    "ex": "http://example.com/ns#",
+    "schema": "https://schema.org/",
+    "sh": "http://www.w3.org/ns/shacl#"
+  } ,
+    "@graph": [
+      {
+        "@id": "https://example.com/shape-y",
+        "@type": [
+          "https://sh.com/Shape"
+        ],
+        "https://schema.org/name": [
+          {
+            "@value": "Shape Y"
+          }
+        ]
+      }
+    ],
+    "@id": "https://example.com/graph-x"
+  }
+]</pre>
+      </div>
+    </div>
+    <div class="todo">
+      Remove "Shapes graph" heading and convert the above "turtle" to "trig".
+    </div>
+  </section>
+  <section>
+    <h3>Use of <code>owl:Ontology</code> containers</h3>
+    <p>
+      <strong>
+        SHACL information SHOULD be contained within instances of <code>owl:Ontology</code> and instances of SHACL
+        classes should be linked to the ontology they are first defined in by use of the <code>rdfs:isDefinedBy</code>
+        predicate and linked to subsequent ontologies using the <code>rdfs:member</code> predicate.
+      </strong>
+    </p>
+    <p>
+      RDF information, like much other RDF definitional data, is often contained within instances of OWL's
+      [[owl2-rdf-based-semantics]] <code>owl:Ontology</code> class.
+    </p>
+    <p>
+      For example, the <a href="https://www.ogc.org">Open Geospatial Consortium</a>'s
+      <a href="http://www.opengis.net/doc/IS/geosparql/1.1">GeoSPARQL 1.1</a> standard for spatial RDF data provides a
+      <a href="http://www.opengis.net/def/geosparql/validator">SHACL validator</a>
+      containing 27 <code>sh:NodeShape</code> instances within a Turtle file that presents metadata for the validator
+      as properties of an <code>owl:Ontology</code> instance.
+    </p>
+    <p>
+      Often, as per the GeosPARQL example, the SHACL elements are not explicitly linked to the ontology object using
+      RDF predicates but seen to be grouped within it by virtue of being declared within the same file.
+    </p>
+    <p>
+      Better than making this assumption is to explicitly link the SHACL elements to ontologies using predicates so
+      that, within RDF databases and without resorting to graph-aware RDF data groupings, the SHACL elements can be
+      known to be contained by ontology objects.
+    </p>
+    <p>
+      The recommendation to differentiate the relationship between a SHACL element and the ontology that defined it, and
+      other ontologies is made to allow for a simple form of provenance: a SHACL element characterised in this way may
+      be seen to have originated in one ontology and reused in others.
+    </p>
+    <p>
+      An example of two SHACL Shapes, <code>ex:shape-1</code> &amp; <code>ex:shape-2</code>, defined in one ontology,
+      <code>ex:ont-m</code>, with one <code>ex:shape-2</code> being re-used in another ontology, <code>ex:ont-n</code>,
+      is as follows:
+    </p>
+    <div class="shapes-graph">
+      <div class="turtle">
+ex:graph-x {
+  ex:ont-m
+    a owl:Ontology ;
+  .
+
+  ex:shape-1
+      a sh:NodeShape ;
+      rdfs:isDefinedBy ex:ont-m ;
+  .
+
+  ex:shape-2
+      a sh:NodeShape ;
+      rdfs:isDefinedBy ex:ont-m ;
+  .
+}
+
+# perhaps in another file from the above data...
+ex:graph-y {
+  ex:ont-n
+    a owl:Ontology ;
+  .
+
+  ex:shape-2
+      a sh:NodeShape ;
+      rdfs:isDefinedBy ex:ont-m ;
+      rdfs:member ex:ont-n ;
+  .
+}
+      </div>
+      <div class="jsonld">
+        <pre class="jsonld">{
+  "@graph": [
+    {
+      "@graph": [
+        {
+          "@id": "ex:ont-m",
+          "@type": "owl:Ontology"
+        },
+        {
+          "@id": "ex:shape-1",
+          "@type": "https://sh/Shape",
+          "rdfs:isDefinedBy": {
+            "@id": "ex:ont-m"
+          }
+        },
+        {
+          "@id": "ex:shape-2",
+          "@type": "sh:NodeShape",
+          "rdfs:isDefinedBy": {
+            "@id": "ex:ont-m"
+          }
+        }
+      ],
+      "@id": "ex:graph-x"
+    },
+    {
+      "@graph": [
+        {
+          "@id": "ex:ont-n",
+          "@type": "owl:Ontology"
+        },
+        {
+          "@id": "ex:shape-2",
+          "@type": "sh:NodeShape",
+          "rdfs:isDefinedBy": {
+            "@id": "ex:ont-m"
+          },
+          "rdfs:member": {
+            "@id": "ex:ont-n"
+          }
+        }
+      ],
+      "@id": "ex:graph-y"
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+    <div class="todo">
+      Remove "Shapes graph" heading and convert the above "turtle" to "trig".
+    </div>
+    <p>
+      In the example above, the ontology defining the shapes, <code>ex:ont-m</code>, contains no references to the
+      reusing ontology, <code>ex:ont-n</code> and likely would have been created before it.
+    </p>
+    <p>
+      The reusing ontology retains the indication of <code>ex:shape-2</code> having been defined by <code>ex:ont-m</code>
+      and then adds an indicator of it being reused within its own ontology: use of the predicate <code>rdfs:member</code>.
     </p>
   </section>
 </section>
