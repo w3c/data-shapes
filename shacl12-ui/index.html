@@ -424,6 +424,10 @@
             <td><code>ex:</code></td>
             <td><code>http://example.com/ns#</code></td>
           </tr>
+          <tr>
+            <td><code>dct:</code></td>
+            <td><code>http://purl.org/dc/terms/</code></td>
+          </tr>
         </table>
 
         <p>Within this specification, the following JSON-LD context is used:</p>
@@ -435,7 +439,8 @@
     "sh": "http://www.w3.org/ns/shacl#",
     "shui": "http://www.w3.org/ns/shui#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
-    "ex": "http://example.com/ns#"
+    "ex": "http://example.com/ns#",
+    "dct": "http://purl.org/dc/terms/"
   }
 }</pre
         >
@@ -539,8 +544,335 @@
     </section>
 
     <section id="property-paths">
-      <h2>Property Paths</h2>
-      <p>Content.</p>
+        <h2>Property Paths</h2>
+        <p>
+            <a href="../shacl12-core/#property-paths">SHACL Property Paths</a> can be used to render a SHACL shape as a
+            user interface.
+            Property paths define how data values are accessed or modified relative to a focus node.
+        </p>
+        <p>
+            The following subsections outline the scenarios in which SHACL UI implementations are expected to
+            support different kinds of property paths for viewing and editing operations.
+        </p>
+
+        <section id="property-paths-view">
+            <h3>View Mode</h3>
+            <p>
+                In view mode, property paths are used to retrieve and display data values associated with a shape.
+                A SHACL UI implementation must provide mechanisms to resolve these paths for visualization.
+            </p>
+
+            <section id="view-predicate-paths">
+                <h4>Predicate and Inverse Paths</h4>
+                <p>
+                    SHACL UI implementations MUST support both
+                    <a href="../shacl12-core/#property-path-predicate">predicate paths</a> and
+                    <a href="../shacl12-core/#property-path-inverse">inverse paths</a> in view mode.
+                    This ensures that values reachable via simple forward or inverse relationships can be displayed to
+                    the user.
+                </p>
+
+                <p>
+                    The following example illustrates how predicate and inverse paths are used in view mode to access
+                    and display values, either directly from the focus node or through incoming relationships from other
+                    nodes.
+                </p>
+
+                <aside class="example" title="Predicate and inverse paths in view mode">
+                    <div class="shapes-graph">
+                        <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path foaf:name ;
+        sh:name "Name" ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path [ sh:inversePath ex:member ] ;
+        sh:name "Department" ;
+    ] .
+                        </div>
+                    </div>
+
+                    <div class="data-graph">
+                        <div class="turtle">
+ex:alice a ex:Person ;
+    foaf:name "Alice" .
+
+ex:researchDept a ex:Department ;
+    ex:member ex:alice ;
+    rdfs:label "Research Department" .
+                        </div>
+                    </div>
+
+                    <p>
+                        A SHACL UI could display the person’s <code>foaf:name</code> as text and list departments that
+                        reference the person via <code>ex:member</code>.
+                    </p>
+                </aside>
+            </section>
+
+            <section id="view-complex-paths">
+                <h4>Complex Paths</h4>
+                <p>
+                    SHACL UI implementations SHOULD support complex property paths in view mode. Complex paths include
+                    <a href="../shacl12-core/#property-path-sequence">sequence paths</a>,
+                    <a href="../shacl12-core/#property-path-alternative">alternative paths</a>,
+                    <a href="../shacl12-core/#property-path-zero-or-more">zero-or-more paths</a>,
+                    <a href="../shacl12-core/#property-path-one-or-more">one-or-more paths</a>,
+                    and
+                    <a href="../shacl12-core/#property-path-zero-or-one">zero-or-one paths</a> as defined in SHACL
+                    Core.
+                </p>
+                <p>
+                    Support for complex paths is recommended, but can be left out in cases where the implementation aims
+                    to provide symmetry between view and edit modes, and complex paths are not supported in edit mode.
+                </p>
+
+                <p>
+                    The following examples illustrate a sequence path and an alternative path, both of which may be used
+                    for richer data traversal in view mode.
+                </p>
+
+                <aside class="example" title="Complex paths in view mode">
+                    <div class="shapes-graph">
+                        <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path ( ex:address ex:cityName ) ;
+        sh:name "City" ;
+        sh:datatype xsd:string ;
+    ] .
+
+ex:BookShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path [
+            sh:alternativePath ( dct:title rdfs:label )
+        ] ;
+        sh:name "Title" ;
+        sh:datatype xsd:string ;
+    ] .
+                        </div>
+                    </div>
+
+                    <div class="data-graph">
+                        <div class="turtle">
+ex:alice a ex:Person ;
+    ex:address ex:aliceAddress .
+
+ex:aliceAddress ex:cityName "Ghent" .
+
+ex:book1 a ex:Book ;
+    dct:title "Linked Data Design" .
+                        </div>
+                    </div>
+
+                    <p>
+                        A SHACL UI could display Alice’s city as "Ghent" by traversing the <code>ex:address</code> node,
+                        and display the title of <code>ex:book1</code> as “Linked Data Design”.
+                    </p>
+                </aside>
+            </section>
+        </section>
+
+        <section id="property-paths-edit">
+            <h3>Edit Mode</h3>
+            <p>
+                In edit mode, property paths determine how changes to data and the creation of new data are applied
+                through the user interface.
+            </p>
+
+            <section id="edit-predicate-paths">
+                <h4>Predicate and Inverse Paths</h4>
+                <p>
+                    SHACL UI implementations MUST support
+                    <a href="../shacl12-core/#property-path-predicate">predicate paths</a> and
+                    <a href="../shacl12-core/#property-path-inverse">inverse paths</a> in edit mode.
+                    This allows users to modify data linked by simple properties or inverse properties.
+                </p>
+
+                <p>
+                    The following example illustrates how predicate and inverse paths can be used in edit mode to modify
+                    a person’s name and manage their membership in departments.
+                </p>
+
+                <aside class="example" title="Predicate and inverse paths in edit mode">
+                    <div class="shapes-graph">
+                        <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path foaf:name ;
+        sh:name "Name" ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path [ sh:inversePath ex:member ] ;
+        sh:name "Department" ;
+        sh:class ex:Department ;
+    ] .
+                        </div>
+                    </div>
+
+                    <div class="data-graph">
+                        <div class="turtle">
+ex:bob a ex:Person ;
+    foaf:name "Bob" .
+
+ex:engDept a ex:Department ;
+    ex:member ex:bob ;
+    rdfs:label "Engineering Department" .
+                        </div>
+                    </div>
+
+                    <p>
+                        A SHACL UI might render a text input for <code>foaf:name</code> and a selector for the
+                        departments.
+                        Editing inverse paths requires the UI to ensure consistent updates on the related nodes.
+                    </p>
+                </aside>
+            </section>
+
+            <section id="edit-alternative-paths">
+                <h4>Alternative Paths</h4>
+                <p>
+                    SHACL UI implementations SHOULD support
+                    <a href="../shacl12-core/#property-path-alternative">alternative paths</a> in edit mode.
+                    This enables editing where a shape can constrain multiple potential properties, and the UI can allow
+                    users to choose which alternative to use when entering or modifying data.
+                </p>
+
+                <p>
+                    When editing existing or newly created statements, the UI SHOULD provide a mechanism to update the
+                    predicate to one of the enumerated paths in the <code>sh:alternativePath</code> list, but only if
+                    those paths are either <a
+                        href="../shacl12-core/#property-path-predicate">predicate paths</a> or <a
+                        href="../shacl12-core/#property-path-inverse">inverse paths</a>. This restriction is necessary
+                    because the object of <code>sh:alternativePath</code> is a SHACL list that may contain any valid
+                    property path expression, including complex path types that are not generally feasible to edit
+                    directly through a user interface.
+                </p>
+
+                <p class="note">
+                    Although redundant, SHACL permits nesting of <code>sh:alternativePath</code> expressions.
+                    Such nesting simply flattens to a single list of predicate or inverse paths and does not alter the
+                    effective set of alternatives available for editing.
+                </p>
+
+                <p>
+                    The following example illustrates how an alternative path can be used in edit mode to allow a book's
+                    title to be provided through either <code>dct:title</code> or <code>rdfs:label</code>.
+                </p>
+
+                <aside class="example" title="Alternative paths in edit mode">
+                    <div class="shapes-graph">
+                        <div class="turtle">
+ex:BookShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path [
+            sh:alternativePath ( dct:title rdfs:label )
+        ] ;
+        sh:name "Title" ;
+        sh:datatype xsd:string ;
+    ] .
+                        </div>
+                    </div>
+
+                    <div class="data-graph">
+                        <div class="turtle">
+ex:book2 a ex:Book ;
+    rdfs:label "Semantic Web Foundations" .
+                        </div>
+                    </div>
+
+                    <p>
+                        A SHACL UI could show the existing title “Semantic Web Foundations” and allow the user to choose
+                        whether
+                        to edit it via <code>dct:title</code> or <code>rdfs:label</code>.
+                    </p>
+                </aside>
+            </section>
+
+            <section id="edit-other-complex-paths">
+                <h4>Other Complex Paths</h4>
+                <p>
+                    SHACL UI implementations MAY support the other complex paths (i.e.,
+                    <a href="../shacl12-core/#property-path-sequence">sequence paths</a>,
+                    <a href="../shacl12-core/#property-path-zero-or-more">zero-or-more paths</a>,
+                    <a href="../shacl12-core/#property-path-one-or-more">one-or-more paths</a>, and
+                    <a href="../shacl12-core/#property-path-zero-or-one">zero-or-one paths</a>)
+                    in edit mode.
+                </p>
+
+                <p>
+                    Implementers are encouraged to support these when their use cases require advanced
+                    data navigation or editing patterns, but such support is not mandatory as the complexity of editing
+                    through these paths may not be feasible in all user interface contexts.
+                </p>
+
+                <p class="note">
+                    Supporting complex property paths in edit mode introduces challenges related to ambiguity and the
+                    generation of intermediate data structures. Even when a path is used for view-only purposes,
+                    implementations must ensure that restrictions are in place to prevent ambiguous traversal results.
+                    SHACL property paths allow navigation across multiple steps in a graph, which can lead to
+                    situations where a single value is reachable through multiple distinct paths.
+                </p>
+
+                <aside class="example" title="Ambiguous complex paths in edit mode">
+                    <p>
+                        The following shape and data graph illustrate how a node can be reachable via a complex path
+                        expression, making editing operations ambiguous.
+                    </p>
+
+                    <div class="shapes-graph">
+                        <div class="turtle">
+ex:CompoundThingShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path [
+            sh:zeroOrMorePath ex:hasPart
+        ] ;
+        sh:name "All Descendant Parts" ;
+        sh:description "Traverses all parts and sub-parts using a zero-or-more path of hasPart relationships." ;
+    ] .
+                        </div>
+                    </div>
+
+                    <div class="data-graph">
+                        <div class="turtle">
+ex:compounded-thing
+    ex:hasPart ex:part-a ;
+    ex:hasPart ex:part-b .
+
+ex:part-a
+    ex:hasPart ex:screw .
+
+ex:part-b
+    ex:hasPart ex:screw .
+                        </div>
+                    </div>
+
+                    <p>
+                        In this example, the node <code>ex:screw</code> can be reached from
+                        <code>ex:compounded-thing</code> through two distinct paths:
+                    </p>
+
+                    <ul>
+                        <li><code>ex:compounded-thing → ex:hasPart → ex:part-a → ex:hasPart → ex:screw</code></li>
+                        <li><code>ex:compounded-thing → ex:hasPart → ex:part-b → ex:hasPart → ex:screw</code></li>
+                    </ul>
+
+                    <p>
+                        This illustrates why editing along complex property paths is non-trivial: it can be unclear
+                        which intermediate nodes or triples correspond to a user’s intended modification.
+                    </p>
+                </aside>
+            </section>
+        </section>
     </section>
 
     <section id="syntax-rules" class="appendix">
