@@ -19,14 +19,15 @@ The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/sha
 
 * [SHACL 1.2 Node Expressions](https://w3c.github.io/data-shapes/shacl12-node-expr/)
 
-#### Phase 2, after July 2025:
+#### Phase 2, now in progress since July 2025:
 
 ##### Editor's drafts
 
-* [SHACL 1.2 Inference Rules](https://w3c.github.io/data-shapes/shacl12-inf-rules/)
-* [SHACL 1.2 SHACL-SHACL](https://w3c.github.io/data-shapes/shacl12-shacl-shacl)
-* SHACL 1.2 UI - not drafted yet
-* SHACL 1.2 Profiling - not drafted yet
+* [SHACL 1.2 Overview](https://w3c.github.io/data-shapes/shacl12-overview/)
+* [SHACL 1.2 Rules](https://w3c.github.io/data-shapes/shacl12-rules/)
+* [SHACL 1.2 UI](https://w3c.github.io/data-shapes/shacl12-ui/)
+* [SHACL 1.2 Compact Syntax](https://w3c.github.io/data-shapes/shacl12-cs/)
+* [SHACL 1.2 Profiling](https://w3c.github.io/data-shapes/shacl12-profiling/)
 
 All of the above specifications are drafts that are automatically rebuilt on pushes to this repository.
 

@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark">
+    <title>SHACL 1.2 Rules</title>
+    <script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
+    <script class="remove">
+
+      function prepareSyntaxRules() {
+        document.querySelectorAll("[data-syntax-rule]").forEach(element => {
+          let ruleId = element.getAttribute("data-syntax-rule");
+          let tr = document.createElement("tr");
+          tr.classList.add("syntax-rule-tr");
+          let td1 = document.createElement("td");
+          td1.classList.add("syntax-rule-id");
+          let a = document.createElement("a");
+          a.classList.add("syntax-rule-id-a");
+          a.href = "#syntax-rule-" + ruleId;
+          a.textContent = ruleId;
+          td1.appendChild(a);
+          let td2 = document.createElement("td");
+          td2.innerHTML = element.innerHTML;
+          tr.appendChild(td1);
+          tr.appendChild(td2);
+
+          // Replace <dfn> elements inside `tr` with <a> elements
+          tr.querySelectorAll("dfn").forEach(dfn => {
+              let a = document.createElement("a");
+              a.textContent = dfn.textContent;
+              dfn.replaceWith(a);
+          });
+
+          document.getElementById("syntax-rules-table").appendChild(tr);
+          element.setAttribute("id", "syntax-rule-" + ruleId);
+        });
+      }
+
+      function prepareValidators() {
+        document.querySelectorAll("[data-validator]").forEach(element => {
+          let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+          let tr = document.createElement("tr");
+          tr.classList.add("validator-tr");
+          let td = document.createElement("td");
+          tr.appendChild(td);
+          let a = document.createElement("a");
+          a.classList.add("validator-id-a");
+          a.href = `#validator-${validatorId}`;
+          a.textContent = `sh:${validatorId}`;
+          td.appendChild(a);
+          td.innerHTML += ": " + element.innerHTML;
+          document.getElementById("validators-table").appendChild(tr);
+          element.id = "validator-" + validatorId;
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // Replace code div blocks in shapes, data, and results graph with tabs
+        for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+          const tabs = document.createElement("aside");
+          tabs.classList.add("ds-selector-tabs");
+          graph.firstElementChild.classList.add("selected");
+
+          for (const child of graph.children) {
+            child.classList.add("tab");
+          }
+
+          tabs.append(...graph.children);
+          graph.append(tabs)
+        }
+
+        // Generate buttons for the selection logic
+        for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+          const selectors = document.createElement("div");
+          selectors.classList.add("selectors");
+
+          // Check if JSON-LD or shaclc div exists in this tab group
+          const hasJsonld = tabs.querySelector(".jsonld")
+          const hasShaclc = tabs.querySelector(".shaclc");
+
+          selectors.innerHTML = `
+            <button class="selected" data-selects="turtle">Turtle</button>
+            ${hasJsonld ? '<button data-selects="jsonld">JSON-LD</button>' : ''}
+            ${hasShaclc ? '<button data-selects="shaclc">SHACL-C</button>' : ''}
+          `
+
+          tabs.prepend(selectors);
+        }
+
+        // Add example button selection logic
+        for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+          button.onclick = () => {
+            const ex = button.closest(".ds-selector-tabs");
+            ex.querySelector("button.selected").classList.remove("selected");
+            ex.querySelector(".selected").classList.remove("selected");
+            button.classList.add('selected');
+            ex.querySelector("." + button.dataset.selects).classList.add("selected");
+          }
+        }
+      });
+
+      var respecConfig = {
+        localBiblio: {},
+
+        specStatus: "ED",
+        group: "wg/data-shapes",
+        github: "w3c/data-shapes",
+        //preProcess:     [  ],
+        //@@
+        edDraftURI: "https://w3c.github.io/data-shapes/shacl-rules/",
+        shortName: "shacl12-rules",
+        copyrightStart: "2025",
+        // SHACL12-CORE?
+        xref: ["RDF12-CONCEPTS", "SPARQL12-QUERY", "SHACL12-CORE", "SHACL12-SPARQL", "SHACL12-NODE-EXPR" ] ,
+        lint: { "no-unused-dfns": false },
+
+        editors: [
+          {
+            name: "Robert David",
+            company: "Ontotext",
+            //mailto:
+            w3cid: "97894"
+          },
+          {
+            name: "David Habgood",
+            company: "KurrawongAI",
+            // mailto:
+            w3cid: "164266"
+          },
+
+          {
+            name: "Andy Seaborne",
+            company: "Apache Software Foundation",
+            w3cid: "29909"
+          },
+          {
+            name: "Simon Steyskal",
+            company: "Siemens AG",
+            companyURL: "https://siemens.com",
+            //mailto: "simon.steyskal@siemens.com",
+            w3cid: "73545"
+          }
+        ],
+
+        //previousPublishDate: "2017-07-20",
+        //previousMaturity: "REC",
+        //prevRecShortname: "shacl",
+        //prevRecURI: "https://www.w3.org/TR/2017/REC-shacl-20170720/",
+
+        localBiblio: {
+          "shacl12-shacl-shacl": {
+            title: "SHACL 1.2 SHACL-SHACL",
+            href: "https://w3c.github.io/data-shapes/shacl12-shacl-shacl/",
+            status: "ED",
+            publisher: "W3C",
+          }
+        }
+
+      };
+    </script>
+    <link rel="stylesheet" href="style.css"/>
+  </head>
+  <body>
+    <section id="abstract">
+      <p>This document describes Shapes Constraint Language (SHACL) Rules.</p>
+      <p>
+        This specification is published by the
+        <a href="https://www.w3.org/groups/wg/data-shapes/">Data Shapes Working Group</a>
+        .
+      </p>
+    </section>
+
+    <section id="sotd"></section>
+
+    <section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
+
+    <section id="introduction">
+      <h2>Introduction</h2>
+
+      <p>
+        This document introduces the concept of inference rules for SHACL 1.2, a mechanism for
+        deriving new RDF triples from existing data using declarative rules defined in shapes
+        graphs. This extends SHACL’s capabilities beyond validation, enabling reasoning and data
+        enrichment.
+      </p>
+
+      <p>
+        This document complements other SHACL 1.2 specifications, such as SHACL Core, by defining
+        the syntax and semantics of rule-based inference. While SHACL Core focuses on constraint
+        validation, the SHACL Rules specification provides a standardized way to express and
+        evaluate rules that generate new data.
+      </p>
+
+      <section id="terminolgy">
+        <h3>Terminology</h3>
+
+        <p class="ednote">Connect to definitions in RDF 1.2 Concepts.</p>
+
+        <!-- @@ these are not <dfn>
+        <p>
+          The terminology used throughout this document is consistent with the definitions in the main SHACL [[shacl]] specification, which references
+          terms from RDF [[rdf11-concepts]]. This includes the terms
+          <dfn data-lt="bindings">
+            <a href="https://www.w3.org/TR/shacl/#dfn-binding">binding</a>
+          </dfn>
+          ,
+          <dfn data-lt="blank nodes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-blank-node">blank node</a>
+          </dfn>
+          ,
+          <dfn data-lt="conform|conforms">
+            <a href="https://www.w3.org/TR/shacl/#dfn-conforms">conformance</a>
+          </dfn>
+          ,
+          <dfn data-lt="constraints">
+            <a href="https://www.w3.org/TR/shacl/#dfn-constraint">constraint</a>
+          </dfn>
+          ,
+          <dfn data-lt="constraint components">
+            <a href="https://www.w3.org/TR/shacl/#dfn-constraint-component">constraint component</a>
+          </dfn>
+          ,
+          <dfn data-lt="data graphs">
+            <a href="https://www.w3.org/TR/shacl/#dfn-data-graph">data graph</a>
+          </dfn>
+          ,
+          <dfn data-lt="datatypes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-datatype">datatype</a>
+          </dfn>
+          ,
+          <dfn data-lt="failures">
+            <a href="https://www.w3.org/TR/shacl/#dfn-failure">failure</a>
+          </dfn>
+          ,
+          <dfn data-lt="focus nodes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-focus-node">focus node</a>
+          </dfn>
+          ,
+          <dfn data-lt="RDF graphs|graphs|graph">
+            <a href="https://www.w3.org/TR/shacl/#dfn-rdf-graph">RDF graph</a>
+          </dfn>
+          ,
+          <dfn><a href="https://www.w3.org/TR/shacl/#dfn-ill-formed">ill-formed</a></dfn>
+          ,
+          <dfn data-lt="IRIs"><a href="https://www.w3.org/TR/shacl/#dfn-iri">IRI</a></dfn>
+          ,
+          <dfn data-lt="literals">
+            <a href="https://www.w3.org/TR/shacl/#dfn-literal">literal</a>
+          </dfn>
+          ,
+          <dfn data-lt="local names">
+            <a href="https://www.w3.org/TR/shacl/#dfn-local-name">local name</a>
+          </dfn>
+          ,
+          <dfn data-lt="members">
+            <a href="https://www.w3.org/TR/shacl/#dfn-members">member</a>
+          </dfn>
+          ,
+          <dfn data-lt="nodes|RDF node">
+            <a href="https://www.w3.org/TR/shacl/#dfn-node">node</a>
+          </dfn>
+          ,
+          <dfn data-lt="node shapes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-node-shape">node shape</a>
+          </dfn>
+          ,
+          <dfn data-lt="objects">
+            <a href="https://www.w3.org/TR/shacl/#dfn-object">object</a>
+          </dfn>
+          ,
+          <dfn data-lt="parameters">
+            <a href="https://www.w3.org/TR/shacl/#dfn-parameters">parameter</a>
+          </dfn>
+          ,
+          <dfn data-lt="pre-bind|pre-bound">
+            <a href="https://www.w3.org/TR/shacl/#pre-binding">pre-binding</a>
+          </dfn>
+          ,
+          <dfn data-lt="predicates">
+            <a href="https://www.w3.org/TR/shacl/#dfn-predicate">predicate</a>
+          </dfn>
+          ,
+          <dfn data-lt="property paths">
+            <a href="https://www.w3.org/TR/shacl/#dfn-shacl-property-path">property path</a>
+          </dfn>
+          ,
+          <dfn data-lt="property shapes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-property-shape">property shape</a>
+          </dfn>
+          ,
+          <dfn data-lt="RDF terms|terms|term">
+            <a href="https://www.w3.org/TR/shacl/#dfn-rdf-term">RDF term</a>
+          </dfn>
+          ,
+          <dfn data-lt="SHACL instances">
+            <a href="https://www.w3.org/TR/shacl/#dfn-shacl-instance">SHACL instance</a>
+          </dfn>
+          ,
+          <dfn data-lt="SHACL lists">
+            <a href="https://www.w3.org/TR/shacl/#dfn-shacl-list">SHACL list</a>
+          </dfn>
+          ,
+          <dfn data-lt="SHACL subclasses">
+            <a href="https://www.w3.org/TR/shacl/#dfn-shacl-subclass">SHACL subclass</a>
+          </dfn>
+          ,
+          <dfn data-lt="shapes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-shape">shape</a>
+          </dfn>
+          ,
+          <dfn data-lt="shapes graphs">
+            <a href="https://www.w3.org/TR/shacl/#dfn-shapes-graph">shapes graph</a>
+          </dfn>
+          ,
+          <dfn data-lt="solutions">
+            <a href="https://www.w3.org/TR/shacl/#dfn-solution">solution</a>
+          </dfn>
+          ,
+          <dfn data-lt="subjects">
+            <a href="https://www.w3.org/TR/shacl/#dfn-subject">subject</a>
+          </dfn>
+          ,
+          <dfn data-lt="targets">
+            <a href="https://www.w3.org/TR/shacl/#dfn-target">target</a>
+          </dfn>
+          ,
+          <dfn data-lt="triples">
+            <a href="https://www.w3.org/TR/shacl/#dfn-rdf-triple">triple</a>
+          </dfn>
+          ,
+          <dfn><a href="https://www.w3.org/TR/shacl/#dfn-validation">validation</a></dfn>
+          ,
+          <dfn data-lt="validation reports">
+            <a href="https://www.w3.org/TR/shacl/#dfn-validation-report">validation report</a>
+          </dfn>
+          ,
+          <dfn data-lt="validation results">
+            <a href="https://www.w3.org/TR/shacl/#dfn-validation-results">validation result</a>
+          </dfn>
+          ,
+          <dfn data-lt="validators">
+            <a href="https://www.w3.org/TR/shacl/#dfn-validators">validator</a>
+          </dfn>
+          ,
+          <dfn data-lt="values">
+            <a href="https://www.w3.org/TR/shacl/#dfn-value">value</a>
+          </dfn>
+          ,
+          <dfn data-lt="value nodes">
+            <a href="https://www.w3.org/TR/shacl/#dfn-value-nodes">value node</a>
+          </dfn>
+          .
+        </p>
+        -->
+      </section>
+      <section class="conventions">
+        <h3>Document Conventions</h3>
+        <p>
+          Some examples in this document use Turtle [[turtle]]. The reader is expected to be familiar with SHACL [[shacl]] and SPARQL
+          [[sparql-query]].
+        </p>
+        <p>Within this document, the following namespace prefix bindings are used:</p>
+        <table class="term-table">
+          <tr>
+            <th>Prefix</th>
+            <th>Namespace</th>
+          </tr>
+          <tr>
+            <td><code>rdf:</code></td>
+            <td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
+          </tr>
+          <tr>
+            <td><code>rdfs:</code></td>
+            <td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
+          </tr>
+          <tr>
+            <td><code>sh:</code></td>
+            <td><code>http://www.w3.org/ns/shacl#</code></td>
+          </tr>
+          <tr>
+            <td><code>xsd:</code></td>
+            <td><code>http://www.w3.org/2001/XMLSchema#</code></td>
+          </tr>
+          <tr>
+            <td><code>ex:</code></td>
+            <td><code>http://example.com/ns#</code></td>
+          </tr>
+        </table>
+        <p>
+          Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear. These fragments of Turtle documents use the prefix
+          bindings given above.
+        </p>
+        <pre class="example-shapes">        # This box represents a shapes graph</pre>
+
+        <pre class="example-data">        # This box represents a data graph.</pre>
+
+        <pre class="example-results">        # This box represents an output results graph</pre>
+
+        <p>Formal definitions appear in blue boxes:</p>
+        <div class="def def-sparql">
+          <div class="def-header">TEXTUAL DEFINITIONS</div>
+          <pre class="def-sparql-body">          # This box contains textual definitions. </pre>
+        </div>
+
+        <p class="syntax">Grey boxes such as this include syntax rules that apply to the shapes graph.</p>
+
+        <p>
+          <code>true</code>
+          denotes the RDF term
+          <code>"true"^^xsd:boolean</code>
+          .
+          <code>false</code>
+          denotes the RDF term
+          <code>"false"^^xsd:boolean</code>
+          .
+        </p>
+      </section>
+
+      <section id="conformance">
+
+        <p>TODO</p>
+
+        <p class="ednote">RFC 2119 language should autmatically be inserted here.</p>
+
+      </section>
+    </section>
+
+    <section id="overview">
+      <h2>Outline</h2>
+
+      <p>SHACL rules infer new triples. The input is a data graph and a shape
+      graph with rules, the output is a graph of inferred triples that do not
+      occur in the data graph.</p>
+
+      <p>Data:</p>
+<pre>
+   :A :fatherOf :X .
+   :B :motherOf :X .
+   :C :motherOf :A .
+</pre>
+     <p>Rules:</p>
+<pre>
+RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
+RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
+
+RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
+RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?z . ?z :childOf ?y }
+</pre>
+
+      <p>will conclude that: `:X` is the `:childOf` `:A` and `:B`, and that `:X` is `:descendedFrom` `:C`<p>
+    </section>
+
+    <section id="rules-abstract-syntax">
+        <!-- Export -->
+        <h2>Shape Rules Abstract Syntax</h2>
+
+        <p>The Shape Rules Abstract Syntax</p>
+
+        <p class="ednote">?? Abstract Rules Syntax</p>
+
+        <dl>
+          <dt><dfn data-lt="variable">variable</dfn></dt>
+          <dd><code>[ sh:var "name" ]</code>
+          </dd>
+
+          <dt><dfn data-lt="expression">node expression</dfn></dt>
+          <dd>
+            <em>Link to shacl12-node-expr#?</em> -- needs to be single value, list arguments.
+            Often called an <em>expression</em>.
+          </dd>
+
+          <dt><dfn data-lt="data-block">data block</dfn></dt>
+          <dd>
+            A <em>data block</em> is a set of triples.
+            These form extra facts that are included in the inference process.
+          </dd>
+
+          <dt><dfn>triple template</dfn></dt>
+          <dd>
+            A <em>triple template</em> is 3-tuple where each element is either
+            a variable or an RDF term (which might be a triple term).
+            [=Triple templates=] appear in the [=head=] of a [=rule=].
+          </dd>
+
+          <dt><dfn>triple pattern</dfn></dt>
+          <dd>
+            A <em>triple pattern</em> is 3-tuple where each element is either a
+            variable, or an RDF term  (which might be a triple term).
+            [=Triple  patterns=] appear in the [=body=] of a [=rule=].
+          </dd>
+
+          <dt><dfn>condition expression</dfn></dt>
+          <dd>
+            A <em>condition expression</em> is a function, or functional form,
+            that evaluates to true or false.
+            [=Condition expressions=] appear in the [=body=] of a [=rule=].
+          </dd>
+
+          <dt><dfn>assignment</dfn></dt>
+          <dd>
+            An <em>assignment</em> is a pair of a <a>variable</a>, called the
+            <dfn>assignment variable</dfn>, and an <a>expression</a>, called the
+            <dfn>assignment expression</dfn>.
+            [=Assignments=] appear in the [=body=] of a [=rule=].
+          </dd>
+
+          <dt><dfn>rule</dfn></dt>
+          <dd>
+            A <em>rule</em> is a pair of a [=rule head=] (often just "head") and
+            a [=rule body=] (often just "body").
+          </dd>
+
+          <dt><dfn data-lt="head|rule head">rule head</dfn></dt>
+          <dd>
+            A <em>rule head</em> is a sequence where each element
+            of the sequence is a [=triple template=].
+          </dd>
+
+          <dt>
+            <dfn data-lt="body|rule body">rule body</dfn>
+          </dt>
+          <dd>
+            A <em>rule body</em> is a sequence where each element
+            of the sequence is a [=triple pattern=], a
+            [=condition expression=], or an [=assignment=].
+          </dd>
+
+          <dt><dfn>rule set</dfn></dt>
+          <dd>
+            A <em>rule set</em> is a collection of zero or more [=rules=]
+            and a collection of zero or more [=data blocks=].
+          </dd>
+        </dl>
+
+        <p>
+          In a [=triple pattern=] or a [=triple template=],
+          position 1 of the tuple is informally called the <em>subject</em>,
+          position 2 is informally called the <em>predicate</em>, and
+          position 3 is informally called the <em>object</em>.
+        </p>
+
+        <section id="wellformed">
+          <h3>Well-formedness Conditions</h3>
+          <p>
+            Well-formedness is a set of conditions on the abstract syntax of
+            shapes rules.  Together, these rules ensure that a [=variable=] in the
+            [=head=] of a rule has a value defined in the [=body=] of the rule;
+            that each variable in an condition expression or assignment
+            expression has a value at the point of evaluation; and that each
+            assignment in a rule introduces a new variable,
+            not used earlier in the rule body.
+          </p>
+          <p>
+            A [=rule=] is a <dfn>well-formed rule</dfn> if all of the following
+            conditions are met:
+          </p>
+          <ul>
+            <li>For every [=variable=] appearing in a [=triple template=]
+              of the [=head=] of the [=rule=],
+              there is one or more occurrences of a [=variable=]
+              of the same name in the [=triple patterns=] in the [=body=],
+              or in an [=assignment=] in the body, or both.
+            </li>
+            <li>
+              For every [=variable=] in an [=expression=] at position <em>i</em>
+              of the [=body=], there is a corresponding [=variable=] of the same
+              name occuring in a [=triple pattern=] at a position <em>j</em>,
+              or occurring as an [=assignment variable=] at a position <em>j</em>,
+              where <em>i &gt; j</em>.
+            </li>
+            <li>
+              Each [=assignment variable=] is used in only one [=assignment=] in
+              the [=body=] of the [=rule=].
+            </li>
+            <li>
+              An [=assignment variable=] at position <em>i</em> of a [=rule body=] does not
+              occur in any [=triple pattern=] at position <em>j</em> where <em>i &gt; j</em>.
+            </li>
+            <li>
+              For every [=variable=] in an [=assignment expression=] at position <em>i</em>,
+              there is a corresponding variable in a triple pattern at position
+              <em>j</em> where <em>i &gt; j</em>,
+              or there is an [=assignment variable=] in an [=assignment=] at position
+              <em>j</em> where <em>i &gt; j</em>.
+            </li>
+          </ul>
+          <p>
+            A [=rule set=] is "well-formed" if and only if all of the [=rules=] of the
+            rule set are "well-formed".
+          </p>
+        </section>
+    </section>
+
+    <section id="concrete-syntax">
+      <h2>Concrete Syntax forms for Shapes Rules</h2>
+      <ul>
+        <li><a href="rdf-rules-syntax">RDF Rules Syntax</a></li>
+        <li><a href="compact-rules-syntax">Compact Rules Syntax</a></li>
+      </ul>
+
+      <p class="note">
+        The compact syntax has an equivalent RDF syntax form.
+        Well-formed RDF syntax can be translated to the compact syntax.
+      </p>
+
+      <p class="ednote">
+        Change the name away from "compact" and leave that free for SHACL-C.
+      </p>
+
+      <p>Compact:</p>
+<pre class="example-rules">
+PREFIX : &lt;http://example/>
+
+DATA { :x :p 1 ; :q 2 . }
+
+RULE { ?x :bothPositive true . }
+WHERE { ?x :p ?v1  FILTER ( ?v1 &gt; 0 )  ?x :q ?v2  FILTER ( ?v2 &gt; 0 )  }
+
+RULE { ?x :oneIsZero true . }
+WHERE { ?x :p ?v1 ;  :q ?v2  FILTER ( ( ?v1 = 0 ) || ( ?v2 = 0 ) )  }
+</pre>
+
+<p>RDF:</p>
+
+<pre class="example-rules">
+PREFIX :       &lt;http://example/&gt;
+PREFIX rdf:    &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX sh:     &lt;http://www.w3.org/ns/shacl#&gt;
+PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
+
+:ruleSet-1
+  rdf:type sh:RuleSet;
+  sh:data (
+    &lt;&lt;( :x :p 1 )&gt;&gt;
+    &lt;&lt;( :x :q 2 )&gt;&gt;
+  );
+  sh:ruleSet (
+    [
+      rdf:type sh:Rule;
+      sh:head (
+        [ sh:subject [ sh:var "x" ] ; sh:predicate :bothPositive; sh:object true ]
+      )
+      sh:body (
+        [ sh:subject [ sh:var "x" ]; sh:predicate :p; sh:object [ sh:var "v1" ] ]
+        [ sh:expr [ sparql:greaterThan ( [ sh:var "v1" ] 0 ) ] ]
+        [ sh:subject [ sh:var "x" ] ; sh:predicate :q; sh:object [ sh:var "v2" ] ]
+        [ sh:expr [ sparql:greaterThan ( [ sh:var "v2" ] 0 ) ] ]
+      );
+    ]
+    [
+      rdf:type sh:Rule;
+      sh:head (
+        [ sh:subject [ sh:var "x" ] ; sh:predicate :oneIsZero ; sh:object true ]
+      )
+      sh:body (
+        [ sh:subject [ sh:var "x" ] ; sh:predicate :p ; sh:object [ sh:var "v1" ] ]
+        [ sh:subject [ sh:var "x" ] ; sh:predicate :q ; sh:object [ sh:var "v2" ] ]
+        [ sh:expr [ sparql:function-or (
+              [ sparql:equals ( [ sh:var "v1" ] 0 ) ]
+              [ sparql:equals ( [ sh:var "v2" ] 0 ) ]
+            ) ]
+        ]
+      );
+    ]
+  ) .
+</pre>
+
+      <section id="rdf-rules-syntax">
+        <h3>RDF Rules Syntax</h3>
+
+        <div class="ednote">
+          <p>Well-formed ness:</p>
+          <ul>
+            <li>All RDF list are well-formed</li>
+            <li>exactly one of subject - predicate - object, per body of head
+              element</li>
+            <li>Well-formed, single-valued,list-argument node expressions
+            <li>well-formed abstract syntax
+          </ul>
+        </div>
+        <div class="ednote">
+          <p>Describe how the abstract model maps to triples??.
+            way round - copes with extra triples.
+            Output is the instance of the abtract model that generates the triples -
+            but need to define "maximal".
+        </p>
+        </div>
+
+        <div class="ednote">
+          <p>Process : accumulators, bottom up/ Walk the structure.</p>
+          <ul>
+            <li>Collect data triples</li>
+            <li>Map expressions</li>
+            <li>Map triple-patterns</li>
+            <li>Map triple-templates</li>
+            <li>Map assignments</li>
+            <li>Map to rule</li>
+            <li>Rule set</li>
+          </ul>
+
+          <p>
+            All triples not in the syntax are ignored.
+            No other "sh:" predicates are allowed (??).
+          </p>
+        </div>
+
+        <p class="ednote">@@ link to SHACL constraints</p>
+      </section>
+
+      <section id="compact-rules-syntax">
+        <h3>Compact Rules Syntax</h3>
+        <p>The <a href="#shapes-rules-grammar">grammar</a> is given below.</p>
+        <p class="ednote">Mapping the AST to the abstract syntax.</p>
+
+        <section>
+          <h4>Compact Syntax Abbreviations</h4>
+
+          <p>Additional helpers (short-hand abbreviations) @@which also allow specialised
+            implementations for basic engines@@.</p>
+          <ul>
+            <li>`TRANSITIVE`</li>
+            <li>`SYMMETRIC`</li>
+            <li>`INVERSE`</li>
+          </ul>
+        </section>
+      </section>
+    </section>
+
+    <section id="shape-rules-evaluation">
+      <h3>Shape Rules Evaluation</h3>
+
+      <p>
+        This section defines the outcome of evaluating a rule set on given data.
+        It does not prescribe the algorithm as the method of implementation.
+        An implementation can use any algorithm that generates the same outcome.
+      </p>
+
+<pre class="algorithm">
+Inputs: data graph G and a rule set RS.
+Output: an RDF graph GI of inferred triples
+</pre>
+
+      <p>The inferred triples does not include any triple present in the set of triples of G.</p>
+
+      <section id="eval-expression">
+        <h4>Evaluation of an expression</h4>
+
+<pre class="algorithm">
+
+Let F(arg1, arg2, ...) be an expression.
+where arg1, arg2 are RDF terms.
+
+Let [x/row] be
+    if x is an RDF term, the [x/row] is x
+    if x is a variable then [x/row] is the value of x in the row
+    ## By well-formedness, it is an error if x is not in the row.
+
+eval(F(expr1, expr2), row) = F(eval(expr1, row), eval(expr2, row))
+eval(FF(expr1, expr2) , row) = ... things that are not functions like IF
+</pre>
+      </section>
+
+      <section id="eval-rule">
+        <h4>Evaluation of a rule</h4>
+<pre class="algorithm">
+let R be a well-formed rule.
+let rule R = (head, body) where
+             H is the sequence of triple templates in the head
+             B is the sequence of triple patterns, condition expressions,
+                and assignments in the body
+
+let R : map variable to RDF term as a set of pairs (variable, RDF term)
+
+# "solution"
+let T :list of B
+
+Initial T = empty list
+
+# Evaluate rule body
+for each rule element rElt:
+    if rElt is a triple pattern:
+        T1 = empty list
+    for each row in T:
+      T1 = empty list
+      for each matches m set of (var,term)
+          row1 = row union (var, term)
+          add row1 to T1
+          endfor
+    T = T1
+    endif
+
+    if rElt is a condition expression F:
+        T1 = empty list
+        for each row in T:
+            if ( eval(F,B) )
+                add R to T1
+                endif
+        endfor
+    T = T1
+    endif
+
+    if rElt is an assignment(V, expr)
+        T1 = empty list
+        for each row in T:
+            let x = eval(expr, row)
+            let R1 = R union (V, x)
+            add R1 to T1
+            endfor
+        T = T1
+        endif
+    endfor
+
+# Evaluate rule head
+let H = empty set
+for each R in T:
+    Let S = set of triples obtained by replacing variables
+            in the triple templates of the head with values from R
+    define [head(R)/row]
+    H = H union S
+    endfor
+
+result eval(R, G) is H
+
+</pre>
+        <p>Note that `H` may contain triples that are also in the data grapoh.</p>
+      </section>
+
+      <section id="eval-rule-set">
+        <h4>Evaluation of a Rule Set</h4>
+
+<pre class="algorithm">
+Let G be the input RDF graph.
+Let I be the set of triples generated by evaluation
+Let RS be a rule set
+Let finished = false
+
+while !finished:
+    finished = true
+    foreach rule in RS
+        let GI = G union I
+        let X = eval(rule, GI)
+        let Y = those triples in X that are not in GI
+        if Y is not empty:
+            finished = false
+            endif
+        let I = Y union I
+        endfor
+    endwhile
+
+result is GI
+</pre>
+      </section>
+    </section>
+
+    <section id="shapes-rules-grammar">
+      <h2>Shapes Rules Language Grammar</h2>
+
+        <div class="grammarTable">
+          <table><tbody>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[1]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRuleSet">RuleSet</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rPrologue">Prologue</a> ( <a href="#rRule">Rule</a> | <a href="#rData">Data</a> ) )* <span class="token"></span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[2]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRule">Rule</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rRule1">Rule1</a> | <a href="#rRule2">Rule2</a> | <a href="#rRule3">Rule3</a> | <a href="#rDeclaration">Declaration</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[3]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRule1">Rule1</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'RULE'</span> <a href="#rHeadTemplate">HeadTemplate</a> <span class="token">'WHERE'</span> <a href="#rBodyPattern">BodyPattern</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[4]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRule2">Rule2</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'IF'</span> <a href="#rBodyPattern">BodyPattern</a> <span class="token">'THEN'</span> <a href="#rHeadTemplate">HeadTemplate</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[5]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRule3">Rule3</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rHeadTemplate">HeadTemplate</a> <span class="token">':-'</span> <a href="#rBodyPattern">BodyPattern</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[6]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDeclaration">Declaration</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <span class="token">'TRANSITIVE'</span> <span class="token">'('</span> <a href="#riri">iri</a> <span class="token">')'</span> | <span class="token">'SYMMETRIC'</span> <span class="token">'('</span> <a href="#riri">iri</a> <span class="token">')'</span> | <span class="token">'INVERSE'</span> <span class="token">'('</span> <a href="#riri">iri</a> <span class="token">','</span> <a href="#riri">iri</a> <span class="token">')'</span> )</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[7]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rData">Data</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'DATA'</span> <a href="#rTriplesTemplateBlock">TriplesTemplateBlock</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[8]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rHeadTemplate">HeadTemplate</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rTriplesTemplateBlock">TriplesTemplateBlock</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[9]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBodyPattern">BodyPattern</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'{'</span> <a href="#rBodyPattern1">BodyPattern1</a>? <a href="#rAssignment">Assignment</a>* <span class="token">'}'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[10]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBodyPattern1">BodyPattern1</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rFilter">Filter</a> | <a href="#rBodyPatternSub">BodyPatternSub</a> ( <a href="#rFilter">Filter</a> <a href="#rBodyPatternSub">BodyPatternSub</a>? )* )</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[11]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBodyPatternSub">BodyPatternSub</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rTriplesBlock">TriplesBlock</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[12]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPrologue">Prologue</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rBaseDecl">BaseDecl</a> | <a href="#rPrefixDecl">PrefixDecl</a> | <a href="#rVersionDecl">VersionDecl</a> | <a href="#rImportsDecl">ImportsDecl</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[13]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBaseDecl">BaseDecl</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'BASE'</span> <a href="#rIRIREF">IRIREF</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[14]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPrefixDecl">PrefixDecl</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'PREFIX'</span> <a href="#rPNAME_NS">PNAME_NS</a> <a href="#rIRIREF">IRIREF</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[15]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVersionDecl">VersionDecl</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'VERSION'</span> <a href="#rVersionSpecifier">VersionSpecifier</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[16]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVersionSpecifier">VersionSpecifier</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rSTRING_LITERAL1">STRING_LITERAL1</a> | <a href="#rSTRING_LITERAL2">STRING_LITERAL2</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[17]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rImportsDecl">ImportsDecl</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'IMPORTS'</span> <a href="#riri">iri</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[18]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesTemplateBlock">TriplesTemplateBlock</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'{'</span> <a href="#rTriplesTemplate">TriplesTemplate</a>? <span class="token">'}'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[19]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesTemplate">TriplesTemplate</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rTriplesSameSubject">TriplesSameSubject</a> ( <span class="token">'.'</span> <a href="#rTriplesTemplate">TriplesTemplate</a>? )?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[20]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesBlock">TriplesBlock</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rTriplesSameSubjectPath">TriplesSameSubjectPath</a> ( <span class="token">'.'</span> <a href="#rTriplesBlock">TriplesBlock</a>? )?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[21]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rReifiedTripleBlock">ReifiedTripleBlock</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rReifiedTriple">ReifiedTriple</a> <a href="#rPropertyList">PropertyList</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[22]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rReifiedTripleBlockPath">ReifiedTripleBlockPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rReifiedTriple">ReifiedTriple</a> <a href="#rPropertyListPath">PropertyListPath</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[23]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rAssignment">Assignment</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rBind">Bind</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[24]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBind">Bind</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'BIND'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">'AS'</span> <a href="#rVar">Var</a> <span class="token">')'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[25]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rLet">Let</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'LET'</span> <span class="token">'('</span> <a href="#rVar">Var</a> <span class="token">':='</span> <a href="#rExpression">Expression</a> <span class="token">')'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[26]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rReifier">Reifier</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'~'</span> <a href="#rVarOrReifierId">VarOrReifierId</a>?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[27]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVarOrReifierId">VarOrReifierId</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a> | <a href="#rBlankNode">BlankNode</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[28]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rFilter">Filter</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'FILTER'</span> <a href="#rConstraint">Constraint</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[29]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rConstraint">Constraint</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rBrackettedExpression">BrackettedExpression</a> | <a href="#rBuiltInCall">BuiltInCall</a> | <a href="#rFunctionCall">FunctionCall</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[30]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rFunctionCall">FunctionCall</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> <a href="#rArgList">ArgList</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[31]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rArgList">ArgList</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rNIL">NIL</a> | <span class="token">'('</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )* <span class="token">')'</span> </code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[32]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rExpressionList">ExpressionList</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rNIL">NIL</a> | <span class="token">'('</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )* <span class="token">')'</span> </code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[33]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesSameSubject">TriplesSameSubject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVarOrTerm">VarOrTerm</a> <a href="#rPropertyListNotEmpty">PropertyListNotEmpty</a> | <a href="#rTriplesNode">TriplesNode</a> <a href="#rPropertyList">PropertyList</a> | <a href="#rReifiedTripleBlock">ReifiedTripleBlock</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[34]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPropertyList">PropertyList</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPropertyListNotEmpty">PropertyListNotEmpty</a>?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[35]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPropertyListNotEmpty">PropertyListNotEmpty</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVerb">Verb</a> <a href="#rObjectList">ObjectList</a> ( <span class="token">';'</span> ( <a href="#rVerb">Verb</a> <a href="#rObjectList">ObjectList</a> )? )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[36]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVerb">Verb</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVarOrIri">VarOrIri</a> | <span class="token">'a'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[37]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rObjectList">ObjectList</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rObject">Object</a> ( <span class="token">','</span> <a href="#rObject">Object</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[38]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rObject">Object</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rGraphNode">GraphNode</a> <a href="#rAnnotation">Annotation</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[39]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesSameSubjectPath">TriplesSameSubjectPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVarOrTerm">VarOrTerm</a> <a href="#rPropertyListPathNotEmpty">PropertyListPathNotEmpty</a> | <a href="#rTriplesNodePath">TriplesNodePath</a> <a href="#rPropertyListPath">PropertyListPath</a> | <a href="#rReifiedTripleBlockPath">ReifiedTripleBlockPath</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[40]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPropertyListPath">PropertyListPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPropertyListPathNotEmpty">PropertyListPathNotEmpty</a>?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[41]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPropertyListPathNotEmpty">PropertyListPathNotEmpty</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rVerbPath">VerbPath</a> | <a href="#rVerbSimple">VerbSimple</a> ) <a href="#rObjectListPath">ObjectListPath</a> ( <span class="token">';'</span> ( ( <a href="#rVerbPath">VerbPath</a> | <a href="#rVerbSimple">VerbSimple</a> ) <a href="#rObjectListPath">ObjectListPath</a> )? )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[42]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVerbPath">VerbPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPath">Path</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[43]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVerbSimple">VerbSimple</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[44]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rObjectListPath">ObjectListPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rObjectPath">ObjectPath</a> ( <span class="token">','</span> <a href="#rObjectPath">ObjectPath</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[45]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rObjectPath">ObjectPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rGraphNodePath">GraphNodePath</a> <a href="#rAnnotationPath">AnnotationPath</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[46]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPath">Path</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPathSequence">PathSequence</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[47]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPathSequence">PathSequence</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPathEltOrInverse">PathEltOrInverse</a> ( <span class="token">'/'</span> <a href="#rPathEltOrInverse">PathEltOrInverse</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[48]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPathEltOrInverse">PathEltOrInverse</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPathElt">PathElt</a> | <span class="token">'^'</span> <a href="#rPathElt">PathElt</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[49]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPathElt">PathElt</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPathPrimary">PathPrimary</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[50]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPathPrimary">PathPrimary</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> | <span class="token">'a'</span> | <span class="token">'('</span> <a href="#rPath">Path</a> <span class="token">')'</span> </code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[51]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesNode">TriplesNode</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rCollection">Collection</a> | <a href="#rBlankNodePropertyList">BlankNodePropertyList</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[52]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBlankNodePropertyList">BlankNodePropertyList</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'['</span> <a href="#rPropertyListNotEmpty">PropertyListNotEmpty</a> <span class="token">']'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[53]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTriplesNodePath">TriplesNodePath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rCollectionPath">CollectionPath</a> | <a href="#rBlankNodePropertyListPath">BlankNodePropertyListPath</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[54]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBlankNodePropertyListPath">BlankNodePropertyListPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'['</span> <a href="#rPropertyListPathNotEmpty">PropertyListPathNotEmpty</a> <span class="token">']'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[55]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rCollection">Collection</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'('</span> <a href="#rGraphNode">GraphNode</a>+ <span class="token">')'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[56]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rCollectionPath">CollectionPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'('</span> <a href="#rGraphNodePath">GraphNodePath</a>+ <span class="token">')'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[57]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rAnnotationPath">AnnotationPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rReifier">Reifier</a> | <a href="#rAnnotationBlockPath">AnnotationBlockPath</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[58]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rAnnotationBlockPath">AnnotationBlockPath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'{|'</span> <a href="#rPropertyListPathNotEmpty">PropertyListPathNotEmpty</a> <span class="token">'|}'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[59]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rAnnotation">Annotation</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rReifier">Reifier</a> | <a href="#rAnnotationBlock">AnnotationBlock</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[60]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rAnnotationBlock">AnnotationBlock</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'{|'</span> <a href="#rPropertyListNotEmpty">PropertyListNotEmpty</a> <span class="token">'|}'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[61]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rGraphNode">GraphNode</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVarOrTerm">VarOrTerm</a> | <a href="#rTriplesNode">TriplesNode</a> | <a href="#rReifiedTriple">ReifiedTriple</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[62]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rGraphNodePath">GraphNodePath</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVarOrTerm">VarOrTerm</a> | <a href="#rTriplesNodePath">TriplesNodePath</a> | <a href="#rReifiedTriple">ReifiedTriple</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[63]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVarOrTerm">VarOrTerm</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rBlankNode">BlankNode</a> | <a href="#rNIL">NIL</a> | <a href="#rTripleTerm">TripleTerm</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[64]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rReifiedTriple">ReifiedTriple</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'&lt;&lt;'</span> <a href="#rReifiedTripleSubject">ReifiedTripleSubject</a> <a href="#rVerb">Verb</a> <a href="#rReifiedTripleObject">ReifiedTripleObject</a> <a href="#rReifier">Reifier</a>? <span class="token">'&gt;&gt;'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[65]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rReifiedTripleSubject">ReifiedTripleSubject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rBlankNode">BlankNode</a> | <a href="#rReifiedTriple">ReifiedTriple</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[66]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rReifiedTripleObject">ReifiedTripleObject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rBlankNode">BlankNode</a> | <a href="#rReifiedTriple">ReifiedTriple</a> | <a href="#rTripleTerm">TripleTerm</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[67]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTripleTerm">TripleTerm</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'&lt;&lt;('</span> <a href="#rTripleTermSubject">TripleTermSubject</a> <a href="#rVerb">Verb</a> <a href="#rTripleTermObject">TripleTermObject</a> <span class="token">')&gt;&gt;'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[68]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTripleTermSubject">TripleTermSubject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rBlankNode">BlankNode</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[69]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTripleTermObject">TripleTermObject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rBlankNode">BlankNode</a> | <a href="#rTripleTerm">TripleTerm</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[70]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTripleTermData">TripleTermData</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'&lt;&lt;('</span> <a href="#rTripleTermDataSubject">TripleTermDataSubject</a> ( <a href="#riri">iri</a> | <span class="token">'a'</span> ) <a href="#rTripleTermDataObject">TripleTermDataObject</a> <span class="token">')&gt;&gt;'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[71]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTripleTermDataSubject">TripleTermDataSubject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[72]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rTripleTermDataObject">TripleTermDataObject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rTripleTermData">TripleTermData</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[73]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVarOrIri">VarOrIri</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVar">Var</a> | <a href="#riri">iri</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[74]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVar">Var</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rVAR1">VAR1</a> | <a href="#rVAR2">VAR2</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[75]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rExpression">Expression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rConditionalOrExpression">ConditionalOrExpression</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[76]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rConditionalOrExpression">ConditionalOrExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rConditionalAndExpression">ConditionalAndExpression</a> ( <span class="token">'||'</span> <a href="#rConditionalAndExpression">ConditionalAndExpression</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[77]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rConditionalAndExpression">ConditionalAndExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rValueLogical">ValueLogical</a> ( <span class="token">'&amp;&amp;'</span> <a href="#rValueLogical">ValueLogical</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[78]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rValueLogical">ValueLogical</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rRelationalExpression">RelationalExpression</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[79]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRelationalExpression">RelationalExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rNumericExpression">NumericExpression</a> ( <span class="token">'='</span> <a href="#rNumericExpression">NumericExpression</a> | <span class="token">'!='</span> <a href="#rNumericExpression">NumericExpression</a> | <span class="token">'&lt;'</span> <a href="#rNumericExpression">NumericExpression</a> | <span class="token">'&gt;'</span> <a href="#rNumericExpression">NumericExpression</a> | <span class="token">'&lt;='</span> <a href="#rNumericExpression">NumericExpression</a> | <span class="token">'&gt;='</span> <a href="#rNumericExpression">NumericExpression</a> | <span class="token">'IN'</span> <a href="#rExpressionList">ExpressionList</a> | <span class="token">'NOT'</span> <span class="token">'IN'</span> <a href="#rExpressionList">ExpressionList</a> )?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[80]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rNumericExpression">NumericExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rAdditiveExpression">AdditiveExpression</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[81]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rAdditiveExpression">AdditiveExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rMultiplicativeExpression">MultiplicativeExpression</a> ( <span class="token">'+'</span> <a href="#rMultiplicativeExpression">MultiplicativeExpression</a> | <span class="token">'-'</span> <a href="#rMultiplicativeExpression">MultiplicativeExpression</a> | ( <a href="#rNumericLiteralPositive">NumericLiteralPositive</a> | <a href="#rNumericLiteralNegative">NumericLiteralNegative</a> ) ( ( <span class="token">'*'</span> <a href="#rUnaryExpression">UnaryExpression</a> ) | ( <span class="token">'/'</span> <a href="#rUnaryExpression">UnaryExpression</a> ) )* )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[82]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rMultiplicativeExpression">MultiplicativeExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rUnaryExpression">UnaryExpression</a> ( <span class="token">'*'</span> <a href="#rUnaryExpression">UnaryExpression</a> | <span class="token">'/'</span> <a href="#rUnaryExpression">UnaryExpression</a> )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[83]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rUnaryExpression">UnaryExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">&nbsp;&nbsp;<span class="token">'!'</span> <a href="#rPrimaryExpression">PrimaryExpression</a> <br/>| <span class="token">'+'</span> <a href="#rPrimaryExpression">PrimaryExpression</a> <br/>| <span class="token">'-'</span> <a href="#rPrimaryExpression">PrimaryExpression</a> <br/>| <a href="#rPrimaryExpression">PrimaryExpression</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[84]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPrimaryExpression">PrimaryExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rBrackettedExpression">BrackettedExpression</a> | <a href="#rBuiltInCall">BuiltInCall</a> | <a href="#ririOrFunction">iriOrFunction</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rVar">Var</a> | <a href="#rExprTripleTerm">ExprTripleTerm</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[85]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rExprTripleTerm">ExprTripleTerm</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'&lt;&lt;('</span> <a href="#rExprTripleTermSubject">ExprTripleTermSubject</a> <a href="#rVerb">Verb</a> <a href="#rExprTripleTermObject">ExprTripleTermObject</a> <span class="token">')&gt;&gt;'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[86]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rExprTripleTermSubject">ExprTripleTermSubject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rVar">Var</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[87]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rExprTripleTermObject">ExprTripleTermObject</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> | <a href="#rRDFLiteral">RDFLiteral</a> | <a href="#rNumericLiteral">NumericLiteral</a> | <a href="#rBooleanLiteral">BooleanLiteral</a> | <a href="#rVar">Var</a> | <a href="#rExprTripleTerm">ExprTripleTerm</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[88]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBrackettedExpression">BrackettedExpression</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[89]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBuiltInCall">BuiltInCall</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">&nbsp;&nbsp;<span class="token">'STR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'LANGMATCHES'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'LANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'DATATYPE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'BOUND'</span> <span class="token">'('</span> <a href="#rVar">Var</a> <span class="token">')'</span> <br/>| <span class="token">'IRI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'URI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'BNODE'</span> ( <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> | <a href="#rNIL">NIL</a> ) <br/>| <span class="token">'RAND'</span> <a href="#rNIL">NIL</a> <br/>|  <span class="token">'ABS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CEIL'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'FLOOR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'ROUND'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CONCAT'</span> <a href="#rExpressionList">ExpressionList</a> <br/>|  <span class="token">'SUBSTR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'STRLEN'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'REPLACE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'UCASE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LCASE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'ENCODE_FOR_URI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'CONTAINS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRSTARTS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'STRENDS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'STRBEFORE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'STRAFTER'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'YEAR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'MONTH'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'DAY'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'HOURS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'MINUTES'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SECONDS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TIMEZONE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'TZ'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'NOW'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'UUID'</span> <a href="#rNIL">NIL</a> <br/>|  <span class="token">'STRUUID'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'MD5'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SHA1'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'SHA256'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'SHA384'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'SHA512'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'COALESCE'</span> <a href="#rExpressionList">ExpressionList</a> <br/>|  <span class="token">'IF'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'STRLANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'STRLANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'STRDT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'sameTerm'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isIRI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isURI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isBLANK'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isLITERAL'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isNUMERIC'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'hasLANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'hasLANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'REGEX'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>|  <span class="token">'isTRIPLE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'TRIPLE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>|  <span class="token">'SUBJECT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'PREDICATE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'OBJECT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[90]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="ririOrFunction">iriOrFunction</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#riri">iri</a> <a href="#rArgList">ArgList</a>?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[91]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rRDFLiteral">RDFLiteral</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rString">String</a> ( <a href="#rLANG_DIR">LANG_DIR</a> | <span class="token">'^^'</span> <a href="#riri">iri</a> )?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[92]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rNumericLiteral">NumericLiteral</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rNumericLiteralUnsigned">NumericLiteralUnsigned</a> | <a href="#rNumericLiteralPositive">NumericLiteralPositive</a> | <a href="#rNumericLiteralNegative">NumericLiteralNegative</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[93]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rNumericLiteralUnsigned">NumericLiteralUnsigned</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rINTEGER">INTEGER</a> | <a href="#rDECIMAL">DECIMAL</a> | <a href="#rDOUBLE">DOUBLE</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[94]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rNumericLiteralPositive">NumericLiteralPositive</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rINTEGER_POSITIVE">INTEGER_POSITIVE</a> | <a href="#rDECIMAL_POSITIVE">DECIMAL_POSITIVE</a> | <a href="#rDOUBLE_POSITIVE">DOUBLE_POSITIVE</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[95]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rNumericLiteralNegative">NumericLiteralNegative</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rINTEGER_NEGATIVE">INTEGER_NEGATIVE</a> | <a href="#rDECIMAL_NEGATIVE">DECIMAL_NEGATIVE</a> | <a href="#rDOUBLE_NEGATIVE">DOUBLE_NEGATIVE</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[96]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBooleanLiteral">BooleanLiteral</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'true'</span> | <span class="token">'false'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[97]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rString">String</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rSTRING_LITERAL1">STRING_LITERAL1</a> | <a href="#rSTRING_LITERAL2">STRING_LITERAL2</a> | <a href="#rSTRING_LITERAL_LONG1">STRING_LITERAL_LONG1</a> | <a href="#rSTRING_LITERAL_LONG2">STRING_LITERAL_LONG2</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[98]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="riri">iri</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rIRIREF">IRIREF</a> | <a href="#rPrefixedName">PrefixedName</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[99]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPrefixedName">PrefixedName</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPNAME_LN">PNAME_LN</a> | <a href="#rPNAME_NS">PNAME_NS</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[100]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBlankNode">BlankNode</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rBLANK_NODE_LABEL">BLANK_NODE_LABEL</a> | <a href="#rANON">ANON</a></code></td>
+              </tr>
+          </tbody></table>
+        </div>
+        <p>Productions for terminals:</p>
+        <div class="grammarTable">
+          <table><tbody>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[101]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rIRIREF">IRIREF</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'&lt;' ([^&lt;&gt;"{}|^`\]-[#x00-#x20])* '&gt;'</span></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[102]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPNAME_NS">PNAME_NS</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPN_PREFIX">PN_PREFIX</a>? ':'</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[103]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPNAME_LN">PNAME_LN</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPNAME_NS">PNAME_NS</a> <a href="#rPN_LOCAL">PN_LOCAL</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[104]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rBLANK_NODE_LABEL">BLANK_NODE_LABEL</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'_:' ( <a href="#rPN_CHARS_U">PN_CHARS_U</a> | [0-9] ) ((<a href="#rPN_CHARS">PN_CHARS</a>|'.')* <a href="#rPN_CHARS">PN_CHARS</a>)?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[105]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVAR1">VAR1</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'?' <a href="#rVARNAME">VARNAME</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[106]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVAR2">VAR2</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'$' <a href="#rVARNAME">VARNAME</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[107]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rLANG_DIR">LANG_DIR</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)* ('--' [a-zA-Z]+)?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[108]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rINTEGER">INTEGER</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">[0-9]+</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[109]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDECIMAL">DECIMAL</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">[0-9]* '.' [0-9]+</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[110]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDOUBLE">DOUBLE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( ([0-9]+ ('.'[0-9]*)? ) | ( '.' ([0-9])+ ) ) [eE][+-]?[0-9]+</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[111]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rINTEGER_POSITIVE">INTEGER_POSITIVE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'+'</span> <a href="#rINTEGER">INTEGER</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[112]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDECIMAL_POSITIVE">DECIMAL_POSITIVE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'+'</span> <a href="#rDECIMAL">DECIMAL</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[113]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDOUBLE_POSITIVE">DOUBLE_POSITIVE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'+'</span> <a href="#rDOUBLE">DOUBLE</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[114]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rINTEGER_NEGATIVE">INTEGER_NEGATIVE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'-'</span> <a href="#rINTEGER">INTEGER</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[115]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDECIMAL_NEGATIVE">DECIMAL_NEGATIVE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'-'</span> <a href="#rDECIMAL">DECIMAL</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[116]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rDOUBLE_NEGATIVE">DOUBLE_NEGATIVE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><span class="token">'-'</span> <a href="#rDOUBLE">DOUBLE</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[117]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rSTRING_LITERAL1">STRING_LITERAL1</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">"'" ( ([^#x27#x5C#xA#xD]) | <a href="#rECHAR">ECHAR</a> )* "'"</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[118]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rSTRING_LITERAL2">STRING_LITERAL2</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'"' ( ([^#x22#x5C#xA#xD]) | <a href="#rECHAR">ECHAR</a> )* '"'</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[119]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rSTRING_LITERAL_LONG1">STRING_LITERAL_LONG1</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">"'''" ( ( "'" | "''" )? ( [^'\] | <a href="#rECHAR">ECHAR</a> ) )* "'''"</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[120]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rSTRING_LITERAL_LONG2">STRING_LITERAL_LONG2</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'"""' ( ( '"' | '""' )? ( [^"\] | <a href="#rECHAR">ECHAR</a> ) )* '"""'</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[121]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rECHAR">ECHAR</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'\' [tbnrf\"']</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[122]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rNIL">NIL</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'(' <a href="#rWS">WS</a>* ')'</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[123]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rWS">WS</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">#x20 | #x9 | #xD | #xA</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[124]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rANON">ANON</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'['  <a href="#rWS">WS</a>* ']'</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[125]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPN_CHARS_BASE">PN_CHARS_BASE</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">[A-Z] | [a-z] | [#x00C0-#x00D6] | [#x00D8-#x00F6] | [#x00F8-#x02FF] | [#x0370-#x037D] | [#x037F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[126]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPN_CHARS_U">PN_CHARS_U</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPN_CHARS_BASE">PN_CHARS_BASE</a> | '_'</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[127]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rVARNAME">VARNAME</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">( <a href="#rPN_CHARS_U">PN_CHARS_U</a>  | [0-9] ) ( <a href="#rPN_CHARS_U">PN_CHARS_U</a> | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[128]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPN_CHARS">PN_CHARS</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPN_CHARS_U">PN_CHARS_U</a> | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[129]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPN_PREFIX">PN_PREFIX</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPN_CHARS_BASE">PN_CHARS_BASE</a> ((<a href="#rPN_CHARS">PN_CHARS</a>|'.')* <a href="#rPN_CHARS">PN_CHARS</a>)?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[130]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPN_LOCAL">PN_LOCAL</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">(<a href="#rPN_CHARS_U">PN_CHARS_U</a> | ':' | [0-9] | <a href="#rPLX">PLX</a> ) ((<a href="#rPN_CHARS">PN_CHARS</a> | '.' | ':' | <a href="#rPLX">PLX</a>)* (<a href="#rPN_CHARS">PN_CHARS</a> | ':' | <a href="#rPLX">PLX</a>) )?</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[131]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPLX">PLX</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody"><a href="#rPERCENT">PERCENT</a> | <a href="#rPN_LOCAL_ESC">PN_LOCAL_ESC</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[132]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPERCENT">PERCENT</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'%' <a href="#rHEX">HEX</a> <a href="#rHEX">HEX</a></code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[133]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rHEX">HEX</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">[0-9] | [A-F] | [a-f]</code></td>
+              </tr>
+
+              <tr style="vertical-align: baseline">
+                <td><code>[134]&nbsp;&nbsp;</code></td>
+                <td><code><span class="doc-ref" id="rPN_LOCAL_ESC">PN_LOCAL_ESC</span></code></td>
+                <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
+                <td><code class="gRuleBody">'\' ( '_' | '~' | '.' | '-' | '!' | '$' | '&amp;' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )</code></td>
+              </tr>
+          </tbody></table>
+        </div>
+        <!-- GRAMMAR -->
+    </section>
+
+    <section id="security" class="appendix informative">
+      <h2>Security Considerations</h2>
+      <p>TODO</p>
+    </section>
+
+    <section id="privacy" class="appendix informative">
+      <h2>Privacy Considerations</h2>
+      <p>TODO</p>
+    </section>
+
+    <section id="internationalization" class="appendix informative">
+      <h2>Internationalization Considerations</h2>
+      <p>TODO</p>
+    </section>
+
+    <section id="ack" class="appendix informative">
+      <h2>Acknowledgements</h2>
+      <p>Many people contributed to this document, including members of the RDF Data Shapes Working Group.</p>
+    </section>
+
+    <section id="index"></section>
+
+    <section class="appendix" id="issue-summary">
+      <!-- A list of issues will magically appear here -->
+    </section>
+  </body>
+</html>
