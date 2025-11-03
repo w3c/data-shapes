@@ -534,8 +534,646 @@
 
     <section id="widgets">
       <h2>Widgets</h2>
-      <p>Content.</p>
-      <p class="todo">Remove this reference test: [[RDF12-PRIMER]]</p>
+
+      <section id="editors">
+        <h3>Editors</h3>
+        <p>
+          The following sub-sections enumerate the currently defined instances of <code>shui:Editor</code> from the SHACL UI namespace.
+          Property shapes can explicitly specify the preferred editor for its values using <code>shui:editor</code>.
+          If no such value has been specified, the system should pick a suitable default viewer based on the
+          <a href="#score">scoring system</a> outlined for each widget.
+        </p>
+        <section id="AutoCompleteEditor">
+          <h4>shui:AutoCompleteEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>1 if the value is an IRI.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            An auto-complete field to enter the label of instances of the class specified for the property.
+            For example, if the <code>sh:class</code> of the property is <code>ex:Country</code> and the user starts
+            typing "Nig", then "Niger" and "Nigeria" would show up as possible choices.
+          </p>
+          <img src="images/editors/AutoCompleteEditor.png" />
+          <pre class="example">
+ex:Person-bornIn
+	a sh:PropertyShape ;
+	sh:path ex:bornIn ;
+	sh:class ex:Country ;
+	...</pre>
+          <p>
+            Implementations may want to also support the combination of <code>sh:class</code> with <code>sh:node</code>
+            constraints to further narrow the set of valid values.
+            In this case, the component would filter out any instances of the class that do not conform to the specified node shape.
+            In the following example, the auto-complete would only show countries that have <code>true</code> as their value
+            for <code>ex:sovereign</code>.
+          </p>
+          <pre class="example">
+ex:Person-bornIn
+	a sh:PropertyShape ;
+	sh:path ex:bornIn ;
+	sh:class ex:Country ;
+	sh:node [
+		sh:property [
+			sh:path ex:sovereign ;
+			sh:hasValue true ;
+		]
+	] ; ...</pre>
+        </section>
+        <section id="BlankNodeEditor">
+          <h4>shui:BlankNodeEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>1 for blank nodes.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A read-only editor that displays the blank node, similar to <a href="#BlankNodeViewer">shui:BlankNodeViewer</a>,
+            yet allows the surrounding user interface to at least provide a delete button.
+          </p>
+        </section>
+        <section id="BooleanSelectEditor">
+          <h4>shui:BooleanSelectEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 for <code>xsd:boolean</code> literals.</li>
+              <li>0 for non-literals and when there is a <code>sh:datatype</code> constraint.</li>
+              <li><code>null</code> for properties allowing literals without specifying a particular datatype.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A select box with values <code>true</code> and <code>false</code>.
+            Also displays the current value (such as <code>"1"^^xsd:boolean</code>), but only allows to switch to true or false.
+          </p>
+          <img src="images/editors/BooleanSelectEditor.png" />
+          <pre class="example">
+ex:Person-married
+	a sh:PropertyShape ;
+	sh:path ex:married ;
+	<b>sh:datatype xsd:boolean ;</b>
+	...</pre>
+        </section>
+        <section id="DatePickerEditor">
+          <h4>shui:DatePickerEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 for <code>xsd:date</code> literals.</li>
+              <li>5 if the property has <code>sh:datatype xsd:date</code>.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A calendar-like date picker.
+          </p>
+          <img src="images/editors/DatePickerEditor.png" />
+          <pre class="example">
+ex:Person-dateOfBirth
+	a sh:PropertyShape ;
+	sh:path ex:dateOfBirth ;
+	<b>sh:datatype xsd:date ;</b>
+	...</pre>
+        </section>
+        <section id="DateTimePickerEditor">
+          <h4>shui:DateTimePickerEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 for <code>xsd:dateTime</code> literals.</li>
+              <li>5 if the property has <code>sh:datatype xsd:dateTime</code>.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A calendar-like date picker including a time selector.
+          </p>
+          <img src="images/editors/DateTimePickerEditor.png" />
+          <pre class="example">
+ex:Customer-lastVisitTime
+	a sh:PropertyShape ;
+	sh:path ex:lastVisitTime ;
+	<b>sh:datatype xsd:dateTime ;</b>
+	...</pre>
+        </section>
+        <section id="DetailsEditor">
+          <h4>shui:DetailsEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li><code>null</code> for non-literals, i.e., it can be selected manually via <code>shui:editor</code>.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            Typically rendering as a nested form, using the properties defined by the <code>sh:node</code> or <code>sh:class</code> (in that order)
+            of the property as fields.
+            Alternative renderings are possible, such as opening the resource in a separate dialog.
+          </p>
+          <p>
+            This is particularly useful for some types of blank nodes that only make sense to be edited in the context of their parent resource.
+          </p>
+          <img src="images/editors/DetailsEditor.png" width="782" height="364" />
+          <pre class="example">
+ex:Product
+	a owl:Class ;
+	a sh:NodeShape ;
+	rdfs:label "Product" ;
+	rdfs:subClassOf owl:Thing ;
+	sh:property ex:Product-weight .
+
+ex:Product-weight
+	a sh:PropertyShape ;
+	sh:path ex:weight ;
+	shui:editor shui:DetailsEditor ;
+	shui:viewer shui:DetailsViewer ;
+	sh:description "A blank node with a numeric field and a unit which is one of the QUDT mass units." ;
+	sh:maxCount 1 ;
+	sh:name "weight" ;
+	sh:node ex:ValueWithWeight ;
+	sh:nodeKind sh:BlankNode .
+
+ex:ValueWithWeight
+	a sh:NodeShape ;
+	rdfs:label "Value with weight" ;
+	sh:property ex:ValueWithWeight-numericValue ;
+	sh:property ex:ValueWithWeight-unit .
+
+ex:ValueWithWeight-numericValue
+	a sh:PropertyShape ;
+	sh:path ex:numericValue ;
+	sh:datatype xsd:decimal ;
+	sh:maxCount 1 ;
+	sh:minCount 1 ;
+	sh:name "numeric value" .
+
+ex:ValueWithWeight-unit
+	a sh:PropertyShape ;
+	sh:path ex:unit ;
+	sh:class &lt;http://qudt.org/schema/qudt/Unit> ;
+	sh:maxCount 1 ;
+	sh:minCount 1 ;
+	sh:name "unit" ;
+	sh:node [
+		rdfs:label "Permissible values must have quantity kind Mass." ;
+		sh:property [
+			sh:path &lt;http://qudt.org/schema/qudt/hasQuantityKind> ;
+			sh:hasValue &lt;http://qudt.org/vocab/quantitykind/Mass> ;
+		] ;
+	] .</pre>
+          <p>
+            This widget requires that the surrounding property (<code>ex:weight</code>, above) declares <code>sh:nodeKind sh:BlankNode</code>
+            and also has a <code>sh:node</code> constraint that points at a node shape that declares the properties that shall be editable.
+          </p>
+        </section>
+        <section id="EnumSelectEditor">
+          <h4>shui:EnumSelectEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 if there exists a <code>sh:in</code> constraint for the same property at the current focus node.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A drop-down editor for enum fields (based on the <code>sh:in</code> list, in that order).
+          </p>
+          <img src="images/editors/EnumSelectEditor.png" />
+          <pre class="example">
+ex:AustralianAddressShape-addressRegion
+	a sh:PropertyShape ;
+	sh:path schema:addressRegion ;
+	<b>sh:in ( "ACT" "NSW" "NT" "QLD" "SA" "TAS" "VIC" "WA" ) ;</b>
+	...</pre>
+        </section>
+        <section id="InstancesSelectEditor">
+          <h4>shui:InstancesSelectEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li><code>null</code> if there exists a <code>sh:class</code> for the property.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A drop-down editor for all instances of the target class (based on <code>sh:class</code> of the property).
+            Typically only used for classes that have few instances.
+          </p>
+          <pre class="example">
+ex:Person-homeCountry
+	a sh:PropertyShape ;
+	sh:path ex:homeCountry ;
+	<b>sh:class ex:Country ;
+	shui:editor shui:InstancesSelectEditor ;</b>
+	...</pre>
+        </section>
+        <section id="RichTextEditor">
+          <h4>shui:RichTextEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 for <code>rdf:HTML</code> literals.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A rich text editor to enter the lexical value of a literal and a drop-down to select language.
+            The selected language is stored in the HTML <code>lang</code> attribute of the root node in the HTML DOM tree.
+          </p>
+          <img src="images/editors/RichTextEditor.png" />
+          <pre class="example">
+ex:Concept-definition
+	a sh:PropertyShape ;
+	sh:path skos:definition ;
+	<b>sh:datatype rdf:HTML ;</b>
+	...</pre>
+        </section>
+        <section id="SubClassEditor">
+          <h4>shui:SubClassEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li><code>null</code>, i.e., this should be selected explicitly through a <code>shui:editor</code> statement.
+                  However, this widget is typically only used if the property has a
+                  <a href="https://datashapes.org/constraints.html#RootClassConstraintComponent"><code>dash:rootClass</code></a>
+                  constraint, or (at minimum) only allows classes as values.
+               </li>
+             </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            This can be an auto-complete widget to select a class, a class hierarchy widget, or a combination thereof.
+            The permissible values are a given class or its subclasses, defaulting to <code>rdfs:Resource</code>.
+            This is typically used with <code>dash:rootClass</code> to allow the user to select a subclass of the given root class.
+          </p>
+          <pre class="example">
+ex:Drug-impactedCell
+	a sh:PropertyShape ;
+	sh:path ex:impactedCell ;
+	<b>dash:rootClass obo:CL_0000000 ;
+	shui:editor shui:SubClassEditor ;</b>
+	...</pre>
+        </section>
+        <section id="TextAreaEditor">
+          <h4>shui:TextAreaEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>0 if the property is marked <code>sh:singleLine true</code>.</li>
+              <li>20 if the value is an <code>xsd:string</code> literal and <code>sh:singleLine false</code>.</li>
+              <li>5 if the value is an <code>xsd:string</code> literal.</li>
+              <li>2 if the property has <code>xsd:string</code> among the permissible datatypes.</li>
+              <li><code>null</code> if the property has a custom datatype (not from xsd or rdf namespaces but for example <code>geo:wktLiteral</code>).</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A multi-line text area to enter the value of a literal.
+          </p>
+          <img src="images/editors/TextAreaEditor.png" />
+          <pre class="example">
+ex:Country-description
+	a sh:PropertyShape ;
+	sh:path ex:description ;
+	<b>sh:datatype xsd:string ;
+	sh:singleLine false ;</b>
+	...</pre>
+        </section>
+        <section id="TextAreaWithLangEditor">
+          <h4>shui:TextAreaWithLangEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>0 if the property is marked <code>sh:singleLine true</code>.</li>
+              <li>15 if the value is an <code>rdf:langString</code> literal and <code>sh:singleLine false</code>.</li>
+              <li>5 if the value is an <code>rdf:langString</code> literal or the property permits such values.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A multi-line text area to enter the value of a literal and a drop-down to select a language.
+          </p>
+          <img src="images/editors/TextAreaWithLangEditor.png" />
+          <pre class="example">
+ex:Country-description
+	a sh:PropertyShape ;
+	sh:path ex:description ;
+	<b>sh:datatype rdf:langString ;
+	sh:singleLine false ;</b>
+	...</pre>
+        </section>
+        <section id="TextFieldEditor">
+          <h4>shui:TextFieldEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 if the value is a literal that is neither <code>rdf:langString</code> nor <code>xsd:boolean</code>.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            An input field to enter the value of a literal, without the ability to change language or datatype.
+          </p>
+          <img src="images/editors/TextFieldEditor.png" />
+          <pre class="example">
+ex:Country-code
+	a sh:PropertyShape ;
+	sh:path ex:code ;
+	<b>sh:datatype xsd:string ;</b>
+	...</pre>
+        </section>
+        <section id="TextFieldWithLangEditor">
+          <h4>shui:TextFieldWithLangEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>11 if the value is an <code>rdf:langString</code> literal or the property permits either <code>rdf:langString</code> or <code>xsd:string</code>.</li>
+              <li>5 if the property is not <code>sh:singleLine false</code> and permits <code>rdf:langString</code> values.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A single-line input field to enter the value of a literal and a drop-down to select language,
+            which is mandatory unless <code>xsd:string</code> is among the permissible datatypes.
+          </p>
+          <img src="images/editors/TextFieldWithLangEditor.png" />
+          <pre class="example">
+ex:Concept-prefLabel
+	a sh:PropertyShape ;
+	sh:path skos:prefLabel ;
+	sh:datatype rdf:langString ;
+	...</pre>
+        </section>
+        <section id="URIEditor">
+          <h4>shui:URIEditor</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 if the value is an IRI node and the property has <code>sh:nodeKind sh:IRI</code> and no <code>sh:class</code> constraint.</li>
+              <li><code>null</code> if the value is an IRI node.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            An input field to enter the URI of a resource, e.g., as value of <code>rdfs:seeAlso</code> or to enter the URL of an image on the web.
+          </p>
+          <img src="images/editors/URIEditor.png" />
+          <pre class="example">
+ex:Thing-seeAlso
+	a sh:PropertyShape ;
+	sh:path rdfs:seeAlso ;
+	sh:nodeKind sh:IRI ;
+	<b>shui:editor shui:URIEditor ;</b>
+	...</pre>
+        </section>
+      </section>
+
+      <section id="viewers">
+        <h3>Viewers</h3>
+        <p>
+          The following sub-sections enumerate the currently defined instances of <code>shui:Viewer</code> from the SHACL UI namespace.
+          A property shape can have an explicitly specified preferred viewer for its values in <code>shui:viewer</code>.
+          If no such value has been specified, the system should pick a suitable default viewer based on the
+          <a href="#score">scoring system</a> outlined for each widget.
+        </p>
+        <p id="multi">
+          Most viewers render a single RDF value on the screen, typically as a single widget.
+          Form editors offer buttons to edit individual values and to add or delete values.
+          However, some viewers need to take more complete control over how multiple values of a property at a focus node are rendered.
+          The only example of such a viewer in SHACL UI is <a href="#ValueTableViewer"><code>shui:ValueTableViewer</code></a>, which displays
+          all values of a property as an HTML table.
+          In those cases, the notions of generic add and delete buttons do not apply.
+          Such viewers are called <em>Multi Viewers</em> and are declared instances of <code>shui:MultiViewer</code> instead of <code>shui:SingleViewer</code>.
+          The equivalent classes for editors are <code>shui:MultiEditor</code> and <code>shui:SingleEditor</code>.
+        </p>
+        <section id="BlankNodeViewer">
+          <h4>shui:BlankNodeViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>1 for blank nodes.</li>
+              <li>0 for all other nodes.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A human-readable label of the blank node.
+            For example, if the blank node is an OWL restriction, then Manchester Syntax could be used.
+            If the blank node is a SPIN RDF expression, then a SPARQL string could be produced.
+            This rendering may include hyperlinks to other resources that can be reached from the blank node.
+          </p>
+        </section>
+        <section id="DetailsViewer">
+          <h4>shui:DetailsViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>0 for literals.</li>
+              <li><code>null</code> for IRIs and blank nodes.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            Shows the details of the value using its default view shape or the shape specified using <code>sh:node</code>,
+            as a nested form-like display.
+            An example of this can be found in the <a href="#nested">Nested Forms</a> section.
+          </p>
+        </section>
+        <section id="HTMLViewer">
+          <h4>shui:HTMLViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>50 for literals with datatype <code>rdf:HTML</code>.</li>
+              <li>0 for all other values.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            The literal parsed into HTML DOM elements.
+            Hyperlinks in the HTML may get redirected to select resources within the same application.
+            Also displays the language if the HTML has a <code>lang</code> attribute on its root DOM element.
+          </p>
+        </section>
+        <section id="HyperlinkViewer">
+          <h4>shui:HyperlinkViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>50 for literals with datatype <code>xsd:anyURI</code>.</li>
+              <li><code>null</code> for <code>xsd:string</code> literals.</li>
+              <li>0 for all other values.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            A clickable hyperlink to the specified URI/URL.
+          </p>
+        </section>
+        <section id="ImageViewer">
+          <h4>shui:ImageViewer</h4>
+          <p>
+            <b>Score:</b>
+            50 for IRI nodes or literals that have a case-insensitive recognized image ending such as
+            <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, or <code>.svg</code>.
+          </p>
+          <p>
+            <b>Rendering:</b>
+            The image at the given URL, using <code>&lt;img&gt;</code> in HTML.
+          </p>
+        </section>
+        <section id="LabelViewer">
+          <h4>shui:LabelViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>5 if the value is an IRI.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            As a hyperlink to that URI based on the display label of the resource.
+            The display label is typically based on the most suitable <code>rdfs:label</code> or
+            <code>skos:prefLabel</code> for the current user, based on their language preferences.
+            Also includes other ways of interacting with the URI, such as opening a nested summary display.
+          </p>
+        </section>
+        <section id="LangStringViewer">
+          <h4>shui:LangStringViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>10 if the value is a literal of type <code>rdf:langString</code>.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            As the text plus a language indicator (flag or language tag).
+          </p>
+        </section>
+        <section id="LiteralViewer">
+          <h4>shui:LiteralViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>1 if the value is a literal.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            The lexical form of the value.
+          </p>
+        </section>
+        <section id="URIViewer">
+          <h4>shui:URIViewer</h4>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li>1 if the value is an IRI.</li>
+              <li>0 otherwise.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            As a hyperlink to that URI.
+            Also includes other ways of interacting with the URI, such as opening a nested summary display.
+          </p>
+        </section>
+        <section id="ValueTableViewer">
+          <h4>shui:ValueTableViewer</h4>
+          <p>
+            This is a <a href="#multi">Multi Viewer</a>.
+          </p>
+          <p>
+            <b>Score:</b>
+            <ul>
+              <li><code>null</code>, i.e., this should be selected explicitly through a <code>shui:editor</code> statement.
+               </li>
+             </ul>
+          </p>
+          <p>
+            <b>Rendering:</b>
+            All values of the property at the focus node are rendered into a single (HTML) table that can be scrolled
+            and paged independently of the rest of the form.
+            Each value becomes one row.
+            The columns of the table are derived from the node shape specified using <code>sh:node</code> for the property,
+            in the order specified using <code>sh:order</code>.
+          </p>
+          <img src="images/viewers/ValueTableViewer.png" />
+          <p>
+            In this example, we have used a <code>sh:values</code> rule to infer the values of the first column.
+            In this case, the values are simply pointing back to the focus node of each row, using <code>sh:this</code>.
+            Note that <code>dash:applicableToClass</code> or <code>sh:targetClass</code> are needed to get this inference correctly.
+          </p>
+          <pre class="example">
+skos:Concept
+    sh:property ex:Concept-broader-inverse .
+
+ex:Concept-broader-inverse
+    a sh:PropertyShape ;
+    sh:path [ sh:inversePath skos:broader ] ;
+    sh:group skos:HierarchicalRelationships ;
+    sh:name "narrower (table)" ;
+    <b>shui:viewer shui:ValueTableViewer</b> ;
+    <b>sh:node ex:ConceptTableShape</b> .
+
+ex:ConceptTableShape
+    a sh:NodeShape ;
+    dash:applicableToClass skos:Concept ;
+    rdfs:comment "A node shape defining the columns for a shui:ValueTableViewer." ;
+    rdfs:label "Concept table shape" ;
+    sh:property ex:ConceptTableShape-self ;
+    sh:property ex:ConceptTableShape-type ;
+    sh:property ex:ConceptTableShape-altLabel .
+
+ex:ConceptTableShape-self
+    a sh:PropertyShape ;
+    sh:path ex:self ;
+    sh:description "This column is used to render the (narrower) concept itself." ;
+    sh:name "narrower concept" ;
+    sh:nodeKind sh:IRI ;
+    sh:order "0"^^xsd:decimal ;
+    sh:values sh:this .
+
+ex:ConceptTableShape-type
+    a sh:PropertyShape ;
+    sh:path rdf:type ;
+    sh:description "The second column shows the type of each value." ;
+    sh:name "type" ;
+    sh:nodeKind sh:IRI ;
+    sh:order "1"^^xsd:decimal .
+
+ex:ConceptTableShape-altLabel
+    a sh:PropertyShape ;
+    sh:path skos:altLabel ;
+    sh:description "The third column shows the alternative labels." ;
+    sh:name "alt labels" ;
+    sh:or dash:StringOrLangString ;
+    sh:order "2"^^xsd:decimal .</pre>
+        </section>
+      </section>
     </section>
 
     <section id="core-constraints">
