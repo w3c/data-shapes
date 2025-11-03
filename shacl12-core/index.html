@@ -1487,10 +1487,6 @@ ex:Bob a ex:Person .
 						</tr>
 					</tbody></table>
 					<p>
-						Validation engines MAY treat <code>sh:Info</code> and <code>sh:Warning</code> as non-violating based on
-						options passed to the engine. By default, they are treated as violations.
-					</p>
-					<p>
 						In addition to declaring severities per shape, the property <code>sh:severity</code> can also be used
 						on a <a>reifier</a> for a triple where the <a>shape</a> is the <a>subject</a> and one of the <a>parameters</a>
 						of the <a>constraint</a> is the <a>predicate</a>.
@@ -1503,8 +1499,8 @@ ex:Bob a ex:Person .
 					</span></p>
 					<p><em>The remainder of this section is informative.</em></p>
 					<p>
-						The specific values of <code>sh:severity</code> have no impact on the validation,
-						but MAY be used by user interface tools to categorize validation results.
+						The validation process handles the values of <code>sh:severity</code> according to <a>conformance checking</a>.
+						Additionally, user interface tools MAY use the values to categorize validation results.
 						The values of <code>sh:severity</code> are used by SHACL processors to populate the <code>sh:resultSeverity</code> field of
 						validation results, see <a href="#results-severity">section on severity in validation results</a>.
 						Any IRI can be used as a severity.
@@ -2280,9 +2276,15 @@ ex:SomeClass-alternativePathExample
 			<section id="conformance-definition">
 				<h3>Conformance Checking</h3>
 				<p>
-					A <a>focus node</a> <dfn data-lt="conforms|conform|conformance">conforms</dfn> to a <a>shape</a> if and only if
-					the set of result of the <a>validation</a> of the <a>focus node</a> against the <a>shape</a> does not contain any results with a severity level representing a violation and no <a>failure</a>
+					A <a>focus node</a> <dfn data-lt="conform|conform|conformance">conforms</dfn> to a <a>shape</a> if and only if
+					the set of result of the <a>validation</a> of the <a>focus node</a> against the <a>shape</a> does not contain any <a>validation results</a> with a severity level of the set of disallowed levels and no <a>failure</a>
 					has been reported by it.
+				</p>
+				<p>
+					The set of disallowed severity levels is defined as the objects of triples with predicate
+					<code>sh:conformanceDisallows</code> and the <a>validation report</a> as subject.
+					If the validation report contains no such triples, <code>sh:Violation</code>, <code>sh:Warning</code>, and
+					<code>sh:Info</code> are set as defaults.
 				</p>
 				<p>
 					<dfn data-lt="conformance checking|conformance check">Conformance checking</dfn> produces <code>true</code> if and only if a given <a>focus node</a>
@@ -2316,9 +2318,19 @@ ex:SomeClass-alternativePathExample
 				<aside class="example">
 					<div class="results-graph">
 						<div class="turtle">
-[
-    a sh:ValidationReport ;
-    sh:conforms true ;
+[ 	a sh:ValidationReport ;
+	sh:conforms true ;
+	sh:conformanceDisallows sh:Violation ;
+	sh:result [
+		a sh:ValidationResult ;
+		sh:resultSeverity sh:Warning ;
+		sh:focusNode ex:Bob ;
+		sh:resultPath ex:age ;
+		sh:value "twenty two" ;
+		sh:resultMessage "ex:age expects a literal of datatype xsd:integer." ;
+		sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+		sh:sourceShape ex:PersonShape-age ;
+	]
 ] .
 						</div>
 					</div>
@@ -2330,19 +2342,19 @@ ex:SomeClass-alternativePathExample
 				<aside class="example">
 					<div class="results-graph">
 						<div class="turtle">
-[
-    a sh:ValidationReport ;
-    sh:conforms false ;
-    sh:result [
-        a sh:ValidationResult ;
-        sh:resultSeverity sh:Violation ;
-        sh:focusNode ex:Bob ;
-        sh:resultPath ex:age ;
-        sh:value "twenty two" ;
-        sh:resultMessage "ex:age expects a literal of datatype xsd:integer." ;
-        sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
-        sh:sourceShape ex:PersonShape-age ;
-    ]
+[	a sh:ValidationReport ;
+	sh:conforms false ;
+	sh:conformanceDisallows sh:Violation ;
+	sh:result [
+		a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Bob ;
+		sh:resultPath ex:age ;
+		sh:value "twenty two" ;
+		sh:resultMessage "ex:age expects a literal of datatype xsd:integer." ;
+		sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+		sh:sourceShape ex:PersonShape-age ;
+	]
 ] .
 						</div>
 					</div>
@@ -2359,7 +2371,28 @@ ex:SomeClass-alternativePathExample
 						<p>
 							Each SHACL instance of <code>sh:ValidationReport</code> in the results graph has exactly one value for the property <code>sh:conforms</code> and the value is of datatype <code>xsd:boolean</code>.
 							It represents the outcome of the <a>conformance checking</a>.
-							The value of <code>sh:conforms</code> is <code>true</code> if and only if the <a>validation</a> did not produce any <a>validation results</a> with a severity level representing a violation, and <code>false</code> otherwise.
+						</p>
+					</section>
+					<section id="conformanceDisallows">
+						<h5>Conformance-Disallow Set (`sh:conformanceDisallows`)</h5>
+						<p>
+							Each SHACL instance of <code>sh:ValidationReport</code> in the results graph MAY have one or more values
+							for the property <code>sh:conformanceDisallows</code>. All values of <code>sh:conformanceDisallows</code> MUST be IRIs.
+						</p>
+						<p>
+							All values combined define the set of disallowed
+							severity levels. Presence of any <code>sh:ValidationResult</code> with a severity level in the set of
+							disallowed severity levels MUST result in a <code>sh:conforms</code> value
+							of <code>false</code> on the associated <code>sh:ValidationReport</code> instance.
+						</p>
+						<p>
+							If no values are present in the results graph for the property
+							<code>sh:conformanceDisallows</code>, then a default set MUST be used, comprised of
+							<code>sh:Violation</code>, <code>sh:Warning</code>, and <code>sh:Info</code>.
+						</p>
+						<p>
+							The conformance-disallow set is defined by the validation engine.
+							A validation engine MAY provide mechanisms to customize this set.
 						</p>
 					</section>
 					<section id="result">
@@ -5622,6 +5655,7 @@ ex:NameGroup
 				<li>Added the new constraint component <a href="#ReifierShapeConstraintComponent"><code>sh:ReifierShape</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/300">Issue 300</a></li>
 				<li>Added parameter <a href="#subClassOfInShapesGraph"></a> to look up rdfs:subClassOf triples in the union of the shapes graph and the data graph; see <a href="https://github.com/w3c/data-shapes/issues/185">Issue 185</a></li>
 				<li>Generalized <a href="#order"></a> to also allow xsd:integers; see <a href="https://github.com/w3c/data-shapes/issues/479">Issue 479</a></li>
+				<li>Added new <a href="#conformanceDisallows"><code>sh:conformanceDisallows</code> property</a> to the validation report; see <a href="https://github.com/w3c/data-shapes/issues/453">Issue 453</a></li>
 				<li>Added annotation property <a href="#codeIdentifier"></a>; see <a href="https://github.com/w3c/data-shapes/issues/559">Issue 559</a></li>
 				<li>Added the target types <a href="#targetWhere"><code>sh:targetWhere</code></a> and <a href="#explicit-shape-target"><code>sh:shape</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/517">Issue 517</a></li>
 			</ul>
