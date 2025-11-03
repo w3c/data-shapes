@@ -3,7 +3,10 @@
 
 ## Scribes
 
-* 2025-10-13: 
+* 2025-11-03: 
+* 2025-10-27: simonstey
+* 2025-10-20: Eliana
+* 2025-10-13: DavidHabgood
 * 2025-10-06: caribou
 * 2025-09-29: HolgerK
 * 2025-09-22: Edmond
