@@ -74,12 +74,13 @@
 					const selectors = document.createElement("div");
 					selectors.classList.add("selectors");
 
-					// Check if shaclc div exists in this tab group
+					// Check if JSON-LD or shaclc div exists in this tab group
+					const hasJsonld = tabs.querySelector(".jsonld");
 					const hasShaclc = tabs.querySelector(".shaclc");
 
 					selectors.innerHTML = `
 						<button class="selected" data-selects="turtle">Turtle</button>
-						<button data-selects="jsonld">JSON-LD</button>
+						${hasJsonld ? '<button data-selects="jsonld">JSON-LD</button>' : ''}
 						${hasShaclc ? '<button data-selects="shaclc">SHACL-C</button>' : ''}
 					`
 
@@ -175,7 +176,7 @@
 				}
 			};
 		</script>
-        <link rel="stylesheet" href="../shacl12-common/style.css"/>
+    <link rel="stylesheet" href="style.css"/>
 	</head>
 	<body>
 		<section id="abstract">
@@ -1332,7 +1333,7 @@ ex:Bob ex:livesIn ex:NewYork .
 							because it is the <a>object</a> of a <a>triple</a> that has <code>ex:knows</code> as its <a>predicate</a>.
 						</p>
 					</section>
-					
+
 					<section id="targetWhere">
 						<h4>Where Targets (sh:targetWhere)</h4>
 						<p class="syntax">
@@ -1382,7 +1383,7 @@ ex:Alice a ex:Person .
 <span class="focus-node-selected">ex:Bob</span> a ex:Person ;
     ex:age 21 .
 								</div>
-	
+
 						</aside>
 						<p>
 							In this example, only <code>ex:Bob</code> is a focus node of <code>ex:AdultPerson</code>
@@ -1403,7 +1404,7 @@ ex:Alice a ex:Person .
 							In the worst case, an engine will need to iterate over all nodes in the data graph to filter them one-by-one.
 						</p>
 					</section>
-					
+
 					<section id="explicit-shape-target">
 						<h4>Explicit shape targets (sh:shape)</h4>
 						<p class="syntax">
@@ -1486,10 +1487,6 @@ ex:Bob a ex:Person .
 						</tr>
 					</tbody></table>
 					<p>
-						Validation engines MAY treat <code>sh:Info</code> and <code>sh:Warning</code> as non-violating based on
-						options passed to the engine. By default, they are treated as violations.
-					</p>
-					<p>
 						In addition to declaring severities per shape, the property <code>sh:severity</code> can also be used
 						on a <a>reifier</a> for a triple where the <a>shape</a> is the <a>subject</a> and one of the <a>parameters</a>
 						of the <a>constraint</a> is the <a>predicate</a>.
@@ -1502,8 +1499,8 @@ ex:Bob a ex:Person .
 					</span></p>
 					<p><em>The remainder of this section is informative.</em></p>
 					<p>
-						The specific values of <code>sh:severity</code> have no impact on the validation,
-						but MAY be used by user interface tools to categorize validation results.
+						The validation process handles the values of <code>sh:severity</code> according to <a>conformance checking</a>.
+						Additionally, user interface tools MAY use the values to categorize validation results.
 						The values of <code>sh:severity</code> are used by SHACL processors to populate the <code>sh:resultSeverity</code> field of
 						validation results, see <a href="#results-severity">section on severity in validation results</a>.
 						Any IRI can be used as a severity.
@@ -2237,6 +2234,7 @@ ex:SomeClass-alternativePathExample
 						<li><a href="#QualifiedValueShapeConstraintComponent">sh:qualifiedValueShape</a></li>
 						<li><a href="#NodeConstraintComponent">sh:node</a></li>
 						<li><a href="#MemberShapeConstraintComponent">sh:memberShape</a></li>
+						<li><a href="#ReifierShapeConstraintComponent">sh:reifierShape</a></li>
 						<li><a href="#SomeValueConstraintComponent">sh:someValue</a></li>
 						<li><a href="#XoneConstraintComponent">sh:xone</a></li>
 					</ul>
@@ -2278,9 +2276,15 @@ ex:SomeClass-alternativePathExample
 			<section id="conformance-definition">
 				<h3>Conformance Checking</h3>
 				<p>
-					A <a>focus node</a> <dfn data-lt="conforms|conform|conformance">conforms</dfn> to a <a>shape</a> if and only if
-					the set of result of the <a>validation</a> of the <a>focus node</a> against the <a>shape</a> does not contain any results with a severity level representing a violation and no <a>failure</a>
+					A <a>focus node</a> <dfn data-lt="conform|conform|conformance">conforms</dfn> to a <a>shape</a> if and only if
+					the set of result of the <a>validation</a> of the <a>focus node</a> against the <a>shape</a> does not contain any <a>validation results</a> with a severity level of the set of disallowed levels and no <a>failure</a>
 					has been reported by it.
+				</p>
+				<p>
+					The set of disallowed severity levels is defined as the objects of triples with predicate
+					<code>sh:conformanceDisallows</code> and the <a>validation report</a> as subject.
+					If the validation report contains no such triples, <code>sh:Violation</code>, <code>sh:Warning</code>, and
+					<code>sh:Info</code> are set as defaults.
 				</p>
 				<p>
 					<dfn data-lt="conformance checking|conformance check">Conformance checking</dfn> produces <code>true</code> if and only if a given <a>focus node</a>
@@ -2314,9 +2318,19 @@ ex:SomeClass-alternativePathExample
 				<aside class="example">
 					<div class="results-graph">
 						<div class="turtle">
-[
-    a sh:ValidationReport ;
-    sh:conforms true ;
+[ 	a sh:ValidationReport ;
+	sh:conforms true ;
+	sh:conformanceDisallows sh:Violation ;
+	sh:result [
+		a sh:ValidationResult ;
+		sh:resultSeverity sh:Warning ;
+		sh:focusNode ex:Bob ;
+		sh:resultPath ex:age ;
+		sh:value "twenty two" ;
+		sh:resultMessage "ex:age expects a literal of datatype xsd:integer." ;
+		sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+		sh:sourceShape ex:PersonShape-age ;
+	]
 ] .
 						</div>
 					</div>
@@ -2328,19 +2342,19 @@ ex:SomeClass-alternativePathExample
 				<aside class="example">
 					<div class="results-graph">
 						<div class="turtle">
-[
-    a sh:ValidationReport ;
-    sh:conforms false ;
-    sh:result [
-        a sh:ValidationResult ;
-        sh:resultSeverity sh:Violation ;
-        sh:focusNode ex:Bob ;
-        sh:resultPath ex:age ;
-        sh:value "twenty two" ;
-        sh:resultMessage "ex:age expects a literal of datatype xsd:integer." ;
-        sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
-        sh:sourceShape ex:PersonShape-age ;
-    ]
+[	a sh:ValidationReport ;
+	sh:conforms false ;
+	sh:conformanceDisallows sh:Violation ;
+	sh:result [
+		a sh:ValidationResult ;
+		sh:resultSeverity sh:Violation ;
+		sh:focusNode ex:Bob ;
+		sh:resultPath ex:age ;
+		sh:value "twenty two" ;
+		sh:resultMessage "ex:age expects a literal of datatype xsd:integer." ;
+		sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+		sh:sourceShape ex:PersonShape-age ;
+	]
 ] .
 						</div>
 					</div>
@@ -2357,7 +2371,28 @@ ex:SomeClass-alternativePathExample
 						<p>
 							Each SHACL instance of <code>sh:ValidationReport</code> in the results graph has exactly one value for the property <code>sh:conforms</code> and the value is of datatype <code>xsd:boolean</code>.
 							It represents the outcome of the <a>conformance checking</a>.
-							The value of <code>sh:conforms</code> is <code>true</code> if and only if the <a>validation</a> did not produce any <a>validation results</a> with a severity level representing a violation, and <code>false</code> otherwise.
+						</p>
+					</section>
+					<section id="conformanceDisallows">
+						<h5>Conformance-Disallow Set (`sh:conformanceDisallows`)</h5>
+						<p>
+							Each SHACL instance of <code>sh:ValidationReport</code> in the results graph MAY have one or more values
+							for the property <code>sh:conformanceDisallows</code>. All values of <code>sh:conformanceDisallows</code> MUST be IRIs.
+						</p>
+						<p>
+							All values combined define the set of disallowed
+							severity levels. Presence of any <code>sh:ValidationResult</code> with a severity level in the set of
+							disallowed severity levels MUST result in a <code>sh:conforms</code> value
+							of <code>false</code> on the associated <code>sh:ValidationReport</code> instance.
+						</p>
+						<p>
+							If no values are present in the results graph for the property
+							<code>sh:conformanceDisallows</code>, then a default set MUST be used, comprised of
+							<code>sh:Violation</code>, <code>sh:Warning</code>, and <code>sh:Info</code>.
+						</p>
+						<p>
+							The conformance-disallow set is defined by the validation engine.
+							A validation engine MAY provide mechanisms to customize this set.
 						</p>
 					</section>
 					<section id="result">
@@ -4922,7 +4957,7 @@ ex:HandShape
 					</aside>
 				</section>
 
-				<section id="ReifierShapeShapeConstraintComponent">
+				<section id="ReifierShapeConstraintComponent">
 					<h4>sh:reifierShape, sh:reificationRequired</h4>
 					<p>
 						<code>sh:reifierShape</code> can be used to link a <a>property shape</a> with one or more <a>node shapes</a>.
@@ -5308,6 +5343,11 @@ ex:RainbowPony ex:color ex:Pink .
 					Both <code>sh:name</code> and <code>sh:description</code> may have
 					multiple <a>values</a>, but should only have one <a>value</a> per language tag.
 				</p>
+				<p>
+					Note that <code>sh:name</code> and <code>sh:description</code> SHOULD NOT be used for <a>node shapes</a>.
+					For those, the properties <code>rdfs:label</code> and <code>rdfs:comment</code> are well-established
+					and already used for class definitions.
+				</p>
 			</section>
 			<section id="codeIdentifier">
 				<h3>sh:codeIdentifier</h3>
@@ -5424,8 +5464,8 @@ ex:AddressGroup
 				<p>
 					A form building application MAY use the information above to display information as follows:
 				</p>
-				<div style="background: light-dark(#f3f3f3, #2b2b2b); padding: 8px">
-					<div style="font-size: 18px; color: light-dark(#0000a0, #66aaff);"><b>Name</b></div>
+				<div class="ui-form">
+					<div class="ui-form-header">Name</div>
 					<table>
 						<tbody><tr>
 							<td style="text-align: right; width: 160px"><b>first name:</b></td>
@@ -5436,7 +5476,7 @@ ex:AddressGroup
 							<td>Doe</td>
 						</tr>
 					</tbody></table>
-					<div style="font-size: 18px; padding-top: 6px; color: light-dark(#0000a0, #66aaff);"><b>Address</b></div>
+					<div class="ui-form-header" style="padding-top: 8px">Address</div>
 					<table>
 						<tbody><tr>
 							<td style="text-align: right; width: 160px"><b>street address:</b></td>
@@ -5612,9 +5652,10 @@ ex:NameGroup
 				<li>Added the new value <code>sh:ByTypes</code> for <a href="#ClosedConstraintComponent"><code>sh:closed</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/172">Issue 172</a></li>
 				<li>The values of <a href="#ClassConstraintComponent"><code>sh:class</code></a> and <a href="#DatatypeConstraintComponent"><code>sh:datatype</code></a> can now also be lists, indicating a union of choices; see <a href="https://github.com/w3c/data-shapes/issues/160">Issue 160</a></li>
 				<li>The values of <a href="#NodeKindConstraintComponent"><code>sh:nodeKind</code></a> can now also be lists, indicating a union of choices; see <a href="https://github.com/w3c/data-shapes/issues/407">Issue 407</a></li>
-				<li>Added the new constraint component <a href="#ReifierShapeShapeConstraintComponent"><code>sh:ReifierShape</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/300">Issue 300</a></li>
+				<li>Added the new constraint component <a href="#ReifierShapeConstraintComponent"><code>sh:ReifierShape</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/300">Issue 300</a></li>
 				<li>Added parameter <a href="#subClassOfInShapesGraph"></a> to look up rdfs:subClassOf triples in the union of the shapes graph and the data graph; see <a href="https://github.com/w3c/data-shapes/issues/185">Issue 185</a></li>
 				<li>Generalized <a href="#order"></a> to also allow xsd:integers; see <a href="https://github.com/w3c/data-shapes/issues/479">Issue 479</a></li>
+				<li>Added new <a href="#conformanceDisallows"><code>sh:conformanceDisallows</code> property</a> to the validation report; see <a href="https://github.com/w3c/data-shapes/issues/453">Issue 453</a></li>
 				<li>Added annotation property <a href="#codeIdentifier"></a>; see <a href="https://github.com/w3c/data-shapes/issues/559">Issue 559</a></li>
 				<li>Added the target types <a href="#targetWhere"><code>sh:targetWhere</code></a> and <a href="#explicit-shape-target"><code>sh:shape</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/517">Issue 517</a></li>
 			</ul>
