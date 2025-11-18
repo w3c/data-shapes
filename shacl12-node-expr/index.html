@@ -1,153 +1,447 @@
 <!DOCTYPE html>
 <html lang="en-US">
+
 	<head>
 		<meta charset="utf-8" />
-    <meta name="color-scheme" content="light dark">
+		<meta name="color-scheme" content="light dark">
 		<title>SHACL 1.2 Node Expressions</title>
 		<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
 		<script class="remove">
 
-			function prepareSyntaxRules() {
-				document.querySelectorAll("[data-syntax-rule]").forEach(element => {
-					let ruleId = element.getAttribute("data-syntax-rule");
-					let tr = document.createElement("tr");
-					tr.classList.add("syntax-rule-tr");
-					let td1 = document.createElement("td");
-					td1.classList.add("syntax-rule-id");
-					let a = document.createElement("a");
-					a.classList.add("syntax-rule-id-a");
-					a.href = "#syntax-rule-" + ruleId;
-					a.textContent = ruleId;
-					td1.appendChild(a);
-					let td2 = document.createElement("td");
-					td2.innerHTML = element.innerHTML;
-					tr.appendChild(td1);
-					tr.appendChild(td2);
+		// Auto-generate SPARQL functions table from local TTL for node-expr UI
+		async function generateSparqlFunctionSections() {
+			
+			const container = document.getElementById('sparql-functions-container');
+	
+			try {
+				// Load N3 library dynamically (lightweight Turtle parsing)
+				const script = document.createElement('script');
+				script.src = 'https://unpkg.com/n3/browser/n3.min.js';
+				document.head.appendChild(script);
+	
+				// Wait for N3 to load without blocking initial DOM rendering
+				await new Promise((resolve) => {
+					script.onload = resolve;
+				});
+	
+				const { Parser, Store } = N3;
+				// Use local TTL file relative to site root
+				const RAW_TTL = "../shacl12-vocabularies/shnex-sparql.ttl";
+	
+				// Common predicate IRIs
+				const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+				const RDFS_LABEL = "http://www.w3.org/2000/01/rdf-schema#label";
+				const RDFS_COMMENT = "http://www.w3.org/2000/01/rdf-schema#comment";
+				const RDFS_ISDEFINEDBY = "http://www.w3.org/2000/01/rdf-schema#isDefinedBy";
+				const SHNEX_SPECREF = "http://www.w3.org/ns/shnex#specRef";
+				const SHNEX_CATEGORY = "http://www.w3.org/ns/shnex-sparql#category";
+				const SHNEX_EXAMPLE = "http://www.w3.org/ns/shnex-sparql#example";
+				const DC_DESCRIPTION = "http://purl.org/dc/terms/description";
+				const OWL_SEEALSO = "http://www.w3.org/2002/07/owl#seeAlso";
+	
+				// Fetch and parse the local TTL
+				const res = await fetch(RAW_TTL);
+				if (!res.ok) throw new Error("Failed to fetch TTL: " + res.status);
+				const ttl = await res.text();
+	
+				const parser = new Parser({ format: "text/turtle" });
+				const quads = parser.parse(ttl);
+				const store = new Store(quads);
+	
+				// Helper to read literal/object values
+				function valuesFor(subject, predicate) {
+					return store.getQuads(subject, predicate, null, null).map(q => (q.object.value || q.object.id));
+				}
+	
+				// Collect all subjects that are declared as functions
+				const funcSubjects = new Set();
+				for (const q of store.getQuads(null, RDF_TYPE, 'http://www.w3.org/ns/shacl#ListParameterExpressionFunction', null)) {
+					funcSubjects.add(q.subject.id);
+				}
+	
+				// Build entries
+				const entries = [];
+				for (const s of funcSubjects) {
+					const labels = valuesFor(s, RDFS_LABEL);
+					const label = labels.length ? labels[0] : localName(s);
+	
+					// description may be in dc:description or rdfs:comment; join multiple with ' — '
+					const descs = [...valuesFor(s, DC_DESCRIPTION), ...valuesFor(s, RDFS_COMMENT)];
+					const description = descs.length ? descs.join(' — ') : '';
+	
+					// spec links preference: rdfs:isDefinedBy, then shnex:specRef, then owl:seeAlso
+					const specCandidates = [...valuesFor(s, RDFS_ISDEFINEDBY), ...valuesFor(s, SHNEX_SPECREF), ...valuesFor(s, OWL_SEEALSO)];
+					// pick first absolute http(s) URL
+					let specLink = specCandidates.find(u => typeof u === 'string' && /^https?:\/\//i.test(u));
+					if (!specLink && specCandidates.length > 0) {
+						// fallback to first candidate (may be a relative or non-http IRI)
+						specLink = specCandidates[0];
+					}
+					let examples = valuesFor(s, SHNEX_EXAMPLE);
+					const example = examples.length ? examples[0] : localName(s);
 
-					// Replace <dfn> elements inside `tr` with <a> elements
-					tr.querySelectorAll("dfn").forEach(dfn => {
-    					let a = document.createElement("a");
-    					a.textContent = dfn.textContent;
-    					dfn.replaceWith(a);
+					// category from shnex:category if present, otherwise derive from rdf:type
+					let category = valuesFor(s, SHNEX_CATEGORY)[0];
+					if (!category) {
+						// inspect rdf:types for fallback token
+						const types = store.getQuads(s, RDF_TYPE, null, null).map(q => q.object.id);
+						if (types.includes(SPARQL_AGGREGATE)) category = "aggregate";
+						else if (types.includes(SPARQL_FUNCTION)) category = "other";
+						else if (types.includes(SPARQL_FUNCTIONALFORM)) category = "other";
+						else category = "other";
+					}
+	
+					entries.push({
+						uri: s,
+						label,
+						description,
+						specLink,
+						example,
+						category
 					});
-
-					document.getElementById("syntax-rules-table").appendChild(tr);
-					element.setAttribute("id", "syntax-rule-" + ruleId);
-				});
-			}
-
-			function prepareValidators() {
-				document.querySelectorAll("[data-validator]").forEach(element => {
-					let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
-					let tr = document.createElement("tr");
-					tr.classList.add("validator-tr");
-					let td = document.createElement("td");
-					tr.appendChild(td);
-					let a = document.createElement("a");
-					a.classList.add("validator-id-a");
-					a.href = `#validator-${validatorId}`;
-					a.textContent = `sh:${validatorId}`;
-					td.appendChild(a);
-					td.innerHTML += ": " + element.innerHTML;
-					document.getElementById("validators-table").appendChild(tr);
-					element.id = "validator-" + validatorId;
-				});
-			}
-
-			document.addEventListener("DOMContentLoaded", () => {
-				// Replace code div blocks in shapes, data, and results graph with tabs
-				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
-					const tabs = document.createElement("aside");
-					tabs.classList.add("ds-selector-tabs");
-					graph.firstElementChild.classList.add("selected");
-
-					for (const child of graph.children) {
-						child.classList.add("tab");
+				}
+	
+				// Sort entries by label
+				entries.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+	
+				// Build UI: explanatory paragraph + category filter + accessible table
+	
+				// Category filter control
+				const categories = Array.from(new Set(entries.map(e => e.category))).sort((a,b)=> a.localeCompare(b));
+				const filterDiv = document.createElement('div');
+				filterDiv.style.margin = '0.4em 0';
+				filterDiv.innerHTML = `<label for="sparql-category-filter">Filter by category: </label>`;
+				const select = document.createElement('select');
+				select.id = 'sparql-category-filter';
+				select.innerHTML = `<option value="All">All</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+				filterDiv.appendChild(select);
+	
+				// Table
+				const table = document.createElement('table');
+				table.id = 'sparql-functions-table';
+				table.setAttribute('summary','List of SPARQL functions with description, spec link, and category');
+				table.style.width = '100%';
+				table.innerHTML = `
+					<caption>SPARQL functions usable in SHACL node expressions</caption>
+					<thead>
+						<tr>
+							<th scope="col">Function&nbsp;name</th>
+							<th scope="col">Description and Example</th>
+							<th scope="col">Category</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				`;
+	
+				const tbody = table.querySelector('tbody');
+	
+				// Populate rows
+				for (const e of entries) {
+					const tr = document.createElement('tr');
+					tr.setAttribute('data-category', e.category || 'other');
+					tr.setAttribute('id', `sparql-${localName(e.uri)}`);
+	
+					// Function name cell: label linked to spec URL (open in new tab); if no specLink, link to function URI
+					const nameCell = document.createElement('td');
+					const linkHref = (e.specLink && /^https?:\/\//i.test(e.specLink)) ? e.specLink : e.specLink || e.uri;
+					const a = document.createElement('a');
+					a.href = linkHref;
+					a.textContent = e.label || localName(e.uri);
+					if (/^https?:\/\//i.test(linkHref)) {
+						a.target = '_blank';
+						a.rel = 'noopener';
+					}
+					nameCell.appendChild(a);
+	
+					// Description cell
+					const descCell = document.createElement('td');
+					const descText = document.createElement('div');
+					descCell.appendChild(descText);
+					descText.textContent = e.description || '';
+	
+					// Spec reference cell (show absolute URL clickable when available)
+					if(e.example) {
+						const example = document.createElement('p');
+						const exampleLabel = document.createElement('label');
+						exampleLabel.innerText = 'Example: ';
+						example.appendChild(exampleLabel);
+						const exampleCode = document.createElement('code');
+						example.appendChild(exampleCode);
+						exampleCode.setAttribute('class', 'turtle');
+						exampleCode.style.marginTop = '4px';
+						exampleCode.innerHTML = escapeHtml(e.example);
+						descCell.appendChild(example);
 					}
 
-					tabs.append(...graph.children);
-					graph.append(tabs)
+					// Category cell
+					const catCell = document.createElement('td');
+					catCell.textContent = e.category || '';
+	
+					tr.appendChild(nameCell);
+					tr.appendChild(descCell);
+					tr.appendChild(catCell);
+					tbody.appendChild(tr);
 				}
-
-				// Generate buttons for the selection logic
-				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
-					const selectors = document.createElement("div");
-					selectors.classList.add("selectors");
-
-					// Check if JSON-LD or shaclc div exists in this tab group
-					const hasJsonld = tabs.querySelector(".jsonld");
-					const hasShaclc = tabs.querySelector(".shaclc");
-
-					selectors.innerHTML = `
-						<button class="selected" data-selects="turtle">Turtle</button>
-						${hasJsonld ? '<button data-selects="jsonld">JSON-LD</button>' : ''}
-						${hasShaclc ? '<button data-selects="shaclc">SHACL-C</button>' : ''}
-					`
-
-					tabs.prepend(selectors);
-				}
-
-				// Add example button selection logic
-				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
-					button.onclick = () => {
-						const ex = button.closest(".ds-selector-tabs");
-						ex.querySelector("button.selected").classList.remove("selected");
-						ex.querySelector(".selected").classList.remove("selected");
-						button.classList.add('selected');
-						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+	
+				// Wire up filtering
+				select.addEventListener('change', () => {
+					const val = select.value;
+					for (const row of tbody.querySelectorAll('tr')) {
+						if (val === 'All' || row.getAttribute('data-category') === val) {
+							row.style.display = '';
+						} else {
+							row.style.display = 'none';
+						}
 					}
+				});
+	
+				// Replace container content with new UI
+				container.innerHTML = "";
+				container.appendChild(filterDiv);
+				container.appendChild(table);
+	
+			} catch (err) {
+				container.innerHTML = `<p class="error">Error loading SPARQL functions: ${escapeHtml(err.message)}</p>`;
+				console.error('Error generating SPARQL functions table:', err);
+			}
+		}
+
+		// Parse function sections from TTL file comments
+		function parseFunctionSections(ttl) {
+			const sections = [];
+			const lines = ttl.split('\n');
+
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i].trim();
+				if (line.startsWith('## ') || line.startsWith('# Section:') || line.startsWith('# Aggregate functions')) {
+					let sectionName = line.replace(/^##\s*/, '').replace(/^#\s*Section:\s*/, '').replace(/^#\s*/, '').trim();
+					sections.push({
+						name: sectionName,
+						startLine: i
+					});
+				}
+			}
+
+			// Set end lines for each section
+			for (let i = 0; i < sections.length - 1; i++) {
+				sections[i].endLine = sections[i + 1].startLine - 1;
+			}
+			if (sections.length > 0) {
+				sections[sections.length - 1].endLine = lines.length - 1;
+			}
+
+			return sections;
+		}
+
+		// Group functions by their section in the TTL file
+		function groupFunctionsBySection(functions, functionSections, ttl) {
+			const lines = ttl.split('\n');
+			const groups = {};
+
+			// Initialize groups
+			functionSections.forEach(section => {
+				groups[section.name] = [];
+			});
+			groups['Other'] = []; // For functions not in any section
+
+			for (const func of functions) {
+				const functionName = localName(func.uri);
+				let assignedToSection = false;
+
+				// Find which section this function belongs to
+				for (const section of functionSections) {
+					for (let i = section.startLine; i <= section.endLine; i++) {
+						if (lines[i] && lines[i].includes(`sparql:${functionName}`)) {
+							groups[section.name].push(func);
+							assignedToSection = true;
+							break;
+						}
+					}
+					if (assignedToSection) break;
+				}
+
+				// If not found in any section, add to 'Other'
+				if (!assignedToSection) {
+					groups['Other'].push(func);
+				}
+			}
+
+			// Remove empty groups
+			Object.keys(groups).forEach(key => {
+				if (groups[key].length === 0) {
+					delete groups[key];
 				}
 			});
 
-			var respecConfig = {
-				localBiblio: {},
+			return groups;
+		}
 
-				specStatus: "ED",
-				// group:          "data-shapes",
-				group: "wg/data-shapes",
-				github: "w3c/data-shapes",
-				//preProcess:     [  ],
-				edDraftURI: "https://w3c.github.io/data-shapes/shacl-node-expr/",
-				shortName: "shacl12-node-expr",
-				copyrightStart: "2025",
-				//xref: ["RDF12-CONCEPTS", "SHACL-CORE"],
-				xref: ["RDF12-CONCEPTS"],
+		function localName(uri) {
+			const str = String(uri);
+			const idxHash = str.lastIndexOf('#');
+			const idxSlash = str.lastIndexOf('/');
+			const idx = Math.max(idxHash, idxSlash);
+			return idx >= 0 ? str.substring(idx + 1) : str;
+		}
 
-				// (fix and) RemoveMe
-				lint: { "no-unused-dfns": false },
+		function escapeHtml(s) {
+			return String(s)
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;")
+				.replace(/"/g, "&quot;")
+				.replace(/'/g, "&#39;");
+		}
 
-				editors: [
-					{
-						name: "Robert David",
-						company: "Ontotext",
-						mailto: "<TBD>", // TODO
-						w3cid: "97894"
-					},
-					{
-						name: "David Habgood",
-						company: "KurrawongAI",
-						mailto: "<TBD>", // TODO
-						w3cid: "164266"
-					},
-					{
-						name:       "Holger Knublauch",
-						company:    "TopQuadrant, Inc.",
-						companyURL: "https://topquadrant.com/",
-						mailto:     "holger@topquadrant.com",
-						w3cid:      46500
-					},
-					{
-						name: "Simon Steyskal",
-						company: "Siemens AG",
-						companyURL: "https://siemens.com",
-						mailto: "simon.steyskal@siemens.com",
-						w3cid: "73545"
-					}
-				]
-			};
+		// Run the function when the page loads
+		//document.addEventListener('DOMContentLoaded', generateSparqlFunctionSections);
+
+
+		function prepareSyntaxRules() {
+			document.querySelectorAll("[data-syntax-rule]").forEach(element => {
+				let ruleId = element.getAttribute("data-syntax-rule");
+				let tr = document.createElement("tr");
+				tr.classList.add("syntax-rule-tr");
+				let td1 = document.createElement("td");
+				td1.classList.add("syntax-rule-id");
+				let a = document.createElement("a");
+				a.classList.add("syntax-rule-id-a");
+				a.href = "#syntax-rule-" + ruleId;
+				a.textContent = ruleId;
+				td1.appendChild(a);
+				let td2 = document.createElement("td");
+				td2.innerHTML = element.innerHTML;
+				tr.appendChild(td1);
+				tr.appendChild(td2);
+
+				// Replace <dfn> elements inside `tr` with <a> elements
+				tr.querySelectorAll("dfn").forEach(dfn => {
+					let a = document.createElement("a");
+					a.textContent = dfn.textContent;
+					dfn.replaceWith(a);
+				});
+
+				document.getElementById("syntax-rules-table").appendChild(tr);
+				element.setAttribute("id", "syntax-rule-" + ruleId);
+			});
+		}
+
+		function prepareValidators() {
+			document.querySelectorAll("[data-validator]").forEach(element => {
+				let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+				let tr = document.createElement("tr");
+				tr.classList.add("validator-tr");
+				let td = document.createElement("td");
+				tr.appendChild(td);
+				let a = document.createElement("a");
+				a.classList.add("validator-id-a");
+				a.href = `#validator-${validatorId}`;
+				a.textContent = `sh:${validatorId}`;
+				td.appendChild(a);
+				td.innerHTML += ": " + element.innerHTML;
+				document.getElementById("validators-table").appendChild(tr);
+				element.id = "validator-" + validatorId;
+			});
+		}
+
+		document.addEventListener("DOMContentLoaded", () => {
+
+			generateSparqlFunctionSections();
+
+			// Replace code div blocks in shapes, data, and results graph with tabs
+			for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+				const tabs = document.createElement("aside");
+				tabs.classList.add("ds-selector-tabs");
+				graph.firstElementChild.classList.add("selected");
+
+				for (const child of graph.children) {
+					child.classList.add("tab");
+				}
+
+				tabs.append(...graph.children);
+				graph.append(tabs)
+			}
+
+			// Generate buttons for the selection logic
+			for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+				const selectors = document.createElement("div");
+				selectors.classList.add("selectors");
+
+				// Check if JSON-LD or shaclc div exists in this tab group
+				const hasJsonld = tabs.querySelector(".jsonld");
+				const hasShaclc = tabs.querySelector(".shaclc");
+
+				selectors.innerHTML = `
+					<button class="selected" data-selects="turtle">Turtle</button>
+					${hasJsonld ? '<button data-selects="jsonld">JSON-LD</button>' : ''}
+					${hasShaclc ? '<button data-selects="shaclc">SHACL-C</button>' : ''}
+				`
+
+				tabs.prepend(selectors);
+			}
+
+			// Add example button selection logic
+			for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+				button.onclick = () => {
+					const ex = button.closest(".ds-selector-tabs");
+					ex.querySelector("button.selected").classList.remove("selected");
+					ex.querySelector(".selected").classList.remove("selected");
+					button.classList.add('selected');
+					ex.querySelector("." + button.dataset.selects).classList.add("selected");
+				}
+			}
+		});
+
+		var respecConfig = {
+			localBiblio: {},
+
+			specStatus: "ED",
+			// group:          "data-shapes",
+			group: "wg/data-shapes",
+			github: "w3c/data-shapes",
+			//preProcess:     [  ],
+			edDraftURI: "https://w3c.github.io/data-shapes/shacl-node-expr/",
+			shortName: "shacl12-node-expr",
+			copyrightStart: "2025",
+			//xref: ["RDF12-CONCEPTS", "SHACL-CORE"],
+			xref: ["RDF12-CONCEPTS"],
+
+			// (fix and) RemoveMe
+			lint: { "no-unused-dfns": false },
+
+			editors: [
+				{
+					name: "Robert David",
+					company: "Ontotext",
+					mailto: "<TBD>", // TODO
+					w3cid: "97894"
+				},
+				{
+					name: "David Habgood",
+					company: "KurrawongAI",
+					mailto: "<TBD>", // TODO
+					w3cid: "164266"
+				},
+				{
+					name:       "Holger Knublauch",
+					company:    "TopQuadrant, Inc.",
+					companyURL: "https://topquadrant.com/",
+					mailto:     "holger@topquadrant.com",
+					w3cid:      46500
+				},
+				{
+					name: "Simon Steyskal",
+					company: "Siemens AG",
+					companyURL: "https://siemens.com",
+					mailto: "simon.steyskal@siemens.com",
+					w3cid: "73545"
+				}
+			]
+		};
 		</script>
     <link rel="stylesheet" href="style.css"/>
 	</head>
+
 	<body>
 		<section id="abstract">
 			<p>This document describes Shapes Constraint Language (SHACL) Node Expressions.</p>
@@ -160,7 +454,7 @@
 
 		<section id="sotd"></section>
 
-    <section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
+		<section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
 
 		<section id="introduction">
 			<h2>Introduction</h2>
@@ -216,7 +510,7 @@
 						<dfn data-cite="shacl12-core#dfn-focus-graph">focus graph</dfn>,
 						<dfn data-cite="shacl12-core#dfn-evaluation">evaluation</dfn>,
 						<dfn data-cite="shacl12-core#dfn-evaluation-failure">evaluation failure</dfn>,
-						<dfn data-cite="shacl12-core#dfn-conforms" data-lt="conforms|conform">conforms</dfn>,
+						<dfn data-cite="shacl12-core#dfn-conform" data-lt="conforms|conform">conforms</dfn>,
 						<dfn data-cite="shacl12-core#dfn-conformance-checking" data-lt="conformance check">conformance checking</dfn>,
 						<dfn data-cite="shacl12-core#dfn-failure">failure</dfn>,
 						<dfn data-cite="shacl12-core#dfn-validation">validation</dfn>,
@@ -311,7 +605,7 @@
 				the shape <code>ex:EstonianCompanyShape</code> are the instances of <code>ex:Company</code> where
 				the <code>ex:headQuarterCountry</code> is <code>ex:Estonia</code>.
 			</p>
-			<p>
+			
 				<aside class="example" title="A node expression used to compute the target nodes of a shape.">
 					<div class="shapes-graph">
 						<div class="turtle">
@@ -331,7 +625,7 @@ ex:EstonianCompanyShape
 						</div>
 					</div>
 				</aside>
-			</p>
+		
 			<p>
 				The following diagram illustrates how this node expression is interpreted, from a logical point of view.
 				During validation, a SHACL processor will determine the <a>target</a> nodes of the shape
@@ -354,7 +648,7 @@ ex:EstonianCompanyShape
 				For performance reasons, for example, specific implementations of SHACL node expressions might
 				internally convert node expressions such as the <code>shnex:filterShape</code> above to SPARQL.
 			</p>
-			<p>
+			
 				<aside class="example" title="A SPARQL select expression used to compute the target nodes of a shape.">
 					<div class="shapes-graph">
 						<div class="turtle">
@@ -372,12 +666,12 @@ ex:EstonianCompanyShape
 						</div>
 					</div>
 				</aside>
-			</p>
+		
 			<p>
 				The next example uses a node expression to compute the values of the property <code>ex:employeeCount</code>
 				as the number of values of the property <code>ex:employee</code> at each instance of <code>ex:Company</code>.
 			</p>
-			<p>
+			
 				<aside class="example" title="A node expression used to compute the values of a derived property.">
 					<div class="shapes-graph">
 						<div class="turtle">
@@ -407,7 +701,7 @@ ex:Company-employeeCount
 						</div>
 					</div>
 				</aside>
-			</p>
+			
 			<div>
 				<img
 					alt="Illustration of the data flow between node expressions computing the employee count"
@@ -607,7 +901,7 @@ ex:Company-employeeCount
 						of a person as either the value of <code>ex:fullName</code> or (if that doesn't exist)
 						as a concatenation of <code>ex:firstName</code>, a space, and <code>ex:lastName</code>.
 					</p>
-					<p>
+					
 						<aside class="example" title="A complex node expression based on list parameter functions.">
 							<div class="shapes-graph">
 								<div class="turtle">
@@ -634,7 +928,7 @@ ex:Person-displayName
 								</div>
 							</div>
 						</aside>
-					</p>
+					
 				</section>
 			</section>
 
@@ -716,7 +1010,7 @@ ex:Person-displayName
 										<td><b><code>shnex:var</code></b></td>
 										<td>
 											<code>sh:datatype xsd:string</code><br />
-											<code>sh:minLength 1</code></li>
+											<code>sh:minLength 1</code>
 										</td>
 										<td>
 											The variable name, e.g. <code>"focusNode"</code>.
@@ -744,7 +1038,7 @@ ex:Person-displayName
 						to state that the default value of the <code>ex:loves</code> relationship is the current instance of <code>ex:Person</code>,
 						creating a self-reference.
 					</p>
-					<p>
+				
 						<aside class="example" title="A var expression stating that any Person loves him or herself by default.">
 							<div class="shapes-graph">
 								<div class="turtle">
@@ -759,7 +1053,7 @@ ex:Person-loves
 								</div>
 							</div>
 						</aside>
-					</p>
+					
 				</section>
 
 				<section id="ListExpression">
@@ -838,7 +1132,7 @@ ex:ClassShape-superClassesExceptRoots
 								</div>
 							</div>
 						</aside>
-					</p>
+					
 				</section>
 
 				<section id="PathValuesExpression">
@@ -914,7 +1208,7 @@ ex:ClassShape-superClassesExceptRoots
 						and these values are processed by the <a href="#CountExpression"><code>shnex:count</code></a> to return the
 						number of top concepts.
 					</p>
-					<p>
+				
 						<aside class="example" title="A path values expression computing the number of top concepts in a scheme">
 							<div class="shapes-graph">
 								<div class="turtle">
@@ -957,7 +1251,7 @@ ex:DirectInstancesOfConceptShape
 								</div>
 							</div>
 						</aside>
-					</p>
+					
 				</section>
 
 				<section id="ExistsExpression">
@@ -1071,13 +1365,13 @@ ex:DirectInstancesOfConceptShape
 						In the example, instances of <code>ex:City</code> that have a value for <code>ex:capitalOf</code>
 						will be displayed in <code>"blue"</code>, while the others will be <code>"red"</code>.
 					</p>
-					<p>
+				
 						<aside class="example" title="An example &quot;if&quot; expression computing the fill color of a city">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:City
-	a sh:ShapeClass ;
-	sh:property ex:City-fillColor .
+    a sh:ShapeClass ;
+    sh:property ex:City-fillColor .
 
 ex:City-fillColor
     a sh:PropertyShape ;
@@ -1096,7 +1390,7 @@ ex:City-fillColor
 								</div>
 							</div>
 						</aside>
-					</p>
+				
 				</section>
 
 			</section>
@@ -1149,33 +1443,33 @@ ex:City-fillColor
 						(for example, due to an active inference engine on the data graph), <code>shnex:distinct</code> will make
 						sure that the output nodes do not include <code>rdfs:Resource</code> twice.
 					</p>
-					<p>
+			
 						<aside class="example" title="Using shnex:distinct to return a list of superclasses including rdfs:Resource but not including duplicates">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:ClassShape
-	a sh:NodeShape ;
-	sh:targetClass rdfs:Class ;
-	sh:property ex:ClassShape-superClassesIncludingRoot .
+    a sh:NodeShape ;
+    sh:targetClass rdfs:Class ;
+    sh:property ex:ClassShape-superClassesIncludingRoot .
 
 ex:ClassShape-superClassesIncludingRoot
-	a sh:PropertyShape ;
-	sh:path ex:superClassesIncludingRoot ;
-	sh:description "The superclasses of this, always including rdfs:Resource." ;
-	sh:values <b>[
-		shnex:distinct [
-			shnex:union (
-				[
-					shnex:pathValues [ sh:zeroOrMorePath rdfs:subClassOf ] ;
-				]
-				( rdfs:Resource )
-			)
-		]</b> ;
-	] .
+    a sh:PropertyShape ;
+    sh:path ex:superClassesIncludingRoot ;
+    sh:description "The superclasses of this, always including rdfs:Resource." ;
+    sh:values <b>[
+        shnex:distinct [
+            shnex:union (
+                [
+                    shnex:pathValues [ sh:zeroOrMorePath rdfs:subClassOf ] ;
+                ]
+                ( rdfs:Resource )
+            )
+        ]</b> ;
+    ] .
 								</div>
 							</div>
 						</aside>
-					</p>
+			
 				</section>
 
 				<section id="IntersectionExpression">
@@ -1219,22 +1513,22 @@ ex:ClassShape-superClassesIncludingRoot
 						This shape will target all nodes that are <a>SHACL instances</a> of <code>ex:Australian</code> and
 						<code>ex:German</code> at the same time.
 					</p>
-					<p>
+				
 						<aside class="example" title="Using shnex:intersection to compute the target nodes of a shape">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:DualCitizenShape
-	a sh:NodeShape ;
-	sh:targetNode <b>[
-		shnex:intersection (
-			[ shnex:instancesOf ex:Australian ]
-			[ shnex:instancesOf ex:German ]
-		)
-	]</b> .
+    a sh:NodeShape ;
+    sh:targetNode <b>[
+        shnex:intersection (
+            [ shnex:instancesOf ex:Australian ]
+            [ shnex:instancesOf ex:German ]
+        )
+    ]</b> .
 								</div>
 							</div>
 						</aside>
-					</p>
+					
 				</section>
 
 				<section id="JoinExpression">
@@ -1386,33 +1680,33 @@ ex:DualCitizenShape
 						of values of the <code>ex:child</code> property where the <code>ex:gender</code> property
 						has the value <code>"male"</code>.
 					</p>
-					<p>
+				
 						<aside class="example" title="Using shnex:filterShape to compute the children that are male">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:Person
-	a sh:ShapeClass ;
-	sh:property ex:Person-maleChildren .
+    a sh:ShapeClass ;
+    sh:property ex:Person-maleChildren .
 
 ex:Person-maleChildren
-	a sh:PropertyShape ;
-	sh:path ex:maleChildren ;
-	sh:class ex:Person ;
-	sh:values <b>[
-		shnex:nodes</b> [
-			shnex:pathValues ex:child ;
-		] ;
-		<b>shnex:filterShape [
-			sh:property [
-				sh:path ex:gender ;
-				sh:hasValue "male" ;
-			]
-		] ;
-	]</b> .
+    a sh:PropertyShape ;
+    sh:path ex:maleChildren ;
+    sh:class ex:Person ;
+    sh:values <b>[
+        shnex:nodes [
+            shnex:pathValues ex:child ;
+        ] ;
+        shnex:filterShape [
+            sh:property [
+                sh:path ex:gender ;
+                sh:hasValue "male" ;
+            ]
+        ] ;
+    ]</b> .
 								</div>
 							</div>
 						</aside>
-					</p>
+			
 				</section>
 
 				<section id="LimitExpression">
@@ -1471,32 +1765,32 @@ ex:Person-maleChildren
 						ordering them by their <code>ex:dateOfBirth</code>, and finally getting only
 						<code>2</code> of these children at most.
 					</p>
-					<p>
+				
 						<aside class="example" title="Using shnex:limit to compute the oldest two children">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:PersonShape
-	a sh:NodeShape ;
-	sh:targetClass ex:Person ;
-	sh:property ex:PersonShape-oldestTwoChildren .
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property ex:PersonShape-oldestTwoChildren .
 
 ex:PersonShape-oldestTwoChildren
-	a sh:PropertyShape ;
-	sh:path ex:oldestTwoChildren ;
-	sh:class ex:Person ;
-	sh:values <b>[
-		shnex:nodes</b> [
-			shnex:nodes [
-				shnex:pathValues ex:child ;
-			] ;
-			shnex:orderBy ex:dateOfBirth ;
-		] ;
-		<b>shnex:limit 2 ;
-	]</b> .
+    a sh:PropertyShape ;
+    sh:path ex:oldestTwoChildren ;
+    sh:class ex:Person ;
+    sh:values <b>[
+        shnex:nodes [
+            shnex:nodes [
+                shnex:pathValues ex:child ;
+            ] ;
+            shnex:orderBy ex:dateOfBirth ;
+        ] ;
+        shnex:limit 2 ;
+    ]</b> .
 								</div>
 							</div>
 						</aside>
-					</p>
+			
 				</section>
 
 				<section id="OffsetExpression">
@@ -1555,32 +1849,32 @@ ex:PersonShape-oldestTwoChildren
 						ordering them by their <code>ex:dateOfBirth</code>, and finally skipping the first
 						of these children.
 					</p>
-					<p>
+				
 						<aside class="example" title="Using shnex:offset to compute all but the oldest child">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:PersonShape
-	a sh:NodeShape ;
-	sh:targetClass ex:Person ;
-	sh:property ex:PersonShape-remainingChildren .
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property ex:PersonShape-remainingChildren .
 
 ex:PersonShape-remainingChildren
-	a sh:PropertyShape ;
-	sh:path ex:remainingChildren ;
-	sh:class ex:Person ;
-	sh:values <b>[
-		shnex:nodes</b> [
-			shnex:nodes [
-				shnex:pathValues ex:child ;
-			] ;
-			shnex:orderBy ex:dateOfBirth ;
-		] ;
-		<b>shnex:offset 1 ;
-	]</b> .
+    a sh:PropertyShape ;
+    sh:path ex:remainingChildren ;
+    sh:class ex:Person ;
+    sh:values <b>[
+        shnex:nodes [
+            shnex:nodes [
+                shnex:pathValues ex:child ;
+            ] ;
+            shnex:orderBy ex:dateOfBirth ;
+        ] ;
+        shnex:offset 1 ;
+    ]</b> .
 								</div>
 							</div>
 						</aside>
-					</p>
+		
 				</section>
 
 				<section id="OrderByExpression">
@@ -1921,30 +2215,30 @@ ex:ActiveEmployeeShape
 						<code>ex:topConceptCount</code> as the number of values of the <code>skos:hasTopConcept</code>
 						property in a <code>skos:ConceptScheme</code>.
 					</p>
-					<p>
+				
 						<aside class="example" title="Using shnex:count to compute the number of values of another property">
 							<div class="shapes-graph">
 								<div class="turtle">
 skos:ConceptScheme
-	a rdfs:Class, sh:NodeShape ;
-	sh:property skos:ConceptScheme-topConceptCount .
+    a rdfs:Class, sh:NodeShape ;
+    sh:property skos:ConceptScheme-topConceptCount .
 
 skos:ConceptScheme-topConceptCount
-	a sh:PropertyShape ;
-	sh:path ex:topConceptCount ;
-	sh:datatype xsd:integer ;
-	sh:description "The number of top concepts in this scheme." ;
-	sh:maxCount 1 ;
-	sh:name "top concept count" ;
-	sh:values [
-		shnex:count [
-			shnex:pathValues skos:hasTopConcept ;
-		] ;
-	] .
+    a sh:PropertyShape ;
+    sh:path ex:topConceptCount ;
+    sh:datatype xsd:integer ;
+    sh:description "The number of top concepts in this scheme." ;
+    sh:maxCount 1 ;
+    sh:name "top concept count" ;
+    sh:values <b>[
+        shnex:count [
+            shnex:pathValues skos:hasTopConcept ;
+        ] ;
+    ]</b> .
 								</div>
 							</div>
 						</aside>
-					</p>
+				
 				</section>
 
 				<section id="MinExpression">
@@ -1991,30 +2285,30 @@ skos:ConceptScheme-topConceptCount
 						In other words, it walks through all employees of the given company and returns the earliest
 						date on which an employee started.
 					</p>
-					<p>
+			
 						<aside class="example" title="Using shnex:min to compute the smallest value in a property path">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:CompanyShape
-	a sh:NodeShape ;
-	sh:targetClass ex:Company ;
-	sh:property ex:CompanyShape-minStartDate .
+    a sh:NodeShape ;
+    sh:targetClass ex:Company ;
+    sh:property ex:CompanyShape-minStartDate .
 
 ex:CompanyShape-minStartDate
-	a sh:PropertyShape ;
-	sh:path ex:minStartDate ;
-	sh:datatype xsd:date ;
-	sh:maxCount 1 ;
-	sh:name "min start date" ;
-	sh:values [
-		shnex:min [
-			shnex:pathValues ( ex:employee ex:startDate ) ;
-		] ;
-	] .
+    a sh:PropertyShape ;
+    sh:path ex:minStartDate ;
+    sh:datatype xsd:date ;
+    sh:maxCount 1 ;
+    sh:name "min start date" ;
+    sh:values <b>[
+        shnex:min [
+            shnex:pathValues ( ex:employee ex:startDate ) ;
+        ] ;
+    ]</b> .
 								</div>
 							</div>
 						</aside>
-					</p>
+				
 				</section>
 
 				<section id="MaxExpression">
@@ -2170,10 +2464,102 @@ ex:CompanyShape-minStartDate
 					</p>
 				</section>
 
-			</section>
+				<section id="NodesMatchingExpression">
+					<h3>Nodes Matching Expressions</h3>
+					<p class="syntax">
+						<span data-syntax-rule="NodesMatchingExpression-syntax">
+							A <a>blank node</a> that is the <a>subject</a> of the following properties
+							is called a <dfn>nodes matching expression</dfn> with the <a>function name</a> <code>shnex:NodesMatchingExpression</code>:
+							<table class="term-table">
+								<thead>
+									<th>Property</th>
+									<th>Constraints</th>
+									<th>Description</th>
+								</thead>
+								<tbody>
+									<tr>
+										<td><b><code>shnex:nodesMatching</code></b></td>
+										<td>
+											<code>sh:nodeKind sh:BlankNodeOrIRI</code><br/>
+											<span>Must be a <a>well-formed</a> <a>shape</a>.</span>
+										</td>
+										<td>
+											The shape that the <a>output nodes</a> must conform to.
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</span>
+					</p>
+					<div class="def" id="NodesMatchingExpression-evaluation">
+						<div class="def-header">EVALUATION OF NODES MATCHING EXPRESSIONS</div>
+						<p>
+							Let <code>shape</code> be the <a>value</a> of <code>shnex:nodesMatching</code> in a <a>nodes matching expression</a>.
+							The <a>output nodes</a> of the <a>nodes matching expression</a> are the <a>nodes</a> in the <a>focus graph</a>
+							that <a>conform</a> to <code>shape</code>.
+						</p>
+					</div>
+					<p><em>The remainder of this section is informative.</em></p>
+					<p>
+						Users of this node expression function should be aware that the list of output nodes may be very large
+						and that some implementations may not be able to efficiently process it.
+					</p>
+					<p>
+						The following example illustrates the use of <code>shnex:nodesMatching</code> to compute all instances of
+						<code>ex:Company</code> that have at least 100 employees.
+					</p>
+					<aside class="example" id="nodes-matching-example">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:LargeCompanyShape
+    a sh:NodeShape ;
+    sh:targetNode <b>[
+        shnex:nodesMatching [
+            sh:class ex:Company ;
+            sh:property [
+                sh:path ex:employee ;
+                sh:minCount 100 ;
+            ]
+        ]
+    ]</b> .
+							</div>
+						</div>
+					</aside>
+					<p>
+						The interpretation of <code>shnex:nodesMatching</code> is similar to <code>sh:targetWhere</code>.
+						The main differences are that <code>sh:targetWhere</code> is part of SHACL Core and that
+						<code>shnex:nodesMatching</code> can be used in arbitrary node expressions.
+					</p>
+				</section>
 
+			</section>
 		</section>
 
+		<section id="sparql-functions">
+			<h2>SPARQL Functions</h2>
+			<p>
+				This section introduces SHACL SPARQL function expressions based on [[sparql12-query]] that can be used in node expressions.
+			</p>
+			<p class="syntax">
+				<span data-syntax-rule="sparql-syntax">
+					A <a>blank node</a> that uses a SPARQL function URI <code>sparql:&lt;NAME&gt;</code>
+					as its predicate with an <code>rdf:List</code> of arguments as its object
+					is called a <dfn>SHACL SPARQL function expression</dfn> with the corresponding SPARQL <a>function name</a>.
+				</span>
+			</p>
+			<div class="def" id="sparql-function-evaluation">
+				<div class="def-header">EVALUATION OF SPARQL FUNCTION EXPRESSIONS</div>
+				<p>
+					The evaluation follows the SPARQL semantics for the corresponding SPARQL function.
+					Each item in the <code>rdf:List</code> is evaluated as a <a>node expression</a> to produce argument values,
+					which are then passed to the SPARQL function implementation.
+					If the SPARQL function produces a single result value, it is wrapped as a singleton list containing that output node.
+					If the SPARQL function produces no result or an error, the expression produces an empty list or an <a>evaluation failure</a>, respectively.
+				</p>
+			</div>
+			<div id="sparql-functions-container"></div>
+		</section>
+	
 		<section id="custom-node-expressions">
 			<h2>Custom Node Expressions</h2>
 			<p>
@@ -2504,6 +2890,7 @@ ex:AccountShape
 ex:AccountShape-ibanNumber
     a sh:PropertyShape ;
     sh:path ex:ibanNumber ;
+    sh:datatype xsd:string ;
     sh:message "IBAN numbers must start with the country code, in upper-case letters." ;
     <b>sh:expression [
         sparql:strstarts (
@@ -2593,7 +2980,7 @@ ex:Germany
 					<code>sh:nodeByExpression</code> functions similarly to <code>sh:node</code>, but instead of referencing a fixed <a>node shape</a>,
 					a referenced <a>node expression</a> is used to dynamically compute the set of <a>node shapes</a> to which each <a>value node</a> must conform.
 				</p>
-				<p>
+				
 					There are three key differences between <code>sh:nodeByExpression</code> and <a href="shacl12-core#NodeConstraintComponent"><code>sh:node</code></a>:
 					<ol>
 						<li>
@@ -2607,7 +2994,7 @@ ex:Germany
 							<a>Results</a> generated by <code>sh:nodeByExpression</code> additionally include a value for `sh:sourceConstraint`.
 						</li>
 					</ol>
-				</p>
+				
 				<p>
 					Note that <code>sh:node</code> and <code>sh:nodeByExpression</code> exhibit the same behavior when given a <a>value</a> that is an <a>IRI</a> of a <a>node shape</a>.
 					In this case, <code>sh:node</code> directly validates against the specified <a>node shape</a>, whereas <code>sh:nodeByExpression</code> interprets the <a>IRI</a>
@@ -3127,3 +3514,4 @@ ex:Address-state
 		</section>
 	</body>
 </html>
+							
