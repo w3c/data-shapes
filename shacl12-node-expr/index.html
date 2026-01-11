@@ -2458,8 +2458,8 @@ skos:ConceptScheme-topConceptCount
 							Let <code>min</code> be the <a>value</a> of <code>shnex:min</code> in the <a>min expression</a>.
 							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(min, focusGraph, focusNode, scope)</code>.
 							The <a>output nodes</a> of the <a>min expression</a> is the list consisting of at most one <a>node</a>
-							that is computed as the minimum value from <code>N</code>.
-							<span class="todo">Clarify exactly how that is computed, maybe via reference to SPARQL MIN</span>
+							that is computed as the minimum value from <code>N</code>,
+							see <dfn data-cite="sparql12-query#aggMin">SPARQL MIN</dfn>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2470,7 +2470,6 @@ skos:ConceptScheme-topConceptCount
 						In other words, it walks through all employees of the given company and returns the earliest
 						date on which an employee started.
 					</p>
-			
 					<aside class="example" title="Using shnex:min to compute the smallest value in a property path">
 						<div class="shapes-graph">
 							<div class="turtle">
@@ -2527,8 +2526,8 @@ ex:CompanyShape-minStartDate
 							Let <code>max</code> be the <a>value</a> of <code>shnex:max</code> in the <a>max expression</a>.
 							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(max, focusGraph, focusNode, scope)</code>.
 							The <a>output nodes</a> of the <a>max expression</a> is the list consisting of at most one <a>node</a>
-							that is computed as the maximum value from <code>N</code>.
-							<span class="todo">Clarify exactly how that is computed, maybe via reference to SPARQL MAX</span>
+							that is computed as the maximum value from <code>N</code>,
+							see <dfn data-cite="sparql12-query#aggMax">SPARQL MAX</dfn>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
@@ -2570,19 +2569,70 @@ ex:CompanyShape-minStartDate
 							Let <code>sum</code> be the <a>value</a> of <code>shnex:sum</code> in the <a>sum expression</a>.
 							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(sum, focusGraph, focusNode, scope)</code>.
 							The <a>output nodes</a> of the <a>sum expression</a> is the list consisting of exactly one <a>node</a>
-							that is computed as the sum of all <a>nodes</a> from <code>N</code>.
-							<span class="todo">Clarify exactly how that is computed, maybe via reference to SPARQL SUM</span>
+							that is computed as the sum of all <a>nodes</a> from <code>N</code>,
+							see <dfn data-cite="sparql12-query#aggSum">SPARQL SUM</dfn>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is informative.</em></p>
 					<p>
-						Note that <code>shnex:sum</code> needs to be used with care and may be often misunderstood,
+						Note that <code>shnex:sum</code> needs to be used with care and may be misunderstood,
 						when used with property paths.
 						The problem is that when a <a>path values expression</a> is used as input to a <a>sum expression</a>,
 						the path values expression will have eliminated duplicates before they can be processed by the <code>shnex:sum</code>.
 						As a result, only the distinct values will be added up.
+						To work around this, one option is to use <dfn data-cite="shacl12-sparql#sparql-node-expressions">SPARQL-based node expressions</dfn>.
+						Another alternative is illustrated in the following example.
 					</p>
-					<p class="todo">TODO: Find good example, or drop the feature if none makes sense</p>
+					<aside class="example" title="Using shnex:sum to compute the sum of the revenues of all departments">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:CompanyShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Company ;
+    sh:property ex:CompanyShape-totalRevenue .
+
+ex:CompanyShape-totalRevenue
+    a sh:PropertyShape ;
+    sh:path ex:totalRevenue ;
+    sh:datatype xsd:decimal ;
+    sh:maxCount 1 ;
+    sh:name "total revenue" ;
+    sh:values <b>[
+        shnex:sum [
+            shnex:nodes [
+                shnex:pathValues ex:department ;
+            ] ;
+            shnex:flatMap [
+                shnex:pathValues ex:revenue ;
+            ] ;
+        ] ;
+    ]</b> .
+							</div>
+						</div>
+						<p>
+							For the following data graph, the sum will be `42.0`.
+						</p>
+						<div class="data-graph">
+							<div class="turtle">
+ex:MyCompany
+    a ex:Company ;
+    ex:department [
+	    ex:revenue 2.1 ;
+    ] ;
+    ex:department [
+        ex:revenue 37.8 ;
+    ] ;
+    ex:department [
+        ex:revenue 2.1 ;
+    ] .
+							</div>
+						</div>
+						<p>
+							In this example, the system will first fetch all values of `ex:department` for the current company.
+							Then, for each of these departments, it will get the values for `ex:revenue` via a <a>flat map expression</a>
+							and finally return the sum of those numbers.
+						</p>
+					</aside>
 				</section>
 			</section>
 
