@@ -417,6 +417,20 @@ RULE { ?x :name ?FN } WHERE {
             A [=rule set=] is a collection of zero or more [=rules=]
             and a collection of zero or more [=data blocks=].
           </dd>
+
+          <dt><dfn>base graph</dfn></dt>
+          <dd>
+            The [=base graph=] is the [=RDF Graph=] given as input to the evaluation
+            process.
+          </dd>
+
+          <dt><dfn>inference graph</dfn></dt>
+          <dd>
+            The [=inference graph=] is an [=RDF Graph=] that is the outcome of rule set evaluation.
+            It contains all triples not found in the [=base graph=] that are inferred from
+            evaluation of the [=rule set=] on the [=base graph=].
+          </dd>
+
         </dl>
 
         <p>
@@ -503,7 +517,7 @@ RULE { ?x :name ?FN } WHERE {
             <li>
               For every [=variable=] in an [=expression=] at position <em>i</em>
               of the [=body=], there is a corresponding [=variable=] of the same
-              name occuring in a [=triple pattern=] at a position <em>j</em>,
+              name occurring in a [=triple pattern=] at a position <em>j</em>,
               or occurring as an [=assignment variable=] at a position <em>j</em>,
               where <em>i &gt; j</em>.
             </li>
@@ -714,11 +728,6 @@ Output: an RDF graph GI of inferred triples
             If the triple pattern result has no variables, then it is an [=RDF Triple=].
           </dd>
           
-          <dt><dfn>base graph</dfn></dt>
-          <dd>
-            The [=base graph=] is the [=RDF Graph=] given as input to the evaluation process.
-          </dd>
-
           <dt><dfn>evaluation graph</dfn></dt>
           <dd>
             A [=evaluation graph=] is an [=RDF Graph=] that combines the [=base graph=]
@@ -916,23 +925,32 @@ result eval(R, G) is H
         <p class=ednote>Sketch</p>
 
 <pre class="algorithm">
-let G0 be the input RDF graph.
+let G0 be the input base graph
 let RS be the rule set
+let D be the graph of all DATA triples in RS
+
 Apply stratification to RS
+
 let L be the sequence of layers after stratification
 
-let GI = G0
+# Inference graph
+let GI = { t &isin;D  | t &notin; in G0 }
+
+# Evaluation graph.
+let GE = G0 &cups; D
+
 for each layer in L:
     let finished = false
     while !finished:
         finished = true
         for each rule in layer:
-            let X = eval(rule, GI)
-            let Y = { t &isinv; X | t &notin; in GI }
+            let X = eval(rule, GE)
+            let Y = { t &isin; X | t &notin; in GE }
             if Y is not empty:
                 finished = false
+                GI = Y &cups; GI
+                GE = Y &cups; GE
                 endif
-            let GI = Y &cups; GI
             endfor
         endwhile
     endfor
