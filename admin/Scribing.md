@@ -3,7 +3,19 @@
 
 ## Scribes
 
-* 2025-11-03: 
+* 2026-01-26: 
+* 2026-01-19: simonstey
+* 2026-01-12: Eliana
+* 2026-01-05: (no WG meeting)
+* 2025-12-29: (no WG meeting)
+* 2025-12-22: (no WG meeting)
+* 2025-12-15: simonstey
+* 2025-12-08: HolgerK
+* 2025-12-01: Alex
+* 2025-11-24: simonstey
+* 2025-11-17: Robert
+* 2025-11-10: SimonW
+* 2025-11-03: Edmond
 * 2025-10-27: simonstey
 * 2025-10-20: Eliana
 * 2025-10-13: DavidHabgood
