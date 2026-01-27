@@ -37,7 +37,7 @@ conditions of the SHACL abstract rule syntax.
 
 ### Illegal stratification
 
-These test rule sets to detect where the startification condition is violated.
+These test rule sets to detect where the stratification condition is violated.
 
 All the test are syntactically legal and well-formed.
 
