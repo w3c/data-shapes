@@ -172,8 +172,9 @@
       <section class="conventions">
         <h3>Document Conventions</h3>
         <p>
-          Some examples in this document use Turtle [[turtle]]. The reader is expected to be familiar with SHACL [[shacl]] and SPARQL
-          [[sparql-query]].
+          Some examples in this document use Turtle [[turtle]].
+          The reader is expected to be familiar with SHACL [[shacl]] 
+          and SPARQL [[sparql-query]].
         </p>
         <p>Within this document, the following namespace prefix bindings are used:</p>
         <table class="term-table">
@@ -211,7 +212,8 @@
           </tr>
         </table>
         <p>
-          Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear. These fragments of Turtle documents use the prefix
+          Throughout the document, color-coded boxes containing RDF graphs in
+          Turtle will appear. These fragments of Turtle documents use the prefix
           bindings given above.
         </p>
         <!--
@@ -258,7 +260,7 @@
     </section>
 
     <section id="overview">
-      <h2>Outline</h2>
+      <h2>SHACL Rules</h2>
 
       <p>
         SHACL rules infer new triples. The input is a data graph
@@ -312,6 +314,96 @@ RULE { ?x :name ?FN } WHERE {
 }
 </pre>
       </section>
+
+      <section id="import">
+        <h3>Importing rules</h3>
+        <p>
+          `IMPORTS`
+        </p>
+        <div class="issue" data-number="780">
+          <p>Gives some modularity/sharing of rules.</p>
+          <p>"IMPORTS" vs "IMPORT" (c.f. `owl:imports`)</p>
+        </div>
+      </section>
+
+      <section id="creating-rdf-terms">
+        <h3>Assignment and Creating RDF Terms</h3>
+        <div class="issue" data-number="749">
+          <p>
+            Generating new terms without restriction can lead to unbounded
+            inferred triples.  There are function-like forms that do not have
+            repeatable results: `BNODE`, `UUID`.  Blank nodes in the rule head
+            behave like SPARQL `CONSTRUCT`.  Assignment can be used to have an
+            incrementing counter.
+          </p>
+        </div>
+      </section>
+      
+      <section id="rule-tuples">
+        <h3>Rule Tuples</h3>
+        <div class="issue" data-number="752">
+          <p><em>At risk:</em></p>
+          <p>
+            Rule tuples are workspace elements and are disjoint from triples.
+            They are tuples of RDF terms (no variables).
+          </p>
+          <p>
+            Syntax of tuple patterns, templates and tuples:
+          </p>
+          <ul>
+            <li>`TUPLE(termOrVar , ...)`</li>
+            <li>Shorthand: `$(termOrVar , ...)`</li>
+          </ul>
+          <p>
+            Often, the first argument will be a fixed name.
+          </p>
+          <p>
+            There is a tuple store which holds tuples for the lifetime of the
+            evaluation. The tuple store holds duplicate data tuples (unlike
+            an RDF graph which is a set).
+          </p>
+        </div>
+      </section>
+
+      <section id="attaching-rules-to-shapes">
+        <h3>Attaching Rules To Shapes</h3>
+
+        <div class="issue" data-number="765">
+          <p>
+            Should we include attaching SHACL (1.2) Rules to shapes?
+            If so, what does it mean given the difference in execution semantics?
+          </p>
+          <p>
+            In practice, how often are constriants and AF-rules written on the same shape?
+            If they are, how are the rules being used, in practice, to influence the validation?
+          </p>
+          <p>Sketch:</p>
+          <pre>
+[] rdf:type sh:NodeShape ;
+    sh:rule                   ## Different property?
+      [ a srl:SHACLRule ;
+        srl:ruleSet "...";    ## SRL syntax
+        sh:prefixes ... ;
+      ];
+[] rdf:type sh:NodeShape ;
+    sh:rule
+      [ a srl:SHACLRule ;
+        srl:ruleSet [ ... RDF syntax ... ] ;
+      ];
+</pre>
+
+</div>
+
+      </section>
+
+      <section>
+        <h3>Relationship between `RULE` and SPARQL `CONSTRUCT`</h3>
+        <div class="issue" data-number="516">
+          <p>
+          </p>
+        </div>
+      </section>
+
     </section>
 
     <section id="rules-abstract-syntax">
@@ -704,10 +796,10 @@ RULE { ?x :name ?FN } WHERE {
         <li><a href="#rdf-rules-syntax">RDF Rules syntax</a></li>
       </ul>
 
-      <p class="note">
+      <aside class="note">
         The Shape Rules Language (SRL) syntax has an equivalent RDF syntax form.
         Well-formed RDF syntax can be translated to the Shape Rules Language syntax.
-      </p>
+      </aside>
 
       <p>Shape Rules Language:</p>
       <div class="example-rules">
@@ -781,7 +873,7 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
           <p>Additional helpers (short-hand abbreviations):</p>
 
           <p class=note>
-            These allow for well-known rule patterns and also specialised implementations in basic engines
+            These allow for well-known rule patterns and also specialised implementations in basic engines.
           </p>
 
           <ul>
@@ -789,6 +881,15 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
             <li><code>SYMMETRIC(<em>uri</em>)</code></li>
             <li><code>INVERSE(<em>uri</em>)</code></li>
           </ul>
+
+          <div class="issue" data-number="779">
+            <p><em>At risk:</em></p>
+            <p>
+              `TRANSITIVE` has both implementation and concise expression advantages.
+              Implementation advantages for `SYMMETRIC` and `INVERSE` are not clear.
+            </p>
+          </div>
+
         </section>
       </section>
 
@@ -810,10 +911,8 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
           </ul>
         </div>
         <div class="ednote">
-          <p>Describe how the abstract model maps to triples??.
-            way round - copes with extra triples.
-            Output is the instance of the abtract model that generates the triples -
-            but need to define "maximal".
+          <p>
+            Describe how the abstract model maps to triples.
         </p>
         </div>
 
@@ -956,16 +1055,13 @@ merge(S1, S2) = { <var>μ</var> |
             </div>
             <div class="ednote">
               <p>
-              Say the domain is `dom(S1) &cups; dom(S2)`.
+                Say the domain is `dom(S1) &cups; dom(S2)`.
               </p>
               <p>
                 Say that two solutions that have no variables in common are compatible.
               </p>
             </div>
-            
-
           </dd>
-
         </dl>
       </section>
 
