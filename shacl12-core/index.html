@@ -3921,14 +3921,15 @@ ex:person1 a ex:Person ;
 			<section id="core-components-property-pairs">
 				<h3>Property Pair Constraint Components</h3>
 				<p>
-					The constraint components in this section specify conditions on the sets of <a>value nodes</a> in relation to other properties.
+					The constraint components in this section specify conditions on the sets of <a>value nodes</a> in relation to other properties or property paths.
 					These constraint components can only be used by <a>property shapes</a>.
 				</p>
 
 				<section id="EqualsConstraintComponent">
 					<h4>sh:equals</h4>
 					<p>
-						<code>sh:equals</code> specifies the condition that the set of all <a>value nodes</a> is equal to the set of <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the <a>value</a> of <code>sh:equals</code> as <a>predicate</a>.
+						<code>sh:equals</code> specifies the condition that the set of all <a>value nodes</a> is equal to the set of <a>nodes</a>
+						that can be reached from the <a>focus node</a> via the <a>SHACL property path</a> that is specified using <code>sh:equals</code>.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component IRI</span>: <code>sh:EqualsConstraintComponent</code>
@@ -3947,7 +3948,7 @@ ex:person1 a ex:Person ;
 								<td><code>sh:equals</code></td>
 								<td>
 									The property to compare with.
-									<span data-syntax-rule="equals-nodeKind">The values of <code>sh:equals</code> in a shape are <a>IRIs</a>.</span>
+									<span data-syntax-rule="equals-nodeKind">The values of <code>sh:equals</code> in a shape are <a>well-formed</a> <a>SHACL property paths</a>.</span>
 								</td>
 							</tr>
 						</tbody>
@@ -3955,11 +3956,13 @@ ex:person1 a ex:Person ;
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body" data-validator="Equals">
-							Let <code>$equals</code> be a <a>value</a> of <code>sh:equals</code>.
+							Let <code>$equals</code> be a <a>value</a> of <code>sh:equals</code>, and <code>$path</code>
+							be the <a>SHACL property path</a> represented by <code>$equals</code> in the <a>shapes graph</a>.
+							Let <code>$otherNodes</code> be the set of <a>nodes</a> that can be reached from the <a>focus node</a> via <code>$path</code>.
 							For each <a>value node</a>
-							that does not exist as a <a>value</a> of the property <code>$equals</code> at the <a>focus node</a>,
+							that does not exist in <code>$otherNodes</code>,
 							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
-							For each <a>value</a> of the property <code>$equals</code> at the <a>focus node</a>
+							For each <a>node</a> in <code>$otherNodes</code>
 							that is not one of the <a>value nodes</a>,
 							there is a <a>validation result</a> with the <a>value</a> as <code>sh:value</code>.
 						</div>
@@ -3969,7 +3972,7 @@ ex:person1 a ex:Person ;
 						The following example illustrates the use of <code>sh:equals</code> in a shape to specify
 						that certain focus nodes need to have the same set of values for <code>ex:firstName</code> and <code>ex:givenName</code>.
 					</p>
-					<aside class="example" title="Shape with sh:datatype property constraint">
+					<aside class="example" title="Shape with sh:equals between two IRI properties">
 						<div class="shapes-graph">
 							<div class="turtle">
 ex:EqualExampleShape
@@ -3992,15 +3995,57 @@ ex:Bob
 							</div>
 						</div>
 					</aside>
+					<p>
+						The following example shows that <a>SHACL property paths</a> can be used both as values
+						of <code>sh:path</code> and <code>sh:equals</code>.
+					</p>
+					<aside class="example" title="Shape with sh:equals between two paths">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:Person
+    a sh:ShapeClass ;
+    sh:property ex:Person-spouseShouldBeTattoo .
+
+ex:Person-spouseShouldBeTattoo
+    a sh:PropertyShape ;
+    sh:severity sh:Warning ;
+    sh:path ( ex:spouse ex:name ) ;
+    sh:equals ( ex:tattoo ex:text ) .
+							</div>
+						</div>
+						<div class="data-graph">
+							<div class="turtle">
+ex:Alice
+    a ex:Person ;
+    ex:name "Alice" .
+
+ex:Bob
+    a ex:Person ;
+    ex:name "Bob" ;
+    ex:spouse ex:Alice ;
+    ex:tattoo ex:BobsTattoo .
+
+ex:BobsTattoo
+    ex:drawing "heart" ;
+    ex:text "Alice" .
+							</div>
+						</div>
+						<p>
+							In this example, warnings would be reported if Bob had
+							a spouse with a different name than his tattoo, or vice versa.
+							No warning would be produced if Bob has neither spouse nor tattoo, or
+
+							has both and their names and texts match exactly the same set of nodes.
+						</p>
+					</aside>
 				</section>
 
 				<section id="DisjointConstraintComponent">
 					<h4>sh:disjoint</h4>
 					<p>
 						<code>sh:disjoint</code> specifies the condition that the set of <a>value nodes</a>
-						is disjoint with the set of <a>objects</a> of the <a>triples</a>
-						that have the <a>focus node</a> as <a>subject</a>
-						and the <a>value</a> of <code>sh:disjoint</code> as <a>predicate</a>.
+						is disjoint with the set of <a>nodes</a> that can be reached from the <a>focus node</a>
+						via the <a>SHACL property path</a> that is the <a>value</a> of <code>sh:disjoint</code>.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component IRI</span>: <code>sh:DisjointConstraintComponent</code>
@@ -4019,7 +4064,7 @@ ex:Bob
 								<td><code>sh:disjoint</code></td>
 								<td>
 									The property to compare the values with.
-									<span data-syntax-rule="disjoint-nodeKind">The values of <code>sh:disjoint</code> in a shape are <a>IRIs</a>.</span>
+									<span data-syntax-rule="disjoint-nodeKind">The values of <code>sh:disjoint</code> in a shape are <a>well-formed</a> <a>SHACL property paths</a>.</span>
 								</td>
 							</tr>
 						</tbody>
@@ -4027,9 +4072,10 @@ ex:Bob
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body" data-validator="Disjoint">
-							Let <code>$disjoint</code> be a <a>parameter value</a> of <code>sh:disjoint</code>.
-							For each <a>value node</a>
-							that also exists as a <a>value</a> of the property <code>$disjoint</code> at the <a>focus node</a>,
+							Let <code>$disjoint</code> be a <a>parameter value</a> of <code>sh:disjoint</code>, and <code>$path</code>
+							be the <a>SHACL property path</a> represented by <code>$disjoint</code> in the <a>shapes graph</a>.
+							Let <code>$otherNodes</code> be the set of <a>nodes</a> that can be reached from the <a>focus node</a> via <code>$path</code>.
+							For each <a>value node</a> that is also in <code>$otherNodes</code>,
 							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
 						</div>
 					</div>
@@ -4070,7 +4116,9 @@ ex:USA
 				<section id="LessThanConstraintComponent">
 					<h4>sh:lessThan</h4>
 					<p>
-						<code>sh:lessThan</code> specifies the condition that each <a>value node</a> is smaller than all the <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the <a>value</a> of <code>sh:lessThan</code> as <a>predicate</a>.
+						<code>sh:lessThan</code> specifies the condition that each <a>value node</a> is smaller than all
+						the <a>nodes</a> that can be reached from the <a>focus node</a> via the <a>SHACL property path</a>
+						that is the <a>value</a> of <code>sh:lessThan</code>.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component IRI</span>: <code>sh:LessThanConstraintComponent</code>
@@ -4089,7 +4137,7 @@ ex:USA
 								<td><code>sh:lessThan</code></td>
 								<td>
 									The property to compare the values with.
-									<span data-syntax-rule="lessThan-nodeKind">The values of <code>sh:lessThan</code> in a shape are <a>IRIs</a>.</span>
+									<span data-syntax-rule="lessThan-nodeKind">The values of <code>sh:lessThan</code> in a shape are <a>well-formed</a> <a>SHACL property paths</a>.</span>
 									<span data-syntax-rule="lessThan-scope"><a>Node shapes</a> cannot have any value for <code>sh:lessThan</code>.</span>
 								</td>
 							</tr>
@@ -4098,8 +4146,10 @@ ex:USA
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body" data-validator="LessThan">
-							Let <code>$lessThan</code> be a <a>value</a> of <code>sh:lessThan</code>.
-							For each pair of <a>value nodes</a> and the values of the property <code>$lessThan</code> at the given <a>focus node</a>
+							Let <code>$lessThan</code> be a <a>value</a> of <code>sh:lessThan</code>, and <code>$path</code>
+							be the <a>SHACL property path</a> represented by <code>$lessThan</code> in the <a>shapes graph</a>.
+							Let <code>$otherNodes</code> be the set of <a>nodes</a> that can be reached from the <a>focus node</a> via <code>$path</code>.
+							For each pair of a <a>value node</a> and a member of <code>$otherNodes</code>
 							where the first <a>value</a> is not less than the second <a>value</a> (based on SPARQL's <code>&lt;</code> operator)
 							or where the two values cannot be compared,
 							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
@@ -4130,7 +4180,9 @@ ex:LessThanExampleShape-startDate
 				<section id="LessThanOrEqualsConstraintComponent">
 					<h4>sh:lessThanOrEquals</h4>
 					<p>
-						<code>sh:lessThanOrEquals</code> specifies the condition that each <a>value node</a> is smaller than or equal to all the <a>objects</a> of the <a>triples</a> that have the <a>focus node</a> as <a>subject</a> and the <a>value</a> of <code>sh:lessThanOrEquals</code> as <a>predicate</a>.
+						<code>sh:lessThanOrEquals</code> specifies the condition that each <a>value node</a> is smaller than or equal to
+						all the <a>nodes</a> that can be reached from the <a>focus node</a> via the <a>SHACL property path</a>
+						that is the <a>value</a> of <code>sh:lessThanOrEquals</code>.
 					</p>
 					<p>
 						<span class="component-class">Constraint Component IRI</span>: <code>sh:LessThanOrEqualsConstraintComponent</code>
@@ -4149,7 +4201,7 @@ ex:LessThanExampleShape-startDate
 								<td><code>sh:lessThanOrEquals</code></td>
 								<td>
 									The property to compare the values with.
-									<span data-syntax-rule="lessThanOrEquals-nodeKind">The values of <code>sh:lessThanOrEquals</code> in a shape are <a>IRIs</a>.</span>
+									<span data-syntax-rule="lessThanOrEquals-nodeKind">The values of <code>sh:lessThanOrEquals</code> in a shape are <a>well-formed</a> <a>SHACL property paths</a>.</span>
 									<span data-syntax-rule="lessThanOrEquals-scope"><a>Node shapes</a> cannot have any value for <code>sh:lessThanOrEquals</code>.</span>
 								</td>
 							</tr>
@@ -4158,8 +4210,10 @@ ex:LessThanExampleShape-startDate
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION</div>
 						<div class="def-text-body" data-validator="LessThanOrEquals">
-							Let <code>$lessThanOrEquals</code> be a <a>value</a> of <code>sh:lessThanOrEquals</code>.
-							For each pair of <a>value nodes</a> and the values of the property <code>$lessThanOrEquals</code> at the given <a>focus node</a>
+							Let <code>$lessThanOrEquals</code> be a <a>value</a> of <code>sh:lessThanOrEquals</code>, and <code>$path</code>
+							be the <a>SHACL property path</a> represented by <code>$lessThanOrEquals</code> in the <a>shapes graph</a>.
+							Let <code>$otherNodes</code> be the set of <a>nodes</a> that can be reached from the <a>focus node</a> via <code>$path</code>.
+							For each pair of a <a>value node</a> and a member of <code>$otherNodes</code>
 							where the first <a>value</a> is not less than or equal to the second <a>value</a> (based on SPARQL's <code>&lt;=</code> operator)
 							or where the two values cannot be compared,
 							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
@@ -5849,16 +5903,6 @@ ex:NameGroup
 			</p>
 		</section>
 
-		<section class="appendix informative">
-		  <h2>Revision History</h2>
-			<p>
-				The detailed list of changes and their diffs can be found in the <a href="https://github.com/w3c/data-shapes">Git repository</a>.
-			</p>
-			<ul>
-				<li><b>2024-02-14</b>: New work started by cloning the main SHACL spec and splitting it into SHACL Core and SHACL-SPARQL</li>
-			</ul>
-		</section>
-
 		<section class="appendix informative" id="changes-12">
 			<h2>Changes between the original SHACL Core and SHACL 1.2 Core</h2>
 			<ul>
@@ -5867,6 +5911,7 @@ ex:NameGroup
 				<li>Added the new constraint component <a href="#SomeValueConstraintComponent"><code>sh:someValue</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/178">Issue 178</a></li>
 				<li>Added the new class <a href="#ShapeClass"><code>sh:ShapeClass</code></a> for implicit class targets; see <a href="https://github.com/w3c/data-shapes/issues/212">Issue 212</a></li>
 				<li>Moved SPARQL-based validators from Core to an Appendix of SHACL-SPARQL; see <a href="https://github.com/w3c/data-shapes/issues/271">Issue 271</a></li>
+				<li>The 4 <a href="#core-components-property-pairs">property pair constraint components</a> now also support property paths as parameters; see <a href="https://github.com/w3c/data-shapes/issues/281">Issue 281</a></li>
 				<li>Added new <a href="#core-components-list">List constraint components</a>, see <a href="https://github.com/w3c/data-shapes/issues/391">Issue 391</a> and <a href="https://github.com/w3c/data-shapes/issues/414">Issue 414</a></li>
 				<li>Added the new value <code>sh:ByTypes</code> for <a href="#ClosedConstraintComponent"><code>sh:closed</code></a>; see <a href="https://github.com/w3c/data-shapes/issues/172">Issue 172</a></li>
 				<li>The values of <a href="#ClassConstraintComponent"><code>sh:class</code></a> and <a href="#DatatypeConstraintComponent"><code>sh:datatype</code></a> can now also be lists, indicating a union of choices; see <a href="https://github.com/w3c/data-shapes/issues/160">Issue 160</a></li>
