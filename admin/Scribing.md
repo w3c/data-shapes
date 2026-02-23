@@ -3,7 +3,11 @@
 
 ## Scribes
 
-* 2026-01-26: 
+* 2026-02-23: 
+* 2026-02-16: simonstey
+* 2026-02-09: simonstey
+* 2026-02-02: Edmond
+* 2026-01-26: Robert
 * 2026-01-19: simonstey
 * 2026-01-12: Eliana
 * 2026-01-05: (no WG meeting)
