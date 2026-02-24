@@ -683,8 +683,78 @@ RULE { ?x :name ?FN } WHERE {
             in the [=dependency graph=] involving `R`.
           </dd>
         </dl>
-          
-        
+
+        <section id="dependency-graph-construction-algorithm">
+          <h4>Dependency Graph Algorithm</h4>
+          <p>
+            This section is non-normative. The following algorithm gives one
+            possible method for constructing the [=dependency graph=] from a
+            [=rule set=]. Implementations MAY use any equivalent algorithm.
+            Conformance depends on the dependency definitions in this section,
+            not on use of this procedure.
+          </p>
+          <div class="algorithm">
+            <pre>
+
+## output -- Dependency graph with rule vertices and labeled edges.
+
+define buildDependencyGraph(ruleSet):
+
+    ## edgeLabelMap maps (R1, R2) to "positive" or "negative"
+    let edgeLabelMap be a map from (rule, rule) to label
+
+    define mergeLabel(oldLabel, newLabel):
+        ## Negative dependency dominates positive dependency.
+        if oldLabel == "negative" or newLabel == "negative":
+            return "negative"
+        else:
+            return "positive"
+        endif
+    endfunction
+
+    foreach rule R1 in ruleSet:
+
+        ## Each item is (triplePattern, depLabel) where depLabel is
+        ## "positive" for a rule body element and "negative" for a
+        ## negation element.
+        let bodyDependencies = body triple patterns of R1 with dependency labels
+
+        foreach item in bodyDependencies:
+            let TP = item.triplePattern
+            let depLabel = item.depLabel
+
+            foreach rule R2 in ruleSet:
+                foreach triple template TT in head of R2:
+
+                    ## "possibly generate" / matching is defined in
+                    ## 3.3 Rule Dependency.
+                    if TT can possibly generate a triple matching TP:
+                        let key = (R1, R2)
+                        if edgeLabelMap contains key:
+                            let oldLabel = edgeLabelMap.get(key)
+                            let merged = mergeLabel(oldLabel, depLabel)
+                            edgeLabelMap.set(key, merged)
+                        else:
+                            edgeLabelMap.set(key, depLabel)
+                        endif
+                    endif
+
+                endfor
+            endfor
+        endfor
+    endfor
+
+    let DP be a graph with vertices = ruleSet
+    foreach entry ((R1, R2), label) in edgeLabelMap:
+        add edge (R1 -&gt; R2) to DP labeled label
+    endfor
+
+    the result is DP
+    endfunction
+            </pre>
+          </div>
+        </section>
+
         <p>Notes:</p>
         <ul>
           <li>
