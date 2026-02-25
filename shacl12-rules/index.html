@@ -19,7 +19,7 @@
         // Can remove SHACL12-*?
         xref: ["RDF12-CONCEPTS", "SPARQL12-QUERY", "SHACL12-CORE", "SHACL12-SPARQL", "SHACL12-NODE-EXPR" ] ,
         lint: { "no-unused-dfns": false },
-        maxTocLevel: 2,
+//        maxTocLevel: 2,
 
         editors: [
           {
@@ -531,17 +531,32 @@ RULE { ?x :name ?FN } WHERE {
           </dd>
 
           <dt><dfn>Base graph</dfn></dt>
-          <dd>
-            The [=base graph=] is the [=RDF Graph=] given as input to the evaluation
-            process.
+          <dd>    
+            The [=base graph=] is the [=RDF Graph=] given as input to the
+            evaluation process.
           </dd>
 
           <dt><dfn>Inference graph</dfn></dt>
           <dd>
-            The [=inference graph=] is an [=RDF Graph=] that is the outcome of rule set evaluation.
-            It contains all triples not found in the [=base graph=] that are inferred from
-            evaluation of the [=rule set=] on the [=base graph=].
+            The [=inference graph=] is an [=RDF Graph=] produced by evaluating a
+            [=rule set=].  It contains all triples not present in the [=base
+            graph=] that are inferred from applying the [=rule set=] to the
+            [=base graph=].
           </dd>
+
+          <dt><dfn>Infer</dfn></dt>
+          <dd>
+            [=Infer=] is the operation that applies the rules to a given [=base
+            graph=] and produces an [=inference graph=] containing inferred
+            triples.  triples derived from rule execution.
+          </dd>
+
+          <dt><dfn>Query</dfn></dt>
+          <dd>
+            [=Query=] is the operation that determines whether a given goal
+            pattern can be derived from a [=base graph=] using the rules.
+          </dd>
+
         </dl>
 
         <p>
@@ -751,7 +766,7 @@ RULE { ?x :name ?FN } WHERE {
           <dl>
             <dt><dfn>Stratification Condition</dfn></dt>
             <dd>
-              The [=stratification Condition=] requires that
+              The [=stratification condition=] requires that
               there is no [=recursive dependency=] involving a
               <em>negative</em> dependency
               in the [=dependency graph=] for a [=rule set=].
@@ -771,11 +786,73 @@ RULE { ?x :name ?FN } WHERE {
           </p>
           <div class="algorithm">
             <pre>
-              @@ one possible stratification algorithm
+
+## output -- Map: Integer -> Set of rules.
+
+define stratification(ruleSet):
+
+    let DP = Dependency graph for the rule set.
+    let stratumMap be a map from rule to integer
+
+    ## The dependency graph should satisfy the stratification condition.
+    ## Check unbounded work due to a violation of the stratification condition.
+    let limit = num rules  + 1
+    let maxStratum = 0
+
+    ## initialize stratumMap
+    foreach rule in ruleSet:
+        stratumMap.set(rule, 0)
+        endfor
+
+    boolean changed = true;
+    while changed:
+        changed = false;
+        foreach edge E in DP:
+            ## Edge from pRule to qRule with a label
+            let pRule = source of edge
+            let qRule = destination of the edge
+            let label = edge label
+
+            if label == "positive" :
+                if stratumMap.get(pRule) < stratumMap.get(qRule) :
+                    stratumMap.set(pRule, stratumMap.get(qRule))
+                    changed = true;
+                    endif
+                endif
+            if label == "negative" :
+                if stratumMap.get(pRule) <= stratumMap.get(qRule) :
+                    let xStratum = 1 + stratumMap.get(qRule)
+                    if ( xStratum > limit )
+                        ## Stratification requirement violated
+                        error "Stratification error"
+                        endif
+                    stratumMap.put(pRule, xStratum)
+                    maxStratum = max(maxStratum, xStratum)
+                    changed = true;
+                    endif
+                endif
+            endfor
+        endwhile
+
+    ## Initialize the result map.
+    let stratumLevels be a map from integer to a set of rules
+    for i = 0 to maxStratum
+        stratumLevels.set(i, {})
+        endfor
+
+    ## Gather rules in stratumMap with the same level number
+    for rule R in map stratumMap:
+        let stratumNum = stratumMap.get(R)
+        let S = {R} &cups; stratumLevel.get(stratumNum)
+        stratumLevel.set(stratumNum, S)
+        endfor
+
+    the result is stratumLevels
+    endfunction
             </pre>
           </div>
 
-          <p>
+          <p class="note">
             A consequence of the [=stratification condition=] is that when 
             a rule containing a [=negation element=] is
             <a href="#eval-rule">evaluated</a>, the data used to determine the
@@ -944,10 +1021,12 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
         It does not prescribe the algorithm as the method of implementation.
         An implementation can use any algorithm that generates the same outcome.
       </p>
-      <pre class="algorithm">
+      <div class="algorithm">
+<pre>
 Inputs: data graph G, called the base graph, and a rule set RS.
 Output: an RDF graph GI of inferred triples
 </pre>
+      </div>
       <p>
         The inferred triples do not include triples present in the set 
         of triples of the [=base graph=].
@@ -1069,8 +1148,8 @@ merge(S1, S2) = { <var>μ</var> |
         <h4>Evaluation of an Expression</h4>        
 
         <p class=ednote>Sketch</p>
-
-<pre class="algorithm">
+        <div class="algorithm">
+<pre>
 @@ Reference SPARQL expression evaluation <a data-cite="SPARQL12-QUERY/#expression-evaluation">Expression Evaluation</a>
 @@ Reference SPARQL EBV <a data-cite="SPARQL12-QUERY/#ebv">Effective Boolean Value (EBV)</a>
 
@@ -1082,12 +1161,13 @@ define evalFunction(F, <var>μ</var>):
     eval(F(expr1, expr2 ...), row) = F(eval(expr1, row), eval(expr2, row), ...)
     eval(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
 </pre>
+        </div>
       </section>
 
       <section id="eval-rule">
         <h4>Evaluation of a Rule</h4>
-
-<pre class="algorithm">
+        <div  class="algorithm">
+<pre>
 let R be a well-formed rule.
 
 let rule R = (H, B) where
@@ -1115,8 +1195,9 @@ define evalRuleElements(B, SEQ, G):
                   if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
                     <var>μ</var><sub>3</sub> = merge(<var>μ</var>1, <var>μ</var><sub>2</sub>)
                     add <var>μ</var><sub>3</sub> to SEQ1
+                    endif
                 endfor
-            endif
+             endfor
 
         if rElt is a condition expression with expression F:
             SEQ1 = {}
@@ -1167,20 +1248,21 @@ for each <var>μ</var> in SEQ:
     for each triple template TT in head
         let triple = subst(<var>μ</var>, TT)
         Add triple to S
+        endfor
     H = H union S
     endfor
 
 result eval(R, G) is H
 </pre>
+        </div>
       <p>Note that `H` may contain triples that are also in the data graph.</p>
       </section>
 
       <section id="eval-rule-set">
         <h4>Evaluation of a Rule Set</h4>
 
-        <p class=ednote>Sketch</p>
-
-<pre class="algorithm">
+        <div class="algorithm">
+<pre>
 let G0 be the input base graph
 let RS be the rule set
 let D be the graph of all DATA triples in RS
@@ -1190,7 +1272,7 @@ Apply stratification to RS
 let L be the sequence of layers after stratification
 
 # Inference graph
-let GI = { t &isin;D  | t &notin; in G0 }
+let GI = { t &isin; D  | t &notin; in G0 }
 
 # Evaluation graph.
 let GE = G0 &cups; D
@@ -1212,6 +1294,7 @@ for each layer in L:
     endfor
 the result is GI
 </pre>
+        </div>
       </section>
     </section>
 
