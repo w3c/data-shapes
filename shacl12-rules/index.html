@@ -13,13 +13,13 @@
         group: "wg/data-shapes",
         github: "w3c/data-shapes",
         //preProcess:     [  ],
-        //@@
         edDraftURI: "https://w3c.github.io/data-shapes/shacl12-rules/",
         shortName: "shacl12-rules",
         copyrightStart: "2025",
         // Can remove SHACL12-*?
         xref: ["RDF12-CONCEPTS", "SPARQL12-QUERY", "SHACL12-CORE", "SHACL12-SPARQL", "SHACL12-NODE-EXPR" ] ,
         lint: { "no-unused-dfns": false },
+//        maxTocLevel: 2,
 
         editors: [
           {
@@ -58,8 +58,6 @@
         //previousMaturity: "REC",
         //prevRecShortname: "shacl",
         //prevRecURI: "https://www.w3.org/TR/2017/REC-shacl-20170720/",
-
-
         localBiblio: {
           "shacl12-shacl-shacl": {
             title: "SHACL 1.2 SHACL-SHACL",
@@ -67,12 +65,12 @@
             status: "ED",
             publisher: "W3C",
           }
-        }
+        },
         // Remove in final version
-        , lint: {
+        lint: {
           "informative-dfn": false,
           "no-unused-dfns": false
-        }
+        },
       };
     </script>
     <link rel="stylesheet" href="style.css"/>
@@ -110,24 +108,33 @@
       }
 
       .algorithm {
-          /*
+          /* <pre> written as CSS
           font-family: monospace;
-          font-size: 16px
           white-space: pre;
           */
           color: #444;
       }
     </style>
-    
 
   </head>
+
   <body>
     <section id="abstract">
-      <p>This document describes Shapes Constraint Language (SHACL) Rules.</p>
+      <p>This document defines <em>SHACL Rules</em>.</p>
+      <p>
+        SHACL, the Shapes Constraint Language, is a language for describing the structure
+        of RDF graphs.
+        SHACL may be used for a variety of purposes such as validating, inferencing,
+        modeling domains, generating ontologies to inform other agents, building user
+        interfaces, generating code, and integrating data.
+      </p>
+      <p>
+        SHACL Rules provides inferencing with the generation of new RDF data from a
+        combination of a set of rules and a base data graph. Rules can be expressed as RDF
+        or in the SHACL Rules Language (SRL).
       <p>
         This specification is published by the
-        <a href="https://www.w3.org/groups/wg/data-shapes/">Data Shapes Working Group</a>
-        .
+        <a href="https://www.w3.org/groups/wg/data-shapes/">Data Shapes Working Group</a>.
       </p>
     </section>
 
@@ -139,20 +146,33 @@
       <h2>Introduction</h2>
 
       <p>
-        This document introduces the concept of inference rules for SHACL 1.2, a mechanism for
-        deriving new RDF triples from existing data using declarative rules defined in shapes
-        graphs. This extends SHACL’s capabilities beyond validation, enabling reasoning and data
-        enrichment.
+        This document introduces inference rules for SHACL 1.2, a mechanism for
+        deriving new RDF triples from existing RDF data through declarative rules. 
+        The document defines the syntax and semantics of rule-based inference.
       </p>
-
       <p>
-        This document complements other SHACL 1.2 specifications, such as SHACL Core, by defining
-        the syntax and semantics of rule-based inference. While SHACL Core focuses on constraint
-        validation, the SHACL Rules specification provides a standardized way to express and
-        evaluate rules that generate new data.
+        Implementations of SHACL Rules provide two operations.
+        The <em>infer</em> operation that applies the rules to a given
+        <i>base graph</i> and produces an <i>inference graph</i> containing the
+        RDF triples derived by rule execution.
+        Combining the inference graph with the base graph is optional and
+        left to users. The <em>query</em> operation determines whether a
+        given goal pattern can be derived from the base graph using the rules
       </p>
-
-      <section id="terminolgy">
+      <p>
+        The inference graph may contain RDF triples with IRIs, blank nodes or
+        literals that were not present in the base graph. Users are responsible to
+        ensure that iterative applications of rules that generate new blank nodes or
+        literals do not result in infinite loops.
+      </p>
+      <p>
+        SHACL Rules also support constructs, such as negation as failure, 
+        that could lead to different inferred graphs depending on the order in which
+        rules are executed. To avoid this, rules are evaluated using the technique
+        of <em>stratification</em>, which establishes a single, implicit ordering
+        among rules, ensuring that the same inference graph is always produced.
+      </p>
+      <section id="terminology">
         <h3>Terminology</h3>
 
         <p class="ednote">Connect to definitions in RDF 1.2 Concepts.</p>
@@ -165,8 +185,9 @@
       <section class="conventions">
         <h3>Document Conventions</h3>
         <p>
-          Some examples in this document use Turtle [[turtle]]. The reader is expected to be familiar with SHACL [[shacl]] and SPARQL
-          [[sparql-query]].
+          Some examples in this document use Turtle [[turtle]].
+          The reader is expected to be familiar with SHACL [[shacl]] 
+          and SPARQL [[sparql-query]].
         </p>
         <p>Within this document, the following namespace prefix bindings are used:</p>
         <table class="term-table">
@@ -204,7 +225,8 @@
           </tr>
         </table>
         <p>
-          Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear. These fragments of Turtle documents use the prefix
+          Throughout the document, color-coded boxes containing RDF graphs in
+          Turtle will appear. These fragments of Turtle documents use the prefix
           bindings given above.
         </p>
         <!--
@@ -251,7 +273,7 @@
     </section>
 
     <section id="overview">
-      <h2>Outline</h2>
+      <h2>SHACL Rules</h2>
 
       <p>
         SHACL rules infer new triples. The input is a data graph
@@ -305,22 +327,114 @@ RULE { ?x :name ?FN } WHERE {
 }
 </pre>
       </section>
+
+      <section id="import">
+        <h3>Importing rules</h3>
+        <p>
+          `IMPORTS`
+        </p>
+        <div class="issue" data-number="780">
+          <p>Gives some modularity/sharing of rules.</p>
+          <p>"IMPORTS" vs "IMPORT" (c.f. `owl:imports`)</p>
+        </div>
+      </section>
+
+      <section id="creating-rdf-terms">
+        <h3>Assignment and Creating RDF Terms</h3>
+        <div class="issue" data-number="749">
+          <p>
+            Generating new terms without restriction can lead to unbounded
+            inferred triples.  There are function-like forms that do not have
+            repeatable results: `BNODE`, `UUID`.  Blank nodes in the rule head
+            behave like SPARQL `CONSTRUCT`.  Assignment can be used to have an
+            incrementing counter.
+          </p>
+        </div>
+      </section>
+      
+      <section id="rule-tuples">
+        <h3>Rule Tuples</h3>
+        <div class="issue" data-number="752">
+          <p><em>At risk:</em></p>
+          <p>
+            Rule tuples are workspace elements and are disjoint from triples.
+            They are tuples of RDF terms (no variables).
+          </p>
+          <p>
+            Syntax of tuple patterns, templates and tuples:
+          </p>
+          <ul>
+            <li>`TUPLE(termOrVar , ...)`</li>
+            <li>Shorthand: `$(termOrVar , ...)`</li>
+          </ul>
+          <p>
+            Often, the first argument will be a fixed name.
+          </p>
+          <p>
+            There is a tuple store which holds tuples for the lifetime of the
+            evaluation. The tuple store holds duplicate data tuples (unlike
+            an RDF graph which is a set).
+          </p>
+        </div>
+      </section>
+
+      <section id="attaching-rules-to-shapes">
+        <h3>Attaching Rules To Shapes</h3>
+
+        <div class="issue" data-number="765">
+          <p>
+            Should we include attaching SHACL (1.2) Rules to shapes?
+            If so, what does it mean given the difference in execution semantics?
+          </p>
+          <p>
+            In practice, how often are constriants and AF-rules written on the same shape?
+            If they are, how are the rules being used, in practice, to influence the validation?
+          </p>
+          <p>Sketch:</p>
+          <pre>
+[] rdf:type sh:NodeShape ;
+    sh:rule                   ## Different property?
+      [ a srl:SHACLRule ;
+        srl:ruleSet "...";    ## SRL syntax
+        sh:prefixes ... ;
+      ];
+[] rdf:type sh:NodeShape ;
+    sh:rule
+      [ a srl:SHACLRule ;
+        srl:ruleSet [ ... RDF syntax ... ] ;
+      ];
+</pre>
+
+</div>
+
+      </section>
+
+      <section>
+        <h3>Relationship between `RULE` and SPARQL `CONSTRUCT`</h3>
+        <div class="issue" data-number="516">
+          <p>
+          </p>
+        </div>
+      </section>
+
     </section>
 
     <section id="rules-abstract-syntax">
-        <!-- Export -->
-        <h2>Shape Rules Abstract Syntax</h2>
+      <h2>Shape Rules Abstract Syntax</h2>
 
-        <p>The Shape Rules Abstract Syntax</p>
+      <p>The Shape Rules Abstract Syntax</p>
 
+      <section id="rules-defns">
+        <h3>Elements of the Abstract Syntax</h3>
         <dl>
-          <dt><dfn data-cite="sparql12-query#defn_QueryVariable">variable</dfn></dt>
+
+          <dt><dfn data-cite="sparql12-query#defn_QueryVariable">Variable</dfn></dt>
           <dd>
             A [=variable=] represents a possible [=RDF term=] in a triple pattern.
             Variables are also used in <a>expressions</a>.
           </dd>
 
-          <dt><dfn>expression</dfn></dt>
+          <dt><dfn>Expression</dfn></dt>
           <dd>
             <p>
               An [=expression=] is a function, or functional form.
@@ -333,13 +447,14 @@ RULE { ?x :name ?FN } WHERE {
               and with <a data-cite="sparql12-query#expressions">SPARQL expressions</a>.</p>
           </dd>
 
-          <dt><dfn data-lt="data-block">data block</dfn></dt>
+          <dt><dfn data-lt="data-block">Data block</dfn></dt>
           <dd>
             A [=data block=] is a set of triples.
-            These form extra facts that are included in the inference process.
+            These triples are added to the inference graph as additional facts and are
+            included in the inference process.
           </dd>
 
-          <dt><dfn>triple template</dfn></dt>
+          <dt><dfn>Triple template</dfn></dt>
           <dd>
             A [=triple template=] is 3-tuple where each element is either
             a [=variable=] or an [=RDF term=] (which might be a [=triple term=]).
@@ -347,88 +462,113 @@ RULE { ?x :name ?FN } WHERE {
             [=Triple templates=] appear in the [=head=] of a [=rule=].
           </dd>
 
-          <dt><dfn>triple pattern</dfn></dt>
+          <dt><dfn>Triple pattern</dfn></dt>
           <dd>
             A [=triple pattern=] is 3-tuple where each element is either a
-            [=variable=], or an [=RDF term=] (which might be a triple term).
-            The second element of the tuple must be an [=IRI=].
-            [=Triple patterns=] appear in the [=body=] of a [=rule=].
+            [=variable=] or an [=RDF term=] (which might be a triple term).
+            The second element of the tuple must be an [=IRI=] or a [=variable=].
+            [=Triple patterns=] can appear as [=triple pattern elements=]
+            as well as inside [=negation elements=].
           </dd>
 
-          <dt><dfn>condition expression</dfn></dt>
+          <dt><dfn data-lt="condition element|condition">Condition element</dfn></dt>
           <dd>
-            A [=condition expression=] is a function, or functional form,
+            A [=condition element=] is an [=expression=]
             that evaluates to true or false.
-            [=Condition expressions=] appear in the [=body=] of a [=rule=].
+            [=Condition elements=] appear in the [=body=] of a [=rule=].
           </dd>
 
-          <dt><dfn>negation element</dfn></dt>
+          <dt><dfn>Triple pattern element</dfn></dt>
           <dd>
-            A [=negation element=] is ..@@.. .
-            [=Negation elements=] appear in the [=body=] of a [=rule=].
+            A [=triple pattern element=] is a [=triple pattern=]
+            used as a [=rule body element=].
           </dd>
 
-          <dt><dfn>assignment</dfn></dt>
+          <dt><dfn>Negation element</dfn></dt>
           <dd>
-            An [=assignment=] is a pair of a <a>variable</a>, called the
-            <dfn>assignment variable</dfn>, and an <a>expression</a>, called the
-            <dfn>assignment expression</dfn>.
-            [=Assignments=] appear in the [=body=] of a [=rule=].
+            A [=negation element=] is a [=rule body element=].
+            It takes a sequence of [=triple patterns=] and
+            [=condition elements=].
           </dd>
 
+          <dt><dfn data-lt="assignment element">Assignment element</dfn></dt>
+          <dd>
+            An [=assignment element=] is a pair consisting 
+            of a <a>variable</a>, called the <dfn>assignment variable</dfn>, 
+            and an <a>expression</a>, called the <dfn>assignment expression</dfn>.
+            [=Assignment elements=] appear in the [=body=] of a [=rule=].
+          </dd>
+
+          <!-- Pending
           <dt><dfn>aggregation element</dfn></dt>
           <dd>
             An [=aggregation element=] is ..@@.. .
              [=Aggregation elements=] appear in the [=body=] of a [=rule=].
           </dd>
+          -->
 
-          <dt><dfn data-lt="rule body element|rule element|element">rule body element</dfn></dt>
+          <dt><dfn 
+                data-lt="rule body element|rule element"
+                >Rule body element</dfn></dt>
           <dd>
             A [=rule body element=] (often just "rule element") is any element that
-            can appear in a [=rule body=];
+            can appear in a [=rule body=],
             a [=triple pattern=],
-            a [=condition expression=],
+            a [=condition element=],
             a [=negation element=],
-            an [=assignment=],
+            or an [=assignment element=].
+            <!-- Pending
             or an [=aggregation element=].
+            -->
           </dd>
 
-          <dt><dfn data-lt="rule head|head">rule head</dfn></dt>
+          <dt><dfn data-lt="rule head|head">Rule head</dfn></dt>
           <dd>
-            A [=rule head=] is a sequence where each element
-            of the sequence is a [=triple template=].
+            A [=rule head=] is a sequence of [=triple templates=].
           </dd>
 
-          <dt>
-            <dfn data-lt="rule body|body">rule body</dfn>
-          </dt>
+          <dt><dfn data-lt="rule body|body">Rule body</dfn></dt>
           <dd> 
             A [=rule body=] is a sequence of [=rule body elements=].
           </dd>
 
-          <dt><dfn>rule</dfn></dt>
+          <dt><dfn>Rule</dfn></dt>
           <dd>
             A [=rule=] is a pair of a [=rule head=] (often just "head") and
             a [=rule body=] (often just "body").
           </dd>
 
-          <dt><dfn>rule set</dfn></dt>
+          <dt><dfn>Rule set</dfn></dt>
           <dd>
             A [=rule set=] is a collection of zero or more [=rules=]
             and a collection of zero or more [=data blocks=].
           </dd>
 
-          <dt><dfn>base graph</dfn></dt>
-          <dd>
-            The [=base graph=] is the [=RDF Graph=] given as input to the evaluation
-            process.
+          <dt><dfn>Base graph</dfn></dt>
+          <dd>    
+            The [=base graph=] is the [=RDF Graph=] given as input to the
+            evaluation process.
           </dd>
 
-          <dt><dfn>inference graph</dfn></dt>
+          <dt><dfn>Inference graph</dfn></dt>
           <dd>
-            The [=inference graph=] is an [=RDF Graph=] that is the outcome of rule set evaluation.
-            It contains all triples not found in the [=base graph=] that are inferred from
-            evaluation of the [=rule set=] on the [=base graph=].
+            The [=inference graph=] is an [=RDF Graph=] produced by evaluating a
+            [=rule set=].  It contains all triples not present in the [=base
+            graph=] that are inferred from applying the [=rule set=] to the
+            [=base graph=].
+          </dd>
+
+          <dt><dfn>Infer</dfn></dt>
+          <dd>
+            [=Infer=] is the operation that applies the rules to a given [=base
+            graph=] and produces an [=inference graph=] containing inferred
+            triples.  triples derived from rule execution.
+          </dd>
+
+          <dt><dfn>Query</dfn></dt>
+          <dd>
+            [=Query=] is the operation that determines whether a given goal
+            pattern can be derived from a [=base graph=] using the rules.
           </dd>
 
         </dl>
@@ -440,108 +580,303 @@ RULE { ?x :name ?FN } WHERE {
           position 3 is informally called the <em>object</em>.
         </p>
 
-        <section id="stratification">
-          <h3>Stratification</h3>
-          <p>
-            Stratification is the process of labelling <a>rules</a> based on their
-            <a>dependency</a> relationships in a <a>rule set</a>.
-            The set of rules with the same label are called a <a>layer</a>.
-          </p>
-          
-          <dl>
-            <dt><dfn data-lt="stratification layer|layer">stratification layer</dfn></dt>
-            <dd>
-              A stratification layer, usually, just "layer", is the set of rules 
-              with same stratification labelling.
-              <a>stratification layer</a>, <a>layer</a>
-            </dd>
+      </section>
 
-            <dt><dfn data-lt="rule element dependency|element dependency">rule element dependency</dfn></dt>
+      <section id="wellformed">
+        <h3>Well-formedness Conditions</h3>
+        <p>
+          Well-formedness is a set of conditions on the abstract syntax of
+          SHACL rules. Together, these conditions ensure that a [=variable=] in the
+          [=head=] of a rule has a value defined in the [=body=] of the rule;
+          that each variable in an [=condition element=]
+          or [=assignment expression=]
+          has a value at the point of evaluation; and that each
+          assignment in a rule introduces a new variable,
+          one that has not been used earlier in the rule body.
+        </p>
+        <p>
+          A [=rule=] is a <dfn>well-formed rule</dfn> if all of the following
+          conditions are met:
+        </p>
+        <ul>
+          <li>For every [=variable=] appearing in a [=triple template=]
+            of the [=head=] of the [=rule=],
+            there is one or more occurrences of a [=variable=]
+            of the same name in the [=triple patterns=] in the [=body=],
+            in an [=assignment element=] in the body, or both.
+          </li>
+          <li>
+            For every [=variable=] in an [=expression=] at position <em>i</em>
+            of the [=body=], there is a corresponding [=variable=] of the same
+            name occurring in a [=triple pattern=] at a position <em>j</em>,
+            or occurring as an [=assignment variable=] at a position <em>j</em>,
+            where <em>i &gt; j</em>.
+          </li>
+          <li>
+            Each [=assignment variable=] is used in only one [=assignment element=] in
+            the [=body=] of the [=rule=].
+          </li>
+          <li>
+            An [=assignment variable=] at position <em>i</em> of a [=rule body=] does not
+            occur in any [=triple pattern=] at position <em>j</em> where <em>i &gt; j</em>.
+          </li>
+          <li>
+            For every [=variable=] in an [=assignment expression=] at position <em>i</em>,
+            there is a corresponding variable in a [=triple pattern=] at position
+            <em>j</em> where <em>i &gt; j</em>,
+            or there is an [=assignment variable=] in an [=assignment element=] at position
+            <em>j</em> where <em>i &gt; j</em>.
+          </li>
+        </ul>
+        <p>
+          A [=rule set=] is "well-formed" if and only if all of the [=rules=] of the
+          rule set are "well-formed".
+        </p>
+      </section>
+
+      <section id="rule-dependency">
+        <h3>Rule Dependency</h3>
+
+        <dl>
+          <dt><dfn>Triple pattern dependency</dfn></dt>
+          <dd>
+            A [=triple pattern=] in the rule body of rule `R1` depends on a
+            rule `R2` if the head of `R2` can possibly generate triples that
+            match the [=triple pattern=] in `R1`.
+            The dependency is <em>positive</em> 
+            if the [=triple pattern=] is a [=rule body element=]
+            and the dependency is <em>negative</em> if the
+            [=triple pattern=] appears in a [=negation element=].
+          </dd>
+
+          <dt><dfn>Rule dependency</dfn></dt>
+          <dd>
+            A rule `R1` depends on rule `R2` if any rule element of `R1`
+            depends on `R2`.
+            The dependency is <em>negative</em> if any of the rule elements
+            have a negative dependency on `R2`; otherwise the dependency is
+            <em>positive</em>.
+          </dd>
+
+          <dt><dfn>Dependency graph</dfn></dt>
+          <dd>
+            A [=dependency graph=] of a [=rule set=] is a graph where the
+            vertices are rules and an edge exists where one rule R1 depends on
+            rule R2. An edge is labeled either <em>positive</em> 
+            or <em>negative</em> according to the [=rule dependency=].
+          </dd>
+
+          <dt><dfn
+                data-lt="transitive rule dependency|transitive dependency"
+                >Transitive rule dependency</dfn></dt>
+          <dd>
+            A rule `R1` has a [=transitive dependency=] on rule `R2` 
+            if there is a path in the [=dependency graph=] from `R1` to `R2`.
+          </dd>
+
+          <dt><dfn
+                data-lt="recursive rule dependency|recursive dependency"
+                >Recursive rule dependency</dfn></dt>
+          <dd>
+            A rule `R` has a [=recursive dependency=] if there is a cyclic path
+            in the [=dependency graph=] involving `R`.
+          </dd>
+        </dl>
+          
+        
+        <p>Notes:</p>
+        <ul>
+          <li>
+            <p>
+              A [=triple template=] with components `ts`, `tp`, `to`
+              can possibly generate a triple with component RDF terms
+              `s`, `p`, `o` if 
+              `ts` is a variable or `ts` is the
+              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
+                 >same RDF term</a> as `s`,
+              `tp` is a variable or `tp` is the
+              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
+                 >same RDF term</a> as `p`,
+              and
+              `to` is a variable or `to` is the
+              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
+                 >same RDF term</a> as `o`.
+            </p>
+            <p>
+              In addition, if any pair of `ts`, `tp`, and `to` are the same variable,
+              then the corresponding pair of `s`, `p`, and `o` must be the same.
+            </p>
+            <p class="ednote">
+              Revise
+            </p>
+          <li>
+            The dependency graph is not affected by the data graph.
+          </li>
+        </ul>
+
+        <p>
+          Examples:
+        </p>
+        <div class="rules">
+          <pre>
+            @@ Examples of triple patttern dependencies.
+          </pre>
+        </div>
+        <div class="rules">
+          <pre>
+            @@ Examples of rule dependencies.
+          </pre>
+        </div>
+      </section>
+      
+      <section id="stratification">
+        <h3>Stratification</h3>
+        <p>
+          [=Stratification=] is the process of partitioning a [=rule set=]
+          into an ordered sequence of [=stratification layers=] (also known
+          as "strata", singular "stratum="), forming a [=stratification=].
+          Rules in lower [=strata=] are evaluated before rules in higher
+          [=strata=].
+        </p>
+        <p>
+          [=Stratification=] imposes constraints on dependencies between [=rules=]
+          to ensure that [=negation elements=] depend only on results computed
+          in earlier [=strata=], guaranteeing a single, well-defined outcome
+          from the evaluation of a [=rule set=] over a given [=base graph=].
+        </p>
+        <div class="ednote">
+          <p>
+            A stratification process may also be used to make other evaluation
+            decisions. This document describes the necessary conditions for
+            consistent evaluation and gives one possible way to form a
+            stratification. Implementations need to meet the conditions
+            described here in order to get compatible behavior but are not
+            required to implement the algorithm as presented.
+          </p>
+        </div>
+
+        <dl>
+          <dt><dfn>Stratification</dfn></dt>
+          <dd>
+            A [=stratification=] of a [=rule set=] is a sequence of sets of
+            rules. Each rule in a [=rule set=] appears in exactly one [=stratification layer=].
+          </dd>
+          <dt><dfn 
+                data-lt="stratification layer|layer|stratum"
+                >Stratification layer</dfn></dt>
+          <dd>
+            Each set of rules in a [=stratification=] is called a 
+            [=stratification layer=], also called a "stratum".
+          </dd>
+        </dl>
+
+        <section id="stratification-condition">
+          <h4>Stratification Condition</h4>
+          <p>
+            [=Stratification=] is only defined when the following condition is
+            satisfied. If a [=rule set=] does not meet this condition, then this
+            specification does not define the outcome of [=rule set=] evaluation.
+          </p>
+          <dl>
+            <dt><dfn>Stratification Condition</dfn></dt>
             <dd>
-              A [=rule body element=] `E` depends on a rule `R` if the head of rule `R`
-              contains a [=triple template=] that may provide a triple that is matched by
-              a triple pattern in `E`.
-            </dd>
-              
-            <dt><dfn data-lt="rule dependency|dependency">rule dependency</dfn></dt>
-            <dd>
-              A rule `R1` depends on rule `R2` if any rule element of `R1` depends on `R2`.
-              <br/>@@formalize
+              The [=stratification condition=] requires that
+              there is no [=recursive dependency=] involving a
+              <em>negative</em> dependency
+              in the [=dependency graph=] for a [=rule set=].
             </dd>
           </dl>
-          
-          <p>Process</p>
-          <ul>
-            <li>Layer 0 = base graph</li>
-            <li>For each rule, determine the label of all rule elements if possible yet.</li>
-            <li>Label of a rule is the max label of its [=rule body elements=]</li>
-            <li>repeat</li>
-          </ul>
-          
-          <p>Conditions</p>
-          <ul>
-            <li>For a rule, all its (rule elements) negation/aggregation dependencies must 
-              have a label that is less than the layer label of this rule.
-            </li> 
-          </ul>
+          <p>
+            In other words, there is no `NOT` used in any rule that
+            transitively depends on itself.
+          </p>
         </section>
 
-        <section id="wellformed">
-          <h3>Well-formedness Conditions</h3>
+        <section id="stratification-algorithm">
+          <h4>Stratification Algorithm</h4>
           <p>
-            Well-formedness is a set of conditions on the abstract syntax of
-            shapes rules.  Together, these rules ensure that a [=variable=] in the
-            [=head=] of a rule has a value defined in the [=body=] of the rule;
-            that each variable in an condition expression or assignment
-            expression has a value at the point of evaluation; and that each
-            assignment in a rule introduces a new variable,
-            not used earlier in the rule body.
+            The following algorithm gives one possible stratification based solely
+            on the rule set.
           </p>
-          <div class=ednote>
-            <p>
-              Add a rule for nested patterns e.g. negation.
-            </p>
+          <div class="algorithm">
+            <pre>
+
+## output -- Map: Integer -> Set of rules.
+
+define stratification(ruleSet):
+
+    let DP = Dependency graph for the rule set.
+    let stratumMap be a map from rule to integer
+
+    ## The dependency graph should satisfy the stratification condition.
+    ## Check unbounded work due to a violation of the stratification condition.
+    let limit = num rules  + 1
+    let maxStratum = 0
+
+    ## initialize stratumMap
+    foreach rule in ruleSet:
+        stratumMap.set(rule, 0)
+        endfor
+
+    boolean changed = true;
+    while changed:
+        changed = false;
+        foreach edge E in DP:
+            ## Edge from pRule to qRule with a label
+            let pRule = source of edge
+            let qRule = destination of the edge
+            let label = edge label
+
+            if label == "positive" :
+                if stratumMap.get(pRule) < stratumMap.get(qRule) :
+                    stratumMap.set(pRule, stratumMap.get(qRule))
+                    changed = true;
+                    endif
+                endif
+            if label == "negative" :
+                if stratumMap.get(pRule) <= stratumMap.get(qRule) :
+                    let xStratum = 1 + stratumMap.get(qRule)
+                    if ( xStratum > limit )
+                        ## Stratification requirement violated
+                        error "Stratification error"
+                        endif
+                    stratumMap.put(pRule, xStratum)
+                    maxStratum = max(maxStratum, xStratum)
+                    changed = true;
+                    endif
+                endif
+            endfor
+        endwhile
+
+    ## Initialize the result map.
+    let stratumLevels be a map from integer to a set of rules
+    for i = 0 to maxStratum
+        stratumLevels.set(i, {})
+        endfor
+
+    ## Gather rules in stratumMap with the same level number
+    for rule R in map stratumMap:
+        let stratumNum = stratumMap.get(R)
+        let S = {R} &cups; stratumLevel.get(stratumNum)
+        stratumLevel.set(stratumNum, S)
+        endfor
+
+    the result is stratumLevels
+    endfunction
+            </pre>
           </div>
 
-          <p>
-            A [=rule=] is a <dfn>well-formed rule</dfn> if all of the following
-            conditions are met:
+          <p class="note">
+            A consequence of the [=stratification condition=] is that when 
+            a rule containing a [=negation element=] is
+            <a href="#eval-rule">evaluated</a>, the data used to determine the
+            outcome of that [=negation element=], whether in the
+            [=base graph=] or the [=inference graph=], is fixed and will not
+            change during evaluation.
           </p>
-          <ul>
-            <li>For every [=variable=] appearing in a [=triple template=]
-              of the [=head=] of the [=rule=],
-              there is one or more occurrences of a [=variable=]
-              of the same name in the [=triple patterns=] in the [=body=],
-              or in an [=assignment=] in the body, or both.
-            </li>
-            <li>
-              For every [=variable=] in an [=expression=] at position <em>i</em>
-              of the [=body=], there is a corresponding [=variable=] of the same
-              name occurring in a [=triple pattern=] at a position <em>j</em>,
-              or occurring as an [=assignment variable=] at a position <em>j</em>,
-              where <em>i &gt; j</em>.
-            </li>
-            <li>
-              Each [=assignment variable=] is used in only one [=assignment=] in
-              the [=body=] of the [=rule=].
-            </li>
-            <li>
-              An [=assignment variable=] at position <em>i</em> of a [=rule body=] does not
-              occur in any [=triple pattern=] at position <em>j</em> where <em>i &gt; j</em>.
-            </li>
-            <li>
-              For every [=variable=] in an [=assignment expression=] at position <em>i</em>,
-              there is a corresponding variable in a triple pattern at position
-              <em>j</em> where <em>i &gt; j</em>,
-              or there is an [=assignment variable=] in an [=assignment=] at position
-              <em>j</em> where <em>i &gt; j</em>.
-            </li>
-          </ul>
-          <p>
-            A [=rule set=] is "well-formed" if and only if all of the [=rules=] of the
-            rule set are "well-formed".
-          </p>
+
         </section>
+      </section>
     </section>
 
     <section id="concrete-syntax">
@@ -552,10 +887,10 @@ RULE { ?x :name ?FN } WHERE {
         <li><a href="#rdf-rules-syntax">RDF Rules syntax</a></li>
       </ul>
 
-      <p class="note">
+      <aside class="note">
         The Shape Rules Language (SRL) syntax has an equivalent RDF syntax form.
         Well-formed RDF syntax can be translated to the Shape Rules Language syntax.
-      </p>
+      </aside>
 
       <p>Shape Rules Language:</p>
       <div class="example-rules">
@@ -629,7 +964,7 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
           <p>Additional helpers (short-hand abbreviations):</p>
 
           <p class=note>
-            These allow for well-known rule patterns and also specialised implementations in basic engines
+            These allow for well-known rule patterns and also specialised implementations in basic engines.
           </p>
 
           <ul>
@@ -637,6 +972,15 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
             <li><code>SYMMETRIC(<em>uri</em>)</code></li>
             <li><code>INVERSE(<em>uri</em>)</code></li>
           </ul>
+
+          <div class="issue" data-number="779">
+            <p><em>At risk:</em></p>
+            <p>
+              `TRANSITIVE` has both implementation and concise expression advantages.
+              Implementation advantages for `SYMMETRIC` and `INVERSE` are not clear.
+            </p>
+          </div>
+
         </section>
       </section>
 
@@ -658,10 +1002,8 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
           </ul>
         </div>
         <div class="ednote">
-          <p>Describe how the abstract model maps to triples??.
-            way round - copes with extra triples.
-            Output is the instance of the abtract model that generates the triples -
-            but need to define "maximal".
+          <p>
+            Describe how the abstract model maps to triples.
         </p>
         </div>
 
@@ -693,10 +1035,12 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
         It does not prescribe the algorithm as the method of implementation.
         An implementation can use any algorithm that generates the same outcome.
       </p>
-      <pre class="algorithm">
+      <div class="algorithm">
+<pre>
 Inputs: data graph G, called the base graph, and a rule set RS.
 Output: an RDF graph GI of inferred triples
 </pre>
+      </div>
       <p>
         The inferred triples do not include triples present in the set 
         of triples of the [=base graph=].
@@ -706,14 +1050,19 @@ Output: an RDF graph GI of inferred triples
       <h4>Evaluation Definitions</h4>
 
         <dl>
-          <dt><dfn data-lt="solution|sparql12-query#defn_sparqlSolutionMapping">solution mapping</dfn></dt>
+          <dt><dfn 
+                data-lt="solution|sparql12-query#defn_sparqlSolutionMapping"
+                >solution mapping</dfn></dt>
           <dd> 
             A <a data-lt="sparql12-query#defn_sparqlSolutionMapping">solution mapping</a>, 
-            <var>μ</var>, is a partial function <code><var>μ</var> : <var>V</var> → <var>T</var></code>, 
-            where <var>V</var> is the set of all variables and <var>T</var> is the set of all RDF terms.
-            The domain of <var>μ</var> is denoted by <code><var>dom</var>(<var>μ</var>)</code>,
-            and it is the subset of <var>V</var> for which <var>μ</var> is defined.
-            We use the term [=solution=] where it is clear that a [=solution mapping=] is meant.
+            <var>μ</var>, is a partial function 
+            <code><var>μ</var> : <var>V</var> → <var>T</var></code>,
+            where <var>V</var> is the set of all variables 
+            and <var>T</var> is the set of all [=RDF terms=].
+            The domain of <var>μ</var> is denoted
+            by <code><var>dom</var>(<var>μ</var>)</code>, and it is the subset
+            of <var>V</var> for which <var>μ</var> is defined. We use the term
+            [=solution=] where it is clear that a [=solution mapping=] is meant.
             Write <var>μ<sub>0</sub></var> for the solution mapping such that
             <code><var>dom</var>(<var>μ<sub>0</sub></var>)</code> is the empty set.
           </dd>
@@ -721,10 +1070,13 @@ Output: an RDF graph GI of inferred triples
           <dt><dfn data-lt="substitution">substitution function</dfn></dt>
           <dd>
             A <a>substitution function</a>, or just <i>substitution</i>,
-            is a function <code>subst(<var>μ</var>, [=triple pattern=])</code> that returns a triple pattern
-            where each occurrence in the triple pattern of a variable that is in the 
+            is a function 
+            <code>subst(<var>μ</var>, [=triple pattern=])</code>
+            that returns a [=triple pattern=]
+            where each occurrence in the [=triple pattern=] of a variable that is in the 
             <code><var>dom</var>(<var>μ</var>)</code>
-            is replaced by the [=RDF term=] given by the [=solution mapping=] for <var>var</var>.
+            is replaced by the [=RDF term=] given by the 
+            [=solution mapping=] for <var>var</var>.
             If the triple pattern result has no variables, then it is an [=RDF Triple=].
           </dd>
           
@@ -796,16 +1148,13 @@ merge(S1, S2) = { <var>μ</var> |
             </div>
             <div class="ednote">
               <p>
-              Say the domain is `dom(S1) &cups; dom(S2)`.
+                Say the domain is `dom(S1) &cups; dom(S2)`.
               </p>
               <p>
                 Say that two solutions that have no variables in common are compatible.
               </p>
             </div>
-            
-
           </dd>
-
         </dl>
       </section>
 
@@ -813,95 +1162,98 @@ merge(S1, S2) = { <var>μ</var> |
         <h4>Evaluation of an Expression</h4>        
 
         <p class=ednote>Sketch</p>
+        <div class="algorithm">
+<pre>
+@@ Reference SPARQL expression evaluation <a data-cite="SPARQL12-QUERY/#expression-evaluation">Expression Evaluation</a>
+@@ Reference SPARQL EBV <a data-cite="SPARQL12-QUERY/#ebv">Effective Boolean Value (EBV)</a>
 
-<pre class="algorithm">
-
-Let F(arg1, arg2, ...) be an expression.
-where arg1, arg2 are RDF terms.
-@@
-
-Let [x/<var>μ</var>] be
-    if x is an RDF term, then [x/row] is x
-    if x is a variable, then [x/row] is <var>μ</var>(x)
-    ## By well-formedness, it is an error if x is not in the row.
-
-eval(F(expr1, expr2 ...), row) = F(eval(expr1, row), eval(expr2, row), ...)
- ...
-eval(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
+define evalFunction(F, <var>μ</var>):
+    Let [x/<var>μ</var>] be
+        if x is an RDF term, then [x/row] is x
+        if x is a variable, then [x/row] is <var>μ</var>(x)
+        ## By well-formedness, it is an error if x is not in the row.
+    eval(F(expr1, expr2 ...), row) = F(eval(expr1, row), eval(expr2, row), ...)
+    eval(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
 </pre>
+        </div>
       </section>
 
       <section id="eval-rule">
         <h4>Evaluation of a Rule</h4>
-
-        <div class=ednote>
-          <p>Sketch</p>
-          <p>Turn into definitions of the step components</p>
-        </div>
-
-
-<pre class="algorithm">
+        <div  class="algorithm">
+<pre>
 let R be a well-formed rule.
+
 let rule R = (H, B) where
              H is the sequence of triple templates in the head
-             B is the sequence of triple patterns, condition expressions,
-                and assignments in the body
+             B is the sequence of triple pattern elements,
+                condition elements, negation elements,
+                and assignment elements in the body
 
-let R : map variable to RDF term as a set of pairs (variable, RDF term)
+# Solution sequence of one solution that does not map any variables.
+let SEQ0: Solution sequence = { <var>μ</var><sub>0</sub> }
 
-## Solution sequence of one solution that does not map any variables.
-## (This is the join identity)
-
-let SEQ: Solution sequence = { <var>μ</var><sub>0</sub> }
 let G = <a>evaluation graph</a>
 
-# Start::
-
-Replace each blank node in B with a fresh 
-variable that does not occur in the rule body.
-
 # Evaluate rule body
+# This function returns a sequence of solutions
+define evalRuleElements(B, SEQ, G):
 
-for each rule element rElt in B
-    if rElt is a triple pattern TP:
-        X = graphMatch(G, TP)
-        SEQ1 = {}
-        for each <var>μ</var><sub>1</sub> in X:
-            for each <var>μ</var><sub>2</sub> in SEQ:
-              if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                <var>μ</var><sub>3</sub> = merge(<var>μ</var>1, <var>μ</var><sub>2</sub>)
-                add <var>μ</var><sub>3</sub> to SEQ1
-            endfor
-        endif
+    for each rule element rElt in B:
 
-    if rElt is a condition expression F:
-        SEQ1 = {}
-        for each solution <var>μ</var> in SEQ:
-            ## EBV = Effective boolean value.
-            ## TODO: Eval errors.
-            if ( EBV(eval(<var>μ</var>, F)) is true )
-                add <var>μ</var> to SEQ1
-                endif
-            endfor
-        endif
+        if rElt is a triple pattern TP:
+            X = graphMatch(G, TP)
+            SEQ1 = {}
+            for each <var>μ</var><sub>1</sub> in X:
+                for each <var>μ</var><sub>2</sub> in SEQ:
+                  if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
+                    <var>μ</var><sub>3</sub> = merge(<var>μ</var>1, <var>μ</var><sub>2</sub>)
+                    add <var>μ</var><sub>3</sub> to SEQ1
+                    endif
+                endfor
+             endfor
 
-    if rElt is an assignment(V, expr)
-        SEQ1 = {}
-        for each solution S in SEQ:
-            let x = eval(expr, S)
-            add(V, x) to S
-            add S to SEQ1
-            endfor
-        endif
+        if rElt is a condition element with expression F:
+            SEQ1 = {}
+            for each solution <var>μ</var> in SEQ:
+                if evalFunction(F, <var>μ</var>) is <var>true</var>:
+                    add <var>μ</var> to SEQ1
+                    endif
+                endfor
+            endif
 
-     if SEQ1 is empty 
-        SEQ = {}
-        exit
-        endif
+        if rElt is a negation expression with body elements N:
+            SEQ1 = {}
+            for each solution <var>μ</var> in SEQ:
+                S = sequence{ <var>μ</var> }
+                NEG = evalRuleElements(N, S, G)
+                if NEG is empty
+                    add <var>μ</var> to SEQ1
+                    endif
+                endfor
+            endif
 
-      SEQ = SEQ1
-   
-    endfor
+        if rElt is an assignment with variable V and expression expr
+            SEQ1 = {}
+            for each solution S in SEQ:
+                let x = eval(expr, S)
+                add(V, x) to S
+                add S to SEQ1
+                endfor
+            endif
+
+        if SEQ1 is empty
+            SEQ = {}
+            return SEQ
+            endif
+
+        SEQ = SEQ1
+        endfor
+
+     return SEQ
+     enddefine
+
+let SEQ = evalRuleElements(B, SEQ0, G)
 
 # Evaluate rule head
 let H = empty set
@@ -910,21 +1262,21 @@ for each <var>μ</var> in SEQ:
     for each triple template TT in head
         let triple = subst(<var>μ</var>, TT)
         Add triple to S
+        endfor
     H = H union S
     endfor
 
 result eval(R, G) is H
-
 </pre>
+        </div>
       <p>Note that `H` may contain triples that are also in the data graph.</p>
       </section>
 
       <section id="eval-rule-set">
         <h4>Evaluation of a Rule Set</h4>
 
-        <p class=ednote>Sketch</p>
-
-<pre class="algorithm">
+        <div class="algorithm">
+<pre>
 let G0 be the input base graph
 let RS be the rule set
 let D be the graph of all DATA triples in RS
@@ -934,7 +1286,7 @@ Apply stratification to RS
 let L be the sequence of layers after stratification
 
 # Inference graph
-let GI = { t &isin;D  | t &notin; in G0 }
+let GI = { t &isin; D  | t &notin; in G0 }
 
 # Evaluation graph.
 let GE = G0 &cups; D
@@ -956,6 +1308,7 @@ for each layer in L:
     endfor
 the result is GI
 </pre>
+        </div>
       </section>
     </section>
 
@@ -1600,7 +1953,7 @@ the result is GI
                 <td><code>[91]&nbsp;&nbsp;</code></td>
                 <td><code><span class="doc-ref" id="rBuiltInCall">BuiltInCall</span></code></td>
                 <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
-                <td><code class="gRuleBody">&nbsp;&nbsp;<span class="token">'STR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANGMATCHES'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'DATATYPE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'IRI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'URI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'BNODE'</span> ( <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> | <a href="#rNIL">NIL</a> ) <br/>| <span class="token">'RAND'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'ABS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CEIL'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'FLOOR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'ROUND'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CONCAT'</span> <a href="#rExpressionList">ExpressionList</a> <br/>| <span class="token">'SUBSTR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'STRLEN'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'REPLACE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'UCASE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LCASE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'ENCODE_FOR_URI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CONTAINS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRSTARTS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRENDS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRBEFORE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRAFTER'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'YEAR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'MONTH'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'DAY'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'HOURS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'MINUTES'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SECONDS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TIMEZONE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TZ'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'NOW'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'UUID'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'STRUUID'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'MD5'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SHA1'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SHA256'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SHA384'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SHA512'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'COALESCE'</span> <a href="#rExpressionList">ExpressionList</a> <br/>| <span class="token">'IF'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRLANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRLANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRDT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'sameTerm'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isIRI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isURI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isBLANK'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isLITERAL'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isNUMERIC'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'hasLANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'hasLANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'REGEX'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'isTRIPLE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TRIPLE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SUBJECT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'PREDICATE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'OBJECT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span></code></td>
+                <td><code class="gRuleBody">&nbsp;&nbsp;<span class="token">'STR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANGMATCHES'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'DATATYPE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'IRI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'URI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'BNODE'</span> ( <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> | <a href="#rNIL">NIL</a> ) <br/>| <span class="token">'ABS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CEIL'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'FLOOR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'ROUND'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CONCAT'</span> <a href="#rExpressionList">ExpressionList</a> <br/>| <span class="token">'SUBSTR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'STRLEN'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'REPLACE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'UCASE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'LCASE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'ENCODE_FOR_URI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'CONTAINS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRSTARTS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRENDS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRBEFORE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRAFTER'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'YEAR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'MONTH'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'DAY'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'HOURS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'MINUTES'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SECONDS'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TIMEZONE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TZ'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'NOW'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'UUID'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'STRUUID'</span> <a href="#rNIL">NIL</a> <br/>| <span class="token">'IF'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRLANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRLANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'STRDT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'sameTerm'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isIRI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isURI'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isBLANK'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isLITERAL'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'isNUMERIC'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'hasLANG'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'hasLANGDIR'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'REGEX'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> ( <span class="token">','</span> <a href="#rExpression">Expression</a> )? <span class="token">')'</span> <br/>| <span class="token">'isTRIPLE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'TRIPLE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">','</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'SUBJECT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'PREDICATE'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span> <br/>| <span class="token">'OBJECT'</span> <span class="token">'('</span> <a href="#rExpression">Expression</a> <span class="token">')'</span></code></td>
               </tr>
 
               <tr style="vertical-align: baseline">
@@ -1939,55 +2292,76 @@ the result is GI
         The information that follows has been submitted to the Internet Engineering
         Steering Group (IESG) for review, approval, and registration with IANA.
       </p>
-
-
       <div class="mediatype"><div id="mime"></div>
         <dl>
+
           <dt>Type name:</dt>
           <dd>application</dd>
+
           <dt>Subtype name:</dt>
           <dd>shape-rules</dd>
+
           <dt>Required parameters:</dt>
           <dd>None</dd>
+
           <dt>Optional parameters:</dt>
           <dd>@@version, @@profile</dd>
+
           <dt>Encoding considerations:</dt>
-          <dd>The syntax of the @@@ Language is expressed over code points in Unicode
+          <dd>The syntax of the SHACL Rules Language is expressed over code points in Unicode
             [[UNICODE]]. The encoding is always UTF-8 [[RFC3629]].</dd>
           <dd>Unicode code points may also be expressed using an \uXXXX (U+0 to U+FFFF) or
             \UXXXXXXXX syntax (for U+10000 onwards) where X is a hexadecimal digit [0-9A-F]</dd>
           <dt>Security considerations:</dt>
           <dd>
-            @@
-            See appendix C?, <a href="#security">Security Considerations</a> as well as
+            See appendix C, <a href="#security" class="sectionRef">Security Considerations</a> as well as
             [[[RFC3629]]] [[RFC3629]] section 7, Security Considerations.
           </dd>
+
           <dt>Interoperability considerations:</dt>
           <dd>There are no known interoperability issues.</dd>
+
           <dt>Published specification:</dt>
           <dd>This specification.</dd>
+
           <dt>Applications which use this media type:</dt>
           <dd>@@</dd>
+
           <dt>Additional information:</dt>
-          <dt>Magic number(s):</dt>
-          <dd>A SHACL rules file may have the string 'PREFIX' (case independent) near the beginning of
-            the document.</dd>
-          <dt>File extension(s):</dt>
-          <dd>".srl"</dd>
-          <dt>Base URI:</dt>
-          <dd>The SHACL Rules 'BASE &lt;IRIref&gt;' term can change the current base URI for relative
-            IRIrefs in the query language that are used sequentially later in the document.</dd>
-          <dt>Macintosh file type code(s):</dt>
-          <dd>"TEXT"</dd>
+
+          <dd>
+            <dl>
+              <dt>Magic number(s):</dt>
+              <dd>A SHACL rules file may have the string 'PREFIX' 
+                (case independent) near the beginning
+                of the document.</dd>
+
+              <dt>File extension(s):</dt>
+              <dd>".srl"</dd>
+              <dt>Base URI:</dt>
+              <dd>
+                The SHACL Rules 'BASE &lt;IRIref&gt;' term can change the
+                current base URI for relative IRIrefs in the query language that
+                are used sequentially later in the document.
+              </dd>
+              <dt>Macintosh file type code(s):</dt>
+              <dd>"TEXT"</dd>
+            </dl>
+          </dd>
+
           <dt>Person & email address to contact for further information:</dt>
-          <dd>@@</dd>
+          <dd>Data Shapes Working Group &lt;public-shacl@w3.org;</dd>
+
           <dt>Intended usage:</dt>
           <dd>COMMON</dd>
+
           <dt>Restrictions on usage:</dt>
           <dd>None</dd>
+
           <dt>Author/Change controller:</dt>
-          <dd>The SHACL Rules 1.2 specification is a work product of the World Wide Web Consortium's
-            Data Shapes Working Group. The W3C has change control over these specifications.</dd>
+          <dd>The SHACL 1.2 Rules specification is a work product of the World
+            Wide Web Consortium's Data Shapes Working Group. The W3C has change
+            control over these specifications.</dd>
         </dl>
       </div>
     </section>
