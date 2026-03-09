@@ -3,7 +3,9 @@
 
 ## Scribes
 
-* 2026-02-23: 
+* 2026-03-09: 
+* 2026-03-02: simonstey
+* 2026-02-23: AndyS
 * 2026-02-16: simonstey
 * 2026-02-09: simonstey
 * 2026-02-02: Edmond
