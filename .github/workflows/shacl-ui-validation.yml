@@ -1,0 +1,37 @@
+name: SHACL UI Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-widget-scores:
+    name: Validate Widget Scores
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v5
+      - run: uv tool install 'pyshacl@0.31.0'
+
+      - name: Validate Widget Score shapes
+        run: pyshacl -s shacl12-vocabularies/shacl-shacl.ttl shacl12-ui/widgets/score-shapes.ttl
+
+      - name: Validate editor and viewer widgets
+        run: |
+          set -euo pipefail
+
+          SHAPES_FILE="shacl12-ui/widgets/score-validator.ttl"
+          TARGET_DIRS=(
+            "shacl12-ui/widgets/editors"
+            "shacl12-ui/widgets/viewers"
+          )
+
+          for dir in "${TARGET_DIRS[@]}"; do
+            find "$dir" -type f -name '*.ttl' -print0 | while IFS= read -r -d '' widget; do
+              echo "Validating: $widget"
+              pyshacl -s "$SHAPES_FILE" "$widget"
+            done
+          done
