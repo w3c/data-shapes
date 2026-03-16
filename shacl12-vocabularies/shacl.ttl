@@ -6,17 +6,6 @@
 
 # THIS VERSION IS UNDER DEVELOPMENT BY THE DATA-SHAPES (SHACL 1.2) WG
 
-# Changes since original CR publication:
-# - Deleted sh:declare rdfs:domain owl:Ontology and sh:prefixes rdfs:range owl:Ontology, clarified comment of sh:prefixes
-# - Fixed sh:namespace of "sh" to use xsd:anyURI instead of string
-# - Changed rdfs:label of sh:nodeValidator from "shape validator" to "node validator"
-# - Fixed rdfs:label of sh:TripleRule, moved into comment
-# - Made rdfs:label of sh:LessThanOrEqualsConstraintComponent upper case
-# - Added support for sh:singleLine (see https://github.com/w3c/data-shapes/issues/177)
-# - Deleted any terms related to SHACL-JS (see https://github.com/w3c/data-shapes/issues/264)
-# - Added sh:NodeExpression and related infrastructure
-# - Added sh:SelectExpression, sh:SPARQLExprExpression and their parameters
-
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -47,7 +36,7 @@ sh:Shape
 sh:NodeShape
 	a rdfs:Class ;
 	rdfs:label "Node shape"@en ;
-	rdfs:comment "A node shape is a shape that specifies constraint that need to be met with respect to focus nodes."@en ;
+	rdfs:comment "A node shape is a shape that specifies constraints that need to be met with respect to focus nodes."@en ;
 	rdfs:subClassOf sh:Shape ;
 	rdfs:isDefinedBy sh: .
 
@@ -74,7 +63,7 @@ sh:deactivated
 	# rdfs:range xsd:boolean (node expression)
 	rdfs:isDefinedBy sh: .
 
-sh:targetClass 
+sh:targetClass
 	a rdf:Property ;
 	rdfs:label "target class"@en ;
 	rdfs:comment "Links a shape to a class, indicating that all instances of the class must conform to the shape."@en ;
@@ -82,7 +71,7 @@ sh:targetClass
 	rdfs:range rdfs:Class ;
 	rdfs:isDefinedBy sh: .
 
-sh:targetNode 
+sh:targetNode
 	a rdf:Property ;
 	rdfs:label "target node"@en ;
 	rdfs:comment "Links a shape to node expressions, indicating that the output nodes must conform to the shape."@en ;
@@ -105,10 +94,18 @@ sh:targetSubjectsOf
 	rdfs:range rdf:Property ;
 	rdfs:isDefinedBy sh: .
 
+sh:targetWhere
+	a rdf:Property ;
+	rdfs:label "target where"@en ;
+	rdfs:comment "Links a (subject) shape to an (object) shape, indicating that all nodes from the data graph that conform to the given (object) shape must conform to the (subject) shape."@en ;
+	rdfs:domain sh:Shape ;
+	rdfs:range sh:Shape ;
+	rdfs:isDefinedBy sh: .
+
 sh:message
 	a rdf:Property ;
 	# domain: sh:Shape or sh:SPARQLConstraint or sh:SPARQLSelectValidator or sh:SPARQLAskValidator
-	# range: xsd:string or rdf:langString
+	# range: xsd:string or rdf:dirLangString or rdf:langString or rdf:HTML
 	rdfs:label "message"@en ;
 	rdfs:comment "A human-readable message (possibly with placeholders for variables) explaining the cause of the result."@en ;
 	rdfs:isDefinedBy sh: .
@@ -118,6 +115,13 @@ sh:severity
 	rdfs:label "severity"@en ;
 	rdfs:comment "Defines the severity that validation results produced by a shape or constraint must have. Defaults to sh:Violation."@en ;
 	rdfs:range sh:Severity ;
+	rdfs:isDefinedBy sh: .
+
+sh:shape
+	a rdf:Property ;
+	rdfs:label "shape"@en ;
+	rdfs:comment "Links from a node in the data graph to a shape that it is expected to conform to."@en ;
+	rdfs:range sh:Shape ;
 	rdfs:isDefinedBy sh: .
 
 
@@ -187,6 +191,14 @@ sh:conforms
 	rdfs:comment "True if the validation did not produce any validation results, and false otherwise."@en ;
 	rdfs:domain sh:ValidationReport ;
 	rdfs:range xsd:boolean ;
+	rdfs:isDefinedBy sh: .
+
+sh:conformanceDisallows
+	a rdf:Property ;
+	rdfs:label "conformance disallows"@en ;
+	rdfs:comment "Severity levels that are evaluated in the conformance check."@en ;
+	rdfs:domain sh:ValidationReport ;
+	rdfs:range sh:Severity ;
 	rdfs:isDefinedBy sh: .
 
 sh:result
@@ -276,7 +288,7 @@ sh:resultMessage
 	rdfs:label "result message"@en ;
 	rdfs:comment "Human-readable messages explaining the cause of the result."@en ;
 	rdfs:domain sh:AbstractResult ;
-	# range: xsd:string or rdf:langString
+	# range: xsd:string or rdf:dirLangString or rdf:langString or rdf:HTML
 	rdfs:isDefinedBy sh: .
 
 sh:resultPath
@@ -325,7 +337,7 @@ sh:value
 	rdfs:domain sh:AbstractResult ;
 	rdfs:isDefinedBy sh: .
 
-	
+
 # Graph properties ------------------------------------------------------------
 
 sh:shapesGraph
@@ -420,7 +432,7 @@ sh:labelTemplate
 	rdfs:label "label template"@en ;
 	rdfs:comment "Outlines how human-readable labels of instances of the associated Parameterizable shall be produced. The values can contain {?paramName} as placeholders for the actual values of the given parameter."@en ;
 	rdfs:domain sh:Parameterizable ;
-	# range: xsd:string or rdf:langString
+	# range: xsd:string or rdf:dirLangString or rdf:langString
 	rdfs:isDefinedBy sh: .
 
 sh:Parameter
@@ -518,7 +530,7 @@ sh:and
 	rdfs:isDefinedBy sh: .
 
 
-sh:ClassConstraintComponent 
+sh:ClassConstraintComponent
 	a sh:ConstraintComponent ;
 	rdfs:label "Class constraint component"@en ;
 	rdfs:comment "A constraint component that can be used to verify that each value node is an instance of a given type."@en ;
@@ -528,14 +540,13 @@ sh:ClassConstraintComponent
 sh:ClassConstraintComponent-class
 	a sh:Parameter ;
 	sh:path sh:class ;
-	sh:nodeKind sh:IRI ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
 	rdfs:isDefinedBy sh: .
 
 sh:class
 	a rdf:Property ;
 	rdfs:label "class"@en ;
 	rdfs:comment "The type that all value nodes must have."@en ;
-	rdfs:range rdfs:Class ;
 	rdfs:isDefinedBy sh: .
 
 
@@ -548,7 +559,7 @@ sh:ClosedConstraintComponent
 	rdfs:isDefinedBy sh: .
 
 sh:ClosedConstraintComponent-closed
-	a sh:Parameter ; 
+	a sh:Parameter ;
 	sh:path sh:closed ;
 	rdfs:isDefinedBy sh: .
 
@@ -583,7 +594,7 @@ sh:DatatypeConstraintComponent
 sh:DatatypeConstraintComponent-datatype
 	a sh:Parameter ;
 	sh:path sh:datatype ;
-	sh:nodeKind sh:IRI ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
 	sh:maxCount 1 ;
 	rdfs:isDefinedBy sh: .
 
@@ -591,49 +602,46 @@ sh:datatype
 	a rdf:Property ;
 	rdfs:label "datatype"@en ;
 	rdfs:comment "Specifies an RDF datatype that all value nodes must have."@en ;
-	rdfs:range rdfs:Datatype ;
 	rdfs:isDefinedBy sh: .
 
 
 sh:DisjointConstraintComponent
 	a sh:ConstraintComponent ;
 	rdfs:label "Disjoint constraint component"@en ;
-	rdfs:comment "A constraint component that can be used to verify that the set of value nodes is disjoint with the the set of nodes that have the focus node as subject and the value of a given property as predicate."@en ;
+	rdfs:comment "A constraint component that can be used to verify that the set of value nodes is disjoint with the the set of nodes that can be reached from the focus node via a given property path."@en ;
 	sh:parameter sh:DisjointConstraintComponent-disjoint ;
 	rdfs:isDefinedBy sh: .
 
 sh:DisjointConstraintComponent-disjoint
 	a sh:Parameter ;
 	sh:path sh:disjoint ;
-	sh:nodeKind sh:IRI ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
 	rdfs:isDefinedBy sh: .
 
 sh:disjoint
 	a rdf:Property ;
 	rdfs:label "disjoint"@en ;
-	rdfs:comment "Specifies a property where the set of values must be disjoint with the value nodes."@en ;
-	rdfs:range rdf:Property ;
+	rdfs:comment "Specifies a property path where the set of values must be disjoint with the value nodes."@en ;
 	rdfs:isDefinedBy sh: .
 
 
 sh:EqualsConstraintComponent
 	a sh:ConstraintComponent ;
 	rdfs:label "Equals constraint component"@en ;
-	rdfs:comment "A constraint component that can be used to verify that the set of value nodes is equal to the set of nodes that have the focus node as subject and the value of a given property as predicate."@en ;
+	rdfs:comment "A constraint component that can be used to verify that the set of value nodes is equal to the set of nodes that can be reached from the focus node using a given property path."@en ;
 	sh:parameter sh:EqualsConstraintComponent-equals ;
 	rdfs:isDefinedBy sh: .
 
 sh:EqualsConstraintComponent-equals
 	a sh:Parameter ;
 	sh:path sh:equals ;
-	sh:nodeKind sh:IRI ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
 	rdfs:isDefinedBy sh: .
 
 sh:equals
 	a rdf:Property ;
 	rdfs:label "equals"@en ;
-	rdfs:comment "Specifies a property that must have the same values as the value nodes."@en ;
-	rdfs:range rdf:Property ;
+	rdfs:comment "Specifies a property path that must have the same values as the value nodes."@en ;
 	rdfs:isDefinedBy sh: .
 
 
@@ -701,42 +709,40 @@ sh:languageIn
 sh:LessThanConstraintComponent
 	a sh:ConstraintComponent ;
 	rdfs:label "Less-than constraint component"@en ;
-	rdfs:comment "A constraint component that can be used to verify that each value node is smaller than all the nodes that have the focus node as subject and the value of a given property as predicate."@en ;
+	rdfs:comment "A constraint component that can be used to verify that each value node is smaller than all the nodes that can be reached from the focus node via a given property path."@en ;
 	sh:parameter sh:LessThanConstraintComponent-lessThan ;
 	rdfs:isDefinedBy sh: .
 
 sh:LessThanConstraintComponent-lessThan
 	a sh:Parameter ;
 	sh:path sh:lessThan ;
-	sh:nodeKind sh:IRI ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
 	rdfs:isDefinedBy sh: .
 
 sh:lessThan
 	a rdf:Property ;
 	rdfs:label "less than"@en ;
-	rdfs:comment "Specifies a property that must have smaller values than the value nodes."@en ;
-	rdfs:range rdf:Property ;
+	rdfs:comment "Specifies a property path that must have smaller values than the value nodes."@en ;
 	rdfs:isDefinedBy sh: .
 
 
 sh:LessThanOrEqualsConstraintComponent
 	a sh:ConstraintComponent ;
 	rdfs:label "Less-than-or-equals constraint component"@en ;
-	rdfs:comment "A constraint component that can be used to verify that every value node is smaller than all the nodes that have the focus node as subject and the value of a given property as predicate."@en ;
+	rdfs:comment "A constraint component that can be used to verify that every value node is smaller than all the nodes that can be reached from the focus node via a given property path."@en ;
 	sh:parameter sh:LessThanOrEqualsConstraintComponent-lessThanOrEquals ;
 	rdfs:isDefinedBy sh: .
 
 sh:LessThanOrEqualsConstraintComponent-lessThanOrEquals
 	a sh:Parameter ;
 	sh:path sh:lessThanOrEquals ;
-	sh:nodeKind sh:IRI ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
 	rdfs:isDefinedBy sh: .
 
 sh:lessThanOrEquals
 	a rdf:Property ;
 	rdfs:label "less than or equals"@en ;
-	rdfs:comment "Specifies a property that must have smaller or equal values than the value nodes."@en ;
-	rdfs:range rdf:Property ;
+	rdfs:comment "Specifies a property path that must have smaller or equal values than the value nodes."@en ;
 	rdfs:isDefinedBy sh: .
 
 
@@ -1205,7 +1211,7 @@ sh:qualifiedValueShape
 	rdfs:comment "The shape that a specified number of values must conform to."@en ;
 	rdfs:range sh:Shape ;
 	rdfs:isDefinedBy sh: .
-	
+
 sh:qualifiedValueShapesDisjoint
 	a rdf:Property ;
 	rdfs:label "qualified value shapes disjoint"@en ;
@@ -1246,6 +1252,26 @@ sh:reificationRequired
 	rdfs:label "reification required"@en ;
 	rdfs:comment "Can be used to mark the reification statements required."@en ;
 	rdfs:range xsd:boolean ;
+	rdfs:isDefinedBy sh: .
+
+
+sh:RootClassConstraintComponent
+	a sh:ConstraintComponent ;
+	rdfs:label "Root class constraint component"@en ;
+	rdfs:comment "A constraint component that can be used to verify that each value node is the given class or a (transitive) subclass of that class."@en ;
+	sh:parameter sh:RootClassConstraintComponent-rootClass ;
+	rdfs:isDefinedBy sh: .
+
+sh:RootClassConstraintComponent-rootClass
+	a sh:Parameter ;
+	sh:path sh:rootClass ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
+	rdfs:isDefinedBy sh: .
+
+sh:rootClass
+	a rdf:Property ;
+	rdfs:label "root class"@en ;
+	rdfs:comment "Specifies a class so that each value node must be that class or a (transitive) subclass of that class."@en ;
 	rdfs:isDefinedBy sh: .
 
 
@@ -1291,6 +1317,26 @@ sh:someValue
 	rdfs:isDefinedBy sh: .
 
 
+sh:SubsetOfConstraintComponent
+	a sh:ConstraintComponent ;
+	rdfs:label "Subset-of constraint component"@en ;
+	rdfs:comment "A constraint component that can be used to verify that the set of value nodes is a subset of the set of nodes that can be reached from the focus node using a given property path."@en ;
+	sh:parameter sh:SubsetOfConstraintComponent-subsetOf ;
+	rdfs:isDefinedBy sh: .
+
+sh:SubsetOfConstraintComponent-subsetOf
+	a sh:Parameter ;
+	sh:path sh:subsetOf ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
+	rdfs:isDefinedBy sh: .
+
+sh:subsetOf
+	a rdf:Property ;
+	rdfs:label "subset of"@en ;
+	rdfs:comment "Specifies a property path where the set of value nodes must be a subset of the values of that property path."@en ;
+	rdfs:isDefinedBy sh: .
+
+
 sh:UniqueLangConstraintComponent
 	a sh:ConstraintComponent ;
 	rdfs:label "Unique-languages constraint component"@en ;
@@ -1310,6 +1356,26 @@ sh:uniqueLang
 	rdfs:label "unique languages"@en ;
 	rdfs:comment "Specifies whether all node values must have a unique (or no) language tag."@en ;
 	rdfs:range xsd:boolean ;
+	rdfs:isDefinedBy sh: .
+
+
+sh:UniqueValuesForConstraintComponent
+	a sh:ConstraintComponent ;
+	rdfs:label "Unique-values-for constraint component"@en ;
+	rdfs:comment "A constraint component that can be used to ensure that no two nodes targeted by the same shape have the same combination of values for a given set of properties."@en ;
+	sh:parameter sh:UniqueValuesForConstraintComponent-uniqueValuesFor ;
+	rdfs:isDefinedBy sh: .
+
+sh:UniqueValuesForConstraintComponent-uniqueValuesFor
+	a sh:Parameter ;
+	sh:path sh:uniqueValuesFor ;
+	sh:nodeKind sh:BlankNodeOrIRI ;
+	rdfs:isDefinedBy sh: .
+
+sh:uniqueValuesFor
+	a rdf:Property ;
+	rdfs:label "unique values for"@en ;
+	rdfs:comment "Specifies one or more properties (as a URI or rdf:List of URIs) for which no two nodes targeted by the same shape may have the same combination of values."@en ;
 	rdfs:isDefinedBy sh: .
 
 
@@ -1499,7 +1565,7 @@ sh:namespace
 	rdfs:domain sh:PrefixDeclaration ;
 	rdfs:range xsd:anyURI ;
 	rdfs:isDefinedBy sh: .
-	
+
 
 # SPARQL-based Constraints support --------------------------------------------
 
@@ -1686,12 +1752,19 @@ sh:nodeByExpression
 
 # Non-validating constraint properties ----------------------------------------
 
+sh:agentInstruction
+	a rdf:Property ;
+	rdfs:label "agent instruction"@en ;
+	rdfs:comment "Can be used to store instructions that shall be sent as input for external agents that understand natural language."@en ;
+	# range: xsd:string or rdf:langString or rdf:dirLangString
+	rdfs:isDefinedBy sh: .
+
 sh:codeIdentifier
 	a rdf:Property ;
 	rdfs:label "code identifier"@en ;
 	rdfs:comment "A hint on how code generators should represent the associated shape."@en ;
 	rdfs:domain sh:Shape ;
-	rdfs:range: xsd:string ;
+	rdfs:range xsd:string ;
 	rdfs:isDefinedBy sh: .
 
 sh:defaultValue
@@ -1706,7 +1779,14 @@ sh:description
 	rdfs:label "description"@en ;
 	rdfs:comment "Human-readable descriptions for the property in the context of the surrounding shape."@en ;
 	rdfs:domain sh:PropertyShape ;
-	# range: xsd:string or rdf:langString
+	# range: xsd:string or rdf:dirLangString or rdf:langString or rdf:HTML
+	rdfs:isDefinedBy sh: .
+
+sh:formalized
+	a rdf:Property ;
+	rdfs:label "formalized"@en ;
+	rdfs:comment "Can be used as reification of sh:intent triples to indicate whether the intended interpretation has already been formalized using SHACL in the same shapes graph."@en ;
+	rdfs:range xsd:boolean ;
 	rdfs:isDefinedBy sh: .
 
 sh:group
@@ -1717,12 +1797,19 @@ sh:group
 	rdfs:range sh:PropertyGroup ;
 	rdfs:isDefinedBy sh: .
 
+sh:intent
+	a rdf:Property ;
+	rdfs:label "intent"@en ;
+	rdfs:comment "Provides human-readable descriptions of one or more intended rules, assumptions, or constraints associated with its subject (e.g., a shape). Can be used as input for external agents that understand natural language."@en ;
+	# range: xsd:string or rdf:langString or rdf:dirLangString
+	rdfs:isDefinedBy sh: .
+
 sh:name
 	a rdf:Property ;
 	rdfs:label "name"@en ;
 	rdfs:comment "Human-readable labels for the property in the context of the surrounding shape."@en ;
 	rdfs:domain sh:PropertyShape ;
-	# range: xsd:string or rdf:langString
+	# range: xsd:string or rdf:dirLangString or rdf:langString
 	rdfs:isDefinedBy sh: .
 
 sh:order
@@ -1730,6 +1817,13 @@ sh:order
 	rdfs:label "order"@en ;
 	rdfs:comment "Specifies the relative order of this compared to its siblings. For example use 0 for the first, 1 for the second."@en ;
 	# range: xsd:decimal or xsd:integer ;
+	rdfs:isDefinedBy sh: .
+
+sh:unit
+	a rdf:Property ;
+	rdfs:label "unit"@en ;
+	rdfs:comment "The code of a unit that the (literal) value nodes should be interpreted with. Recommended values are plain strings from the UCUM and ISO 4217 standards for units of measure and currencies respectively, or unit URIs from QUDT or a similar ontology."@en ;
+	rdfs:domain sh:Shape ;
 	rdfs:isDefinedBy sh: .
 
 sh:PropertyGroup
@@ -1743,7 +1837,7 @@ sh:PropertyGroup
 # -----------------------------------------------------------------------------
 # SHACL ADVANCED FEATURES (will likely be marked deprecated with 1.2)
 # -----------------------------------------------------------------------------
-	
+
 
 # Advanced Target vocabulary --------------------------------------------------
 
@@ -1815,7 +1909,7 @@ sh:SPARQLFunction
 	rdfs:subClassOf sh:SPARQLSelectExecutable ;
 	rdfs:isDefinedBy sh: .
 
-	
+
 # Node Expressions ------------------------------------------------------------
 
 sh:this
@@ -1831,7 +1925,10 @@ sh:intersection
 	rdfs:comment "Deprecated with SHACL 1.2: replaced by shnex:intersection."@en .
 
 sh:union
-	rdfs:comment "Deprecated with SHACL 1.2: replaced by shnex:union."@en .
+	rdfs:comment "Deprecated with SHACL 1.2: replaced by shnex:concat."@en .
+
+sh:minus
+	rdfs:comment "Deprecated with SHACL 1.2: replaced by shnex:remove."@en .
 
 
 # Rules -----------------------------------------------------------------------
