@@ -486,8 +486,8 @@ RULE { ?x :name ?FN } WHERE {
 
           <dt><dfn>Negation element</dfn></dt>
           <dd>
-            A [=negation element=] is a [=rule body element=].
-            It takes a sequence of [=triple patterns=] and
+            A [=negation element=] is a [=rule body element=]
+            comprised of a sequence of [=triple pattern elements=] and
             [=condition elements=].
           </dd>
 
@@ -690,7 +690,7 @@ RULE { ?x :name ?FN } WHERE {
             The following algorithm gives one
             possible method for constructing the [=dependency graph=] from a
             [=rule set=]. Conformance depends on the dependency definitions 
-			in this section, not on use of this procedure.
+            in this section, not on use of this procedure.
           </p>
           <div class="algorithm">
             <pre>
@@ -711,27 +711,34 @@ define buildDependencyGraph(ruleSet):
         endif
         enddefine
 
+    ## Classify all triple patterns in a rule, looking inside negation elements.
     foreach rule R1 in ruleSet:
 
         let bodyDependencies = {}
-        foreach triplePatternElement TP in the body of R1:
-            let item be a new pair (triplePattern, depLabel)
-            item.triplePattern = TP
-            if TP is a negation element:
-                item.depLabel="negative"
-            else:
-                item.depLabel="positive"
-            add item to bodyDependencies
+        foreach rule body element RBE in the body of R1:
+            if RBE is a negation element:
+                foreach triple pattern element TPE in RBE:
+                    let item be a pair (TPE, "negative")
+                    add item to bodyDependencies
+                endfor
+            else if RBE is a triple pattern element:
+                let item be a pair (RBE, "postive")
+                add item to bodyDependencies
+            else if RBE is a condition element:
+                ## Do nothing
+            else if RBE is an assignment element:
+                ## Do nothing
+            endif
         endfor
 
-        foreach pair (triplePattern bodyTP, depLabel) in bodyDependencies:
+        foreach pair ( triple pattern TP, depLabel) in bodyDependencies:
 
             foreach rule R2 in ruleSet:
-                foreach triple template TT in head of R2:
 
+                foreach triple template TT in head of R2:
                     ## "possibly generate" / matching is defined in
                     ## 3.3 Rule Dependency.
-                    if TT can possibly generate a triple matching bodyTP:
+                    if TT can possibly generate a triple pattern TP:
                         let key = (R1, R2)
                         if edgeLabelMap contains key:
                             let oldLabel = edgeLabelMap.get(key)
@@ -741,9 +748,10 @@ define buildDependencyGraph(ruleSet):
                             edgeLabelMap.set(key, depLabel)
                         endif
                     endif
-
                 endfor
+
             endfor
+
         endfor
     endfor
 
