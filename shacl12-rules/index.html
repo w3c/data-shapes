@@ -341,13 +341,17 @@ RULE { ?x :name ?FN } WHERE {
 
       <section id="creating-rdf-terms">
         <h3>Assignment and Creating RDF Terms</h3>
-        <div class="issue" data-number="749">
+        <div class="issue" data-number="829">
           <p>
             Generating new terms without restriction can lead to unbounded
             inferred triples.  There are function-like forms that do not have
             repeatable results: `BNODE`, `UUID`.  Blank nodes in the rule head
-            behave like SPARQL `CONSTRUCT`.  Assignment can be used to have an
-            incrementing counter.
+            behave like SPARQL `CONSTRUCT` - they generate fresh blank nodes.
+          </p>
+          <p>
+            One approach to this is to stratify based on all the rule body
+            elements.  Then a rule only needs to be evaluated once and this can
+            be determined statically.
           </p>
         </div>
       </section>
@@ -532,6 +536,12 @@ RULE { ?x :name ?FN } WHERE {
             A [=rule body=] is a sequence of [=rule body elements=].
           </dd>
 
+          <dt><dfn data-lt="rule imports|imports">Rule imports</dfn></dt>
+          <dd>
+            [=Rule imports=] (often just "imports") are a collection of URLs
+            for other rule sets that will be included during evaluation.
+          </dd>
+
           <dt><dfn>Rule</dfn></dt>
           <dd>
             A [=rule=] is a pair of a [=rule head=] (often just "head") and
@@ -540,8 +550,9 @@ RULE { ?x :name ?FN } WHERE {
 
           <dt><dfn>Rule set</dfn></dt>
           <dd>
-            A [=rule set=] is a collection of zero or more [=rules=]
-            and a collection of zero or more [=data blocks=].
+            A [=rule set=] is a collection of zero or more [=rules=],
+            a collection of zero or more [=data blocks=],
+            and a collection of zero or more [=rule imports].
           </dd>
 
           <dt><dfn>Base graph</dfn></dt>
@@ -683,8 +694,81 @@ RULE { ?x :name ?FN } WHERE {
             in the [=dependency graph=] involving `R`.
           </dd>
         </dl>
-          
-        
+
+        <section id="dependency-graph-construction-algorithm" class="informative">
+          <h4>Dependency Graph Algorithm</h4>
+          <p>
+            The following algorithm gives one
+            possible method for constructing the [=dependency graph=] from a
+            [=rule set=]. Conformance depends on the dependency definitions 
+			in this section, not on use of this procedure.
+          </p>
+          <div class="algorithm">
+            <pre>
+
+## output -- Dependency graph with rule vertices and labeled edges.
+
+define buildDependencyGraph(ruleSet):
+
+    ## edgeLabelMap maps (R1, R2) to "positive" or "negative"
+    let edgeLabelMap be a map from (rule, rule) to label
+
+    define mergeLabel(oldLabel, newLabel):
+        ## Negative dependency dominates positive dependency.
+        if oldLabel == "negative" or newLabel == "negative":
+            return "negative"
+        else:
+            return "positive"
+        endif
+        enddefine
+
+    foreach rule R1 in ruleSet:
+
+        let bodyDependencies = {}
+        foreach triplePatternElement TP in the body of R1:
+            let item be a new pair (triplePattern, depLabel)
+            item.triplePattern = TP
+            if TP is a negation element:
+                item.depLabel="negative"
+            else:
+                item.depLabel="positive"
+            add item to bodyDependencies
+        endfor
+
+        foreach pair (triplePattern bodyTP, depLabel) in bodyDependencies:
+
+            foreach rule R2 in ruleSet:
+                foreach triple template TT in head of R2:
+
+                    ## "possibly generate" / matching is defined in
+                    ## 3.3 Rule Dependency.
+                    if TT can possibly generate a triple matching bodyTP:
+                        let key = (R1, R2)
+                        if edgeLabelMap contains key:
+                            let oldLabel = edgeLabelMap.get(key)
+                            let merged = mergeLabel(oldLabel, depLabel)
+                            edgeLabelMap.set(key, merged)
+                        else:
+                            edgeLabelMap.set(key, depLabel)
+                        endif
+                    endif
+
+                endfor
+            endfor
+        endfor
+    endfor
+
+    let DP = { }
+    foreach entry ((R1, R2), label) in edgeLabelMap:
+        DP = { edge (R1 -&gt; R2) labeled label } &cups; DP
+    endfor
+
+    the result is DP
+    enddefine
+            </pre>
+          </div>
+        </section>
+
         <p>Notes:</p>
         <ul>
           <li>
@@ -1054,8 +1138,9 @@ Output: an RDF graph GI of inferred triples
 
         <dl>
           <dt><dfn 
-                data-lt="solution|sparql12-query#defn_sparqlSolutionMapping"
-                >solution mapping</dfn></dt>
+                data-cite="sparql12-query#defn_sparqlSolutionMapping"
+                data-lt="solution mapping|solution"
+                >Solution mapping</dfn></dt>
           <dd> 
             A <a data-lt="sparql12-query#defn_sparqlSolutionMapping">Solution mapping</a>, 
             <var>μ</var>, is a partial function 
