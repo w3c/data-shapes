@@ -1,0 +1,84 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:RootClass
+  a rdfs:Class, sh:NodeShape ;
+  sh:property [ sh:path ex:rootClassProperty1 ] ;
+  sh:closed sh:ByTypes ;
+.
+ex:SubClass
+  a rdfs:Class, sh:NodeShape ;
+  rdfs:subClassOf ex:RootClass ;
+  sh:property [ sh:path ex:subClassProperty1 ] ;
+  sh:property [ sh:path ex:subClassProperty2 ] ;
+.
+ex:RootShape
+  a sh:NodeShape ;
+  sh:targetClass ex:RootClass ;
+  sh:property [ sh:path ex:rootShapeProperty1 ] ;
+.
+ex:SubShape
+  a sh:NodeShape ;
+  sh:targetClass ex:SubClass ;
+  sh:node ex:SuperShape ;
+  sh:property [ sh:path ex:subShapeProperty1 ] ;
+.
+ex:SuperShape
+  a sh:NodeShape ;
+  sh:property [ sh:path ex:superShapeProperty1 ] ;
+.
+
+# Invalid because it uses ex:subClassProperty1 but it's not an instance of SubClass
+ex:InvalidInstance1
+  a ex:RootClass ;
+  ex:subClassProperty1 1 ;
+.
+ex:ValidInstance1
+  a ex:RootClass ;
+  ex:rootClassProperty1 1 ;
+  ex:rootShapeProperty1 2 ;
+.
+ex:ValidInstance2
+  a ex:SubClass ;
+  ex:rootClassProperty1 1 ;
+  ex:rootShapeProperty1 2 ;
+  ex:subClassProperty1 3 ;
+  ex:subClassProperty2 4 ;
+  ex:subShapeProperty1 5 ;
+  ex:superShapeProperty1 6 ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <closed-004>
+    ) ;
+.
+<closed-004>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:closed at node shape 004" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:InvalidInstance1 ;
+          sh:resultPath ex:subClassProperty1 ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:ClosedConstraintComponent ;
+          sh:sourceShape ex:RootClass ;
+          sh:value 1 ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.

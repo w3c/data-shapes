@@ -1,0 +1,87 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:IRIShape a sh:NodeShape ;
+  sh:nodeKind sh:IRI .
+
+ex:TestShape
+  rdf:type sh:NodeShape ;
+  sh:targetClass ex:ListSubject ;
+  sh:property ex:TestShape-testProperty ;
+.
+
+ex:TestShape-testProperty
+  sh:path ex:testProperty ;
+  sh:memberShape ex:IRIShape ;
+.
+
+# Valid with all IRIs in the list
+ex:list1
+  rdf:type ex:ListSubject ;
+  ex:testProperty (
+      ex:Alice
+      ex:Bob
+      ex:Charlie
+    ) ;
+.
+
+_:bc rdfs:label "Blank node which triggers violation" .
+
+# Invalid with a blank node in the list
+ex:list2
+  rdfs:label "List with a blank node" ;
+  rdf:type ex:ListSubject ;
+  ex:testProperty _:b1 ;
+.
+
+_:b1
+  rdf:first ex:Bob ;
+  rdf:rest (
+    _:bc 
+  )
+.
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <memberShape-001>
+    ) ;
+.
+
+<memberShape-001>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:memberShape at property shape 001" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:list2 ;
+          sh:resultPath ex:testProperty ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MemberShapeConstraintComponent ;
+          sh:sourceShape ex:TestShape-testProperty ;
+          sh:value _:b1 ;
+          sh:detail [
+            rdf:type sh:ValidationResult ;
+            sh:focusNode _:bc ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:NodeKindConstraintComponent ;
+            sh:sourceShape ex:IRIShape ;
+            sh:value _:bc ;
+          ] ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
