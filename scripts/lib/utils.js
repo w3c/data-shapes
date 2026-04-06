@@ -20,6 +20,8 @@ async function parseTurtle (turtle, prefixes = '') {
 
     return await rdf.io.dataset.fromText('text/turtle', `${prefixes}\n${turtle}`)
   } catch (err) {
+    console.error("Error parsing Turtle:\n", turtle)
+    console.error(err)
     return null
   }
 }

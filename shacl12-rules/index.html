@@ -490,8 +490,8 @@ RULE { ?x :name ?FN } WHERE {
 
           <dt><dfn>Negation element</dfn></dt>
           <dd>
-            A [=negation element=] is a [=rule body element=].
-            It takes a sequence of [=triple patterns=] and
+            A [=negation element=] is a [=rule body element=]
+            comprised of a sequence of [=triple pattern elements=] and
             [=condition elements=].
           </dd>
 
@@ -701,7 +701,7 @@ RULE { ?x :name ?FN } WHERE {
             The following algorithm gives one
             possible method for constructing the [=dependency graph=] from a
             [=rule set=]. Conformance depends on the dependency definitions 
-			in this section, not on use of this procedure.
+            in this section, not on use of this procedure.
           </p>
           <div class="algorithm">
             <pre>
@@ -722,27 +722,34 @@ define buildDependencyGraph(ruleSet):
         endif
         enddefine
 
+    ## Classify all triple patterns in a rule, looking inside negation elements.
     foreach rule R1 in ruleSet:
 
         let bodyDependencies = {}
-        foreach triplePatternElement TP in the body of R1:
-            let item be a new pair (triplePattern, depLabel)
-            item.triplePattern = TP
-            if TP is a negation element:
-                item.depLabel="negative"
-            else:
-                item.depLabel="positive"
-            add item to bodyDependencies
+        foreach rule body element RBE in the body of R1:
+            if RBE is a negation element:
+                foreach triple pattern element TPE in RBE:
+                    let item be a pair (TPE, "negative")
+                    add item to bodyDependencies
+                endfor
+            else if RBE is a triple pattern element:
+                let item be a pair (RBE, "postive")
+                add item to bodyDependencies
+            else if RBE is a condition element:
+                ## Do nothing
+            else if RBE is an assignment element:
+                ## Do nothing
+            endif
         endfor
 
-        foreach pair (triplePattern bodyTP, depLabel) in bodyDependencies:
+        foreach pair ( triple pattern TP, depLabel) in bodyDependencies:
 
             foreach rule R2 in ruleSet:
-                foreach triple template TT in head of R2:
 
+                foreach triple template TT in head of R2:
                     ## "possibly generate" / matching is defined in
                     ## 3.3 Rule Dependency.
-                    if TT can possibly generate a triple matching bodyTP:
+                    if TT can possibly generate a triple pattern TP:
                         let key = (R1, R2)
                         if edgeLabelMap contains key:
                             let oldLabel = edgeLabelMap.get(key)
@@ -752,9 +759,10 @@ define buildDependencyGraph(ruleSet):
                             edgeLabelMap.set(key, depLabel)
                         endif
                     endif
-
                 endfor
+
             endfor
+
         endfor
     endfor
 
@@ -1116,7 +1124,7 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
     </section>
 
     <section id="rule-set-evaluation">
-      <h3>Rule Set Evaluation</h3>
+      <h2>Rule Set Evaluation</h2>
       <p>
         This section defines the outcome of evaluating a rule set on given data.
         It does not prescribe the algorithm as the method of implementation.
@@ -1134,7 +1142,7 @@ Output: an RDF graph GI of inferred triples
       </p>
 
       <section id="rule-eval-definitions">
-      <h4>Evaluation Definitions</h4>
+        <h3>Evaluation Definitions</h3>
 
         <dl>
           <dt><dfn 
@@ -1246,9 +1254,74 @@ merge(S1, S2) = { <var>μ</var> |
         </dl>
       </section>
 
-      <section id="eval-expression">
-        <h4>Evaluation of an Expression</h4>        
+      <section id="evaluation-preparation">
+        <h3>Preparation for Evaluation</h3>
+        <p>
+          The first step in evaluating a [=rule set=] is to prepare a single,
+          valid rule set. This involves gathering all imported rule sets, building
+          a single, combined rule set, and then calculating the stratification for
+          the combined rule set.
+        </p>
 
+        <section id="process-imports">
+          <h4>Process Imports</h4>
+          <p>
+            @@Walk imports - visit only once@@
+          </p>
+          <p class="ednote">
+            @@TODO: consider defining a rule set as having two components and a
+            separate set of imports. i.e. imports are in the parsing and sorted out 
+            to give a usable "rule set" of "rules + data"
+          </p>
+          <div class="def">
+            <p>
+            A [=rule set=] has three components: R.rules, R.data and R.imports.
+            The <dfn>rule set merge</dfn> of two rule sets RS1 and RS2 giving
+            rule set MR:
+            </p>
+            <pre>
+                MR.rules = RS1.rules &cups; RS2.rules
+                MR.data = merge(RS1.data, RS2.data)
+                MR.imports = {}
+            </pre>
+            <p>
+              where `merge` is the 
+              <a data-cite="RDF12-SEMANTICS#dfn-rdf-graph-merge">RDF merge</a>
+              operation.
+            </p>
+          </div>
+
+          <div class="algorithm"><pre>
+define imports(rule set RS, set of URLs V), returning rule set
+    let I = the set of import URLs declared for the rule set RS
+    let RS2 = RS
+    foreach URL x in I:
+       if x &notin; V:
+           V = V &cups; { x }
+           read rule set RS3 from URL x
+           RS2 = rulesetMerge(RS2, imports(RS3, V))
+        endif
+    endfor
+    result is RS2
+enddefine
+
+let RS be a ruleset
+let V = {}
+if RS has a location, V = { location of RS }
+result is imports(RS, V)
+</pre>
+          </div>
+        </section>
+        <section id="calculate-stratification">
+          <h4>Calculate Stratification</h4>
+          <p>@@ See <a href="#stratification-algorithm" class="sectionRef"></a>
+          </p>
+        </section>
+
+      </section>
+
+      <section id="eval-expression">
+        <h3>Evaluation of an Expression</h3>
         <p class=ednote>Sketch</p>
         <div class="algorithm">
 <pre>
@@ -1267,7 +1340,7 @@ define evalFunction(F, <var>μ</var>):
       </section>
 
       <section id="eval-rule">
-        <h4>Evaluation of a Rule</h4>
+        <h3>Evaluation of a Rule</h3>
         <div  class="algorithm">
 <pre>
 let R be a well-formed rule.
@@ -1361,7 +1434,7 @@ result eval(R, G) is H
       </section>
 
       <section id="eval-rule-set">
-        <h4>Evaluation of a Rule Set</h4>
+        <h3>Evaluation of a Rule Set</h3>
 
         <div class="algorithm">
 <pre>
