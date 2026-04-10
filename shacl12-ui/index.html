@@ -658,6 +658,262 @@
 
       <p class="note">Describe the constraint collection/aggregation behaviour here for both Node and Property UI Component.</p>
     </section>
+    <section id="scoring-system">
+      <h2>Scoring System</h2>
+
+      <section id="scoring-system-intro">
+        <h3>Introduction</h3>
+        <p>
+          When generating user interfaces, it is often necessary to determine the most suitable user interface <em>widget</em> 
+          (e.g., a text input, a date picker, a checkbox) for a given value or SHACL constraint.
+          To achieve this, SHACL UI defines a scoring system built on top of SHACL's validation process, 
+          providing a flexible and extensible mechanism that implementers and applications can use to determine which widgets are applicable.
+        </p>
+        <p>Common use cases for the scoring system include:</p>
+        <ul>
+         <li><strong>Selecting widgets based on the types of value nodes</strong> — for
+            example, preferring a Date Picker widget when the value is a literal
+            of type <code>xsd:date</code>.</li>
+          <li><strong>Selecting widgets based on the shape's constraints</strong> — for
+            example, prefer a Boolean Select widget when the shape requires a
+            boolean value via a <code>sh:datatype</code> constraint.</li>
+        </ul>
+      </section>
+
+      <section id="scoring-algorithm">
+        <h3>Scoring Algorithm</h3>
+        <p>
+          At a high level, the scoring system is a function that takes a set of inputs and returns a set of score results, 
+          sorted by their score value in descending order, with ties broken and thenceforth ordered lexicographically by the Unicode codepoint values of `shui:widget` to ensure deterministic ordering.
+        </p>
+
+        <section id="scoring-algorithm-mandatory-inputs">
+          <h4>Mandatory Inputs</h4>
+          <ul>
+            <li><strong>Scoring graph</strong> — An RDF graph containing `shui:WidgetScore` instances that define how widgets are scored.</li>
+            <li><strong>Constraint shape</strong> — A SHACL shape subject in the shapes graph that defines the constraints and structure of the UI rendered for an editing or viewing context.</li>
+            <li><strong>Shapes graph</strong> — the <a href="https://www.w3.org/TR/shacl/#shapes-graph">shapes graph</a> containing the SHACL shapes that define constraints on the data graph and provide the structural and semantic model used to generate and render the user interface.</li>          </ul>
+          </ul>
+        </section>
+
+        <section id="scoring-algorithm-optional-inputs">
+          <h4>Optional Inputs</h4>
+
+          <ul>
+            <li><strong>Focus node</strong> — the node in the data graph for view, create, or update operations.</li>
+            <li><strong>Data graph</strong> — the <a href="https://www.w3.org/TR/shacl/#data-graph">data graph</a> containing the domain data being edited or viewed. This must be present if a focus node is provided.</li>
+          </ul>
+        </section>
+
+        <section id="scoring-algorithm-processing">
+          <h4>Processing</h4>
+          <p>
+            The scoring function MUST raise an error and terminate the algorithm in the following scenarios:
+          </p>
+          <ul>
+            <li>Any mandatory inputs are missing.</li>
+            <li>Widget Score instances are malformed.</li>
+          </ul>
+
+        </section>
+
+        <section id="scoring-algorithm-widget-score-validation">
+          <h4>Widget Score Validation</h4>
+          <p>Widget Scores are malformed if they fail to validate against this <a href="./widgets/score-validator.ttl">score validation shapes graph</a>.</p>
+        </section>
+      </section>
+
+      <section id="scoring-algorithm-validation-function">
+        <h4>Validation Function</h4>
+          <p>
+            The validation function used by the <a href="#scoring-algorithm-matcher-function">matcher function</a> to validate the focus node against a list of shape nodes.
+          </p>
+          <p>
+            Inputs:
+          </p>
+        <ul>
+          <li><strong>Focus node</strong> — The node to validate.</li>
+          <li><strong>Target graph</strong> — The RDF graph containing the focus node.</li>
+          <li><strong>Shape node</strong> — A list of SHACL shape IRIs to validate against.</li>
+          <li><strong>Shapes graph</strong> — RDF graph containing the list of SHACL shapes.</li>
+        </ul>
+        <p>Steps:</p>
+        <ol>
+          <li>If <strong>shape node</strong> is empty, return <code>true</code>.</li>
+          <li>If the <strong>focus node</strong> is not a subject in the <strong>target graph</strong>, return <code>false</code>.</li>
+          <li>Validate the <strong>focus node</strong> with the following:
+            <ul>
+              <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+              <li><strong>Target graph</strong> as <strong>data graph</strong>.</li>
+              <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+              <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+            </ul>
+          </li>
+          <li>If the validation produces violations, return <code>false</code>.</li>
+          <li>If the validation conforms, return <code>true</code>.</li>
+        </ol>
+        <p>
+          If any SHACL validation fails due to malformed shapes, the validation function should log a warning and return <code>false</code>. 
+          Shape validation errors should not cause the Matcher function to fail.
+        </p>
+      </section>
+
+      <section id="scoring-algorithm-matcher-function">
+        <h4>Matcher Function</h4>
+          <p>
+            The matcher function used by the <a href="#scoring-algorithm-score-function">score function</a> and the <a href="#scoring-algorithm-accept-function">accept function</a> to validate whether a widget score applies to a given focus node and shape node.
+          </p>
+          <p>
+            Inputs:
+          </p>
+        <ul>
+          <li><strong>Focus node</strong> — The node to validate.</li>
+          <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
+          <li><strong>Shape node</strong> — A list of SHACL shape IRIs to validate against.</li>
+          <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
+          <li><strong>Matcher node</strong> — The node that identifies the matcher.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+        </ul>
+        <p>Steps:</p>
+          <ol>
+            <li>If no <strong>focus node</strong> is given, a value for the `shui:dataGraphShape` property is present, and no value for the `shui:shapesGraphShape` is present, return `false`</li>
+            <li>Call the validation function with the following:
+            <ul>
+              <li><strong>Shape node</strong> as <strong>focus node</strong>.</li>
+              <li><strong>Shapes graph</strong> as <strong>target graph</strong>.</li>
+              <li>The value of the `shui:shapesGraphShape` property of <strong>matcher node</strong> as <strong>shape node</strong>.</li>
+              <li><strong>Scoring graph</strong> as <strong>shapes graph</strong>.</li>
+            </ul>
+          </li>
+            <li>If the function returns <code>false</code>, return <code>false</code>.</li>
+            <li>If no focus node is given, return `true`.</li>
+            <li>Call the validation function with the following:
+            <ul>
+              <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+              <li><strong>Data graph</strong> as <strong>target graph</strong>.</li>
+              <li>The value of the `shui:dataGraphShape` property of <strong>matcher node</strong> as <strong>shape node</strong>.</li>
+              <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+            </ul>
+          </li>
+            <li>If the function returns <code>false</code>, return <code>false</code>.</li>
+            <li>Otherwise, return <code>true</code>.</li>
+        </ol>
+      </section>
+
+      <section id="scoring-algorithm-score-function">
+        <h4>Score Function</h4>
+          <p>
+            The score function used to find the best widget or an ordered list of matches.
+          </p>
+          <p>
+            Inputs:
+          </p>
+        <ul>
+          <li><strong>Best</strong> — A boolean flag; if true, return only the first matching result.</li>
+          <li><strong>Focus node</strong> — The node to validate.</li>
+          <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
+          <li><strong>Shape node</strong> — A list of SHACL shape IRIs to validate against.</li>
+          <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+        </ul>
+        <p>Steps:</p>
+        <ol>
+          <li>Initialize an empty list <code>Results</code>.</li>
+          <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong>, sorted by <code>shui:score</code> 
+            in descending order and then lexicographically by the Unicode codepoint values of <code>shui:widget</code>.</li>
+          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>
+            <ol>
+              <li>Call the matcher function with the following:
+                <ul>
+                  <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+                  <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
+                  <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+                  <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+                  <li><code>S</code> as <strong>matcher node</strong>.</li>
+                  <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
+                </ul>
+              </li>
+              <li>
+                If the matcher function returns <code>true</code>, and <strong>best</strong> is <code>true</code>, return the object with the following:
+                <ul>
+                  <li>The <code>shui:widget</code> of <code>S</code>.</li>
+                  <li>The IRI of <code>S</code>.</li>
+                  <li>.<code>shui:score</code> of <code>S</code>.</li>
+                </ul>
+              </li>
+              <li>Otherwise, if the matcher function returns `true`, record widget score by appending the object to <code>results</code>.</li>
+            </ol>
+          </li>
+          <li>Return <code>results</code>.</li>
+        </ol>
+      </section>
+
+      <section id="scoring-algorithm-accept-function">
+        <h4>Accept Function</h4>
+          <p>
+            The accept function used to check if a widget is applicable.
+          </p>
+          <p>
+            Inputs:
+          </p>
+      <ul>
+          <li><strong>Focus node</strong> — The node to validate.</li>
+          <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
+          <li><strong>Shape node</strong> — A list of SHACL shape IRIs to validate against.</li>
+          <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
+          <li><strong>Widget node</strong> — The IRI of the widget to check acceptance for.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+        </ul>
+        <p>Steps:</p>
+        <ol>
+          <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>M</code> with a matching <code>shui:widget</code> value.</li>
+          <li>Call the matcher function with the following:
+            <ul>
+              <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+              <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
+              <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+              <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+              <li><code>M</code> as <strong>matcher node</strong>.</li>
+              <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
+            </ul>
+          </li>
+          <li>Return the return value of the matcher function.</li>
+        </ol>
+      </section>
+
+      <section id="scoring-algorithm-algorithm-output">
+        <h4>Output</h4>
+        <p>Informative example: Scoring widget output.</p>
+        <p>A list of score results sorted by score in descending order.</p>
+        <pre><code>
+[{
+  "widget": "http://www.w3.org/ns/shacl-ui#BooleanSelectEditor",
+  "source": "http://www.w3.org/ns/shacl-ui#booleanSelectEditorScore10",
+  "score": 10
+},
+{
+  "widget": "http://www.w3.org/ns/shacl-ui#LiteralEditor",
+  "source": "http://www.w3.org/ns/shacl-ui#LiteralEditorScoreNull",
+  "score": 0
+}]
+          </code>
+        </pre>
+      </section>
+
+      <section id="scoring-algorithm-widget-selection">
+        <h4>Widget Selection</h4>
+        <p>
+          The widget with the highest score SHOULD be selected as the default widget from the Scoring Algorithm results.
+          Implementations MAY allow users to switch to any widget included in the results.
+        </p>
+        <p>
+          Since multiple score entries may reference the same widget, 
+          a post-processing step SHOULD be performed to normalize the score results (for example, 
+          by aggregating or de-duplicating entries by widget) before presenting the widget choices to the user.
+        </p>
+      </section>
+
+      </section>
 
     <section id="widgets">
       <h2>Widgets</h2>
@@ -670,7 +926,7 @@
           The following sub-sections enumerate the currently defined instances of <code>shui:Editor</code> from the SHACL UI namespace.
           Property shapes can explicitly specify the preferred editor for its values using <code>shui:editor</code>.
           If no such value has been specified, the system should pick a suitable default viewer based on the
-          <a href="#score">scoring system</a> outlined for each widget.
+          <a href="#scoring-system">scoring system</a> outlined for each widget.
         </p>
       </section>
 
@@ -680,7 +936,7 @@
           The following sub-sections enumerate the currently defined instances of <code>shui:Viewer</code> from the SHACL UI namespace.
           A property shape can have an explicitly specified preferred viewer for its values in <code>shui:viewer</code>.
           If no such value has been specified, the system should pick a suitable default viewer based on the
-          <a href="#score">scoring system</a> outlined for each widget.
+          <a href="#scoring-system">scoring system</a> outlined for each widget.
         </p>
         <p id="multi">
           Most viewers render a single RDF value on the screen, typically as a single widget.
