@@ -338,7 +338,7 @@
       <section id="desc-basic">
         <h3>Basic Usage</h3>
 
-       <p>In this first example, we have the following data graph and rule set:</p>
+        <p>In this first example, we have the following data graph and rule set:</p>
 
         <div class="data">
 <pre>
@@ -531,11 +531,14 @@ WHERE {
         <p>
           Rules involving assignment are [=run-once rules=]. Rules with assignment
           are run after all the rules that could produce the data that they depend on
-          and before any rules that depend on the data they produce.
+          and before any rules that depend on the data they produce. 
+          Rules that involve blank node in the [=rule head=] are also creating new
+          RDF terms and are run-once rules.
         </p>
         <p>
-          This condition ensures that rules with assignment do not generate new RDF terms
-          multiple times, with potentially different outcomes.
+          This condition ensures that rules that create RDF terms do not generate new terms
+          multiple times, with potentially different outcomes and also that such rules do not 
+          loop back to themselves and cause an unbounded number of RDF terms.
         </p>
       </section>
       
@@ -635,8 +638,13 @@ WHERE {
 
     <section id="rules-abstract-syntax">
       <h2>Shape Rules Abstract Syntax</h2>
-
-      <p>The Shape Rules Abstract Syntax</p>
+      
+      <p>
+        The Shape Rules Abstract Syntax is the logical structure of SHACL Rules.
+        It is used to define the execution algorithm of SHACL Rules.
+        Each of the two concrete syntax forms of SHACL Rules, the SHACL Rules Language (SRL)
+        and the RDF syntax (SRL/RDF), provides a way to express the abstract syntax.
+      /p>
 
       <section id="rules-defns">
         <h3>Elements of the Abstract Syntax</h3>
@@ -651,8 +659,8 @@ WHERE {
           <dt><dfn>Expression</dfn></dt>
           <dd>
             <p>
-              An [=expression=] is a function or a functional form.
-              It's arguments are [=RDF terms=].
+              An [=expression=] is a function or a functional form;
+              the arguments are [=RDF terms=].
               An expression is evaluated with respect to a [=solution mapping=] to give
               an [=RDF term=] as the result.
               <a>Expressions</a> are compatible with
@@ -660,7 +668,13 @@ WHERE {
                  >SHACL list parameter functions</a>
               and with <a data-cite="sparql12-query#expressions">SPARQL expressions</a>.</p>
           </dd>
-
+          <dt><dfn >Condition</dfn></dt>
+          <dd>
+            <p>
+              A [=condition=] is an [=expression=] that evaluates to true or false.
+              [=Conditions=] are used to restrict the values of variables in pattern matching.
+            </p>
+          </dd>
           <dt><dfn data-lt="data-block">Data block</dfn></dt>
           <dd>
             A [=data block=] is a set of triples.
@@ -685,11 +699,10 @@ WHERE {
             as well as inside [=negation elements=].
           </dd>
 
-          <dt><dfn data-lt="condition element|condition">Condition element</dfn></dt>
+          <dt><dfn>Condition element</dfn></dt>
           <dd>
-            A [=condition element=] is an [=expression=]
-            that evaluates to true or false.
-            [=Condition elements=] appear in the [=body=] of a [=rule=].
+            A [=condition element=] is a [=condition=]
+            that appears as a [=rule body element=].
           </dd>
 
           <dt><dfn>Triple pattern element</dfn></dt>
@@ -701,11 +714,11 @@ WHERE {
           <dt><dfn>Negation element</dfn></dt>
           <dd>
             A [=negation element=] is a [=rule body element=]
-            comprised of a sequence of [=triple pattern elements=] and
-            [=condition elements=].
+            comprised of a sequence of [=triple patterns=] and
+            [=conditions=].
           </dd>
 
-          <dt><dfn data-lt="assignment element">Assignment element</dfn></dt>
+          <dt><dfn data-lt="assignment element|assignment">Assignment element</dfn></dt>
           <dd>
             An [=assignment element=] is a pair consisting 
             of a <a>variable</a>, called the <dfn>assignment variable</dfn>, 
@@ -726,8 +739,8 @@ WHERE {
                 >Rule body element</dfn></dt>
           <dd>
             A [=rule body element=] (often just "rule element") is any element that
-            can appear in a [=rule body=],
-            a [=triple pattern=],
+            can appear in a [=rule body=], i.e.,
+            a [=triple pattern element=],
             a [=condition element=],
             a [=negation element=],
             or an [=assignment element=].
@@ -798,7 +811,6 @@ WHERE {
             pattern can be derived from a [=base graph=] using the
             [=rule set=].
           </dd>
-
         </dl>
 
         <p>
@@ -864,92 +876,178 @@ WHERE {
 
       <section id="rule-dependency">
         <h3>Rule Dependency</h3>
+        
+        <p>
+          A rule `R1` depends on a rule `R2` if the output of the second rule
+          affects the evaluation of the body of the first rule. That is, the head of `R2`
+          has a [=triple template=] that might generate a triple that matches
+          a [=triple pattern=] in the body of `R1`, 
+          either as a [=triple pattern element=] or inside a [=negation element=].
+        </p>
+        <p>
+          There are two kinds of dependencies: 
+          a <dfn data-lt="closed dependency">closed rule dependency</dfn>
+          and an <dfn data-lt="open dependency">open rule dependency</dfn>.
+          A <em>closed dependency</em> requires that rule `R2`
+          has generated all its possible output before rule `R1` can be executed.
+          This happens when `R1` has a [=triple pattern=] in a [=negation element=]
+          that matches a [=triple template=] of `R2` in a [=negation element=],
+          or if `R1` has any matching [=triple pattern=] depending on `R2` 
+          and `R1` has an [=assignment element=], or `R1` has any matching [=triple pattern=]
+          that matches a [=triple template=] of `R2` that has a blank node.
+          If a rule dependency is not closed, it is an <em>open dependency</em>
+          which allows the first rule `R1` to be executed
+          while the rule `R2` might be run again to generate further triples
+          which can then cause `R1` to be reevaluated with the new triples from `R2`.
+        </p>
 
         <dl>
+          <dt><dfn>Triple pattern matching</dfn></dt>
+          <dd>
+          <p>
+            A [=triple pattern=] matches a [=triple template=] if 
+            the triple template may generate a triple that matches the triple pattern.
+          </p>
+          </dd>
+
           <dt><dfn>Triple pattern dependency</dfn></dt>
           <dd>
-            A [=triple pattern=] in the rule body of rule `R1` depends on a
-            rule `R2` if the head of `R2` can possibly generate triples that
-            match the [=triple pattern=] in `R1`.
-            The dependency is <em>positive</em> 
-            if the [=triple pattern=] is a [=rule body element=]
-            and the dependency is <em>negative</em> if the
-            [=triple pattern=] appears in a [=negation element=].
+            <p>
+              A [=triple pattern=]
+              <dfn data-local-lt="depends-pattern-template">depends on a [=triple template=]</dfn>
+              if the [=triple pattern=] could possibly match the [=triple template=].
+            </p>
+            <p>
+              A [=triple pattern=]
+              <dfn data-local-lt="depends-pattern-rule">depends on a [=rule=]</dfn>
+              if the [=triple pattern=] has dependency on any [=triple template=]
+              in the head of the rule.
+          </p>
           </dd>
-
           <dt><dfn>Rule dependency</dfn></dt>
           <dd>
-            A rule `R1` depends on rule `R2` if any rule element of `R1`
-            depends on `R2`.
-            The dependency is <em>negative</em> if any of the rule elements
-            have a negative dependency on `R2`; otherwise the dependency is
-            <em>positive</em>.
-          </dd>
-
-          <dt><dfn>Dependency graph</dfn></dt>
-          <dd>
-            A [=dependency graph=] of a [=rule set=] is a graph where the
-            vertices are rules and an edge exists where one rule R1 depends on
-            rule R2. An edge is labeled either <em>positive</em> 
-            or <em>negative</em> according to the [=rule dependency=].
-          </dd>
-
-          <dt><dfn
-                data-lt="transitive rule dependency|transitive dependency"
-                >Transitive rule dependency</dfn></dt>
-          <dd>
-            A rule `R1` has a [=transitive dependency=] on rule `R2` 
-            if there is a path in the [=dependency graph=] from `R1` to `R2`.
-          </dd>
-
-          <dt><dfn
-                data-lt="recursive rule dependency|recursive dependency"
-                >Recursive rule dependency</dfn></dt>
-          <dd>
-            A rule `R` has a [=recursive dependency=] if there is a cyclic path
-            in the [=dependency graph=] involving `R`.
+          <p>
+            Rule `R1` depends on rule `R2` if any [=triple pattern=]
+            of `R1` depends on `R2`.
+            The dependency is an [=open dependency=] if `R1` does not have an
+            [=assignment element=] and if all the [=triple patterns=]
+            of `R1` that depend `R2` occur only as [=triple pattern elements=]
+            and not as part of a [=negation element=], and if `R1` does not
+            have any [=triple template=] with a blank node.
+            Otherwise, if `R1` has an [=assignment element=],
+            or if a [=triple pattern=]
+            that might match triples generated by `R2` is present in a
+            [=negation element=], then the dependency is a [=closed dependency=].
+          </p>
           </dd>
         </dl>
 
-        <section id="dependency-graph-construction-algorithm" class="informative">
+        <div class="note">
+          <p>
+            A [=triple template=] with components `ts`, `tp`, `to`
+            can possibly generatce a triple with component RDF terms
+            `s`, `p`, `o` if
+          </p>
+          <ul>
+            <li>`ts` is a variable, or `ts` is the
+              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
+                 >same RDF term</a> as `s`
+            </li>
+            <li>`tp` is a variable, or `tp` is the
+              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
+                 >same RDF term</a> as `p`
+            </li>
+            <li>`to` is a variable, or `to` is the
+              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
+                 >same RDF term</a> as `o`
+            </li>
+          </ul>
+          <p>
+            In addition, if any pair of `ts`, `tp`, and `to` are the same variable,
+            then the corresponding pair of `s`, `p`, and `o` must be the same.
+          </p>
+        </div>
+
+        <section id="dependency-graph">
+          <h4>Dependency Graph</h4>
+          <p>
+            The dependencies between rules are represented as a directed graph,
+            called the [=dependency graph=].
+            The vertices of the graph are the rules of the rule set, and the edges
+            are labeled either <em>open</em> or <em>closed</em> according to
+            whether the dependency is an [=open dependency=] or a [=closed dependency=].
+          </p>
+          <dl>
+            <dt><dfn>Dependency graph</dfn></dt>
+            <dd>
+              A [=dependency graph=] of a [=rule set=] is a directed graph where each
+              vertex is a [=rule=] in the rule set, and an edge exists from rule `R1`
+              to rule `R2` if `R1` depends on `R2`.
+              The edge is labeled either <em>open</em> 
+              or <em>closed</em> according whether the dependency
+              is an [=open dependency=] or a [=closed dependency=].
+            </dd>
+            <dt><dfn
+                  data-lt="transitive rule dependency|transitive dependency"
+                  >Transitive rule dependency</dfn></dt>
+            <dd>
+              A rule `R1` has a [=transitive dependency=] on rule `R2` 
+              if there is a path in the [=dependency graph=] from `R1` to `R2`.
+            </dd>
+            <dt><dfn
+                  data-lt="recursive rule dependency|recursive dependency"
+                  >Recursive rule dependency</dfn></dt>
+            <dd>
+              <p>
+                A rule `R` has a [=recursive dependency=] if there is a cyclic path
+                in the [=dependency graph=] involving `R`.
+              </p>
+            </dd>
+          </dl>
+          <p class="note">
+            The dependency graph is not affected by the data graph.
+          </p>
+        </section>
+
+
+        <section id="dependency-graph-construction-algorithm">
           <h4>Dependency Graph Algorithm</h4>
           <p>
             The following algorithm gives one
             possible method for constructing the [=dependency graph=] from a
-            [=rule set=]. Conformance depends on the dependency definitions 
-            in this section, not on use of this procedure.
+            [=rule set=]. Conformance depends on producing a dependency graph
+            that meets the definitions of a dependency graph,
+            not on the use of this procedure.
           </p>
           <div class="algorithm">
             <pre>
 
+define mergeLabel(oldLabel, newLabel):
+    ## Closed dependency overrides open dependency.
+    if oldLabel == "open" and newLabel == "open":
+        return "open"
+    else:
+        return "closed"
+    endif
+enddefine
+
 ## output -- Dependency graph with rule vertices and labeled edges.
-
 define buildDependencyGraph(ruleSet):
+    ## edgeLabelMap maps (R1, R2) to "open" or "closed"
+    let edgeLabelMap be a map from pair (rule, rule) to label
 
-    ## edgeLabelMap maps (R1, R2) to "positive" or "negative"
-    let edgeLabelMap be a map from (rule, rule) to label
-
-    define mergeLabel(oldLabel, newLabel):
-        ## Negative dependency dominates positive dependency.
-        if oldLabel == "negative" or newLabel == "negative":
-            return "negative"
-        else:
-            return "positive"
-        endif
-        enddefine
-
-    ## Classify all triple patterns in a rule, looking inside negation elements.
     foreach rule R1 in ruleSet:
-
+        ## Classify each triple pattern TP in the rule as requiring "open" or "closed"
+        ## depending on whether it is in a negation element or not.
         let bodyDependencies = {}
         foreach rule body element RBE in the body of R1:
             if RBE is a negation element:
-                foreach triple pattern element TPE in RBE:
-                    let item be a pair (TPE, "negative")
+                foreach triple pattern TP in RBE:
+                    let item be a pair (TP, "closed")
                     add item to bodyDependencies
                 endfor
-            else if RBE is a triple pattern element:
-                let item be a pair (RBE, "postive")
+            else if RBE is a triple pattern element of triple pattern TP:
+                let item be a pair (TP, "open")
                 add item to bodyDependencies
             else if RBE is a condition element:
                 ## Do nothing
@@ -958,14 +1056,19 @@ define buildDependencyGraph(ruleSet):
             endif
         endfor
 
-        foreach pair ( triple pattern TP, depLabel) in bodyDependencies:
-
+        foreach pair (triple pattern TP, depLabel) in bodyDependencies:
+            if R1 has an assignment element:
+              set depLabel to "closed"
+            endif
+            if R1 has a triple template with a blank node:
+              set depLabel to "closed"
+            endif
+            ## Find depenencies for this triple pattern element or negation element.
             foreach rule R2 in ruleSet:
-
                 foreach triple template TT in head of R2:
                     ## "possibly generate" / matching is defined in
-                    ## 3.3 Rule Dependency.
-                    if TT can possibly generate a triple pattern TP:
+                    ## section 3.3 
+                    if TT can possibly match triple pattern TP:
                         let key = (R1, R2)
                         if edgeLabelMap contains key:
                             let oldLabel = edgeLabelMap.get(key)
@@ -976,15 +1079,13 @@ define buildDependencyGraph(ruleSet):
                         endif
                     endif
                 endfor
-
             endfor
-
         endfor
     endfor
 
     let DP = { }
     foreach entry ((R1, R2), label) in edgeLabelMap:
-        DP = { edge (R1 -&gt; R2) labeled label } &cups; DP
+        add edge (R1 -&gt; R2) labeled label to DP
     endfor
 
     the result is DP
@@ -992,37 +1093,6 @@ define buildDependencyGraph(ruleSet):
             </pre>
           </div>
         </section>
-
-        <p>Notes:</p>
-        <ul>
-          <li>
-            <p>
-              A [=triple template=] with components `ts`, `tp`, `to`
-              can possibly generate a triple with component RDF terms
-              `s`, `p`, `o` if 
-              `ts` is a variable or `ts` is the
-              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
-                 >same RDF term</a> as `s`,
-              `tp` is a variable or `tp` is the
-              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
-                 >same RDF term</a> as `p`,
-              and
-              `to` is a variable or `to` is the
-              <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
-                 >same RDF term</a> as `o`.
-            </p>
-            <p>
-              In addition, if any pair of `ts`, `tp`, and `to` are the same variable,
-              then the corresponding pair of `s`, `p`, and `o` must be the same.
-            </p>
-            <p class="ednote">
-              Revise
-            </p>
-          </li>
-          <li>
-            The dependency graph is not affected by the data graph.
-          </li>
-        </ul>
 
         <p>
           Examples:
@@ -1044,17 +1114,18 @@ define buildDependencyGraph(ruleSet):
         <p>
           [=Stratification=] is the process of partitioning a [=rule set=]
           into an ordered sequence of [=stratification layers=] (also known
-          as "strata", singular "stratum"), forming a [=stratification=].
-          Rules in lower [=strata=] are evaluated before rules in higher
-          [=strata=].
+          as "strata", singular "stratum"). Rules in lower [=strata=] are
+          evaluated before rules in higher [=strata=].
         </p>
         <p>
           [=Stratification=] imposes constraints on dependencies between [=rules=]
-          to ensure that [=negation elements=] depend only on results computed
-          using earlier (lower) [=strata=]. This guarantees a single well-defined
+          to ensure that [=negation elements=], [=assignment elements=], and
+          blank nodes created in a [=rule head=] depend only on results computed
+          using earlier (lower) [=strata=] and the [=base graph=].
+          This guarantees a single, well-defined, and finite
           outcome from the evaluation of a [=rule set=] over a given [=base graph=].
         </p>
-        <div class="ednote">
+        <div class="note">
           <p>
             A stratification process may also be used to make other evaluation
             decisions. This document describes the necessary conditions for
@@ -1066,18 +1137,26 @@ define buildDependencyGraph(ruleSet):
         </div>
 
         <dl>
-          <dt><dfn>Stratification</dfn></dt>
-          <dd>
-            A [=stratification=] of a [=rule set=] is a sequence of sets of
-            rules. Each rule in a [=rule set=] appears in exactly one
-            [=stratification layer=].
-          </dd>
           <dt><dfn 
                 data-lt="stratification layer|layer|stratum"
                 >Stratification layer</dfn></dt>
           <dd>
-            Each set of rules in a [=stratification=] is called a 
-            [=stratification layer=], also called a "stratum".
+            <p>
+              A [=stratification layer=] `SL`, is a pair of disjoint sets of
+              rules (`SL.once`, `SL.general`) .
+              `SL.once` contains [=run-once rules=], which are
+              rules that use [=assignment elements=] or produce
+              blank nodes in the [=rule head=]; these rules are each evaluated exactly
+              once at the start of evaluation of the [=stratification layer=].
+              `SL.general` contains the remaining rules, which are evaluated 
+              until no new triples are inferred.
+            </p>
+          </dd>
+          <dt><dfn>Stratification</dfn></dt>
+          <dd>
+            A [=stratification=] of a [=rule set=] is a sequence of [=stratification layers=].
+            Each rule in a [=rule set=] appears in exactly one of the sets of one of
+            the [=stratification layers=].
           </dd>
         </dl>
 
@@ -1086,20 +1165,21 @@ define buildDependencyGraph(ruleSet):
           <p>
             [=Stratification=] is only defined when the following condition is
             satisfied. If a [=rule set=] does not meet this condition, then this
-            specification does not define the outcome of [=rule set=] evaluation.
+            specification does not define an outcome for the evaluation of
+            such a [=rule set=].
           </p>
           <dl>
             <dt><dfn>Stratification Condition</dfn></dt>
             <dd>
               The [=stratification condition=] requires that
               there is no [=recursive dependency=] involving a
-              <em>negative</em> dependency
+              [=closed rule dependency=]
               in the [=dependency graph=] for a [=rule set=].
             </dd>
           </dl>
           <p>
-            In other words, there is no `NOT` used in any rule that
-            transitively depends on itself.
+            In other words, there is no `NOT` or run-once rule (assignment or rule [=triple template=]
+            involving a blank node) in any transitive dependency cycle of the [=dependency graph=].
           </p>
         </section>
 
@@ -1120,8 +1200,9 @@ define stratification(ruleSet):
     let stratumMap be a map from rule to integer
 
     ## The dependency graph should satisfy the stratification condition.
-    ## Check unbounded work due to a violation of the stratification condition.
-    let limit = num rules  + 1
+    ## The check for unbounded stratification is a guard 
+    ## due to a violation of the stratification condition.
+    let limit = num rules + 1
     let maxStratum = 0
 
     ## initialize stratumMap
@@ -1138,13 +1219,13 @@ define stratification(ruleSet):
             let qRule = destination of the edge
             let label = edge label
 
-            if label == "positive" :
+            if label == "open" :
                 if stratumMap.get(pRule) < stratumMap.get(qRule) :
                     stratumMap.set(pRule, stratumMap.get(qRule))
                     changed = true;
-                    endif
                 endif
-            if label == "negative" :
+            endif
+            if label == "closed" :
                 if stratumMap.get(pRule) <= stratumMap.get(qRule) :
                     let xStratum = 1 + stratumMap.get(qRule)
                     if ( xStratum > limit )
@@ -1154,38 +1235,42 @@ define stratification(ruleSet):
                     stratumMap.set(pRule, xStratum)
                     maxStratum = max(maxStratum, xStratum)
                     changed = true;
-                    endif
                 endif
-            endfor
-        endwhile
+            endif
+        endfor
+    endwhile
 
     ## Initialize the result map.
-    let stratumLevels be a map from integer to a set of rules
+    let stratumRules be a map from integer to rules.
     for i = 0 to maxStratum
-        stratumLevels.set(i, {})
-        endfor
+        stratumRules.set(i, {})
+    endfor
 
     ## Gather rules in stratumMap with the same level number
     for rule R in map stratumMap:
         let stratumNum = stratumMap.get(R)
-        let S = {R} &cups; stratumLevel.get(stratumNum)
-        stratumLevel.set(stratumNum, S)
-        endfor
+        add R to stratumRules.get(stratumNum)
+    endfor
+
+    ## Partition each level into once and general
+    let stratumLevels be a sequence of pairs of sets of rules.
+    for i = 0 to maxStratum:
+        let rules = stratumLevels.get(i)
+        let once = { R in rules | R is a run-once rule }
+        let general = rules \ once
+        stratumLevels.set(i, pair(once, general))
+    endfor
 
     the result is stratumLevels
-    endfunction
+enddefine
             </pre>
           </div>
-
           <p class="note">
-            A consequence of the [=stratification condition=] is that when 
-            a rule containing a [=negation element=] is
-            <a href="#eval-rule">evaluated</a>, the data used to determine the
-            outcome of that [=negation element=], whether in the
-            [=base graph=] or the [=inference graph=], is fixed and will not
-            change during evaluation.
+            A consequence of the [=stratification condition=] is that once a
+            [=run-once rule=] is <a href="#eval-rule">evaluated</a>,
+            the data used to determine the outcome of the rule will not
+            change during further evaluation.
           </p>
-
         </section>
       </section>
     </section>
@@ -1206,7 +1291,7 @@ define stratification(ruleSet):
       <p>Shape Rules Language:</p>
       <div class="example-rules">
 <pre>
-PREFIX : &lt;http://example/>
+PREFIX : &lt;http://example/&gt;
 
 DATA { :x :p 1 ; :q 2 . }
 
@@ -1340,10 +1425,10 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
         </div>
 
         <p>
-          @@Illustration: SHACL rule set in text and RDF syntaxes: all features:
+          @@ Illustration: SHACL rule set in text and RDF syntaxes: all features:
         </p>
 <pre class="example-rules">
-PREFIX :        <http://example/>
+PREFIX :        &lt;http://example/&gt;
 
 DATA { :s :p :o }
 RULE { ?x :q :o } WHERE { ?x :p :o }
@@ -1352,7 +1437,7 @@ RULE { ?x :q :o } WHERE { ?x :p ?o . FILTER (?o < 18) }
 RULE { ?x :q ?o } WHERE { ?x :p :o . BIND(18 AS ?o) }
 RULE { ?x :q ?o } WHERE { ?x :p :o . NOT { ?s :p ?o . FILTER(?o < 18) } }
 </pre>
-<pre class="example-rules">
+<pre class="example-rulehtoidy -hs">
 PREFIX :       &lt;http://example/&gt;
 PREFIX rdf:    &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
 PREFIX sh:     &lt;http://www.w3.org/ns/shacl#&gt;
@@ -1598,9 +1683,11 @@ merge(S1, S2) = { <var>μ</var> |
           </p>
           <div class="def">
             <p>
-            A [=rule set=] has three components: R.rules, R.data and R.imports.
-            The <dfn>rule set merge</dfn> of two rule sets RS1 and RS2 giving
-            rule set MR:
+            A [=rule set=] has three components: `R.rules`, `R.data`, and `R.imports`.
+
+            The <dfn>rule set merge</dfn> of two rule sets, `RS1` and `RS2`,
+            is a rule set, `MR`, defined as follows:
+
             </p>
             <pre>
                 MR.rules = RS1.rules &cups; RS2.rules
@@ -1619,16 +1706,16 @@ define imports(rule set RS, set of URLs V), returning rule set
     let I = the set of import URLs declared for the rule set RS
     let RS2 = RS
     foreach URL x in I:
-       if x &notin; V:
-           V = V &cups; { x }
-           read rule set RS3 from URL x
-           RS2 = rulesetMerge(RS2, imports(RS3, V))
+        if x &notin; V:
+            V = V &cups; { x }
+            read rule set RS3 from URL x
+            RS2 = rulesetMerge(RS2, imports(RS3, V))
         endif
     endfor
     result is RS2
 enddefine
 
-let RS be a ruleset
+let RS be a rule set
 let V = {}
 if RS has a location, V = { location of RS }
 result is imports(RS, V)
@@ -1691,12 +1778,13 @@ define evalRuleElements(B, SEQ, G):
             SEQ1 = {}
             for each <var>μ</var><sub>1</sub> in X:
                 for each <var>μ</var><sub>2</sub> in SEQ:
-                  if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                    <var>μ</var><sub>3</sub> = merge(<var>μ</var>1, <var>μ</var><sub>2</sub>)
-                    add <var>μ</var><sub>3</sub> to SEQ1
+                    if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
+                      <var>μ</var><sub>3</sub> = merge(<var>μ</var>1, <var>μ</var><sub>2</sub>)
+                      add <var>μ</var><sub>3</sub> to SEQ1
                     endif
                 endfor
-             endfor
+            endfor
+        endif
 
         if rElt is a condition element with expression F:
             SEQ1 = {}
@@ -1704,9 +1792,9 @@ define evalRuleElements(B, SEQ, G):
                 let x = evalFunction(F, <var>μ</var>)
                 if x is <var>true</var>:
                     add <var>μ</var> to SEQ1
-                    endif
-                endfor
-            endif
+                endif
+            endfor
+        endif
 
         if rElt is a negation expression with body elements N:
             SEQ1 = {}
@@ -1715,9 +1803,9 @@ define evalRuleElements(B, SEQ, G):
                 NEG = evalRuleElements(N, S, G)
                 if NEG is empty
                     add <var>μ</var> to SEQ1
-                    endif
-                endfor
-            endif
+                endif
+            endfor
+        endif
 
         if rElt is an assignment with variable V and expression expr
             SEQ1 = {}
@@ -1728,20 +1816,20 @@ define evalRuleElements(B, SEQ, G):
                     add S to SEQ1
                 else
                     # Error: drop solution S
-                    endif
-                endfor
-            endif
+                endif
+            endfor
+        endif
 
         if SEQ1 is empty
             SEQ = {}
             return SEQ
-            endif
+        endif
 
         SEQ = SEQ1
-        endfor
+    endfor
 
-     return SEQ
-     enddefine
+    return SEQ
+enddefine
 
 let SEQ = evalRuleElements(B, SEQ0, G)
 
@@ -1752,9 +1840,9 @@ for each <var>μ</var> in SEQ:
     for each triple template TT in head
         let triple = subst(<var>μ</var>, TT)
         Add triple to S
-        endfor
-    H = H union S
     endfor
+    H = H union S
+endfor
 
 result eval(R, G) is H
 </pre>
@@ -1773,29 +1861,36 @@ let D be the graph of all DATA triples in RS
 
 Apply stratification to RS
 
-let L be the sequence of layers after stratification
+let LS be the sequence of layers after stratification
 
 # Inference graph
-let GI = { t &isin; D  | t &notin; in G0 }
+let GI = { t &isin; D | t &notin; G0 }
 
 # Evaluation graph.
 let GE = G0 &cups; D
 
-for each layer in L:
+for each stratum ST in LS:
+    for each rule R in ST.once:
+        let X = eval(R, GE)
+        let Y = { t &isin; X | t &notin; GE }
+        GI = Y &cups; GI
+        GE = Y &cups; GE
+    endfor
+
     let finished = false
     while !finished:
         finished = true
-        for each rule in layer:
-            let X = eval(rule, GE)
-            let Y = { t &isin; X | t &notin; in GE }
+        for each rule R in ST.general:
+            let X = eval(R, GE)
+            let Y = { t &isin; X | t &notin; GE }
             if Y is not empty:
                 finished = false
                 GI = Y &cups; GI
                 GE = Y &cups; GE
-                endif
-            endfor
-        endwhile
-    endfor
+            endif
+        endfor
+    endwhile
+endfor
 the result is GI
 </pre>
         </div>
@@ -1813,7 +1908,7 @@ the result is GI
                 <td><code>[1]&nbsp;&nbsp;</code></td>
                 <td><code><span class="doc-ref" id="rRuleSet">RuleSet</span></code></td>
                 <td>&nbsp;&nbsp;::=&nbsp;&nbsp;</td>
-                <td><code class="gRuleBody"><a href="#rRuleOrDataBlock">RuleOrDataBlock</a> <span class="token"></span></code></td>
+                <td><code class="gRuleBody"><a href="#rRuleOrDataBlock">RuleOrDataBlock</a></code></td>
               </tr>
 
               <tr style="vertical-align: baseline">
