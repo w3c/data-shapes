@@ -2089,6 +2089,103 @@ ex:SomeClass-alternativePathExample
 					Shapes graphs can be reusable validation modules that can be cross-referenced with the predicate <a data-cite="owl2-syntax/#Imports"><code>owl:imports</code></a>.
 					As a pre-validation step, SHACL processors SHOULD extend the originally provided <a>shapes graph</a> by transitively following and importing all referenced <a>shapes graphs</a>
 					through the <a data-cite="owl2-syntax/#Imports"><code>owl:imports</code></a> predicate.
+					When resolving an imported IRI, if the retrieved graph contains a triple with the imported IRI as the object of
+					<a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
+					the processor SHOULD treat the subject of that triple as the shapes graph IRI of the imported graph
+					for the purpose of following further <code>owl:imports</code> statements.
+					Formally, processors SHOULD use the property path <code>^owl:versionIRI?/owl:imports</code> iteratively
+					to resolve imports, so that version IRIs can be used to import versioned shapes graphs.
+				</p>
+				<p>
+					In the following example, the shapes graph imports <code>&lt;http://example.com/shapes/company/v2&gt;</code>.
+					When the processor retrieves the graph at that IRI,
+					it finds that IRI declared as the <code>owl:versionIRI</code> of <code>&lt;http://example.com/shapes/company&gt;</code>.
+					The processor then uses <code>&lt;http://example.com/shapes/company&gt;</code> to identify that graph
+					when following further <code>owl:imports</code> statements, in this case importing <code>&lt;http://example.com/shapes/base&gt;</code>.
+				</p>
+
+				<aside class="example" title="Importing a versioned shapes graph using owl:versionIRI">
+					<div class="shapes-graph">
+						<div class="turtle">
+# Shapes graph that imports a versioned shapes module
+&lt;http://example.com/shapes/myapp&gt;
+	owl:imports &lt;http://example.com/shapes/company/v2&gt; .
+
+ex:PersonShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:property [
+		sh:path ex:worksFor ;
+		sh:class ex:Company ;
+	] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "http://example.com/shapes/myapp",
+			"owl:imports": {
+				"@id": "http://example.com/shapes/company/v2"
+			}
+		},
+		{
+			"@id": "ex:PersonShape",
+			"@type": "sh:NodeShape",
+			"sh:targetClass": { "@id": "ex:Person" },
+			"sh:property": {
+				"sh:path": { "@id": "ex:worksFor" },
+				"sh:class": { "@id": "ex:Company" }
+			}
+		}
+	]
+}</pre>
+						</div>
+					</div>
+					<div class="shapes-graph">
+						<div class="turtle">
+# Graph retrieved from &lt;http://example.com/shapes/company/v2&gt;
+&lt;http://example.com/shapes/company&gt;
+	owl:versionIRI &lt;http://example.com/shapes/company/v2&gt; ;
+	owl:imports &lt;http://example.com/shapes/base&gt; .
+
+ex:CompanyShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Company ;
+	sh:property [
+		sh:path ex:name ;
+		sh:minCount 1 ;
+		sh:datatype xsd:string ;
+	] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "http://example.com/shapes/company",
+			"owl:versionIRI": {
+				"@id": "http://example.com/shapes/company/v2"
+			},
+			"owl:imports": {
+				"@id": "http://example.com/shapes/base"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:targetClass": { "@id": "ex:Company" },
+			"sh:property": {
+				"sh:path": { "@id": "ex:name" },
+				"sh:minCount": 1,
+				"sh:datatype": { "@id": "xsd:string" }
+			}
+		}
+	]
+}</pre>
+						</div>
+					</div>
+				</aside>
+
+				<p>
 					The resulting graph forms the input <a>shapes graph</a> for validation and MUST NOT be further modified during the validation process.
 				</p>
 				<p>
@@ -2147,6 +2244,8 @@ ex:SomeClass-alternativePathExample
 				<p class="syntax">
 					A <a>data graph</a> can include triples used to suggest one or more graphs to a SHACL processor with the predicate <code>sh:shapesGraph</code>.
 					<span data-syntax-rule="shapesGraph-nodeKind">Every <a>value</a> of <code>sh:shapesGraph</code> is an <a>IRI</a></span> representing a graph that SHOULD be included into the <a>shapes graph</a> used to validate the <a>data graph</a>.
+					The value of <code>sh:shapesGraph</code> may be a value of <a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
+					so the same strategy of resolving a shapes graph IRI from a version IRI, described for <a href="#shapes-graph">Shapes Graphs</a>, applies here.
 				</p>
 				<p>
 					In the following example, a SHACL processor SHOULD use the union of <code>ex:graph-shapes1</code> and <code>ex:graph-shapes2</code> graphs (and their <code>owl:imports</code>) as the <a>shapes graph</a> when validating the given graph.
