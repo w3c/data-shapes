@@ -165,6 +165,7 @@
         SHACL Rules provides inferencing with the generation of new RDF data from a
         combination of a set of rules and a base data graph. Rules can be expressed as RDF
         or in the SHACL Rules Language (SRL).
+      </p>
       <p>
         This specification is published by the
         <a href="https://www.w3.org/groups/wg/data-shapes/">Data Shapes Working Group</a>.
@@ -314,23 +315,24 @@
       </p>
       <p>
         Each [=rule=] has a pattern, called the [=body=], and a result
-        template called the [=head=].
+        template, called the [=head=].
         A rule is executed by finding the values for variables in the body
-        so that the body matches the the combined base graph and 
-        inferred triples from the execution so far.
+        so that the body matches the combined base graph and 
+        any inferred triples from the execution up to this point.
         These values are then used to instantiate the triple templates
         in the rule head to produce new inferred triples.
       </p>
       <p>
-        The rules are executed until no more triples are inferred
+        The rules are executed until no more triples are inferred,
         and rules may be executed more than once as new inferred triples
         become available.
       </p>
       <p>
-        SHACL Rules execution is defined so that 
-        creating new RDF terms, including new blank nodes,
-        and testing for the absence of a pattern 
-        do not lead to different inference graphs due to the order of rule execution.
+        SHACL Rules execution is defined so that the order of rule execution
+        does not lead to to different outcomes when creating new RDF terms,
+        including new blank nodes, nor in the testing for the absence of a
+        pattern.  In other words, the same inference graph is produced
+        regardless of the order of rule execution.
       </p>
 
       <section id="desc-basic">
@@ -466,9 +468,9 @@ RULE { ?x rdf:type :largeTown } WHERE { ?x :population ?p . FILTER(?p > 1500) }
           In order to evaluate a negation element, the rules evaluation algorithm
           ensures that all the rules that could produce triples matching the pattern
           in the negation element have been completed.  This is called
-          <i>[=stratification=]</i> and it ensures that the negation is based
+          <i>[=stratification=]</i> and ensures that the negation is based
           on all the relevant possible triples, whether from the data or inferred
-          byfrom other rules.
+          from other rules.
         </p>
         <div class="data">
 <pre>
@@ -508,7 +510,7 @@ RULE { ?x rdf:type :largeTown } WHERE { ?x :population ?p . FILTER(?p > 1500) }
 RULE { ?x :distanceKm ?kilometers }
 WHERE { 
     ?x :distanceMiles ?miles .
-    SET( ?kilometers := ?miles * 1.60934 )
+    SET ( ?kilometers := ?miles * 1.60934 )
 }
 </pre>    
         </div>
@@ -521,8 +523,8 @@ WHERE {
 RULE { ?x :distanceKm ?kilometers }
 WHERE { 
     ?x :distanceMiles ?miles
-    NOT{ ?x :distanceKm ?km }
-    SET( ?kilometers := ?miles * 1.60934 )
+    NOT { ?x :distanceKm ?km }
+    SET ( ?kilometers := ?miles * 1.60934 )
 }
 </pre>    
         </div>
@@ -533,7 +535,7 @@ WHERE {
         </p>
         <p>
           This condition ensures that rules with assignment do not generate new RDF terms
-          multiple times, with potetially different outcomes.
+          multiple times, with potentially different outcomes.
         </p>
       </section>
       
@@ -547,7 +549,7 @@ WHERE {
         <p>
           The `IMPORTS` statements of a rule set are processed before any of the rules
           in the rule set are evaluated. During the importing step, if an imported rule set
-          has its own imports, those are also processed recursivly.
+          has its own imports, those are also processed recursively.
           Traversing `IMPORTS` statements during the processing of rule sets may lead to
           cyclic imports. A rule set is imported only once; 
           cycles in the import statements graph does not lead to infinite loops.
@@ -578,7 +580,7 @@ WHERE {
         </div>
       </section>
 
-      <section>
+      <section id="rules-sparql-relationship">
         <h3>Relationship between SHACL Rules and SPARQL</h3>
         <p>
           SHACL Rules and SPARQL have a close relationship. SHACL Rules are designed to be compatible
@@ -758,7 +760,7 @@ WHERE {
 
           <dt><dfn>Run-once rule</dfn></dt>
           <dd>
-            A [=run-once rule=] is a rule is run once at a particular point
+            A [=run-once rule=] is a rule that is run once at a particular point
             in the evaluation of a rule set.
           </dd>
 
@@ -1149,7 +1151,7 @@ define stratification(ruleSet):
                         ## Stratification requirement violated
                         error "Stratification error"
                         endif
-                    stratumMap.put(pRule, xStratum)
+                    stratumMap.set(pRule, xStratum)
                     maxStratum = max(maxStratum, xStratum)
                     changed = true;
                     endif
@@ -1544,12 +1546,13 @@ result is imports(RS, V)
 @@ Reference SPARQL EBV <a data-cite="SPARQL12-QUERY/#ebv">Effective Boolean Value (EBV)</a>
 
 define evalFunction(F, <var>μ</var>):
-    Let [x/<var>μ</var>] be
+    let [x/<var>μ</var>] be
         if x is an RDF term, then [x/row] is x
         if x is a variable, then [x/row] is <var>μ</var>(x)
         ## By well-formedness, it is an error if x is not in the row.
-    eval(F(expr1, expr2 ...), row) = F(eval(expr1, row), eval(expr2, row), ...)
-    eval(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
+    return evalFunction(F(expr1, expr2 ...), row) = F(evalFunction(expr1, row), evalFunction(expr2, row), ...)
+        if an error is returned by evalFunction: return error
+    return evalFunction(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
 </pre>
         </div>
       </section>
@@ -1592,7 +1595,8 @@ define evalRuleElements(B, SEQ, G):
         if rElt is a condition element with expression F:
             SEQ1 = {}
             for each solution <var>μ</var> in SEQ:
-                if evalFunction(F, <var>μ</var>) is <var>true</var>:
+                let x = evalFunction(F, <var>μ</var>)
+                if x is <var>true</var>:
                     add <var>μ</var> to SEQ1
                     endif
                 endfor
@@ -1612,9 +1616,13 @@ define evalRuleElements(B, SEQ, G):
         if rElt is an assignment with variable V and expression expr
             SEQ1 = {}
             for each solution S in SEQ:
-                let x = eval(expr, S)
-                add(V, x) to S
-                add S to SEQ1
+                let x = evalFunction(expr, S)
+                if x is not an error:
+                    add(V, x) to S
+                    add S to SEQ1
+                else
+                    # Error: drop solution S
+                    endif
                 endfor
             endif
 
