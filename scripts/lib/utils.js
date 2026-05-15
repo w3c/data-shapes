@@ -1,5 +1,4 @@
 import rdf from 'rdf-ext'
-import { parse } from 'shaclc-parse'
 
 async function parseJsonld (jsonld, context = {}) {
   try {
@@ -26,16 +25,7 @@ async function parseTurtle (turtle, prefixes = '') {
   }
 }
 
-async function parseShaclc (shaclc, prefixes = '') {
-  try {
-    return rdf.dataset(parse(`${prefixes}\n${shaclc}`))
-  } catch (err) {
-    return null
-  }
-}
-
 export {
   parseJsonld,
-  parseTurtle,
-  parseShaclc
+  parseTurtle
 }
