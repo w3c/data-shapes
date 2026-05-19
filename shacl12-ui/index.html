@@ -1431,6 +1431,187 @@ ex:alice a ex:Person ;
 
       <section id="label-resolution">
         <h3>Label Resolution</h3>
+
+        <p>
+          Label resolution determines the most appropriate human-readable string to display for an
+          RDF resource in a user interface. This section defines the algorithm for determining that
+          label, considering annotations in the <a>shapes graph</a>, values in the <a>data graph</a>,
+          and fallback strategies when no suitable label is found.
+        </p>
+
+        <p>
+          Label resolution is applied in two contexts:
+        </p>
+        <ul>
+          <li>
+            <strong>Property labels</strong>: the label used for the field or column heading of a
+            <a>property UI component</a>, derived from the <a>property shape</a> or from the predicate
+            identified by <code>sh:path</code>.
+          </li>
+          <li>
+            <strong>Value node labels</strong>: the label used to represent a <a>value node</a> (e.g.,
+            an IRI or blank node) when it appears in a UI form or list.
+          </li>
+        </ul>
+
+        <section id="label-resolution-property-labels">
+          <h4>Property Labels</h4>
+
+          <p>
+            To determine the label for a <a>property UI component</a> whose <a>property shape</a> has
+            <code>sh:path</code> pointing to a <a>property path</a> <var>P</var>, implementations MUST
+            apply the following steps in order, stopping at the first step that yields a result:
+          </p>
+          <ol>
+            <li>
+              If the <a>property shape</a> has one or more values for the configured <a>property path</a> for
+              the property label resolution (defaulting to <code>sh:name</code>), select the best
+              matching value using <a>language resolution</a>. If a match is found, use that literal
+              as the label.
+            </li>
+            <li>
+              If <var>P</var> is a predicate IRI and the <a>data graph</a>
+              contains one or more <code>rdfs:label</code> triples with subject <var>P</var>, select
+              the best matching value using <a>language resolution</a>. If a match is found, use
+              that literal as the label.
+            </li>
+            <li>
+              If <var>P</var> is a predicate IRI and the <a>shapes graph</a>
+              contains one or more <code>rdfs:label</code> triples with subject <var>P</var>, select
+              the best matching value using <a>language resolution</a>. If a match is found, use
+              that literal as the label.
+            </li>
+            <li>
+              If <var>P</var> is a predicate IRI, use the
+              <a>local name resolution</a> of <var>P</var> as the label.
+            </li>
+            <li>
+              Otherwise, an implementation-specific translation algorithm should be applied to convert the complex property path
+              <var>P</var> into a human-readable string representation.
+            </li>
+          </ol>
+        </section>
+
+        <section id="label-resolution-value-node-labels">
+          <h4>Value Node Labels</h4>
+
+          <p>
+            To determine the label for a single <a>value node</a> <var>V</var>, implementations MUST
+            apply the following steps in order, stopping at the first step that yields a result:
+          </p>
+          <ol>
+            <li>
+              If <var>V</var> is a literal, use its lexical form as the label.
+            </li>
+            <li>
+              If the applicable <a>node shape</a> for <var>V</var> contains a <a>property shape</a>
+              whose <code>sh:path</code> is annotated with
+              <code>shui:propertyRole shui:LabelRole</code>, retrieve the values of that path from
+              the <a>data graph</a> for subject <var>V</var>. Select the best matching value using
+              <a>language resolution</a>. If a match is found, use that literal as the label.
+            </li>
+            <li>
+              If the <a>data graph</a> contains one or more values for the configured property path for
+              the value node label resolution (defaulting to <code>rdfs:label</code>) for <var>V</var>,
+              select the best matching value using <a>language resolution</a>. If a match is found, use
+              that literal as the label.
+            </li>
+            <li>
+              If the <a>shapes graph</a> contains one or more values for the configured property path for
+              the value node label resolution (defaulting to <code>rdfs:label</code>) for <var>V</var>,
+              select the best matching value using <a>language resolution</a>. If a match is found, use
+              that literal as the label.
+            </li>
+            <li>
+              If <var>V</var> is an IRI, use the
+              <a>local name resolution</a> of <var>V</var> as the
+              label.
+            </li>
+            <li>
+              If <var>V</var> is a blank node, use an implementation-specific placeholder string
+              (e.g., an empty string or an identifier derived from the blank node identifier) as
+              the label.
+            </li>
+          </ol>
+        </section>
+
+        <section id="label-resolution-local-name">
+          <h4>Local Name Resolution</h4>
+          <p>
+            To determine the label for an IRI, the <a>local name</a> <var>L</var> of the IRI SHOULD be
+            used; this process is called <dfn>local name resolution</dfn>. Implementations SHOULD transform
+            the local name into a human-friendly form, for example, by splitting camel case identifiers into words.
+          </p>
+        </section>
+
+        <aside class="example" title="Label resolution using sh:name and rdfs:label">
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path foaf:firstName ;
+        sh:name "First Name"@en ;
+        sh:name "Vorname"@de ;
+    ] ;
+    sh:property [
+        sh:path ex:employer ;
+        sh:name "Employer"@en ;
+        sh:class ex:Organization ;
+    ] .
+            </div>
+          </div>
+
+          <div class="data-graph">
+            <div class="turtle">
+ex:alice a ex:Person ;
+    foaf:firstName "Alice" ;
+    ex:employer ex:acme .
+
+ex:acme a ex:Organization ;
+    rdfs:label "ACME Corp"@en ;
+    rdfs:label "ACME GmbH"@de .
+            </div>
+          </div>
+
+          <p>
+            When rendering with a German language preference, the <code>foaf:firstName</code> field
+            label is resolved to <code>"Vorname"@de</code> from <code>sh:name</code>. The label
+            for the value node <code>ex:acme</code> is resolved to <code>"ACME GmbH"@de</code>
+            from <code>rdfs:label</code> in the data graph.
+          </p>
+        </aside>
+
+        <aside class="example" title="Label resolution fallback to local name">
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:path dct:creator ;
+    ] .
+            </div>
+          </div>
+
+          <div class="data-graph">
+            <div class="turtle">
+ex:book1 a ex:Book ;
+    dct:creator ex:author1 .
+            </div>
+          </div>
+
+          <p>
+            Since the property shape for <code>dct:creator</code> has no <code>sh:name</code> and
+            no <code>rdfs:label</code> is available for the <code>dct:creator</code> predicate,
+            the label falls back to the local name <code>"creator"</code>, which a renderer might
+            display as <code>"Creator"</code> after capitalizing the first letter. The value node
+            <code>ex:author1</code> has no <code>rdfs:label</code> in the data graph, so its label
+            falls back to the local name <code>"author1"</code>. A renderer might further transform
+            this by splitting on the digit boundary and capitalizing, yielding <code>"Author 1"</code>.
+          </p>
+        </aside>
       </section>
     </section>
 
