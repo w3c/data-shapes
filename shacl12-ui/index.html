@@ -1615,6 +1615,169 @@ ex:book1 a ex:Book ;
           </p>
         </aside>
       </section>
+
+    </section>
+
+
+    <section id="display-provider">
+      <h2>Display provider</h2>
+      <p>In certain situations, it is helpful to supply a custom display provider to a shape to control what data is used for rendering UI components.
+        A <code>shui:DisplayProvider</code> can be attached to a shape to provide custom data fetching for labels, descriptions and other UI elements.
+      </p>
+
+      <p>Properties available for <code>shui:DisplayProvider</code>:</p>
+
+      <ul>
+        <li><strong>shui:LabelRole</strong> <em>or</em> <strong>label</strong>: a label of the resource.</li>
+        <li><strong>shui:DescriptionRole</strong> <em>or</em> <strong>description</strong>: the description of a resource.</li>
+        <li><strong>shui:DepictionRole</strong> <em>or</em> <strong>depiction</strong>: a depiction of a resource.</li>
+        <li><strong>shui:IconRole</strong> <em>or</em> <strong>icon</strong>: an icon representing the resource.</li>
+      </ul>
+
+      <p class="note">The above role IRIs are used in combination with <code>shui:role</code> within shapes, see next example. 
+        The name following the IRI can be used within <a href="https://www.w3.org/TR/shacl12-sparql/">SHACL SPARQL</a> as a variable name, see second following example.</p>
+
+      <section>
+        <h3>Display provider with property paths</h3>
+
+        <p>A display provider can be used to specify custom paths for fetching labels, descriptions, depictions, and icons for a resource. This allows for more flexible and dynamic UI rendering based on the data available.</p>
+
+        <aside class="example" title="Display provider with property paths">
+          <div class="shapes-graph">
+            <div class="turtle">
+  ex:CreatorDisplayProvider
+    a shui:DisplayProvider ;
+    sh:property [
+      sh:path rdfs:label ;
+      sh:role shui:LabelRole ;
+    ] ;
+    sh:property [
+      sh:path schema:depiction ;
+      sh:role shui:DepictionRole ;
+    ] .
+
+  ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:path dct:creator ;
+        shui:displayProvider ex:CreatorDisplayProvider ;
+    ] .
+            </div>
+          </div>
+
+          <p>
+            In this example, the <code>ex:CreatorDisplayProvider</code> is attached to the <code>dct:creator</code> property shape. When rendering the creator of a book, the renderer can use the display provider to fetch both the label and depiction for the creator, using the specified paths in the display provider shape.
+          </p>
+        </aside>
+      </section>
+
+      <section>
+        <h3>Display provider with SHACL SPARQL</h3>
+
+        <p>A display provider can also use SHACL SPARQL to specify a custom query for fetching the data needed for rendering. This allows for even more complex and dynamic data retrieval, including federated queries across multiple endpoints.</p>
+
+        <aside class="example" title="Display provider with SHACL SPARQL">
+          <div class="shapes-graph">
+            <div class="turtle">
+  ex:CreatorDisplayProvider
+    a shui:DisplayProvider ;
+    sh:select """
+      select $value $label $depiction $description where {
+        SERVICE <http://example.org/sparql> {
+          $value rdfs:label $label .
+          FILTER(lang($label) = "en")
+          
+          optional { $value schema:depiction $depiction }
+          optional { $value schema:description $description }
+        }
+      }
+    """ .
+
+  ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:path dct:creator ;
+        shui:displayProvider ex:CreatorDisplayProvider ;
+    ] .
+            </div>
+          </div>
+
+          <p>
+            In this example, the data is fetched via a <a href="https://www.w3.org/TR/shacl12-sparql/#SelectExpression">select expression</a> of <a href="https://www.w3.org/TR/shacl12-sparql/">SHACL SPARQL</a>.
+          </p>
+        </aside>
+
+      </section>
+
+    </section>
+
+
+    <section id="resource-filter">
+      <h2>Resource Filter</h2>
+      <p>
+        A <code>shui:ResourceFilter</code> can be attached to a shape to provide custom filtering of resources for UI components such as select lists and autocomplete lists.
+        This allows applications to implement dynamic filtering based on user input or other criteria. The current search term MUST be bound in the variable <code>searchTerm</code> for use in the filter query.
+      </p>
+
+      <p>Properties available for <code>shui:ResourceFilter</code>:</p>
+      <ul>
+        <li><strong>shui:SearchTermRole</strong> <em>or</em> <strong>searchTerm</strong>: a search term for filtering resources.</li>
+      </ul>
+
+      <section>
+        <h3>Resource Filter with property paths</h3>
+
+        <aside class="example" title="Resource filter with property paths">
+          <div class="shapes-graph">
+            <div class="turtle">
+  ex:CreatorResourceFilter
+    a shui:ResourceFilter ;
+    sh:property [
+      sh:path rdfs:label ;
+      sh:role shui:SearchTermRole ;
+      sh:minCount 1 ;
+    ] ;
+    sh:property [
+      sh:path rdf:type ;
+      sh:hasValue ex:Author ;
+    ] .
+
+  ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:path dct:creator ;
+        shui:resourceFilter ex:CreatorResourceFilter ;
+    ] .
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section>
+        <h3>Resource Filter with SHACL SPARQL</h3>
+
+        <aside class="example" title="Resource filter with SHACL SPARQL">
+          <div class="shapes-graph">
+            <div class="turtle">
+  ex:CreatorResourceFilter
+    a shui:ResourceFilter ;
+    sh:select """
+      select $value where {
+        SERVICE <http://example.org/sparql> {
+          $value rdfs:label ?label .
+          $value a ex:Author .
+          filter(contains(?label, $searchTerm))
+        }
+      }
+    """ .
+            </div>
+          </div>
+        </aside>
+      </section>
+
     </section>
 
     <section id="patterns">
@@ -1641,6 +1804,78 @@ ex:book1 a ex:Book ;
         Some of the UI meetings have discussed using node expressions, dynamic SHACL, and SPARQL with the SERVICE clause.
       </p>
       <div class="issue" data-number="846"></div>
+      <section>
+        <h4>Using SPARQL containing SERVICE clauses for federated autocomplete widgets</h4>
+        <p>Form creators might use SPARQL queries with SERVICE clauses to fetch autocomplete options from remote endpoints.</p>
+        <p>Required ingredients:</p>
+        <ul>
+          <li>A property shape with a sh:path and a sh:in that contains a <a href="https://www.w3.org/TR/shacl12-sparql/#SelectExpression">select expression</a> with a SERVICE clause. 
+            This is supported by combining <a href="https://www.w3.org/TR/shacl12-sparql/">SHACL SPARQL</a> and <a href="https://www.w3.org/TR/shacl12-node-expr/#dynamic-shacl">dynamic SHACL</a></li>
+          <li>A <code>shui:ResourceFilter</code> that also uses a sh:select with a SERVICE clause to filter options based on the user’s search term.</li>
+          <li>A <code>shui:DisplayProvider</code> that uses a sh:select with a SERVICE clause to fetch labels, descriptions, and depictions for the options.</li>
+        </ul>
+
+
+        <aside class="example" title="An autocomplete widget with a SPARQL SERVICE clause">
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:propertyCity
+  a sh:PropertyShape ;
+  sh:path ex:city ;
+  shui:displayProvider ex:myDisplay ;
+  shui:resourceFilter ex:myFilter ;
+  sh:in [
+	  sh:select """
+		select ?city where {
+			SERVICE <http://example.org/sparql> {
+				?city a ex:City .
+			}
+		}
+		""" ;
+  ] .  
+
+ex:myFilter
+	a shui:ResourceFilter ;
+	sh:select """
+		select $value where {
+			SERVICE <http://example.org/sparql> {
+				$value rdfs:label ?label .
+				$value ex:synonym ?synonym .
+				$value rdfs:comment ?description .
+				bind (concat(
+					?label, " ", 
+					?synonym, " ", 
+					?description
+				) as ?allText)
+
+				filter(contains(?allText, $searchTerm))
+			}
+		}
+	""" .
+
+
+ex:myDisplay
+	a shui:DisplayProvider ;
+	sh:select """
+		select $value $label $depiction $description where {
+			SERVICE <http://example.org/sparql> {
+				$value rdfs:label $label .
+				FILTER(lang($label) = "en")
+				
+				optional { $value schema:depiction $depiction }
+				optional { $value schema:description $description }
+			}
+		}
+	""" .
+            </div>
+          </div>
+
+          <p>
+            In this example, the data is fetched via a <a href="https://www.w3.org/TR/shacl12-sparql/#SelectExpression">select expression</a> of <a href="https://www.w3.org/TR/shacl12-sparql/">SHACL SPARQL</a>.
+          </p>
+        </aside>
+
+      </section>
       <h4>Fetching values from named graphs</h4>
       <div class="issue" data-number="672"></div>
 
@@ -1675,8 +1910,8 @@ ex:book1 a ex:Book ;
         This sub-section should address the <em>"Mapping validation results to the form"</em> mentioned in <a href="https://github.com/w3c/data-shapes/issues/823">ISSUE 823</a>.
       </p>
       <p class="ednote">
-        The pattern should describe how renderers may associate `sh:ValidationResult` entries with property UI components or node UI components,
-        using `sh:focusNode`, `sh:resultPath`, `sh:value`, `sh:sourceShape`, `sh:resultSeverity`, and `sh:resultMessage`. It should avoid defining when validation
+        The pattern should describe how renderers may associate <code>sh:ValidationResult</code> entries with property UI components or node UI components,
+        using <code>sh:focusNode</code>, <code>sh:resultPath</code>, <code>sh:value</code>, <code>sh:sourceShape</code>, <code>sh:resultSeverity</code>, and <code>sh:resultMessage</code>. It should avoid defining when validation
         runs or how an applications prevents malformed submissions.
       </p>
     </section>
