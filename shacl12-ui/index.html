@@ -682,7 +682,7 @@
 				<p>
 					A shapes graph may contain a <a>SHACL instance</a> of the class <code>shui:Configuration</code> 
           to define global configuration properties for rendering the UI.
-          <code>shui:Configuration</code> is a <a>SHACL subclass</a> of <code>sh:Graph</code>
+          <code>sh:Graph</code> is a <a>SHACL subclass</a> of <code>shui:Configuration</code>.
           The following properties can be defined for a <code>shui:Configuration</code> instance.
 					<div class="parameters">Parameters:</div>
 					<table class="term-table">
@@ -697,7 +697,7 @@
 								<td><code>shui:defaultNamespace</code></td>
 								<td>
 									The default namespace used to construct fresh user-added nodes. 
-                  The value of <code>shui:defaultNamespace</code> is an <a>IRI</a>.
+                  The value of <code>shui:defaultNamespace</code> is a <a>Literal</a> whose value is a valid IRI.
 								</td>
 							</tr>
 							<tr>
@@ -706,29 +706,22 @@
 									The language selection for displaying labels in widgets. 
                   The value of <code>shui:hasLanguagePreference</code> is a well-formed SHACL list where all members are language tags. 
                   The preferred language is determined according to the order of priority in the list from beginning (highest) to end (lowest ). 
+                  An empty literal (`""`) represents no language, i.e., a string literal with no language tag.
 								</td>
 							</tr>
 							<tr>
 								<td><code>shui:timeZone</code></td>
 								<td>
 									The time zone used to construct new terms with <a>datatype</a> <code>xsd:dateTime</code>.
-                  The value of <code>shui:timeZone</code> is <code>xsd:string</code>. 
+                  The value of <code>shui:timeZone</code> is of datatype <code>xsd:string</code>. 
 								</td>
 							</tr>
 							<tr>
-								<td><code>shui:shapesLabelPreference</code></td>
+								<td><code>shui:labelPreference</code></td>
 								<td>
-									The label properties used to determine labels to display in widgets. 
-                  Properties are looked up in the <a>shapes graph</a>. 
-                  The value of <code>shui:shapesLabelPreference</code> is a well-formed SHACL list where all members are IRIs.
-								</td>
-							</tr>
-							<tr>
-								<td><code>shui:dataLabelPreference</code></td>
-								<td>
-									The label properties used to determine labels to display in widgets and labels to represent nodes values in the widgets. 
-                  Properties are looked up in the <a>data graph</a>. 
-                  The value of <code>shui:dataLabelPreference</code> is a well-formed SHACL list where all members are IRIs.
+									The label properties used to determine the labels to display in widgets and labels to represent nodes values in the widgets. 
+                  The value of <code>shui:labelPreference</code> is a well-formed SHACL list where all members are IRIs. 
+                  The preferred label property is determined according to the order of priority in the list from beginning (highest) to end (lowest).
 								</td>
 							</tr>
 						</tbody>
@@ -740,8 +733,7 @@ ex:config a shui:Configuration ;
     shui:defaultNamespace &lt;http://example.com/ns#&gt; ;
     shui:hasLanguagePreference ("" "en" "de") ;
     shui:hasTimeZone "Europe/Vienna" ;
-    shui:shapesLabelPreference (rdfs:label, skos:prefLabel) ;
-    shui:dataLabelPreference (skos:prefLabel, dcterms:title, rdfs:label) .
+    shui:labelPreference (skos:prefLabel, dcterms:title, rdfs:label) .
 						</div>
 					</div>
         </p>
@@ -1530,10 +1522,13 @@ ex:alice a ex:Person ;
           </li>
         </ul>
 
-        <p>
-          Label resolution is done according to the property IRIs listed using the <a>global configuration</a> property <code>shui:dataLabelPreference</code>. 
-          It defaults to <code>rdfs:label</code>.
-        </p>
+        <section id="label-property-resolution">
+          <h4>Label Property Resolution</h4>
+          <p>
+            Label property resolution is done according to the preferred property IRIs listed in the <a>global configuration</a> property <code>shui:labelPreference</code>. 
+            Preferred labels default to <code>sh:name</code> for Property Labels and <code>rdfs:label</code> for Value Node Labels.
+          </p>
+        </section>
 
         <section id="label-resolution-property-labels">
           <h4>Property Labels</h4>
@@ -1546,25 +1541,24 @@ ex:alice a ex:Person ;
           <ol>
             <li>
               If the <a>property shape</a> has one or more values for the configured <a>property path</a> for
-              the property label resolution (defaulting to <code>sh:name</code>), select the best
-              matching value using <a>language resolution</a>. If a match is found, use that literal
-              as the label.
+              properties determined by <a>label property resolution</a>, select the best
+              matching value using <a>language resolution</a>. 
+              If a match is found, use that literal as the label.
             </li>
             <li>
               If <var>P</var> is a predicate IRI and the <a>data graph</a>
-              contains one or more triples with properties determined by <a>label resolution</a> and with subject <var>P</var>, select
-              the best matching value using <a>language resolution</a>. If a match is found, use
-              that literal as the label.
+              contains one or more triples with properties determined by <a>label property resolution</a> and with subject <var>P</var>, select
+              the best matching value using <a>language resolution</a>. 
+              If a match is found, use that literal as the label.
             </li>
             <li>
               If <var>P</var> is a predicate IRI and the <a>shapes graph</a>
-              contains one or more triples with properties determined by <a>label resolution</a> and with subject <var>P</var>, select
-              the best matching value using <a>language resolution</a>. If a match is found, use
-              that literal as the label.
+              contains one or more triples with properties determined by <a>label property resolution</a> and with subject <var>P</var>, select
+              the best matching value using <a>language resolution</a>. 
+              If a match is found, use that literal as the label.
             </li>
             <li>
-              If <var>P</var> is a predicate IRI, use the
-              <a>local name resolution</a> of <var>P</var> as the label.
+              If <var>P</var> is a predicate IRI, use the <a>local name resolution</a> of <var>P</var> as the label.
             </li>
             <li>
               Otherwise, an implementation-specific translation algorithm should be applied to convert the complex property path
@@ -1589,19 +1583,20 @@ ex:alice a ex:Person ;
               whose <code>sh:path</code> is annotated with
               <code>shui:propertyRole shui:LabelRole</code>, retrieve the values of that path from
               the <a>data graph</a> for subject <var>V</var>. Select the best matching value using
-              <a>language resolution</a>. If a match is found, use that literal as the label.
+              <a>language resolution</a>. 
+              If a match is found, use that literal as the label.
             </li>
             <li>
               If the <a>data graph</a> contains one or more values for the configured property path for
-              the value node determined by <a>label resolution</a> for <var>V</var>,
-              select the best matching value using <a>language resolution</a>. If a match is found, use
-              that literal as the label.
+              the value node determined by <a>label property resolution</a> for <var>V</var>,
+              select the best matching value using <a>language resolution</a>. 
+              If a match is found, use that literal as the label.
             </li>
             <li>
               If the <a>shapes graph</a> contains one or more values for the configured property path for
-              the value node  determined by <a>label resolution</a> for <var>V</var>,
-              select the best matching value using <a>language resolution</a>. If a match is found, use
-              that literal as the label.
+              the value node  determined by <a>label property resolution</a> for <var>V</var>,
+              select the best matching value using <a>language resolution</a>. 
+              If a match is found, use that literal as the label.
             </li>
             <li>
               If <var>V</var> is an IRI, use the
