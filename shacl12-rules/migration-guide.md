@@ -22,8 +22,11 @@ This guide covers:
 - Node Expressions used within rules
 - SHACL Functions used within rule expressions
 
-It does not cover Custom Targets, Annotation Properties, or Expression Constraints,
-which are separate features in SHACL-AF with their own migration paths.
+It does not cover Annotation Properties or Expression Constraints, which are
+separate features in SHACL-AF with their own migration paths. Custom Targets are
+covered only insofar as they drive rule focus nodes (see
+[§6.4](#64-custom-targets--rules--body-patterns)); their use outside rules is out
+of scope.
 
 ---
 
@@ -51,7 +54,7 @@ data matching their body patterns. There is no inherent shape attachment.
 PREFIX ex: <http://example.com/>
 RULE { ?x ex:fullName ?name }
 WHERE { ?x a ex:Person ; ex:firstName ?f ; ex:lastName ?l .
-        BIND(concat(?f, " ", ?l) AS ?name) }
+        SET (?name := CONCAT(?f, " ", ?l)) }
 ```
 
 **Migration impact**: You must move targeting logic (class membership, property patterns)
@@ -63,15 +66,29 @@ into the rule body as explicit triple patterns.
 shapes. Rules with lower values execute first. Visibility of inferred triples between
 rules at the same order level is undefined (race conditions are possible).
 
-**SHACL 1.2**: Ordering is determined automatically via stratification. The dependency
-graph between rules determines which rules must complete before others begin. Rules
-within the same stratum execute to a fixed point (iteratively until no new triples).
-This guarantees a single well-defined outcome.
+**SHACL 1.2**: Ordering is determined automatically via stratification. A
+**dependency graph** is built where an edge from `R1` to `R2` means `R1` depends
+on `R2` (the head of `R2` could produce triples that `R1`'s body matches). Each
+edge is labeled **open** or **closed**:
 
-**Migration impact**: Remove `sh:order` annotations. If your rules relied on explicit
-ordering for correctness, verify that the stratification algorithm produces the same
-sequencing. In most cases it will — rules that consume output of other rules naturally
-end up in higher strata.
+- An **open dependency** is an ordinary positive one: the matching triple pattern
+  in `R1` is a plain triple pattern element. Open dependencies do *not* force a
+  stratum boundary — the two rules may share a stratum and iterate together.
+- A **closed dependency** arises when the matching pattern is inside a `NOT`
+  block, or when `R1` has an assignment, or when `R1`'s head creates a blank
+  node. A closed dependency forces `R2` into a strictly earlier stratum so that
+  `R2` has produced *all* its output before `R1` runs.
+
+Rules within the same stratum execute to a fixed point (iteratively until no new
+triples are produced). The **stratification condition** requires that no
+dependency cycle contains a closed dependency; if it does, the spec leaves the
+outcome undefined. This guarantees a single well-defined, finite outcome.
+
+**Migration impact**: Remove `sh:order` annotations. If your rules relied on
+explicit ordering for correctness, verify that the stratification produces the
+same sequencing. Ordinary positive chains converge in a shared stratum; a `NOT`,
+an assignment, or a blank-node-producing head is what introduces a hard stratum
+boundary.
 
 ### 2.3 Data Graph Modification vs. Inference Graph Separation
 
@@ -113,8 +130,8 @@ corresponding triple patterns to the body.
 | — | `srl:RuleElement` | New; abstract class for body elements |
 | — | `srl:TriplePattern` | New; subclass of RuleElement |
 | — | `srl:ConditionElement` | New; subclass of RuleElement (FILTER) |
-| — | `srl:AssignmentElement` | New; subclass of RuleElement (BIND) |
-| — | `srl:NegationElement` | New; subclass of RuleElement (NOT) |
+| — | `srl:AssignmentElement` | New; subclass of RuleElement (`SET`) |
+| — | `srl:NegationElement` | New; subclass of RuleElement (`NOT`) |
 
 ### 3.2 Properties
 
@@ -131,10 +148,18 @@ corresponding triple patterns to the body.
 | `sh:prefixes` | `PREFIX` declarations | SRL has its own prefix mechanism |
 | `sh:this` (node expr) | Variable in triple pattern | Explicit binding |
 | — | `srl:varName` | New; names variables in RDF syntax |
-| — | `srl:not` | New; negation as failure |
+| — | `srl:not` | New; negation as failure (`NOT`) |
 | — | `srl:data` | New; data block triples |
-| — | `srl:assign` | New; `BIND` equivalent |
+| — | `srl:assign` | New; assignment element (`SET`) |
+| — | `srl:assignVar` | New; the variable assigned by an `srl:assign` |
+| — | `srl:assignValue` | New; the value/expression of an `srl:assign` |
 | — | `srl:filter` | New; `FILTER` equivalent |
+| — | `IMPORTS` (SRL text keyword) | New; rule set imports. The RDF-syntax property is not yet defined in the current vocabulary draft |
+
+The triple-component properties `srl:subject`, `srl:predicate`, and `srl:object`
+are used both in `srl:head` (triple templates) and in `srl:body`/`srl:data`
+(triple patterns and data triples), not only for the SHACL-AF `sh:subject`/etc.
+mapping shown above.
 
 ### 3.3 Namespace Change
 
@@ -181,7 +206,7 @@ WHERE {
     ?this a ex:Rectangle .
     ?this ex:width ?width .
     ?this ex:height ?height .
-    BIND(?width * ?height AS ?area)
+    SET (?area := ?width * ?height )
 }
 ```
 
@@ -190,6 +215,8 @@ Key changes:
 - `sh:targetClass ex:Rectangle` → `?this a ex:Rectangle .` in body
 - `sh:condition ex:RectangleShape` → equivalent constraints as body patterns
 - `CONSTRUCT { } WHERE { }` → `RULE { } WHERE { }`
+- SPARQL `BIND(expr AS ?v)` → SRL `SET (?v := expr)`; SRL text has no `BIND`
+- The assignment makes this rule a **run-once rule** (it has an `srl:assign`)
 - Declare prefixes via `PREFIX` keyword, not `sh:prefixes` indirection
 
 ### 4.2 SPARQL Rules to RDF Syntax
@@ -320,12 +347,14 @@ WHERE {
     ?x a ex:Person .
     NOT { ?x ex:name ?existingName }
     ?x ex:givenName ?g ; ex:familyName ?f .
-    BIND(concat(?g, " ", ?f) AS ?fullName)
+    SET (?fullName := CONCAT(?g, " ", ?f))
 }
 ```
 
 Infer a computed name only when no name exists. Previously required workarounds
-with SPARQL `NOT EXISTS` inside `sh:construct` strings.
+with SPARQL `NOT EXISTS` inside `sh:construct` strings. Note this rule has both
+a negation element and an assignment, so it is a **run-once rule** with closed
+dependencies on any rule that could produce `ex:name`.
 
 ### 5.2 Recursion
 
@@ -334,8 +363,11 @@ RULE { ?x ex:ancestorOf ?y } WHERE { ?x ex:parentOf ?y }
 RULE { ?x ex:ancestorOf ?y } WHERE { ?x ex:ancestorOf ?z . ?z ex:ancestorOf ?y }
 ```
 
-SHACL 1.2 Rules can reference their own output. Evaluation iterates to a fixed point
-within each stratum. SHACL-AF had no defined behavior for recursive rules.
+SHACL 1.2 Rules can reference their own output. Here the recursion is through an
+**open** dependency (a plain triple pattern), so the recursive rule stays in its
+stratum and evaluation iterates to a fixed point. SHACL-AF had no defined
+behavior for recursive rules. (Recursion through a closed dependency — `NOT`,
+assignment, or blank-node head — is disallowed by the stratification condition.)
 
 ### 5.3 Imports (`IMPORTS`)
 
@@ -399,7 +431,18 @@ in SRL syntax.
 
 SHACL-AF `sh:order` explicitly sequences rules. In SHACL 1.2, stratification
 determines order based on dependencies. If rule A's body references predicates
-that rule B's head produces, A ends up in a higher stratum than B — automatically.
+that rule B's head produces, A **depends on** B.
+
+Whether that dependency creates a stratum boundary depends on its kind:
+
+- If A matches B's output with a plain triple pattern (an **open dependency**),
+  A and B may share a stratum and iterate together to a fixed point. There is
+  **no** guarantee that A lands in a strictly higher stratum than B — and it
+  does not need one, because the fixed-point iteration lets A re-evaluate as B
+  produces more triples.
+- If A matches B's output inside a `NOT` block, or A has an assignment, or A's
+  head creates a blank node (a **closed dependency**), then B is placed in a
+  strictly earlier stratum so it is fully evaluated before A runs.
 
 If you had rules at the same `sh:order` level that intentionally did NOT see
 each other's output, note that SHACL 1.2 rules within the same stratum DO
@@ -436,12 +479,13 @@ variable matched by the body.
 ### 6.6 Node Expressions → SRL Expressions
 
 SHACL-AF node expressions (path expressions, function expressions, filter shape
-expressions) used in Triple Rule `sh:object`, etc., map to SRL body patterns + `BIND`:
+expressions) used in Triple Rule `sh:object`, etc., map to SRL body patterns plus
+a `SET` assignment:
 
 | Node Expression | SRL Equivalent |
 |----------------|----------------|
 | `[ sh:path ex:name ]` | Body pattern: `?x ex:name ?result` |
-| `[ ex:multiply ( [ sh:path ex:w ] [ sh:path ex:h ] ) ]` | Body patterns + `BIND(ex:multiply(?w, ?h) AS ?result)` |
+| `[ ex:multiply ( [ sh:path ex:w ] [ sh:path ex:h ] ) ]` | Body patterns + `SET (?result := ex:multiply(?w, ?h))` |
 | `[ sh:filterShape ex:S ; sh:nodes [ sh:path ex:p ] ]` | Body patterns with shape constraints as filters |
 | `sh:this` | Variable bound elsewhere in body |
 | Constant term (e.g., `ex:Square`) | Direct use in head triple template |
@@ -462,12 +506,13 @@ ex:multiply a sh:SPARQLFunction ;
 ```
 Used as: `BIND(ex:multiply(?w, ?h) AS ?area)` inside `sh:construct`.
 
-**After (in SRL):**
+**After (in SRL text syntax):**
 ```
-BIND(ex:multiply(?w, ?h) AS ?area)
+SET (?area := ex:multiply(?w, ?h))
 ```
 
-The function call syntax within expressions is preserved. However, the function
+The function call syntax within expressions is preserved — the change is only
+from SPARQL `BIND(expr AS ?v)` to SRL `SET (?v := expr)`. The function
 definition mechanism is defined in SHACL 1.2 Node Expressions (separate spec),
 not in the rules spec itself.
 
@@ -480,18 +525,26 @@ not in the rules spec itself.
 SHACL-AF defines a single-pass ordered iteration over shapes and rules.
 SHACL 1.2 defines stratified fixed-point evaluation:
 
-- Build dependency graph from rule head/body relationships
-- Partition rules into strata (no negative cycles allowed)
-- Evaluate each stratum to fixed point before proceeding to next
+- Build the dependency graph from rule head/body relationships, labeling each
+  edge **open** or **closed**
+- Partition rules into strata (no dependency cycle may contain a closed edge)
+- Within a stratum, evaluate **run-once rules** (those with assignments or
+  blank-node-producing heads) exactly once, then iterate the **general rules**
+  to a fixed point
+- Evaluate each stratum completely and in order before proceeding to the next
 
-Implementations must detect the stratification condition (no recursive negative
-dependencies) and report an error if violated.
+Implementations must detect the **stratification condition** — that no recursive
+(cyclic) dependency involves a closed dependency — and report an error if it is
+violated.
 
 ### 7.2 Handling Recursive Rules
 
 SHACL-AF has no defined behavior for recursive rules. SHACL 1.2 explicitly supports
-positive recursion within a stratum — rules iterate until no new triples are produced.
-Implementations need semi-naive evaluation or equivalent to avoid redundant computation.
+recursion through **open** dependencies within a stratum — rules iterate until no
+new triples are produced. Recursion through a **closed** dependency (negation,
+assignment, or blank-node-producing head) violates the stratification condition
+and is undefined. Implementations need semi-naive evaluation or equivalent to
+avoid redundant computation.
 
 ### 7.3 Inference Graph Separation
 

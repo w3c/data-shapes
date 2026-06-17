@@ -177,7 +177,7 @@ ex:RectangleRulesShape
             WHERE {
                 $this ex:width ?width .
                 $this ex:height ?height .
-                SET (?area := ?width * ?height ) .
+                BIND(?width * ?height AS ?area) .
             }
             """ ;
         sh:condition ex:RectangleShape ;
@@ -194,7 +194,7 @@ WHERE {
     ?x a ex:Rectangle .
     ?x ex:width ?width .
     ?x ex:height ?height .
-    BIND(?width * ?height AS ?area)
+    SET (?area := ?width * ?height)
 }
 ```
 
@@ -234,9 +234,15 @@ WHERE {
 
 ### Notes
 
-- BIND syntax identical between SPARQL and SRL
+- SHACL-AF SPARQL `BIND(expr AS ?v)` becomes SRL `SET (?v := expr)` in the
+  text syntax. SRL has no `BIND` keyword; assignment is written with `SET`.
+  Error handling also differs: if the expression errors, `SET` rejects the
+  current solution mapping rather than leaving the variable unbound.
 - `sh:condition ex:RectangleShape` → body patterns that enforce same constraints
 - RDF syntax uses `srl:assign` + `srl:assignVar` + `srl:assignValue`
+- An assignment makes the rule a **run-once rule**: it is evaluated exactly
+  once at the start of its stratum, after the rules it depends on and before
+  the rules that depend on it
 
 ---
 
@@ -299,7 +305,7 @@ WHERE {
                     [ sparql:datatype ( [ srl:varName "age" ] ) ]
                     xsd:integer
                 ) ] ]
-                [ srl:filter [ sparql:greaterThanOrEqual (
+                [ srl:filter [ sparql:greater-than-or-equal (
                     [ srl:varName "age" ]
                     18
                 ) ] ]
@@ -383,9 +389,17 @@ WHERE {
 ### Notes
 
 - No `sh:order` needed. The cousin rule references `ex:uncle` in its body, and
-  the uncle rule produces `ex:uncle` in its head. Stratification automatically
-  places the uncle rule in a lower (earlier) stratum.
-- Both rules run to fixed point within their respective strata.
+  the uncle rule produces `ex:uncle` in its head, so the cousin rule **depends
+  on** the uncle rule.
+- This is an **open dependency**: the cousin rule's `ex:uncle` triple pattern is
+  a plain triple pattern element (not inside `NOT`, no assignment, no blank node
+  in the head). Open dependencies do **not** force separate strata — both rules
+  sit in the **same** stratum and iterate together to a single fixed point. The
+  iteration guarantees the cousin rule sees every `ex:uncle` triple the uncle
+  rule eventually produces.
+- A *closed* dependency (negation, assignment, or a blank node in the head) is
+  what forces the depended-on rule into a strictly earlier stratum. Ordinary
+  positive chaining like this does not.
 
 ---
 
@@ -427,7 +441,7 @@ WHERE {
     ?x a ex:Rectangle .
     ?x ex:width ?w .
     ?x ex:height ?h .
-    BIND(ex:multiply(?w, ?h) AS ?area)
+    SET (?area := ex:multiply(?w, ?h))
 }
 ```
 
@@ -468,8 +482,9 @@ WHERE {
 ### Notes
 
 - Node expression `[ ex:multiply ( [ sh:path ex:width ] [ sh:path ex:height ] ) ]`
-  decomposes into: path expressions → body patterns, function call → `BIND` expression
-- Function IRI (`ex:multiply`) used directly in `BIND` — same calling convention
+  decomposes into: path expressions → body patterns, function call → `SET` assignment
+- Function IRI (`ex:multiply`) used directly in the `SET` expression — same calling convention
+- Because the rule has an assignment, it is a **run-once rule** (see Pattern 3)
 - Function definition mechanism is in SHACL 1.2 Node Expressions specification, not rules specification
 
 ---
@@ -583,8 +598,8 @@ WHERE {
     ?x a ex:Person .
     ?x ex:firstName ?f .
     ?x ex:lastName ?l .
-    BIND(concat(?f, " ", ?l) AS ?full)
-    BIND(concat(substr(?f, 1, 1), substr(?l, 1, 1)) AS ?init)
+    SET (?full := CONCAT(?f, " ", ?l))
+    SET (?init := CONCAT(SUBSTR(?f, 1, 1), SUBSTR(?l, 1, 1)))
 }
 ```
 
@@ -637,7 +652,10 @@ WHERE {
 
 - Multiple triple templates in the head → multiple inferred triples per match
 - Each head triple template is a separate element in the `srl:head` list
-- SPARQL built-in functions (CONCAT, SUBSTR) available via `sparql:` namespace
+- In SRL text syntax, SPARQL built-in functions are written with their SPARQL
+  keyword spelling (`CONCAT`, `SUBSTR`); in the RDF syntax they are IRIs in the
+  `sparql:` namespace (`sparql:concat`, `sparql:substr`)
+- Two assignments make this a **run-once rule**; it is evaluated once per stratum
 
 ---
 
@@ -657,10 +675,13 @@ For each SHACL-AF rule, follow these steps:
    → SRL head. Triple Rule properties → head triple template.
 
 5. **Remove ordering** — delete `sh:order`. Verify dependency-based stratification
-   preserves intended semantics.
+   preserves intended semantics. Remember: ordinary (open) dependencies iterate
+   together in one stratum; only closed dependencies (negation, assignment,
+   blank node in head) force a strictly earlier stratum.
 
 6. **Decompose node expressions** — path expressions become body patterns; function
-   expressions become `BIND`; filter shapes become body constraints.
+   expressions become `SET` assignments (SRL text syntax has no `BIND`); filter
+   shapes become body constraints.
 
 7. **Group into rule set** — collect related rules into an `srl:RuleSet`.
 
