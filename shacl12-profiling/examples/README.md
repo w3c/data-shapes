@@ -2,7 +2,7 @@
 
 This directory contains example files in pseudo-Turtle format used within the Profiling HTML document.
 
-All examples are included using ReSpect commands like this:
+All examples are included using ReSpec commands like this:
 
 `<div class="turtle" data-include="examples/defining-profiles-of-shacl.ttl"></div>`
 
