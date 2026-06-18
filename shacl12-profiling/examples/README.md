@@ -4,7 +4,7 @@ This directory contains example files in pseudo-Turtle format used within the Pr
 
 All examples are included using ReSpec commands like this:
 
-`<div class="turtle" data-include="examples/defining-profiles-of-shacl.ttl"></div>`
+`<div class="turtle" data-include="examples/01.ttl"  data-include-format="text"></div>`
 
 ## Validation
 
