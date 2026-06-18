@@ -237,8 +237,7 @@
         <h3>Document Conventions</h3>
         <p>
           Some examples in this document use Turtle [[turtle]].
-          The reader is expected to be familiar with SHACL [[shacl]] 
-          and SPARQL [[sparql-query]].
+          The reader is expected to be familiar with SPARQL [[sparql-query]].
         </p>
         <p>Within this document, the following namespace prefix bindings are used:</p>
         <table class="term-table">
@@ -847,6 +846,9 @@
             A [=rule set=] is a collection of zero or more [=rules=],
             a collection of zero or more [=data blocks=],
             and a collection of zero or more [=rule imports=].
+            A <dfn>resolved rule set</dfn> is a rule formed by applying the
+            <a href="#process-imports">imports process</a>.
+            A resolved rule set has no imports.
           </dd>
 
           <dt><dfn>Base graph</dfn></dt>
@@ -1837,13 +1839,11 @@ merge(S1, S2) = { <var>μ</var> |
         <section id="process-imports">
           <h4>Process Imports</h4>
           <p>
-            @@Walk imports - visit only once@@
+            All rule sets mentioned in the imports of a [=rule set=]
+            are recursively read to form a single rule set with the rules and data reachable
+            and with no imports.
           </p>
-          <p class="ednote">
-            <span class="todo">@@ TODO</span>: consider defining a rule set as having two components and a
-            separate set of imports. i.e. imports are in the parsing and sorted out 
-            to give a usable "rule set" of "rules + data"
-          </p>
+
           <div class="def">
             <p>
             A [=rule set=] has three components: `R.rules`, `R.data`, and `R.imports`.
@@ -1887,7 +1887,12 @@ result is imports(RS, V)
         </section>
         <section id="calculate-stratification">
           <h4>Calculate Stratification</h4>
-          <p>@@ See <a href="#stratification-algorithm" class="sectionRef"></a>
+          <p>
+            Having created the [=resolved rule set=], calculate the
+            [=dependency graph=]
+            (see <a href="#dependency-graph-construction-algorithm" class="sectionRef"></a>)
+            and then calculate a [=stratification]
+            (see <a href="#stratification-algorithm" class="sectionRef"></a>).
           </p>
         </section>
 
@@ -1908,13 +1913,20 @@ result is imports(RS, V)
         <div class="algorithm">
 <pre>
 define evalFunction(F, <var>μ</var>):
+    ## Evaluation of F may be defined specifically for F
+    ## For example `COALESCE` only evaluates argument until one evalution of an
+    ##   expression does not return an error.
     let [x/<var>μ</var>] be
-        if x is an RDF term, then [x/row] is x
+        if x is an RDF term, then [x/row] equals x
         if x is a variable, then [x/row] is <var>μ</var>(x):
           ## By well-formedness, it is an error if x is not in the row.
           return evalFunction(F(expr1, expr2 ...), row) = F(evalFunction(expr1, row), evalFunction(expr2, row), ...)
-        if an error is returned by evalFunction: return error
-          @@return evalFunction(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
+        if an error is returned by evalFunction:
+          return error
+        # if F is a functional form, then the evaluation
+        return evalFunction(FF(expr1, expr2) , row)
+
+ = ... things that are not functions like `IF`
 enddefine
 </pre>
         </div>
