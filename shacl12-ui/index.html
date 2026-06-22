@@ -187,7 +187,7 @@
       <p>Content.</p>
     </section>
 
-    <section id="introduction" class="informative">
+    <section id="introduction">
       <h2>Introduction</h2>
       <p>
         RDF applications commonly provide user interfaces that allow users to view and edit RDF resources.
@@ -216,7 +216,7 @@
         shapes who wish to generate forms for their data.
       </p>
 
-      <section id="scope" class="informative">
+      <section id="scope">
         <h3>Scope</h3>
         <p>
           The scope of this specification is limited to form rendering for viewing and editing RDF resources
@@ -478,12 +478,24 @@
             <td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
           </tr>
           <tr>
+            <td><code>schema:</code></td>
+            <td><code>http://schema.org/</code></td>
+          </tr>
+          <tr>
             <td><code>sh:</code></td>
             <td><code>http://www.w3.org/ns/shacl#</code></td>
           </tr>
           <tr>
+            <td><code>shnex:</code></td>
+            <td><code>http://www.w3.org/ns/shacl-node-expr#</code></td>
+          </tr>
+          <tr>
             <td><code>shui:</code></td>
             <td><code>http://www.w3.org/ns/shacl-ui/</code></td>
+          </tr>
+          <tr>
+            <td><code>sparql:</code></td>
+            <td><code>http://www.w3.org/ns/sparql#</code></td>
           </tr>
           <tr>
             <td><code>xsd:</code></td>
@@ -505,8 +517,11 @@
   "@context": {
     "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "schema": "http://schema.org/",
     "sh": "http://www.w3.org/ns/shacl#",
+    "shnex": "http://www.w3.org/ns/shacl-node-expr#",
     "shui": "http://www.w3.org/ns/shacl-ui/",
+    "sparql": "http://www.w3.org/ns/sparql#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
     "ex": "http://example.com/ns#",
     "dct": "http://purl.org/dc/terms/"
@@ -614,13 +629,512 @@
       </section>
     </section>
 
-    <section id="shacl-ui" class="informative">
-      <h2 >SHACL UI</h2>
-      <p class="ednote">
-        TODO: provide an introduction, use cases, and examples on SHACL UI basics.
+    <section id="getting-started" class="informative">
+      <h2>Getting Started with SHACL UI</h2>
+      <p>
+        This section introduces the basics of SHACL UI through a simple example.
+        By the end, you will understand how a SHACL Renderer uses SHACL Core
+        concepts to generate user interface forms, and how SHACL UI annotations
+        can tailor those forms to your use case.
       </p>
 
-      <p class="note">Add conceptual model diagram and UI mockups to illustrate the concepts.</p>
+      <p>
+        One goal of SHACL UI is to provide users with a simple way to generate
+        usable forms from a shapes graph and a data graph. This allows SHACL
+        shapes authors who are not necessarily software developers to inspect
+        how their shapes are interpreted as user interface forms, gather
+        feedback from collaborators, and prototype ideas without requiring
+        extensive software development effort.
+      </p>
+
+      <section>
+        <h3>Data Graph Only</h3>
+
+        <p>
+          Let's start with defining a simple data graph that we'll use
+          throughout this section.
+        </p>
+
+        <aside class="example" title="Sample Data Graph">
+          <div class="data-graph">
+            <div class="turtle">
+ex:TimBL a schema:Person ;
+    schema:honorificPrefix "Sir" ;
+    schema:givenName "Tim" ;
+    schema:additionalName "John" ;
+    schema:familyName "Berners-Lee" ;
+    schema:birthDate "1955-06-08"^^xsd:date ;
+.
+            </div>
+          </div>
+
+          <p>
+            The data graph describes Sir Tim Berners-Lee using the schema.org
+            vocabulary.
+          </p>
+        </aside>
+
+        <p>
+          With just the data graph, we have enough information for a SHACL
+          Renderer to generate a simple editable form.
+        </p>
+
+        <img
+          src="./images/diagrams/shacl-renderer-data-graph.drawio.svg"
+          alt="A diagram of ex:TimBL as a form in a SHACL Renderer."
+          style="
+            display: block;
+            max-width: 420px;
+            width: 100%;
+            height: auto;
+            margin: 1.25em auto;
+          "
+        >
+
+        <p>
+          There are a few SHACL UI concepts working together to render this
+          form. First, the labels in the form for the resource name and its
+          properties use <a>Label Resolution</a> to generate human-readable
+          labels. Second, the <a href="#scoring-system">Scoring System</a>
+          determines the most suitable editor widgets to render, selecting
+          <a href="#DatePickerEditor"><code>shui:DatePickerEditor</code></a>
+          for the birth date field and
+          <a href="#TextFieldEditor"><code>shui:TextFieldEditor</code></a> for
+          the remaining fields.
+        </p>
+
+        <p>
+          Here is how the SHACL Renderer applies the SHACL UI concepts in this
+          editable form:
+        </p>
+
+        <ul>
+          <li>
+            The resource <code>ex:TimBL</code> is displayed as
+            <strong>Tim B L</strong>.
+          </li>
+          <li>
+            The resource's properties are inherently unordered, so the
+            application has chosen to display them alphabetically.
+            In the next example, we will use SHACL annotations to define a more
+            logical ordering.
+          </li>
+          <li>
+            Given that the value of the birth date field is an
+            <code>xsd:date</code>, the Scoring System has determined that the
+            <code>shui:DatePickerEditor</code> widget is the most appropriate.
+            Note that date widgets may display the ISO 8601 lexical value
+            <code>1955-06-08</code> using localized date formatting. For
+            example, an application configured for Australian users may choose
+            to display the value as <code>08-06-1955</code>.
+          </li>
+          <li>
+            All other values are <code>xsd:string</code>, so the Scoring System
+            has selected <code>shui:TextFieldEditor</code> as the most
+            suitable widget for them.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Adding a Shapes Graph</h3>
+        <p>
+          Now that we've seen how a SHACL Renderer can produce an editable form
+          from only a data graph, let's see how adding a shapes graph that
+          targets the resource affects the result.
+        </p>
+
+        <aside class="example" title="Sample Shapes Graph">
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass schema:Person ;
+    sh:property [
+        sh:path schema:honorificPrefix ;
+        sh:datatype xsd:string ;
+        <ins>sh:order 0 ;</ins>
+        <ins>sh:group ex:PersonShapeNameGroup ;</ins>
+        <ins>sh:maxCount 1 ;</ins>
+    ],
+    [
+        sh:path schema:givenName ;
+        sh:datatype xsd:string ;
+        <ins>sh:order 1 ;</ins>
+        <ins>sh:group ex:PersonShapeNameGroup ;</ins>
+        <ins>sh:minCount 1 ;</ins>
+        <ins>sh:maxCount 1 ;</ins>
+    ],
+    [
+        sh:path schema:additionalName ;
+        sh:datatype xsd:string ;
+        <ins>sh:order 2 ;</ins>
+        <ins>sh:group ex:PersonShapeNameGroup ;</ins>
+    ],
+    [
+        sh:path schema:familyName ;
+        sh:datatype xsd:string ;
+        <ins>sh:order 3 ;</ins>
+        <ins>sh:group ex:PersonShapeNameGroup ;</ins>
+        <ins>sh:minCount 1 ;</ins>
+        <ins>sh:maxCount 1 ;</ins>
+    ],
+    [
+        sh:path schema:birthDate ;
+        sh:datatype xsd:date ;
+        <ins>sh:order 4 ;</ins>
+        <ins>sh:maxCount 1 ;</ins>
+    ] ;
+.
+
+<ins>ex:PersonShapeNameGroup a sh:PropertyGroup ;</ins>
+    <ins>sh:order 0 ;</ins>
+    <ins>rdfs:label "Name" ;</ins>
+<ins>.</ins>
+            </div>
+          </div>
+          <p>
+            This shapes graph contains a single node shape that targets the
+            <code>schema:Person</code> class. The node shape defines nested
+            property shapes with datatype constraints, cardinality constraints,
+            and display ordering hints using <code>sh:order</code> and
+            <code>sh:group</code>.
+          </p>
+        </aside>
+
+        <p>
+          With both the data graph and shapes graph provided to the SHACL
+          Renderer, the editable form can use shape constraints for input
+          validation; see the related
+          <a href="#displaying-validation-results">Displaying Validation
+          Results</a> pattern. The renderer also uses
+          <code>sh:group</code> and <code>sh:order</code> annotations to
+          control the form layout. In this example, the name-related properties
+          are grouped into a <strong>Name</strong> section and ordered
+          according to their <code>sh:order</code> values, while the birth
+          date is rendered separately because it does not belong to a group.
+        </p>
+
+        <p>
+          The same shape also introduces simple cardinality constraints.
+          <code>sh:minCount 1</code> marks the given name and family name as
+          required fields, while <code>sh:maxCount 1</code> tells the renderer
+          that those fields and the birth date should be edited as single values.
+          Properties without <code>sh:minCount</code> remain optional, and
+          properties without <code>sh:maxCount 1</code> may be rendered with
+          controls for adding more than one value.
+        </p>
+
+        <img
+          src="./images/diagrams/shacl-renderer-shapes-graph-01.drawio.svg"
+          alt="A diagram of ex:TimBL as a form in a SHACL Renderer."
+          style="
+            display: block;
+            max-width: 420px;
+            width: 100%;
+            height: auto;
+            margin: 1.25em auto;
+          "
+        >
+      </section>
+
+      <section>
+        <h3>Computed Resource Labels</h3>
+        <p>
+          The data graph for a person contains enough information to derive a
+          more meaningful label. Instead of rendering the resource as
+          <strong>Tim B L</strong> using local name resolution, the shapes graph
+          can define a node expression that computes an <code>rdfs:label</code>
+          value from properties of the <code>schema:Person</code> instance.
+          Label Resolution then uses that computed value as the resource's
+          label.
+        </p>
+
+        <aside
+          class="example"
+          title="Sample Shapes Graph with a Computed Label"
+        >
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass schema:Person ;
+    sh:property [
+        sh:path schema:honorificPrefix ;
+        sh:datatype xsd:string ;
+        sh:order 0 ;
+        sh:group ex:PersonShapeNameGroup ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path schema:givenName ;
+        sh:datatype xsd:string ;
+        sh:order 1 ;
+        sh:group ex:PersonShapeNameGroup ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path schema:additionalName ;
+        sh:datatype xsd:string ;
+        sh:order 2 ;
+        sh:group ex:PersonShapeNameGroup ;
+    ],
+    [
+        sh:path schema:familyName ;
+        sh:datatype xsd:string ;
+        sh:order 3 ;
+        sh:group ex:PersonShapeNameGroup ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path schema:birthDate ;
+        sh:datatype xsd:date ;
+        sh:order 4 ;
+        sh:maxCount 1 ;
+    ],
+    <ins>[</ins>
+        <ins>sh:path rdfs:label ;</ins>
+        <ins>sh:values [</ins>
+            <ins>sparql:concat (</ins>
+                <ins>[ shnex:pathValues schema:honorificPrefix ]</ins>
+                <ins>" "</ins>
+                <ins>[ shnex:pathValues schema:givenName ]</ins>
+                <ins>" "</ins>
+                <ins>[ shnex:pathValues schema:familyName ]</ins>
+            <ins>)</ins>
+        <ins>] ;</ins>
+    <ins>] ;</ins>
+<ins>.</ins>
+
+ex:PersonShapeNameGroup a sh:PropertyGroup ;
+    sh:order 0 ;
+    rdfs:label "Name" ;
+.
+            </div>
+          </div>
+
+          <p>
+            This shapes graph now contains a new property shape with a node
+            expression to compute the value for <code>rdfs:label</code>.
+          </p>
+        </aside>
+
+        <p class="note">
+          Note that `schema:honorificPrefix` has no `sh:minCount`, so it is 
+          optional. The `rdfs:label` node expression should therefore handle
+          missing values. For brevity, this example assumes that
+          `schema:honorificPrefix` is always present.
+        </p>
+
+        <p>
+          The rendered form now uses the computed <code>rdfs:label</code> as
+          the resource label, so the resource is displayed by its full name
+          rather than its local name.
+        </p>
+
+        <img
+          src="./images/diagrams/shacl-renderer-shapes-graph-02.drawio.svg"
+          alt="A diagram of ex:TimBL as a form in a SHACL Renderer."
+          style="
+            display: block;
+            max-width: 420px;
+            width: 100%;
+            height: auto;
+            margin: 1.25em auto;
+          "
+        >
+      </section>
+
+      <section>
+        <h3>Nested Resource Forms</h3>
+
+        <p>
+          RDF data commonly contains relationships between resources. So far,
+          we have shown how a SHACL Renderer generates a form for a single
+          resource. In some cases, however, editing a resource is easier when
+          the form also includes contextual information from related resources.
+          The following example demonstrates this pattern.
+        </p>
+
+        <aside class="example" title="Sample Data Graph with Related Resource">
+          <div class="data-graph">
+            <div class="turtle">
+ex:TimBL a schema:Person ;
+    schema:honorificPrefix "Sir" ;
+    schema:givenName "Tim" ;
+    schema:additionalName "John" ;
+    schema:familyName "Berners-Lee" ;
+    schema:birthDate "1955-06-08"^^xsd:date ;
+    <ins>schema:affiliation ex:W3C ;</ins>
+.
+
+<ins>ex:W3C a schema:Organization ;</ins>
+    <ins>schema:name "World Wide Web Consortium"@en ,</ins>
+        <ins>"Consorcio World Wide Web"@es ;</ins>
+    <ins>schema:foundingDate "1994-10-01"^^xsd:date ;</ins>
+    <ins>schema:url &lt;https://www.w3.org&gt; ;</ins>
+<ins>.</ins>
+            </div>
+          </div>
+
+          <p>
+            The data graph describes Sir Tim Berners-Lee and the W3C using the
+            schema.org vocabulary. Because the organization name is
+            language-tagged, <a>Language Resolution</a> can select the most
+            appropriate label for the user's locale.
+          </p>
+        </aside>
+
+        <img
+          src="./images/diagrams/shacl-renderer-timbl-w3c.drawio.svg"
+          alt="A diagram of ex:TimBL as a form in a SHACL Renderer."
+          style="
+            display: block;
+            max-width: 420px;
+            width: 100%;
+            height: auto;
+            margin: 1.25em auto;
+          "
+        >
+
+        <p>
+          When rendering the form for the resource <code>ex:TimBL</code>, a
+          property shape for <code>schema:affiliation</code> can identify the
+          value as an IRI using <code>sh:nodeKind sh:IRI</code>. Without an
+          explicit details-editor preference, the Scoring System can then render
+          the value using a
+          <a href="#IRIEditor"><code>shui:IRIEditor</code></a>, allowing the
+          user to reference another resource without displaying its properties.
+          However, it can be useful to show the <code>ex:W3C</code> resource
+          nested in the same view. To do this, we can configure the same
+          property shape to prefer the details editor.
+        </p>
+
+        <aside
+          class="example"
+          title="Sample Shapes Graph with a Details Editor Preference"
+        >
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass schema:Person ;
+    sh:property [
+        sh:path schema:honorificPrefix ;
+        sh:datatype xsd:string ;
+        sh:order 0 ;
+        sh:group ex:PersonShapeNameGroup ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path schema:givenName ;
+        sh:datatype xsd:string ;
+        sh:order 1 ;
+        sh:group ex:PersonShapeNameGroup ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path schema:additionalName ;
+        sh:datatype xsd:string ;
+        sh:order 2 ;
+        sh:group ex:PersonShapeNameGroup ;
+    ],
+    [
+        sh:path schema:familyName ;
+        sh:datatype xsd:string ;
+        sh:order 3 ;
+        sh:group ex:PersonShapeNameGroup ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path schema:birthDate ;
+        sh:datatype xsd:date ;
+        sh:order 4 ;
+        sh:maxCount 1 ;
+    ],
+    [
+        sh:path rdfs:label ;
+        sh:values [
+            sparql:concat (
+                [ shnex:pathValues schema:honorificPrefix ]
+                " "
+                [ shnex:pathValues schema:givenName ]
+                " "
+                [ shnex:pathValues schema:familyName ]
+            )
+        ] ;
+    ] ;
+    <ins>[</ins>
+        <ins>sh:path schema:affiliation ;</ins>
+        <ins>sh:nodeKind sh:IRI ;</ins>
+        <ins>shui:editor shui:DetailsEditor ;</ins>
+    <ins>] ;</ins>
+.
+
+ex:PersonShapeNameGroup a sh:PropertyGroup ;
+    sh:order 0 ;
+    rdfs:label "Name" ;
+.
+            </div>
+          </div>
+
+          <p>
+            This shapes graph now contains a new property shape for
+            <code>schema:affiliation</code> with an IRI node kind constraint and
+            a preference for the
+            <a href="#DetailsEditor"><code>shui:DetailsEditor</code></a>
+            widget.
+          </p>
+        </aside>
+
+        <p>
+          With the new property shape, the SHACL Renderer now nests the
+          <code>ex:W3C</code> resource in the same form as the
+          <code>ex:TimBL</code> resource.
+        </p>
+
+        <img
+          src="./images/diagrams/shacl-renderer-timbl-w3c-nested.drawio.svg"
+          alt="A diagram of ex:TimBL as a form in a SHACL Renderer."
+          style="
+            display: block;
+            max-width: 420px;
+            width: 100%;
+            height: auto;
+            margin: 1.25em auto;
+          "
+        >
+
+      </section>
+
+      <section>
+        <h3>Summary and Next Steps</h3>
+        <p>
+          This section has shown that a data graph and a SHACL Renderer are
+          enough to produce a usable editable form. Adding a shapes graph,
+          including constraints also used in ordinary SHACL validation,
+          allows the SHACL Renderer to use those semantics to produce more
+          meaningful forms.
+        </p>
+
+        <p>
+          We have only briefly touched on cardinality constraints. Other useful
+          but more complex topics include logical constraints and using 
+          <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>
+          to populate the values for the enum and autocomplete editors.
+          You can find these in the <a href="#patterns">Patterns</a> section.
+        </p>
+      </section>
+    </section>
+
+    <section id="rendering-concepts">
+      <h2>Rendering Concepts</h2>
+
+      <p class="ednote">
+        Add conceptual model diagram on rendering concepts and how they relate
+        to each other as well as other concepts such as widgets.
+      </p>
 
       <p>This section explains the UI concepts and how they work together.</p>
 
@@ -1620,7 +2134,7 @@ ex:book1 a ex:Book ;
     <section id="patterns">
       <h2>Patterns</h2>
       <p class="note">Add common UI form patterns here, e.g., error handling and validation, conditional rendering, etc. For each section, clearly state whether it's normative or informative and describe its use case.</p>
-      <p class="ednote">TODO: consider removing the explicit "patterns" section and move these topics under <a href="#shacl-ui">SHACL UI</a></p>
+      <p class="ednote">TODO: consider removing the explicit "patterns" section and move these topics under <a href="#getting-started">Getting Started with SHACL UI</a></p>
 
       <h3>Root Shapes and Entry-Point Forms</h3>
       <p class="ednote">
@@ -1670,7 +2184,7 @@ ex:book1 a ex:Book ;
       <div class="issue" data-number="823"></div>
       <div class="issue" data-number="541"></div>
 
-      <h4>Displaying Validation Results</h4>
+      <h4 id="displaying-validation-results">Displaying Validation Results</h4>
       <p class="ednote">
         This sub-section should address the <em>"Mapping validation results to the form"</em> mentioned in <a href="https://github.com/w3c/data-shapes/issues/823">ISSUE 823</a>.
       </p>
