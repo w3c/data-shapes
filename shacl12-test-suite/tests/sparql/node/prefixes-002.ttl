@@ -1,0 +1,88 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:PrefixDeclaration
+  rdf:type sh:PrefixDeclaration ;
+  sh:namespace "http://example.com/ns#" ;
+  sh:prefix "ex" ;
+.
+ex:UnusedPrefixDeclaration
+  rdf:type sh:PrefixDeclaration ;
+  sh:namespace "http://example.com/ns2#" ;
+  sh:prefix "ex" ;
+.
+ex:SomeOntology
+  rdf:type owl:Ontology ;
+  sh:declare ex:UnusedPrefixDeclaration ;
+.
+ex:InvalidResource1
+  ex:property <http://test.com/ns#Value> ;
+.
+ex:SomeShapesGraph 
+  rdf:type sh:ShapesGraph ;
+  sh:declare [
+    sh:namespace "http://test.com/ns#"^^xsd:anyURI ;
+    sh:prefix "test" ;
+  ] ;
+  sh:declare ex:PrefixDeclaration ;
+.
+ex:TestSPARQL
+  sh:select """
+		SELECT $this ?value
+		WHERE {
+			$this ex:property ?value .
+			FILTER (?value = test:Value) .
+		} """ ;
+.
+ex:TestSPARQL2
+  rdfs:comment "Here we locally redefine the test prefix so that no violation should happen" ;
+  sh:select """
+    PREFIX test: <urn:other:ns>
+		SELECT $this ?value
+		WHERE {
+			$this ex:property ?value .
+			FILTER (?value = test:Value) .
+		} """ ;
+.
+ex:TestShape
+  rdf:type sh:NodeShape ;
+  sh:sparql ex:TestSPARQL ;
+  sh:sparql ex:TestSPARQL2 ;
+  sh:targetNode ex:InvalidResource1 ;
+  sh:targetNode ex:ValidResource1 ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <prefixes-002>
+    ) ;
+.
+<prefixes-002>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:prefixes 002 without explicit sh:prefixes triple" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:InvalidResource1 ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraint ex:TestSPARQL ;
+          sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+          sh:sourceShape ex:TestShape ;
+          sh:value <http://test.com/ns#Value> ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
