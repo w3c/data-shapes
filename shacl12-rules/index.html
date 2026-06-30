@@ -72,7 +72,7 @@
     </script>
     <link rel="stylesheet" href="style.css"/>
 
-    <style type="text/css">
+    <style>
       .example-data,
       .data {
           background: #cceecc;
@@ -161,6 +161,10 @@
       .term2escape-yes { background-color: lightgreen; }
       .darkmode .term2escape-yes { background-color: darkgreen; }
 
+      /* lists */
+      .list-indent     { margin-left: 5px; }
+      .list-no-bullet  { list-style: none; }
+      .list-inner      { list-style: disc; }
       
     </style>
 
@@ -179,7 +183,7 @@
       <p>
         SHACL Rules provides inferencing with the generation of new RDF data from a
         combination of a set of rules and a base data graph. Rules can be expressed as RDF
-        or in the SHACL Rules Language (SRL).
+        or in the Shape Rules Language (SRL).
       </p>
       <p>
         This specification is published by the
@@ -206,13 +210,11 @@
         RDF triples derived by rule execution.
         Combining the inference graph with the base graph is optional and
         left to users. The <em>query</em> operation determines whether a
-        given goal pattern can be derived from the base graph using the rules
+        given goal pattern can be derived from the base graph using the rules.
       </p>
       <p>
-        The inference graph may contain RDF triples with IRIs, blank nodes or
-        literals that were not present in the base graph. Users are responsible to
-        ensure that iterative applications of rules that generate new blank nodes or
-        literals do not result in infinite loops.
+        SHACL Rules allow the use of new RDF terms, including blank nodes,
+        that can be used in triple templates in the head of rules.
       </p>
       <p>
         SHACL Rules also support constructs, such as negation as failure, 
@@ -231,7 +233,7 @@
         </p>
       </section>
 
-      <section class="conventions">
+      <section id="conventions">
         <h3>Document Conventions</h3>
         <p>
           Some examples in this document use Turtle [[turtle]].
@@ -279,37 +281,37 @@
           bindings given above.
         </p>
         <!--
-        <pre class="example-shapes">        # This box represents a shapes graph</pre>
+            <pre class="example-shapes">        # This box represents a shapes graph</pre>
 
-        <pre class="example-data">        # This box represents a data graph.</pre>
+            <pre class="example-data">        # This box represents a data graph.</pre>
 
-        <pre class="example-results">        # This box represents an output results graph</pre>
-        -->
+            <pre class="example-results">        # This box represents an output results graph</pre>
+            -->
 
-        <!--
-        <p>Formal definitions appear in blue boxes:</p>
-        <div class="def def-sparql">
-          <div class="def-header">TEXTUAL DEFINITIONS</div>
-          <pre class="def-sparql-body">          # This box contains textual definitions. </pre>
-        </div>
-        -->
+            <!--
+                <p>Formal definitions appear in blue boxes:</p>
+                <div class="def def-sparql">
+                  <div class="def-header">TEXTUAL DEFINITIONS</div>
+                  <pre class="def-sparql-body">          # This box contains textual definitions. </pre>
+                </div>
+                -->
 
-        <!--
-        <p class="syntax">Grey boxes such as this include syntax rules that apply to the shapes graph.</p>
-        -->
+                <!--
+                    <p class="syntax">Grey boxes such as this include syntax rules that apply to the shapes graph.</p>
+                    -->
 
-        <!--
-        <p>
-          <code>true</code>
-          denotes the RDF term
-          <code>"true"^^xsd:boolean</code>
-          .
-          <code>false</code>
-          denotes the RDF term
-          <code>"false"^^xsd:boolean</code>
-          .
-        </p>
-        -->
+                    <!--
+                        <p>
+                          <code>true</code>
+                          denotes the RDF term
+                          <code>"true"^^xsd:boolean</code>
+                          .
+                          <code>false</code>
+                          denotes the RDF term
+                          <code>"false"^^xsd:boolean</code>
+                          .
+                        </p>
+                        -->
       </section>
     </section>
 
@@ -319,13 +321,13 @@
       <p>This specification defines conformance criteria for:</p>
       <ul>
         <li><a href="#rule-set-evaluation">SHACL Rule Set evaluation</a></li>
-        <li><a href="#shape-rules-syntax">Shapes Rule Language</a></li>
+        <li><a href="#shape-rules-syntax">Shape Rules Language</a></li>
       </ul>
 
       <p>A conforming 
         <dfn 
-          data-lt="shapes rules language document|shapes rules document|ruleset document"
-          >Shapes Rules Language Document</dfn> is an
+          data-lt="shape rules document|ruleset document"
+          >Shape Rules Language Document</dfn> is an
         <a data-cite="RDF12-CONCEPTS#dfn-rdf-string">RDF string</a> that
         conforms to the grammar, starting with the
         <a href="#rRuleSet"><code>RuleSet</code></a>
@@ -334,15 +336,15 @@
       </p>
 
       <p class="note">
-        This specification does not define how SHACL Rules processors
-        handle non-conforming input documents.
+        This specification does not define how SHACL Rules
+        processors handle non-conforming input documents.
       </p>
 
       <section id="defined-version-labels">
         <h3>Version Labels</h3>
         <p>
           A <dfn>version label</dfn> is a string that identifies the syntax and semantics conformance
-          for the Shacl Rules Language.
+          for the Shapes Rules Language.
         </p>
 
         <table id="tab-version-labels" class="simple">
@@ -363,7 +365,6 @@
           For serializations supporting in-line version announcement,
           the version announcement SHOULD be made early in the document.
         </p>
-
       </section>
 
     </section>
@@ -392,64 +393,72 @@
       </p>
       <p>
         SHACL Rules execution is defined so that the order of rule execution
-        does not lead to to different outcomes when creating new RDF terms,
-        including new blank nodes, nor in the testing for the absence of a
+        does not lead to different outcomes when creating new RDF terms,
+        including new blank nodes, nor when testing for the absence of a
         pattern.  In other words, the same inference graph is produced
         regardless of the order of rule execution.
       </p>
 
+      <p>
+        SHACL Rules has both a RDF syntax, as well as a human-friendly syntax, 
+        inspired by [[[SPARQL12-QUERY]]].
+        Rule set evaluation contains elements similar to SPARQL, with differences
+        in the details to ensure that the same inference graph is produced
+        regardless of the order of rule execution.
+      </p>
+
       <section id="desc-basic">
-        <h3>Basic Usage</h3>
+        <h3>Basic Patterns</h3>
 
         <p>In this first example, we have the following data graph and rule set:</p>
 
         <div class="data">
-<pre>
-   :A :fatherOf :X .
-   :B :motherOf :X .
-   :C :motherOf :A .
-</pre>
+          <pre>
+            :A :fatherOf :X .
+            :B :motherOf :X .
+            :C :motherOf :A .
+          </pre>
         </div>
 
         <div class="rules">
-<pre>
-RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
-RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
-</pre>
+          <pre>
+            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
+            RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
+          </pre>
         </div>
         <p>The above rules, applied to the data, will conclude 
           that: `:X` is the `:childOf` `:A` and `:B`:
         </p>
         <div class="inferred">
-<pre>
-   :X :childOf :A .
-   :X :childOf :B .
-   :A :childOf :C .
-</pre>
+          <pre>
+            :X :childOf :A .
+            :X :childOf :B .
+            :A :childOf :C .
+          </pre>
         </div>
         <p>
           We can then derive `:descendedFrom` relationships by adding a rule that depends
           on `:childOf` triples produced by the other rules:
         </p>
         <div class="rules">
-<pre>
-RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
-RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
-RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
-</pre>
+          <pre>
+            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
+            RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
+            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
+          </pre>
         </div>
         <p>
           The outcome is:
         </p>
         <div class="inferred">
-<pre>
-   :A :descendedFrom :C .
-   :X :descendedFrom :B .
-   :X :descendedFrom :A .
-   :X :childOf :B .
-   :X :childOf :A .
-   :A :childOf :C .
-</pre>
+          <pre>
+            :A :descendedFrom :C .
+            :X :descendedFrom :B .
+            :X :descendedFrom :A .
+            :X :childOf :B .
+            :X :childOf :A .
+            :A :childOf :C .
+          </pre>
         </div>
       </section>
       <section id="desc-recursion">
@@ -459,24 +468,24 @@ RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
           to infer that `:X` is `:descendedFrom` `:C`:
         </p>
         <div class="rules">
-<pre>
-RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
-RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
-RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
-RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?z . ?z :descendedFrom ?y }
-</pre>
+          <pre>
+            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
+            RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
+            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
+            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?z . ?z :descendedFrom ?y }
+          </pre>
         </div>
         <p>giving:</p>
         <div class="inferred">
-<pre>
-   :A :descendedFrom :C .
-   :X :descendedFrom :C .
-   :X :descendedFrom :B .
-   :X :descendedFrom :A .
-   :X :childOf :B .
-   :X :childOf :A .
-   :A :childOf :C .
-</pre>
+          <pre>
+            :A :descendedFrom :C .
+            :X :descendedFrom :C .
+            :X :descendedFrom :B .
+            :X :descendedFrom :A .
+            :X :childOf :B .
+            :X :childOf :A .
+            :A :childOf :C .
+          </pre>
         </div>
         <p>This adds the triple `:X :descendedFrom :C`.</p>
         <p>
@@ -496,20 +505,20 @@ RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?z . ?z :descendedFrom ?y }
         </p>
 
         <div class="data">
-<pre>
-:town1 :population 1000 .
-:town2 :population 2000 .
-</pre>          
+          <pre>
+            :town1 :population 1000 .
+            :town2 :population 2000 .
+          </pre>          
         </div>
         <div class="rules">
-<pre>
-RULE { ?x rdf:type :largeTown } WHERE { ?x :population ?p . FILTER(?p > 1500) }
-</pre>          
+          <pre>
+            RULE { ?x rdf:type :largeTown } WHERE { ?x :population ?p . FILTER(?p &gt; 1500) }
+          </pre>          
         </div>
         <div class="inferred">
-<pre>
-:town2 rdf:type :largeTown .
-</pre>          
+          <pre>
+            :town2 rdf:type :largeTown .
+          </pre>          
         </div>
         <p>
           `FILTER` evaluates an expression and keeps the current
@@ -532,32 +541,32 @@ RULE { ?x rdf:type :largeTown } WHERE { ?x :population ?p . FILTER(?p > 1500) }
           ensures that all the rules that could produce triples matching the pattern
           in the negation element have been completed.  This is called
           <i>[=stratification=]</i> and ensures that the negation is based
-          on all the relevant possible triples, whether from the data or inferred
-          from other rules.
+          on all the relevant possible triples, whether from the data or 
+          from inferred triples inferred by other rules.
         </p>
         <div class="data">
-<pre>
-:X1 rdf:type :Place ;
-    :population 1000 .
+          <pre>
+            :X1 rdf:type :Place ;
+            :population 1000 .
 
-:X2 rdf:type :Place ;
-    :population 2000 .
+            :X2 rdf:type :Place ;
+            :population 2000 .
 
-:X3 rdf:type :Place .
-</pre>
+            :X3 rdf:type :Place .
+          </pre>
         </div>
         <div class="rules">
-<pre>
-  RULE { ?x rdf:type :UnclassifiedSize } WHERE { 
-      ?x rdf:type :Place .
-      NOT { ?x :population ?p . }
-  }
-</pre>
+          <pre>
+            RULE { ?x rdf:type :UnclassifiedSize } WHERE { 
+            ?x rdf:type :Place .
+            NOT { ?x :population ?p . }
+            }
+          </pre>
         </div>
         <div class="inferred">
-<pre>
-:X3 rdf:type :UnclassifiedSize .
-</pre>
+          <pre>
+            :X3 rdf:type :UnclassifiedSize .
+          </pre>
         </div>
       </section>
 
@@ -569,39 +578,44 @@ RULE { ?x rdf:type :largeTown } WHERE { ?x :population ?p . FILTER(?p > 1500) }
           on the data.
         </p>
         <div class="rules">
-<pre>
-RULE { ?x :distanceKm ?kilometers }
-WHERE { 
-    ?x :distanceMiles ?miles .
-    SET ( ?kilometers := ?miles * 1.60934 )
-}
-</pre>    
+          <pre>
+            RULE { ?x :distanceKm ?kilometers }
+            WHERE { 
+            ?x :distanceMiles ?miles .
+            SET ( ?kilometers := ?miles * 1.60934 )
+            }
+          </pre>    
         </div>
         <p>
           This can be combined with testing for the absence of a triple
           already recording the distance in kilometers.
         </p>
         <div class="rules">
-<pre>
-RULE { ?x :distanceKm ?kilometers }
-WHERE { 
-    ?x :distanceMiles ?miles
-    NOT { ?x :distanceKm ?km }
-    SET ( ?kilometers := ?miles * 1.60934 )
-}
-</pre>    
+          <pre>
+            RULE { ?x :distanceKm ?kilometers }
+            WHERE { 
+            ?x :distanceMiles ?miles
+            NOT { ?x :distanceKm ?km }
+            SET ( ?kilometers := ?miles * 1.60934 )
+            }
+          </pre>    
         </div>
         <p>
-          Rules involving assignment are [=run-once rules=]. Rules with assignment
-          are run after all the rules that could produce the data that they depend on
+          Rules involving [=assignments=] and rules that create blank nodes in 
+          their [=rule head=] are [=run-once rules=].
+          Such rules are run after all the rules that could produce data that they depend on,
           and before any rules that depend on the data they produce. 
-          Rules that involve blank node in the [=rule head=] are also creating new
+          Rules that involve blank nodes in the [=rule head=] also create new
           RDF terms and are run-once rules.
         </p>
         <p>
           This condition ensures that rules that create RDF terms do not generate new terms
-          multiple times, with potentially different outcomes and also that such rules do not 
+          multiple times, with potentially different outcomes, and also that such rules do not 
           loop back to themselves and cause an unbounded number of RDF terms.
+        </p>
+        <p>
+          If evaluating the expression in an [=assignment=] causes an error,
+          then the current solution mapping is rejected by the [=assignment=].
         </p>
       </section>
       
@@ -644,6 +658,25 @@ WHERE {
         </ul> 
       </section>
 
+      <section id="data-blocks">
+        <h3>Data Blocks</h3>
+        <p>
+          Data blocks allow concisely providing RDF triples directly to the rule set evaluation.
+          Triples in datablocks are added to the inference graph and are available for
+          matching in the body of rules.
+        </p>
+        <p>@@examples to be updated</p>
+
+        <div class="rules">
+          <pre>
+            DATA {
+            :father rdfs:subClassOf :familyRelationship .
+            :mother rdfs:subClassOf :familyRelationship .
+            }
+          </pre>
+        </div>
+      </section>
+
       <section id="rule-tuples">
         <h3>Rule Tuples</h3>
         <div class="issue" data-number="752">
@@ -681,9 +714,9 @@ WHERE {
       <p>
         The Shape Rules Abstract Syntax is the logical structure of SHACL Rules.
         It is used to define the execution algorithm of SHACL Rules.
-        Each of the two concrete syntax forms of SHACL Rules, the SHACL Rules Language (SRL)
+        Each of the two concrete syntax forms of SHACL Rules, the Shape Rules Language (SRL)
         and the RDF syntax (SRL/RDF), provides a way to express the abstract syntax.
-      /p>
+      </p>
 
       <section id="rules-defns">
         <h3>Elements of the Abstract Syntax</h3>
@@ -697,22 +730,14 @@ WHERE {
 
           <dt><dfn>Expression</dfn></dt>
           <dd>
-            <p>
-              An [=expression=] is a function or a functional form;
-              the arguments are [=RDF terms=].
-              An expression is evaluated with respect to a [=solution mapping=] to give
-              an [=RDF term=] as the result.
-              <a>Expressions</a> are compatible with
-              <a data-cite="shacl12-node-expr#dfn-list-parameter-function"
-                 >SHACL list parameter functions</a>
-              and with <a data-cite="sparql12-query#expressions">SPARQL expressions</a>.</p>
-          </dd>
-          <dt><dfn >Condition</dfn></dt>
-          <dd>
-            <p>
-              A [=condition=] is an [=expression=] that evaluates to true or false.
-              [=Conditions=] are used to restrict the values of variables in pattern matching.
-            </p>
+            An [=expression=] is a function or a functional form;
+            the arguments are [=RDF terms=].
+            An expression is evaluated with respect to a [=solution mapping=], giving
+            an [=RDF term=] as the result.
+            <a>Expressions</a> are compatible with
+            <a data-cite="shacl12-node-expr#dfn-list-parameter-function"
+               >SHACL list parameter functions</a>
+            and with <a data-cite="sparql12-query#expressions">SPARQL expressions</a>.
           </dd>
           <dt><dfn data-lt="data-block">Data block</dfn></dt>
           <dd>
@@ -734,58 +759,52 @@ WHERE {
             A [=triple pattern=] is 3-tuple where each element is either a
             [=variable=] or an [=RDF term=] (which might be a triple term).
             The second element of the tuple must be an [=IRI=] or a [=variable=].
-            [=Triple patterns=] can appear as [=triple pattern elements=]
-            as well as inside [=negation elements=].
           </dd>
 
-          <dt><dfn>Condition element</dfn></dt>
+          <dt><dfn>Filter element</dfn></dt>
           <dd>
-            A [=condition element=] is a [=condition=]
-            that appears as a [=rule body element=].
+            A [=filter element=] is an [=expression=]
+            that appears as a [=rule element=]
+            It is used to restrict the values of variables
+            in pattern matching.
           </dd>
 
           <dt><dfn>Triple pattern element</dfn></dt>
           <dd>
             A [=triple pattern element=] is a [=triple pattern=]
-            used as a [=rule body element=].
+            that appears as a [=rule element=].
           </dd>
 
           <dt><dfn>Negation element</dfn></dt>
           <dd>
-            A [=negation element=] is a [=rule body element=]
-            comprised of a sequence of [=triple patterns=] and
-            [=conditions=].
+            A [=negation element=] is a [=rule element=].
+            It has a <dfn>negation element body</dfn>
+            comprised of a sequence of [=triple pattern elements=] and
+            [=filter elements=].
           </dd>
 
           <dt><dfn data-lt="assignment element|assignment">Assignment element</dfn></dt>
           <dd>
-            An [=assignment element=] is a pair consisting 
+            An [=assignment element=] is a [=rule element=] that is
+            a pair consisting 
             of a <a>variable</a>, called the <dfn>assignment variable</dfn>, 
             and an <a>expression</a>, called the <dfn>assignment expression</dfn>.
-            [=Assignment elements=] appear in the [=body=] of a [=rule=].
           </dd>
 
           <!-- Pending
-          <dt><dfn>aggregation element</dfn></dt>
+               <dt><dfn>aggregation element</dfn></dt>
           <dd>
             An [=aggregation element=] is ..@@.. .
-             [=Aggregation elements=] appear in the [=body=] of a [=rule=].
+            [=Aggregation elements=] appear in the [=body=] of a [=rule=].
           </dd>
           -->
 
-          <dt><dfn 
-                data-lt="rule body element|rule element"
-                >Rule body element</dfn></dt>
-          <dd>
-            A [=rule body element=] (often just "rule element") is any element that
-            can appear in a [=rule body=], i.e.,
-            a [=triple pattern element=],
-            a [=condition element=],
-            a [=negation element=],
-            or an [=assignment element=].
-            <!-- Pending
-            or an [=aggregation element=].
-            -->
+          <dt><dfn>Rule element</dfn></dt>
+          <dd>A [=rule element=] is any one of 
+            [=triple pattern element=],
+            [=filter element=],
+            [=negation element=], or
+            [=assignment element=].
           </dd>
 
           <dt><dfn data-lt="rule head|head">Rule head</dfn></dt>
@@ -795,7 +814,12 @@ WHERE {
 
           <dt><dfn data-lt="rule body|body">Rule body</dfn></dt>
           <dd> 
-            A [=rule body=] is a sequence of [=rule body elements=].
+            A [=rule body=] is a sequence of [=rule elements=];
+            that is, each sequence element is one of
+            a [=triple pattern element=],
+            a [=filter element=],
+            a [=negation element=],
+            or an [=assignment element=].
           </dd>
 
           <dt><dfn data-lt="rule imports|imports">Rule imports</dfn></dt>
@@ -812,8 +836,14 @@ WHERE {
 
           <dt><dfn>Run-once rule</dfn></dt>
           <dd>
-            A [=run-once rule=] is a rule that is run once at a particular point
-            in the evaluation of a rule set.
+            A [=run-once rule=] is a rule that is run exactly once at a
+            particular point in the evaluation of a rule set.
+          </dd>
+
+          <dt><dfn>General rule</dfn></dt>
+          <dd>
+            A [=general rule=] is a rule that is not a [=run-once rule=].
+            General rules may run more than once during rule set evaluation.
           </dd>
 
           <dt><dfn>Rule set</dfn></dt>
@@ -859,58 +889,127 @@ WHERE {
           position 3 is informally called the <em>object</em>.
         </p>
 
+        <p class="note">
+          The elements of a sequence of [=rule elements=] are labelled starting at 1.
+        </p>
+
       </section>
 
       <section id="wellformed">
         <h3>Well-formedness Conditions</h3>
         <p>
-          Well-formedness is a set of conditions on the abstract syntax of
-          SHACL rules. Together, these conditions ensure that a [=variable=] in the
+          <em>Well-formedness</em> is a set of conditions on the abstract syntax of
+          a [=rule set=]. Together, these conditions ensure 
+          that a [=variable=] in the
           [=head=] of a rule has a value defined in the [=body=] of the rule;
-          that each variable in an [=condition element=]
+          that each variable in an [=filter element=]
           or [=assignment expression=]
-          has a value at the point of evaluation; and that each
+          has a value at the point of evaluation; 
+          and that each
           assignment in a rule introduces a new variable,
           one that has not been used earlier in the rule body.
         </p>
         <p>
-          A [=rule=] is a <dfn>well-formed rule</dfn> if all of the following
-          conditions are met:
+          We define <em>well-formedness</em> for a sequence of [=rule elements=]
+          given an initial starting set of variables.  
         </p>
-        <ul>
-          <li>For every [=variable=] appearing in a [=triple template=]
-            of the [=head=] of the [=rule=],
-            there is one or more occurrences of a [=variable=]
-            of the same name in the [=triple patterns=] in the [=body=],
-            in an [=assignment element=] in the body, or both.
-          </li>
-          <li>
-            For every [=variable=] in an [=expression=] at position <em>i</em>
-            of the [=body=], there is a corresponding [=variable=] of the same
-            name occurring in a [=triple pattern=] at a position <em>j</em>,
-            or occurring as an [=assignment variable=] at a position <em>j</em>,
-            where <em>i &gt; j</em>.
-          </li>
-          <li>
-            Each [=assignment variable=] is used in only one [=assignment element=] in
-            the [=body=] of the [=rule=].
-          </li>
-          <li>
-            An [=assignment variable=] at position <em>i</em> of a [=rule body=] does not
-            occur in any [=triple pattern=] at position <em>j</em> where <em>i &gt; j</em>.
-          </li>
-          <li>
-            For every [=variable=] in an [=assignment expression=] at position <em>i</em>,
-            there is a corresponding variable in a [=triple pattern=] at position
-            <em>j</em> where <em>i &gt; j</em>,
-            or there is an [=assignment variable=] in an [=assignment element=] at position
-            <em>j</em> where <em>i &gt; j</em>.
-          </li>
-        </ul>
         <p>
-          A [=rule set=] is "well-formed" if and only if all of the [=rules=] of the
-          rule set are "well-formed".
+          Let <var>elt<sub>i</sub></var> be the i-th element of a sequence of [=rule elements=].
         </p>
+        <p>
+          Let <var>vars<sub>i</sub></var> be the set of variables defined by 
+          <var>elt<sub>i</sub></var> where:
+        </p>
+        <div class="list-indent">
+          <ul class="list-no-bullet">
+            <li>
+              If <var>elt<sub>i</sub></var> is a [=triple pattern element=] then
+              <ul class="list-inner">
+                <li>
+                  <var>vars<sub>i</sub></var> is the set of [=variables=] 
+                  that occurs in the [=triple pattern element=].
+                </li>
+              </ul>
+            </li>
+            <li>
+              If <var>elt<sub>i</sub></var> is a [=assignment element=] then
+              <ul class="list-inner">
+                <li>
+                  <var>vars<sub>i</sub></var> is the set of the [=assignment variable=].
+                </li>
+              </ul>
+            <li>
+              Otherwise,
+              <ul class="list-inner">
+                <li>
+                  <var>vars<sub>i</sub></var> is the empty set.
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <p>
+          Let <var>V<sub>0</sub></var> be the initial variables of a sequence.
+        </p>
+        <p>
+          Let <var>V<sub>i</sub></var> 
+          be the union of <var>V<sub>0</sub></var> and all <var>vars<sub>j</sub></var>, 
+          where <var>j</var> is less than <var>i</var>.
+        </p>
+        <p>
+          Let <var>V<sub>all</sub></var> be <var>V<sub>N</sub></var> 
+          where N is the length of the sequence.
+        </p>
+        <p>
+          A <dfn>well-formed sequence</dfn> is a sequence of [=rule elements=], 
+          given a set of variables <var>V<sub>0</sub></var>,
+          if the following conditions are met:
+        </p>
+        <div class="list-indent">
+          <ul class="list-no-bullet">
+            <li>
+              If <var>elt<sub>i</sub></var> is a [=filter element=] then
+              <ul class="list-inner">
+                <li>every [=variable=] mentioned in a [=filter element=]
+                  is an element of <var>V<sub>i-1</sub></var>.
+                </li>
+              </ul>
+            </li>
+            <li>
+              If <var>elt<sub>i</sub></var> is a [=assignment element=] then
+              <ul class="list-inner">
+                <li>every variable mentioned in the [=assignment expression=]
+                  is an element of <var>V<sub>i-1</sub></var>
+                </li>
+                <li>
+                  the [=assignment variable=] is an not element of <var>V<sub>i-1</sub></var>.
+                </li>
+              </ul>
+            </li>
+            <li>
+              If <var>elt<sub>i</sub></var> is a [=negation element=] then
+              <ul class="list-inner">
+                <li>
+                  the sequence of [=rule elements=] in the 
+                  [=negation element body=] is a [=well-formed sequence=]
+                  given the set of variables <var>V<sub>i-1</sub></var>.
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <p>
+          A [=rule=] is a <dfn>well-formed rule</dfn>
+          if the sequence of the [=rule body=] is a [=well-formed sequence=] given
+          <var>V<sub>0</sub></var> is the empty set,
+          and each variable in a [=triple template=] of the [=rule head=]
+          is an element of <var>V<sub>all</sub></var>.
+        </p>
+        <p>
+          A [=rule set=] is a <dfn>well-formed rule set</dfn> if and only if all
+          rules of the rule set are [=well-formed rules=].
+        </p>
+
       </section>
 
       <section id="rule-dependency">
@@ -924,32 +1023,39 @@ WHERE {
           either as a [=triple pattern element=] or inside a [=negation element=].
         </p>
         <p>
-          There are two kinds of dependencies: 
-          a <dfn data-lt="closed dependency">closed rule dependency</dfn>
-          and an <dfn data-lt="open dependency">open rule dependency</dfn>.
-          A <em>closed dependency</em> requires that rule `R2`
-          has generated all its possible output before rule `R1` can be executed.
-          This happens when `R1` has a [=triple pattern=] in a [=negation element=]
-          that matches a [=triple template=] of `R2` in a [=negation element=],
-          or if `R1` has any matching [=triple pattern=] depending on `R2` 
-          and `R1` has an [=assignment element=], or `R1` has any matching [=triple pattern=]
-          that matches a [=triple template=] of `R2` that has a blank node.
+          There are two kinds of dependency: 
+          [=closed dependencies=] and [=open dependencies=].
+          A <em>closed dependency</em> ensures that rule `R2`
+          has generated all its possible output before rule `R1` is executed.
           If a rule dependency is not closed, it is an <em>open dependency</em>
           which allows the first rule `R1` to be executed
           while the rule `R2` might be run again to generate further triples
           which can then cause `R1` to be reevaluated with the new triples from `R2`.
         </p>
 
+        <p>In this first example, the first rule depends on the second rule. It is an open dependency.</p>
+        <div class="example-rules"> 
+<pre>
+    RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
+    RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
+</pre>          
+        </div>
+        <p>In this second example, the first rule depends on the second rule. It is a closed dependency.</p>
+        <div class="example-rules"> 
+<pre>
+    RULE @@
+</pre>          
+        </div>
         <dl>
           <dt><dfn>Triple pattern matching</dfn></dt>
           <dd>
           <p>
             A [=triple pattern=] matches a [=triple template=] if 
-            the triple template may generate a triple that matches the triple pattern.
+            the triple template can generate a triple that matches the triple pattern.
           </p>
           </dd>
 
-          <dt><dfn>Triple pattern dependency</dfn></dt>
+          <dt><dfn data-lt="triple-pattern-dependency">Triple pattern dependency</dfn></dt>
           <dd>
             <p>
               A [=triple pattern=]
@@ -959,50 +1065,72 @@ WHERE {
             <p>
               A [=triple pattern=]
               <dfn data-local-lt="depends-pattern-rule">depends on a [=rule=]</dfn>
-              if the [=triple pattern=] has dependency on any [=triple template=]
-              in the head of the rule.
+              if the [=triple pattern=] has dependency on any of the [=triple templates=]
+              in the [=head=] of the rule.
           </p>
           </dd>
-          <dt><dfn>Rule dependency</dfn></dt>
+          <dt><dfn data-lt="rule dependency|depends on">Rule dependency</dfn></dt>
           <dd>
-          <p>
-            Rule `R1` depends on rule `R2` if any [=triple pattern=]
-            of `R1` depends on `R2`.
-            The dependency is an [=open dependency=] if `R1` does not have an
-            [=assignment element=] and if all the [=triple patterns=]
-            of `R1` that depend `R2` occur only as [=triple pattern elements=]
-            and not as part of a [=negation element=], and if `R1` does not
-            have any [=triple template=] with a blank node.
-            Otherwise, if `R1` has an [=assignment element=],
-            or if a [=triple pattern=]
-            that might match triples generated by `R2` is present in a
-            [=negation element=], then the dependency is a [=closed dependency=].
-          </p>
+            <p>
+              Rule `R1` [=depends on=] `R2` if any [=triple pattern=] in the body of `R1`,
+              whether as a [=triple pattern element=] or inside a [=negation element=],
+              
+              <a href="#dfn-triple-pattern-dependency">depends on</a> 
+              a [=triple template=] in the head of `R2`.
+            </p>
+          </dd>
+          <dt><dfn>Closed dependency</dfn></dt>
+          <dd>
+            <p>
+              A [=rule dependency=] of rule `R1` on rule `R2` is a [=closed dependency=] 
+              if any of the following conditions hold:
+            </p>
+            <ul>
+              <li>A [=triple pattern=] occurring inside a [=negation element=] of `R1`
+                matches a [=triple template=] in the [=rule head=] of `R2`.
+              </li>
+              <li>Rule `R1` [=depends on=] rule `R2`  
+                and `R1` has an [=assignment element=].
+              </li>
+              <li>Rule `R1` [=depends on=] rule `R2`
+                and the [=rule head=] of `R1` has a blank node.
+              </li>
+            </ul>
+          </dd>
+          <dt><dfn>Open dependency</dfn></dt>
+          <dd>
+            <p>
+              A [=rule dependency=] of rule `R1` on rule `R2`
+              is an [=open dependency=] if the dependencyis not a
+              [=closed dependency=].
+              That is, any [=triple pattern=] of `R1` that depends on 
+              `R2` occurs only as a [=triple pattern element=].
+            </p>
           </dd>
         </dl>
 
         <div class="note">
           <p>
-            A [=triple template=] with components `ts`, `tp`, `to`
-            can possibly generatce a triple with component RDF terms
-            `s`, `p`, `o` if
+            A [=triple template=] with components `tSubj`, `tPred`, `tObj`
+            can possibly generate a triple with component RDF terms
+            `s`, `p`, `o` if all of the following are true:
           </p>
           <ul>
-            <li>`ts` is a variable, or `ts` is the
+            <li>`tSubj` is a variable, or `tSubj` is the
               <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
                  >same RDF term</a> as `s`
             </li>
-            <li>`tp` is a variable, or `tp` is the
+            <li>`tPred` is a variable, or `tPred` is the
               <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
                  >same RDF term</a> as `p`
             </li>
-            <li>`to` is a variable, or `to` is the
+            <li>`tObj` is a variable, or `tObj` is the
               <a data-cite="RDF12-CONCEPTS#dfn-rdf-term-equality"
                  >same RDF term</a> as `o`
             </li>
           </ul>
           <p>
-            In addition, if any pair of `ts`, `tp`, and `to` are the same variable,
+            In addition, if any pair of `tSubj`, `tPred`, and `tObj` are the same variable,
             then the corresponding pair of `s`, `p`, and `o` must be the same.
           </p>
         </div>
@@ -1079,7 +1207,7 @@ define buildDependencyGraph(ruleSet):
         ## Classify each triple pattern TP in the rule as requiring "open" or "closed"
         ## depending on whether it is in a negation element or not.
         let bodyDependencies = {}
-        foreach rule body element RBE in the body of R1:
+        foreach rule element RBE in the body of R1:
             if RBE is a negation element:
                 foreach triple pattern TP in RBE:
                     let item be a pair (TP, "closed")
@@ -1188,7 +1316,7 @@ define buildDependencyGraph(ruleSet):
               blank nodes in the [=rule head=]; these rules are each evaluated exactly
               once at the start of evaluation of the [=stratification layer=].
               `SL.general` contains the remaining rules, which are evaluated 
-              until no new triples are inferred.
+              repeatedly until no new triples are inferred.
             </p>
           </dd>
           <dt><dfn>Stratification</dfn></dt>
@@ -1212,7 +1340,7 @@ define buildDependencyGraph(ruleSet):
             <dd>
               The [=stratification condition=] requires that
               there is no [=recursive dependency=] involving a
-              [=closed rule dependency=]
+              [=closed dependency=]
               in the [=dependency graph=] for a [=rule set=].
             </dd>
           </dl>
@@ -1259,15 +1387,15 @@ define stratification(ruleSet):
             let label = edge label
 
             if label == "open" :
-                if stratumMap.get(pRule) < stratumMap.get(qRule) :
+                if stratumMap.get(pRule) &lt; stratumMap.get(qRule) :
                     stratumMap.set(pRule, stratumMap.get(qRule))
                     changed = true;
                 endif
             endif
             if label == "closed" :
-                if stratumMap.get(pRule) <= stratumMap.get(qRule) :
+                if stratumMap.get(pRule) &lt;= stratumMap.get(qRule) :
                     let xStratum = 1 + stratumMap.get(qRule)
-                    if ( xStratum > limit )
+                    if ( xStratum &gt; limit )
                         ## Stratification requirement violated
                         error "Stratification error"
                         endif
@@ -1294,7 +1422,7 @@ define stratification(ruleSet):
     ## Partition each level into once and general
     let stratumLevels be a sequence of pairs of sets of rules.
     for i = 0 to maxStratum:
-        let rules = stratumLevels.get(i)
+        let rules = stratumRules.get(i)
         let once = { R in rules | R is a run-once rule }
         let general = rules \ once
         stratumLevels.set(i, pair(once, general))
@@ -1315,11 +1443,11 @@ enddefine
     </section>
 
     <section id="concrete-syntax">
-      <h2>Concrete Syntax forms for Shapes Rules</h2>
+      <h2>Concrete Syntax forms for the Shape Rules Language</h2>
       <p>There are two concrete syntaxes.</p>
       <ul>
         <li><a href="#shape-rules-syntax">Shape Rules Language syntax</a></li>
-        <li><a href="#rdf-rules-syntax">RDF Rules syntax</a></li>
+        <li><a href="#rdf-rules-syntax">RDF Rule syntax</a></li>
       </ul>
 
       <aside class="note">
@@ -1365,9 +1493,9 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
       ) ;
       srl:body (
         [ srl:subject [ srl:varName "x" ]; srl:predicate :p ; srl:object [ srl:varName "v1" ] ]
-        [ srl:expr [ sparql:greaterThan ( [ srl:varName "v1" ] 0 ) ] ]
+        [ srl:filter [ sparql:greater-than ( [ srl:varName "v1" ] 0 ) ] ]
         [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object [ srl:varName "v2" ] ]
-        [ srl:expr [ sparql:greaterThan ( [ srl:varName "v2" ] 0 ) ] ]
+        [ srl:filter [ sparql:greater-than ( [ srl:varName "v2" ] 0 ) ] ]
       );
     ]
     [
@@ -1406,7 +1534,7 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
           <ul>
             <li><code>TRANSITIVE(<em>uri</em>)</code></li>
             <li><code>SYMMETRIC(<em>uri</em>)</code></li>
-            <li><code>INVERSE(<em>uri</em>)</code></li>
+            <li><code>INVERSE(<em>uri</em>, <em>uri</em>)</code></li>
           </ul>
 
           <div class="issue" data-number="779">
@@ -1472,11 +1600,11 @@ PREFIX :        &lt;http://example/&gt;
 DATA { :s :p :o }
 RULE { ?x :q :o } WHERE { ?x :p :o }
 RULE { ?x :q :o } WHERE { ?x :p :o1 ; :p :o2 }
-RULE { ?x :q :o } WHERE { ?x :p ?o . FILTER (?o < 18) }
-RULE { ?x :q ?o } WHERE { ?x :p :o . BIND(18 AS ?o) }
-RULE { ?x :q ?o } WHERE { ?x :p :o . NOT { ?s :p ?o . FILTER(?o < 18) } }
+RULE { ?x :q :o } WHERE { ?x :p ?o . FILTER (?o &lt; 18) }
+RULE { ?x :q ?o } WHERE { ?x :p :o . SET (?o := 18) }
+RULE { ?x :q ?o } WHERE { ?x :p :o . NOT { ?s :p ?o . FILTER(?o &lt; 18) } }
 </pre>
-<pre class="example-rulehtoidy -hs">
+<pre class="example-rules">
 PREFIX :       &lt;http://example/&gt;
 PREFIX rdf:    &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
 PREFIX sh:     &lt;http://www.w3.org/ns/shacl#&gt;
@@ -1687,7 +1815,7 @@ merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>) = { <var>μ</var> |
 merge(S1, S2) = { <var>μ</var> |
                     <var>μ</var><sub>1</sub> in S1, <var>μ</var><sub>2</sub> in S2
                     and compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                    μ(v) = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)</pre>
+                    μ(v) = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>) }</pre>
             </div>
             <div class="ednote">
               <p>
@@ -1771,27 +1899,47 @@ result is imports(RS, V)
 
       <section id="eval-expression">
         <h3>Evaluation of an Expression</h3>
-        <p class="ednote">Sketch</p>
+        <p>
+          An expression, whether used in a [=filter element=] or 
+          an [=assignment element=], is evaluated with
+          respect to a solution mapping which provides a value which is an RDF term,
+          for each variable in the expression. 
+          The well-formedness requirements of <a href="#wellformed" class="sectionRef"></a>
+          ensure that all variables in the expression
+          appear in the solution mapping.
+        </p>
+
         <div class="algorithm">
 <pre>
-@@ Reference SPARQL expression evaluation <a data-cite="SPARQL12-QUERY/#expression-evaluation">Expression Evaluation</a>
-@@ Reference SPARQL EBV <a data-cite="SPARQL12-QUERY/#ebv">Effective Boolean Value (EBV)</a>
-
 define evalFunction(F, <var>μ</var>):
     let [x/<var>μ</var>] be
         if x is an RDF term, then [x/row] is x
-        if x is a variable, then [x/row] is <var>μ</var>(x)
-        ## By well-formedness, it is an error if x is not in the row.
-    return evalFunction(F(expr1, expr2 ...), row) = F(evalFunction(expr1, row), evalFunction(expr2, row), ...)
+        if x is a variable, then [x/row] is <var>μ</var>(x):
+          ## By well-formedness, it is an error if x is not in the row.
+          return evalFunction(F(expr1, expr2 ...), row) = F(evalFunction(expr1, row), evalFunction(expr2, row), ...)
         if an error is returned by evalFunction: return error
-    return evalFunction(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
+          @@return evalFunction(FF(expr1, expr2) , row) = ... things that are not functions like `IF`
+enddefine
 </pre>
         </div>
+
+        <p>
+          The function `EBV(x)` returns the 
+          <a data-cite="sparql12-query#ebv">effective boolean value</a>
+          for an RDF term.
+        </p>
       </section>
 
       <section id="eval-rule">
         <h3>Evaluation of a Rule</h3>
-        <div  class="algorithm">
+
+        <p> 
+          A [=rule=] is evaluated by calculating a [=solution sequence=] from the [=rule body=]
+          and then using each [=solution mapping=] of the [=solution sequence=] to
+          generate triples using [=rule head=].
+        </p>
+
+        <div class="algorithm">
 <pre>
 let R be a well-formed rule.
 
@@ -1818,7 +1966,7 @@ define evalRuleElements(B, SEQ, G):
             for each <var>μ</var><sub>1</sub> in X:
                 for each <var>μ</var><sub>2</sub> in SEQ:
                     if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                      <var>μ</var><sub>3</sub> = merge(<var>μ</var>1, <var>μ</var><sub>2</sub>)
+                      <var>μ</var><sub>3</sub> = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
                       add <var>μ</var><sub>3</sub> to SEQ1
                     endif
                 endfor
@@ -1829,7 +1977,7 @@ define evalRuleElements(B, SEQ, G):
             SEQ1 = {}
             for each solution <var>μ</var> in SEQ:
                 let x = evalFunction(F, <var>μ</var>)
-                if x is <var>true</var>:
+                if EBV(x) is <var>true</var>:
                     add <var>μ</var> to SEQ1
                 endif
             endfor
@@ -1848,13 +1996,14 @@ define evalRuleElements(B, SEQ, G):
 
         if rElt is an assignment with variable V and expression expr
             SEQ1 = {}
-            for each solution S in SEQ:
-                let x = evalFunction(expr, S)
+            for each solution <var>μ</var> in SEQ:
+                let x = evalFunction(expr, <var>μ</var>)
                 if x is not an error:
-                    add(V, x) to S
-                    add S to SEQ1
+                    ## Add mapping V -> x to solution μ
+                    let <var>μ2</var> be a solution mapping <var>μ</var> &cups; { (V, x) }
+                    add <var>μ2</var> to SEQ1
                 else
-                    # Error: drop solution S
+                    # Error: drop solution <var>μ</var>
                 endif
             endfor
         endif
@@ -1873,24 +2022,32 @@ enddefine
 let SEQ = evalRuleElements(B, SEQ0, G)
 
 # Evaluate rule head
-let H = empty set
+let OUT = empty set
 for each <var>μ</var> in SEQ:
     let S = {}
-    for each triple template TT in head
+    for each triple template TT in H:
         let triple = subst(<var>μ</var>, TT)
         Add triple to S
     endfor
-    H = H union S
+    OUT = OUT union S
 endfor
 
-result eval(R, G) is H
+result eval(R, G) is OUT
 </pre>
         </div>
-      <p>Note that `H` may contain triples that are also in the data graph.</p>
+      <p>Note that `OUT` may contain triples that are also in the data graph.</p>
       </section>
 
       <section id="eval-rule-set">
         <h3>Evaluation of a Rule Set</h3>
+        <p>
+          Evaluation of a [=rule set=] is defined as the execution of each [=stratum=] of the
+          [=stratification=] of the rule set, where each stratum is executed completely
+          and in order before moving on to the next [=stratum=].
+          A [=stratum=] is evaluated by first evaluating
+          each of the [=run-once rules=] of that stratum, and then evaluating
+          [=general rules=] of the stratum repeatedly until no new triples are produced.
+        </p>
 
         <div class="algorithm">
 <pre>
@@ -1937,9 +2094,9 @@ the result is GI
     </section>
 
     <section id="shapes-rules-grammar">
-      <h2>Shapes Rules Language Grammar</h2>
+      <h2>Shape Rules Language Grammar</h2>
 
-      <p>A <a>Shapes Rules Language document</a> is an <a data-cite="RDF12-CONCEPTS#dfn-rdf-string">RDF string</a>
+      <p>A <a>Shape Rules Language document</a> is an <a data-cite="RDF12-CONCEPTS#dfn-rdf-string">RDF string</a>
         encoded in UTF-8 [[!RFC3629]].
         Only <a data-cite="I18N-GLOSSARY#dfn-scalar-value" class="lint-ignore">Unicode scalar values</a>,
         in the ranges <code class="codepoint">U+0000</code> to <code class="codepoint">U+D7FF</code> 
@@ -1958,7 +2115,7 @@ the result is GI
           to separate two terminals which would otherwise be (mis-)recognized as one
           terminal. Rule names below in capitals indicate where white space is
           significant; these form a possible choice of terminals for constructing a
-          Shapes Rules Language parser.
+          Shape Rules Language parser.
         </p>
 
         <p>
@@ -2005,7 +2162,7 @@ the result is GI
           such as a SOAP envelope with an `xml:base` directive or a MIME multipart document with a
           `Content-Location` header.
           The "Retrieval URI" identified in <a data-cite="RFC3986#section-5.1.3">5.1.3, Base "URI from the Retrieval URI"</a>,
-          is the URL from which a particular <a>Shapes Rules Language document</a> was retrieved.
+          is the URL from which a particular <a>Shape Rules Language document</a> was retrieved.
           If none of the above specifies the Base URI, the default
           Base URI (<a data-cite="RFC3986#section-5.1.4">section 5.1.4, "Default Base URI"</a>) is used.
           Each <a href="#rBaseDecl"><code>BASE</code></a> directive sets a new In-Scope Base URI,
@@ -2016,7 +2173,10 @@ the result is GI
       <section id="escapes">
         <h3>Escape Sequences</h3>
 
-        <p>There are three forms of escapes used in <a>Shapes Rules documents</a>:</p>
+        <p>
+          There are three forms of escapes used in 
+          <a href="#dfn-shape-rules-language-document">Shape Rules documents</a>:
+        </p>
 
         <ul>
           <li>
@@ -2209,7 +2369,7 @@ the result is GI
               When tokenizing the input and choosing grammar rules, the longest match is chosen.
             </li>
             <li>
-              The Shapes Rules Language grammar is LL(1) and LALR(1) when the rules with uppercased names
+              The Shape Rules Language grammar is LL(1) and LALR(1) when the rules with uppercased names
               are used as terminals.
             </li>
             <li>
@@ -2272,11 +2432,11 @@ the result is GI
     </section>
 
     <section id="mediaType" class="appendix">
-      <h2>Internet Media Type, File Extension and Macintosh File Type</h2>
+      <h2>Internet Media Type and File Extension</h2>
 
       <p>
         The Internet Media Type (formerly known as MIME Type) for the
-        Shapes Rules Language is
+        Shape Rules Language is
         "<code>application/shape-rules</code>".
       </p>
 
@@ -2314,7 +2474,7 @@ the result is GI
 
           <dt>Encoding considerations:</dt>
           <dd>
-            The syntax of the SHACL Rules Language is expressed over code points in Unicode
+            The syntax of the Shape Rules Language is expressed over code points in Unicode
             [[UNICODE]]. The encoding is always UTF-8 [[RFC3629]].</dd>
           <dd>Unicode code points may also be expressed using an \uXXXX (U+0 to U+FFFF) or
             \UXXXXXXXX syntax (for U+10000 onwards) where X is a hexadecimal digit [0-9A-F]

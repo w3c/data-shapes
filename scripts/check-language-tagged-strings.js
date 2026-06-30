@@ -31,7 +31,7 @@ const turtlePrefixes = `
 @prefix ex: <http://example.com/ns#>.
 @prefix eg: <http://example.com/ns#>.
 @prefix dct: <http://purl.org/dc/terms/>.
-@prefix shui: <http://www.w3.org/ns/shacl-ui#>.
+@prefix shui: <http://www.w3.org/ns/shacl-ui/>.
 @prefix skos: <http://www.w3.org/2004/02/skos/core#>.
 @prefix schema: <http://schema.org/>.
 @prefix foaf: <http://xmlns.com/foaf/0.1/>.
