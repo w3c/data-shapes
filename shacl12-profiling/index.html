@@ -1547,6 +1547,185 @@ WHERE {
         self-referencing shapes, mutually dependent shapes, and recursive tree structures.
       </p>
     </section>
+    <section id="disallow-recursive-constraints-definition">
+      <h5>Definition of Recursive Constraints</h5>
+        <p>
+          A SHACL shapes graph <strong>SG</strong> conforms to the Non‑Recursive Constraints Profile
+         <strong>iff</strong> its <em>shape reference graph</em> (defined below) is <em>acyclic</em>.
+       </p>
+       <p>
+         Let <strong>R(SG)</strong> be a directed graph where:
+         <ul>
+              <li>
+                Each node is a shape in SG (any RDF node that is a <code>sh:Shape</code>,
+                <code>sh:NodeShape</code>, or <code>sh:PropertyShape</code>, or that is used in a position
+                that denotes a shape as defined below).
+              </li>
+              <li>
+                There is a directed edge s &rightarrow; t in <strong>R(SG)</strong> whenever, in SG, shape
+                <strong>s</strong> references shape <strong>t</strong> via any SHACL term that takes a shape
+                as a value.
+              </li>
+         </ul>
+       </p>
+       <p>
+         At minimum, implementations <em>MUST</em> treat the following as shape reference for conformance with
+         this profile:
+         <ul>
+              <li><code>sh:node</code></li>
+              <li><code>sh:property</code> (edge to the referenced property shape)</li>
+              <li><code>sh:qualifiedValueShape</code></li>
+              <li>the list members of <code>sh:and</code>, <code>sh:or</code>, and <code>sh:xone</code></li>
+              <li><code>sh:not</code></li>
+         </ul>
+       </p>
+       <p>
+         A shapes graph violates this profile if it contains any cycle s &rightarrow; &#x22EF; &rightarrow; s,
+         including:
+         <ul>
+              <li>
+                <strong>direct self-reference</strong> (a shape references itself), and
+              </li>
+              <li>
+                <strong>indirect self-reference</strong> (a shape references another shape that eventually
+                references the original shape)
+              </li>
+         </ul>
+       </p>
+    </section>
+    <section id="disallow-recursive-constraints-shacl">
+       <h5>Validating the Absence of Recursive Constraints</h5>
+       <p>
+         The following SHACL-SHACL shapes graph can be used to validate that a given shapes graph does not
+         contain any recursive constraints.
+       </p>
+       <aside class="example" title="Shape raising constraint violation when recursive constraints are present">
+         <div class="shapes-graph">
+           <div class="turtle">
+ex:NonRecursiveConstraintsValidator
+  a sh:NodeShape ;
+
+  # Cover both explicitly typed and structurally-used shapes:
+  sh:targetClass sh:Shape ;
+  sh:targetClass sh:NodeShape ;
+  sh:targetClass sh:PropertyShape ;
+  sh:targetSubjectsOf sh:node ;
+  sh:targetSubjectsOf sh:property ;
+  sh:targetSubjectsOf sh:qualifiedValueShape ;
+  sh:targetSubjectsOf sh:not ;
+  sh:targetSubjectsOf sh:and ;
+  sh:targetSubjectsOf sh:or ;
+  sh:targetSubjectsOf sh:xone ;
+
+  # Capture shapes that appear only as list members or property shapes:
+  sh:targetObjectsOf sh:property ;
+  sh:targetObjectsOf rdf:first ;
+
+  sh:sparql nrcp:NoRecursiveShapeReferencesConstraint
+.
+
+ex:NoRecursiveShapeReferencesConstraint
+  a sh:SPARQLConstraint ;
+  sh:severity sh:Violation ;
+  sh:message "Recursive constraints are disallowed by this profile: a shape is (directly or indirectly) reachable from itself via shape references (e.g., sh:node, sh:property, sh:not, sh:and/or/xone members, sh:qualifiedValueShape)." ;
+  sh:select """
+    PREFIX sh:  &lt;http://www.w3.org/ns/shacl#&gt;
+    PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+
+    SELECT $this
+    WHERE {
+       FILTER EXISTS {
+         $this (
+              sh:node
+           | sh:property
+           | sh:qualifiedValueShape
+           | sh:not
+           | (sh:and|sh:or|sh:xone)/(rdf:rest*/rdf:first)
+         )+ $this .
+       }
+    }
+  """
+.
+           </div>
+         </div>
+       </aside>
+    </section>
+    <section id="disallow-recursive-constraints-examples">
+       <h5>Examples of Disallowed Recursive Constraints</h5>
+       <p>
+         The following examples illustrate the types of recursive constraints that are disallowed by this profile.
+       </p>
+       <h6>Direct recursion in a single shape example</h6>
+       <aside class="example" title="Shape raising constraint violation when recursive constraints are present">
+         <div class="shapes-graph">
+           <div class="turtle">
+ex:PersonShape a sh:NodeShape ;
+  sh:targetClass ex:Person ;
+  sh:property [
+    sh:path ex:hasManager ;
+    sh:node ex:PersonShape ;
+    sh:minCount 1 ;
+  ] .
+           </div>
+         </div>
+         <div class="data-graph">
+           <div class="turtle">
+# causes an infinite validation loop
+ex:Alice a ex:Person ; ex:hasManager ex:Bob .
+ex:Bob a ex:Person ; ex:hasManager ex:Alice .
+           </div>
+         </div>
+       </aside>
+       <h6>Mutually referencing shapes example</h6>
+       <aside class="example" title="Two shapes that reference each other, creating a cycle.">
+         <div class="shapes-graph">
+           <div class="turtle">
+ex:DepartmentShape a sh:NodeShape ;
+  sh:targetClass ex:Department ;
+  sh:property [
+    sh:path ex:hasMember ;
+    sh:node ex:EmployeeShape ;
+    sh:minCount 1 ;
+  ] .
+
+ex:EmployeeShape a sh:NodeShape ;
+  sh:targetClass ex:Employee ;
+  sh:property [
+    sh:path ex:belongsTo ;
+    sh:node ex:DepartmentShape ;
+    sh:minCount 1 ;
+  ] .
+           </div>
+         </div>
+         <div class="data-graph">
+           <div class="turtle">
+# causes an infinite validation loop
+ex:Engineering a ex:Department ; ex:hasMember ex:Alice .
+ex:Alice a ex:Employee ; ex:belongsTo ex:Engineering .
+           </div>
+         </div>
+       </aside>
+       <h6>Recursive tree example</h6>
+       <aside class="example" title="Two shapes that reference each other, creating a cycle.">
+         <div class="shapes-graph">
+           <div class="turtle">
+ex:FolderShape a sh:NodeShape ;
+  sh:targetClass ex:Folder ;
+  sh:property [
+    sh:path ex:containsFolder ;
+    sh:node ex:FolderShape ;
+  ] .
+           </div>
+         </div>
+         <div class="data-graph">
+           <div class="turtle">
+# causes an infinite validation loop
+ex:FolderA a ex:Folder ; ex:containsFolder ex:FolderB .
+ex:FolderB a ex:Folder ; ex:containsFolder ex:FolderA .
+           </div>
+         </div>
+       </aside>
+
   </section>
 </section>
 
