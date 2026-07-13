@@ -9,4 +9,13 @@ This file is temporary while the specification is in-development — it is not
 intended for publication.
 
 
-## 2026-07-01 Start
+## 2026-07-07
+Rewrite of the SRL grammar so that the three areas (data, head templates and
+body patterns) each have specifc syntax productions.
+
+Data blocks does not variables, and do not have paths.
+Head templates have variables, but do not have paths.
+Body patterns have variables and paths.
+
+
+## 2026-07-01 Start change log
