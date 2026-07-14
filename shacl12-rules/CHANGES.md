@@ -1,4 +1,4 @@
-# SHACL 1.2. Rules -- CHANGES
+# SHACL 1.2. Rules — CHANGES
 
 This document records major changes and new material that would be of interest to
 implementers.
@@ -11,7 +11,7 @@ intended for publication.
 
 ## 2026-07-07
 Rewrite of the SRL grammar so that the three areas (data, head templates and
-body patterns) each have specifc syntax productions.
+body patterns) each have specific syntax productions.
 
 Data blocks does not variables, and do not have paths.
 Head templates have variables, but do not have paths.
