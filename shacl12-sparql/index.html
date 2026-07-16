@@ -422,6 +422,110 @@
 					Also see the discussion of well-formedness in the <a data-cite="shacl12-core#conformance">Conformance section of SHACL Core</a>.
 				</p>
 			</section>
+		</section>
+
+		<section id="sparql-prefixes">
+			<h3>Prefix Declarations for SPARQL Queries</h3>
+			<p>
+				This section introduces the mechanisms that are used throughout this document to declare namespace prefixes
+				for SPARQL queries.
+			</p>
+			<p>
+				A <a>shapes graph</a> may include declarations of namespace prefixes so that these prefixes can be used to abbreviate the SPARQL queries derived from the same shapes graph.
+				The syntax of such prefix declarations is illustrated by the following example.
+			</p>
+			<aside class="example" id="prefixes-example">
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:
+	sh:declare [
+		sh:prefix "ex" ;
+		sh:namespace "http://example.com/ns#"^^xsd:anyURI ;
+	] ;
+	sh:declare [
+		sh:prefix "schema" ;
+		sh:namespace "http://schema.org/" ;
+	] ;
+	a sh:ShapesGraph ;    # Optional
+	owl:imports sh: .   # Optional
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@id": "http://example.com/ns#",
+	"@type": "sh:ShapesGraph",
+	"owl:imports": {
+		"@id": "http://www.w3.org/ns/shacl#"
+	},
+	"sh:declare": [
+		{
+			"sh:namespace": {
+				"@type": "xsd:anyURI",
+				"@value": "http://example.com/ns#"
+			},
+			"sh:prefix": "ex"
+		},
+		{
+			"sh:namespace": "http://schema.org/",
+			"sh:prefix": "schema"
+		}
+	]
+}</pre>
+					</div>
+				</div>
+			</aside>
+			<p class="syntax">
+				<a>IRIs</a> or <a>blank nodes</a> that have <a>values</a> for both <code>sh:prefix</code> and <code>sh:namespace</code>
+				are called <dfn data-lt="prefix declaration">prefix declarations</dfn>.
+				The SHACL vocabulary includes the class <code>sh:PrefixDeclaration</code> as type for such <a>prefix declarations</a>
+				although no <code>rdf:type</code> triple is required for them.
+				<span data-syntax-rule="prefix-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:prefix</code></span>.
+				<span data-syntax-rule="prefix-datatype">The values of <code>sh:prefix</code> are <a>literals</a> of datatype <code>xsd:string</code>.</span>
+				<span data-syntax-rule="namespace-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:namespace</code>.</span>
+				<span data-syntax-rule="namespace-datatype">The values of <code>sh:namespace</code> are <a>literals</a> of datatype <code>xsd:anyURI</code> or <code>xsd:string</code>.</span>
+				Such a pair of values specifies a single mapping of a prefix to a namespace.
+				<span data-syntax-rule="declare-nodeKind">The <a>values</a> of the property <code>sh:declare</code> are <a>prefix declarations</a></span>.
+			</p>
+			<p>
+				The recommended <a>subject</a> for values of <code>sh:declare</code> is the IRI of the named graph containing the shapes that use the prefixes.
+				These IRIs are often declared as an instance of <code>sh:ShapesGraph</code> or <code>owl:Ontology</code>, but this is not required.
+			</p>
+			<p>
+				Among others, <a>Prefix declarations</a> can be used by <a>SPARQL-based constraints</a>,
+				the <a>validators</a> of <a href="#sparql-constraint-components">SPARQL-based constraint components</a>,
+				<a href="#sparql-node-expressions">SPARQL-based node expressions</a>, and
+				<a href="#sparql-rules">SPARQL-based inference rules</a>.
+				These nodes can use the property <code>sh:prefixes</code> to specify a set of prefix mappings.
+				An example use of the <code>sh:prefixes</code> property can be found in this
+				<a href="#sparql-constraints-example">example</a>.
+			</p>
+			<p class="syntax">
+				<span data-syntax-rule="prefixes-nodeKind">The values of <code>sh:prefixes</code> are either <a>IRIs</a> or <a>blank nodes</a>.</span>
+				<span data-syntax-rule="prefixes-duplicates">A SHACL processor collects a set of prefix mappings as the union of all
+				individual prefix mappings that are <a>values</a> of the <a>SPARQL property path</a> <code>sh:prefixes/(^owl:versionIRI?/owl:imports)*/sh:declare</code>
+				of the <a>SPARQL-based constraint</a> or <a>validator</a>.
+				The <code>^owl:versionIRI?</code> element supports graphs that are imported by
+				<a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
+				navigating from the version IRI to the shapes graph IRI before following further <code>owl:imports</code>.
+				If such a collection of prefix declarations contains multiple different namespaces for the same <a>value</a> of <code>sh:prefix</code>,
+				then the <a>shapes graph</a> is <a>ill-formed</a>.</span>
+				(Note that SHACL processors MAY ignore prefix declarations that are never reached).
+			</p>
+			<p id="no-prefixes">
+				If a SPARQL query has no <a>value</a> for <code>sh:prefixes</code> then the system will use those <a>prefix declarations</a>
+				from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of <code>sh:ShapesGraph</code>.
+			</p>
+			<p>
+				A SHACL processor transforms the values of <code>sh:select</code> (and similar properties such as <code>sh:ask</code> and <code>sh:construct</code>)
+				into SPARQL by prepending <a data-cite="sparql12-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
+				for all prefix mappings.
+				Each value of <code>sh:prefix</code> is turned into the <code>PNAME_NS</code>, while each value of <code>sh:namespace</code> is turned
+				into the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
+				For the example shapes graph above, a SHACL-SPARQL processor would produce lines such as <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
+				The SHACL-SPARQL processor MUST produce a <a>failure</a> if the resulting query string cannot be parsed into a valid SPARQL 1.2 query.
+			</p>
+			<p>
+				In the rest of this document, the <code>sh:prefixes</code> statements may have been omitted for brevity.
+			</p>
 
 		</section>
 
@@ -691,104 +795,6 @@ ex:
 					<a>predicate</a> position of a <a data-cite="sparql12-query/#QSynTriples">triple pattern</a>.</span>
 					A query that uses the variable <code>PATH</code> in any other position is <a>ill-formed</a>.
 				</p>
-				<section id="sparql-prefixes">
-					<h4>Prefix Declarations for SPARQL Queries</h4>
-					<p>
-						A <a>shapes graph</a> may include declarations of namespace prefixes so that these prefixes can be used to abbreviate the SPARQL queries derived from the same shapes graph.
-						The syntax of such prefix declarations is illustrated by the following example.
-					</p>
-					<aside class="example" id="prefixes-example">
-						<div class="shapes-graph">
-							<div class="turtle">
-ex:
-	sh:declare [
-		sh:prefix "ex" ;
-		sh:namespace "http://example.com/ns#"^^xsd:anyURI ;
-	] ;
-	sh:declare [
-		sh:prefix "schema" ;
-		sh:namespace "http://schema.org/" ;
-	] ;
-	a sh:ShapesGraph ;    # Optional
-	owl:imports sh: .   # Optional
-							</div>
-							<div class="jsonld">
-								<pre class="jsonld">{
-	"@id": "http://example.com/ns#",
-	"@type": "sh:ShapesGraph",
-	"owl:imports": {
-		"@id": "http://www.w3.org/ns/shacl#"
-	},
-	"sh:declare": [
-		{
-			"sh:namespace": {
-				"@type": "xsd:anyURI",
-				"@value": "http://example.com/ns#"
-			},
-			"sh:prefix": "ex"
-		},
-		{
-			"sh:namespace": "http://schema.org/",
-			"sh:prefix": "schema"
-		}
-	]
-}</pre>
-							</div>
-						</div>
-					</aside>
-					<p class="syntax">
-						<a>IRIs</a> or <a>blank nodes</a> that have <a>values</a> for both <code>sh:prefix</code> and <code>sh:namespace</code>
-						are called <dfn data-lt="prefix declaration">prefix declarations</dfn>.
-						The SHACL vocabulary includes the class <code>sh:PrefixDeclaration</code> as type for such <a>prefix declarations</a>
-						although no <code>rdf:type</code> triple is required for them.
-						<span data-syntax-rule="prefix-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:prefix</code></span>.
-						<span data-syntax-rule="prefix-datatype">The values of <code>sh:prefix</code> are <a>literals</a> of datatype <code>xsd:string</code>.</span>
-						<span data-syntax-rule="namespace-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:namespace</code>.</span>
-						<span data-syntax-rule="namespace-datatype">The values of <code>sh:namespace</code> are <a>literals</a> of datatype <code>xsd:anyURI</code> or <code>xsd:string</code>.</span>
-						Such a pair of values specifies a single mapping of a prefix to a namespace.
-						<span data-syntax-rule="declare-nodeKind">The <a>values</a> of the property <code>sh:declare</code> are <a>prefix declarations</a></span>.
-					</p>
-					<p>
-						The recommended <a>subject</a> for values of <code>sh:declare</code> is the IRI of the named graph containing the shapes that use the prefixes.
-						These IRIs are often declared as an instance of <code>sh:ShapesGraph</code> or <code>owl:Ontology</code>, but this is not required.
-					</p>
-					<p>
-						<a>Prefix declarations</a> can be used by <a>SPARQL-based constraints</a>,
-						the <a>validators</a> of <a href="#sparql-constraint-components">SPARQL-based constraint components</a>,
-						and by similar features defined by SHACL extensions.
-						These nodes can use the property <code>sh:prefixes</code> to specify a set of prefix mappings.
-						An example use of the <code>sh:prefixes</code> property can be found in the
-						<a href="#sparql-constraints-example">example</a> above.
-					</p>
-					<p class="syntax">
-						<span data-syntax-rule="prefixes-nodeKind">The values of <code>sh:prefixes</code> are either <a>IRIs</a> or <a>blank nodes</a>.</span>
-						<span data-syntax-rule="prefixes-duplicates">A SHACL processor collects a set of prefix mappings as the union of all
-						individual prefix mappings that are <a>values</a> of the <a>SPARQL property path</a> <code>sh:prefixes/(^owl:versionIRI?/owl:imports)*/sh:declare</code>
-						of the <a>SPARQL-based constraint</a> or <a>validator</a>.
-						The <code>^owl:versionIRI?</code> element supports graphs that are imported by
-						<a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
-						navigating from the version IRI to the shapes graph IRI before following further <code>owl:imports</code>.
-						If such a collection of prefix declarations contains multiple different namespaces for the same <a>value</a> of <code>sh:prefix</code>,
-						then the <a>shapes graph</a> is <a>ill-formed</a>.</span>
-						(Note that SHACL processors MAY ignore prefix declarations that are never reached).
-					</p>
-					<p id="no-prefixes">
-						If a SPARQL query has no <a>value</a> for <code>sh:prefixes</code> then the system will use those <a>prefix declarations</a>
-						from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of <code>sh:ShapesGraph</code>.
-					</p>
-					<p>
-						A SHACL processor transforms the values of <code>sh:select</code> (and similar properties such as <code>sh:ask</code>)
-						into SPARQL by prepending <a data-cite="sparql12-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
-						for all prefix mappings.
-						Each value of <code>sh:prefix</code> is turned into the <code>PNAME_NS</code>, while each value of <code>sh:namespace</code> is turned
-						into the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
-						For the example shapes graph above, a SHACL-SPARQL processor would produce lines such as <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
-						The SHACL-SPARQL processor MUST produce a <a>failure</a> if the resulting query string cannot be parsed into a valid SPARQL 1.2 query.
-					</p>
-					<p>
-						In the rest of this document, the <code>sh:prefixes</code> statements may have been omitted for brevity.
-					</p>
-				</section>
 			</section>
 			<section id="sparql-constraints-validation">
 				<h3>Validation with SPARQL-based Constraints</h3>
