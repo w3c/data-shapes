@@ -9,6 +9,10 @@ This file is temporary while the specification is in-development — it is not
 intended for publication.
 
 
+## 2026-07-18
+GH-1074
+Syntax for FOR ?var IN <shape> (grammar change)
+
 ## 2026-07-16
 Removed sections of at-risk abbreviation (grammar change) and at-risk tuples.
 
