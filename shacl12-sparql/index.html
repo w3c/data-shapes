@@ -1840,7 +1840,7 @@ ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
 			<section id="rules-syntax">
 				<h2>General Syntax of SHACL Rules</h2>
 				<p>
-					The <a>values</a> of the property <code>sh:rule</code> at a <a>shape</a> are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
+					The <a>SHACL instances</a> of <code>sh:Rule</code> and its subclass <code>sh:SPARQLRule</code> are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
 					SHACL has a flexible design in which (potentially) multiple types of rules can be supported,
 					but this document only defines <a>SPARQL rules</a>.
 					Each <dfn data-lt="rule types">rule type</dfn> is identified by an <a>IRI</a> that is used as <code>rdf:type</code> of rules.
@@ -1855,6 +1855,43 @@ ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
 					The creator of such rules needs to make sure that such rules have consistent semantics.
 					Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
 				</p>
+				<p class="syntax">
+					<span data-syntax-rule="rule">The property <code>sh:rule</code> is used to link a <a>shape</a> (<a>subject</a>)
+					with a <a>rule</a> (<a>object</a>).
+					The <a>subjects</a> of <code>sh:rule</code> triples are <a>IRIs</a>.</span>
+				</p>
+				<p>
+					<a>SHACL rules</a> can be divided into two categories:
+				</p>
+				<ul>
+					<li>
+						<dfn>Shape rules</dfn> are <a>rules</a> that are the <a>object</a> of a <code>sh:rule</code> triple.
+						Shape rules are executed for all <a>target</a> nodes of the <a>shapes</a>.
+					</li>
+					<li>
+						<dfn>Static rules</dfn> are <a>rules</a> that are <em>not</em> linked to a <a>shape</a> via <code>sh:rule</code>.
+					</li>
+				</ul>
+				<p>
+					The following example illustrates a <a>static rule</a>.
+				</p>
+				<aside class="example" title="A static rule that is not associated with any shape">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:SymmetricPropertyRule
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT {
+			?o ?p ?s .
+		}
+		WHERE {
+			?p a ex:SymmetricProperty .
+			?s ?p ?o .
+		}
+		""" .</pre>
+						</div>
+					</div>
+				</aside>
 				<p>
 					All rules may have the properties defined in the rest of this section.
 				</p>
@@ -1984,8 +2021,12 @@ ex:RuleOrderExampleShape
 				</p>
 				<div class="algorithm">
 					<pre class="nohighlight">
+	for each <a>static rule</a> R in the <a>shapes graph</a>, ordered by <a>execution order</a> {
+		execute R following the <a>execution instructions</a> of its <a>rule types</a>
+	}
+
 	for each <a>shape</a> S in the <a>shapes graph</a>, ordered by <a>execution order</a> {
-		for each non-deactivated <a>rule</a> R in the <a>shape</a>, ordered by <a>execution order</a> {
+		for each non-deactivated <a>shape rule</a> R of the <a>shape</a>, ordered by <a>execution order</a> {
 			for each <a>target</a> node T of S that <a>conforms</a> to all <a href="#condition">conditions</a> of R {
 				execute R using T as <a>focus node</a> following the <a>execution instructions</a>
 				of its <a>rule types</a>
@@ -2060,9 +2101,18 @@ ex:RuleOrderExampleShape
 					<div class="def-text-body">
 						Let <code>Q</code> be the SPARQL CONSTRUCT query derived from the values of the properties
 						<code>sh:construct</code> and <code>sh:prefixes</code> of the <a>SPARQL rule</a> in the <a>shapes graph</a>.
-						For each <a>focus node</a>, execute the query <code>Q</code>
-						<a>pre-binding</a> the variable <code>this</code> to the <a>focus node</a>,
-						and <a>infer</a> the constructed <a>triples</a>.
+						<ul>
+							<li>
+								If the rule is a <a>shape rule</a>:
+								For each <a>focus node</a>, execute the query <code>Q</code>
+								<a>pre-binding</a> the variable <code>this</code> to the <a>focus node</a>,
+								and <a>infer</a> the constructed <a>triples</a>.
+							</li>
+							<li>
+								If the rule is a <a>static rule</a>:
+								Execute the query <code>Q</code> without any <a>pre-binding</a>.
+							</li>
+						</ul>
 					</div>
 				</div>
 			</section>
