@@ -73,13 +73,6 @@
     <link rel="stylesheet" href="style.css"/>
 
     <style>
-      .algorithm {
-          /* <pre> written as CSS
-          font-family: monospace;
-          white-space: pre;
-          */
-          color: #444;
-      }
 
       .grammarTable {
           font-size: 11px;
@@ -125,6 +118,21 @@
           counter-reset: example;
       }
 
+      .algorithm {
+          background:        #fafafa;
+          border:            1px solid #c0c0c0 ;
+          border-left-width: .5em;
+          margin:            1em;
+
+          padding:           0;
+          padding-left:      0.5em;
+          padding-right:     0.5em;
+      }
+      .darkmode .algorithm {
+          background:        #808080 ;
+          border-color:      #aaaaaa ;
+      }
+
       /* Block to go inside <aside> "example" */
 
       .block {
@@ -144,10 +152,11 @@
 
       aside.example {
           padding: 0 ;
-          padding-left: 0.5em;
-          padding-right: 0.5em;
-          margin-bottom: 0;
-          padding-bottom:0; }
+          padding-left:   0.5em;
+          padding-right:  0.5em;
+          margin-bottom:  0;
+          padding-bottom: 0;
+      }
 
       .ex-data                { background: #aaccaa; }
       .ex-data::before        { content: "Data"; }
@@ -685,53 +694,58 @@
           and then moving on to the next layer.
         </p>
       </section>
-
-      <section id="rules-sparql-relationship" class="informative">
-        <h3>Relationship between SHACL Rules and SPARQL</h3>
-        <p>
-          SHACL Rules and SPARQL have a close relationship. SHACL Rules are designed to be compatible
-          with SPARQL, and many of the constructs in SHACL Rules are inspired by SPARQL.
-          However, there are some differences:
-        </p>  
-        <ul>
-          <li>
-            Rules have additional well-formedness conditions that ensure
-            variables are always bound before use.
-          </li>
-          <li>
-            A rule body is similar to a SPARQL `CONSTRUCT` query, 
-            but has restrictions such as not having `OPTIONAL`.  
-            These ensure that variables are always bound, whereas in SPARQL, some
-            variables might not be bound in all pattern solutions.
-          <li>
-            The rule `SET` form and SPARQL `BIND` form have different error handling behaviors. An
-            error encountered in `SET` causes the current solution to be filtered out, whereas 
-            `BIND` does not set the variable in the current solution.
-            <code>SET(?var := <i>expr</i>)</code> would be the same as
-            SPARQL with 
-            <code>BIND(<i>expr</i> AS ?var)</code> followed by 
-            <code>FILTER(BOUND(?var))</code>.
-            </pre>
-          </li>
-          <li>
-            Rules `NOT`, unlike SPARQL `EXISTS` and `NOT EXISTS`, has a body restricted to
-            triple patterns and filters. It does not allow nested patterns.
-          <li>
-            Property path syntax only covers paths that can be expanded into triple patterns.
-            It does not allow arbitrary length operators `*` and `+`.
-          </li>
-          <li>
-            Some functions are not included in the SRL syntax.
-            There is no `COALESCE`, nor `BOUND`.
-            There are no hash functions. 
-            There is no `RAND`, which has different results each time
-            it is called; `NOW()` is permitted and is defined to return
-            the same point in time throughout a rule set evaluation, similar
-            to the behavior in SPARQL.
-          </li>
-        </ul> 
+      
+      <section id="ground-data">
+        <h3>Matching Ground Data</h3>
+        <div class="issue" data-number="960">
+          <p>
+          Inferring default values can only be expressed by introducing extra
+          vocabulary to express the difference between inferred triples and
+          triples present in the input graph.
+          </p>
+          <p>
+            Proposal:
+          </p>
+          <pre class="none">
+            # Ngeation element matched against the input graph
+            NOT DATA { ?x :distanceKm ?km }
+          </pre>
+          <pre class="none">
+            # Rule body matched against the input graph
+            WHERE DATA { ... }
+          </pre>
+        </div>
       </section>
 
+      <!-- ===============
+      <section id="parameterized-rules">
+        <h3>Parameterized Rules</h3>
+        <div class="issue" data-number="781">
+          <p>
+            Global setting the value of a variable for paramaterization introduce
+            a risk that parameters intended for one rule in the rule set
+            accidentallly affecting other rules.
+            For example, a variable
+            intended as parameter might be SET-assigned, which breaks
+            well-formedness.
+            Parameterization should be "opt-in".
+          </p>
+          <pre class="none">
+            RULE
+            WITH { $this } ## One parameter, value set for each rule body solution.
+            WHERE
+          </pre>
+          <pre class="none">
+            RULE
+            WITH { (?x ?y) }  ## Needs pairs of ?x and ?y per solution.
+            WHERE
+          </pre>
+        </div>
+      </section>
+      =============== -->
+
+      
+      <!-- ===============
       <section id="rule-tuples">
         <h3>Rule Tuples</h3>
         <div class="issue" data-number="752">
@@ -759,6 +773,74 @@
             an RDF graph which is a set).
           </p>
         </div>
+      </section>
+      =============== -->
+
+      <section id="shacl-extension">
+        <h3>SHACL Integration</h3>
+        <div class="issue" data-number="1074">
+          <p>
+            The `FOR ?v IN &ltshape&gt;` re-introduces targeting on top of
+            that model.  It ties a single rule to a SHACL shape so the rule
+            fires only for the shape's target focus nodes that conform to
+            the shape, with a user-named "focus variable" pre-bound to each
+            such node.
+          </p>
+          <p>
+            <a href="https://github.com/w3c/data-shapes/issues/1074">Full proposal</a>
+          </p>
+      </section>
+
+      <section id="rules-sparql-relationship" class="informative">
+        <h3>Relationship between SHACL Rules and SPARQL</h3>
+        <p>
+          SHACL Rules and SPARQL have a close relationship. SHACL Rules are designed to be compatible
+          with SPARQL, and many of the constructs in SHACL Rules are inspired by SPARQL.
+          However, there are some differences:
+        </p>  
+        <ul>
+          <li>
+            Rules have additional well-formedness conditions that ensure
+            variables are always bound before use.
+          </li>
+          <li>
+            The syntax of a rule body is similar to a SPARQL `CONSTRUCT` query, but has
+            restrictions such as not having `UNION` or `OPTIONAL` syntax.
+            These ensure that variables are always bound, whereas in SPARQL, some
+            variables might not be bound in all pattern solutions.
+            The effect of these can be achieved using [=well-formed rules=]
+            so that the [=rule set=] can be analysed.
+          </li>
+          <li>
+            The rule `SET` form and SPARQL `BIND` form have different error handling behaviors.
+            An error encountered in `SET` causes the current solution to be filtered out, 
+            whereas `BIND` does not set the variable in the current solution.
+            <code>SET(?var := <i>expr</i>)</code> would be the same as
+            SPARQL with 
+            <code>BIND(<i>expr</i> AS ?var)</code> followed by 
+            <code>FILTER(BOUND(?var))</code>.
+          </li>
+          <li>
+            The syntax of `NOT`,
+            unlike SPARQL `EXISTS` and `NOT EXISTS`
+            has an inner body limited to triple patterns and filters,
+            and does not allow nested patterns.
+          <li>
+            Property path syntax only covers paths that can be expanded into triple patterns.
+            It does not allow arbitrary length operators `*` and `+`.
+            Arbitrary length paths can be expressed in SHACL Rules 
+            with recursion as a more general approach.
+          </li>
+          <li>
+            Some functions are not included in the SRL syntax.
+            There is no `COALESCE`, nor `BOUND`.
+            There are no hash functions. 
+            There is no `RAND`, which has different results each time
+            it is called. `NOW()` is permitted and is defined to return
+            the same point in time throughout a rule set evaluation, similar
+            to the behavior in SPARQL.
+          </li>
+        </ul> 
       </section>
 
     </section>
@@ -1548,43 +1630,89 @@ enddefine
           <pre class="block ex-rules">
 PREFIX :       &lt;http://example/&gt;
 PREFIX rdf:    &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
-PREFIX sh:     &lt;http://www.w3.org/ns/shacl#&gt;
 PREFIX srl:    &lt;http://www.w3.org/ns/shacl-rules#&gt;
 PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
 
 :ruleSet-1
-  rdf:type srl:RuleSet;
+  rdf:type srl:RuleSet ;
   srl:data (
-    [  srl:subject :x ; srl:predicate :p ; srl:object 1 ]
-    [  srl:subject :x ; srl:predicate :q ; srl:object 2 ]
-  );
+    [  srl:subject :x  ; srl:predicate :p  ; srl:object 1 ]
+    [  srl:subject :x  ; srl:predicate :q  ; srl:object 2 ]
+  ) ;
   srl:rules (
     [
-      rdf:type srl:Rule;
-      srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :bothPositive ; srl:object true ]
-      ) ;
+      rdf:type srl:Rule ;
       srl:body (
-        [ srl:subject [ srl:varName "x" ]; srl:predicate :p ; srl:object [ srl:varName "v1" ] ]
-        [ srl:filter [ sparql:greater-than ( [ srl:varName "v1" ] 0 ) ] ]
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object [ srl:varName "v2" ] ]
-        [ srl:filter [ sparql:greater-than ( [ srl:varName "v2" ] 0 ) ] ]
-      );
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :p ;
+            srl:object [ srl:varName "v1" ]
+          ]
+        ]
+        [
+          srl:filter [
+            sparql:greater-than ( [ srl:varName "v1" ] 0 )
+          ]
+        ]
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :q ;
+            srl:object [ srl:varName "v2" ] ;
+          ]
+        ]
+        [
+          srl:filter [
+            sparql:greater-than ( [ srl:varName "v2" ] 0 )
+          ]
+        ]
+      ) ;
+      srl:head (
+        [
+          srl:tripleTemplate [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :bothPositive ;
+            srl:object true
+          ]
+        ]
+      )
     ]
     [
-      rdf:type srl:Rule;
-      srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :oneIsZero ; srl:object true ]
-      ) ;
+      rdf:type srl:Rule ;
       srl:body (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object [ srl:varName "v1" ] ]
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object [ srl:varName "v2" ] ]
-        [ srl:filter [ sparql:logical-or (
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :p ;
+            srl:object [ srl:varName "v1" ] ;
+          ]
+        ]
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :q ;
+            srl:object [ srl:varName "v2" ] ;
+          ]
+        ]
+        [
+          srl:filter [
+            sparql:logical-or (
               [ sparql:equals ( [ srl:varName "v1" ] 0 ) ]
               [ sparql:equals ( [ srl:varName "v2" ] 0 ) ]
-            ) ]
+            )
+          ]
         ]
-      );
+      ) ;
+      srl:head (
+        [
+          srl:tripleTemplate [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :oneIsZero ;
+            srl:object true ;
+          ]
+        ]
+      )
     ]
   ) .
           </pre>
@@ -1595,6 +1723,7 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
         <p>The <a href="#shapes-rules-grammar">grammar</a> is given below.</p>
         <p class="ednote">Mapping the AST to the abstract syntax.</p>
 
+        <!--
         <section id="shape-rules-abbrev">
           <h4>Shape Rules Language Abbreviations</h4>
 
@@ -1618,8 +1747,8 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
               Implementation advantages for `SYMMETRIC` and `INVERSE` are not clear.
             </p>
           </div>
-
         </section>
+        -->
       </section>
 
       <section id="rdf-rules-syntax">
@@ -1670,68 +1799,68 @@ PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
         </p>
         
 <pre class="block ex-rules">
-PREFIX :        &lt;http://example/&gt;
 
 DATA { :s :p :o }
 RULE { ?x :q :o } WHERE { ?x :p :o }
-RULE { ?x :q :o } WHERE { ?x :p :o1 ; :p :o2 }
-RULE { ?x :q :o } WHERE { ?x :p ?o . FILTER (?o &lt; 18) }
 RULE { ?x :q ?o } WHERE { ?x :p :o . SET (?o := 18) }
-RULE { ?x :q ?o } WHERE { ?x :p :o . NOT { ?s :p ?o . FILTER(?o &lt; 18) } }
+RULE { ?x :q ?o } WHERE { ?x :p :o . NOT { ?s :p ?o . FILTER(?o > 18) } }
 </pre>
 <pre class="block ex-rules">
 PREFIX :       &lt;http://example/&gt;
 PREFIX rdf:    &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
-PREFIX sh:     &lt;http://www.w3.org/ns/shacl#&gt;
 PREFIX sparql: &lt;http://www.w3.org/ns/sparql#&gt;
 PREFIX srl:    &lt;http://www.w3.org/ns/shacl-rules#&gt;
 
-:ruleSet-1
-  rdf:type srl:RuleSet;
+:ruleSet-features
+  rdf:type srl:RuleSet ;
   srl:data (
-    [ srl:subject :s ; srl:predicate :p; srl:object :o ; ]
-  );
+    [
+      srl:subject :s ;
+      srl:predicate :p ;
+      srl:object :o
+    ]
+  ) ;
   srl:rules (
     [
-      rdf:type srl:Rule;
-      srl:body (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object :o ; ]
-      ) ;
-      srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object :o ; ]
-      )
-    ]
-    [
       rdf:type srl:Rule ;
-      srl:body (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object :o1 ; ]
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object :o2 ; ]
-      ) ;
       srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object :o ; ]
-      )
-    ]
-    [
-      rdf:type srl:Rule ;
-      srl:body (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object [ srl:varName "o" ] ; ]
         [
-          srl:filter [
-            sparql:less-than (
-              [ srl:varName "o" ]
-              18
-            )
+          srl:tripleTemplate [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :q ;
+            srl:object [ srl:varName "o" ]
+          ]
+        ]
+      )
+      srl:body (
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :p ;
+            srl:object :o
           ]
         ]
       ) ;
       srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object :o ; ]
+        [
+          srl:tripleTemplate [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :q ;
+            srl:object :o
+          ]
+        ]
       )
     ]
     [
       rdf:type srl:Rule ;
       srl:body (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object :o ; ]
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :p ;
+            srl:object :o
+          ]
+        ]
         [
           srl:assign [
             srl:assignValue 18 ;
@@ -1739,34 +1868,46 @@ PREFIX srl:    &lt;http://www.w3.org/ns/shacl-rules#&gt;
           ]
         ]
       ) ;
-      srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object [ srl:varName "o" ] ; ]
-      )
     ]
     [
       rdf:type srl:Rule ;
+      srl:head (
+        [
+          srl:tripleTemplate [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :q ;
+            srl:object [ srl:varName "o" ]
+          ]
+        ]
+      )
       srl:body (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :p ; srl:object :o ; ]
+        [
+          srl:triplePattern [
+            srl:subject [ srl:varName "x" ] ;
+            srl:predicate :p ;
+            srl:object :o ;
+          ]
+        ]
         [
           srl:not (
-            [ srl:subject [ srl:varName "s" ] ;     srl:predicate :p ;     srl:object [ srl:varName "o" ] ; ]
+            [
+              srl:triplePattern [
+                srl:subject [ srl:varName "s" ] ;
+                srl:predicate :p ;
+                srl:object [ srl:varName "o" ]
+              ]
+            ]
             [
               srl:filter [
-                sparql:less-than (
-                  [ srl:varName "o" ]
-                  18
+                sparql:greater-than ( [ srl:varName "o" ] 18 )
                 )
               ]
             ]
           )
         ]
       ) ;
-      srl:head (
-        [ srl:subject [ srl:varName "x" ] ; srl:predicate :q ; srl:object [ srl:varName "o" ] ; ]
-      )
     ]
   ) .
-
 </pre>
 
       </section>
@@ -2261,7 +2402,7 @@ the result is GI
 
         <p>
           There are three forms of escapes used in 
-          <a href="#dfn-shape-rules-language-document">Shape Rules documents</a>:
+          <a href="#dfn-shape-rules-document">Shape Rules documents</a>:
         </p>
 
         <ul>

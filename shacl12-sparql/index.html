@@ -162,8 +162,9 @@
 				While the Core part of SHACL defines the basic syntax of shapes and the most common constraint components
 				supported by SHACL, the SPARQL-related extensions cover features that extend the expressiveness of Core
 				by means of SPARQL.
-				In particular, this document defines how constraints and constraint components can be defined using SPARQL,
-				and SPARQL-based node expressions.
+				In particular, this document defines how constraints and constraint components can be defined using SPARQL.
+				Furthermore, this document introduces SPARQL-based node expressions that can be used to derive lists of nodes.
+				Finally, this document defines SPARQL-based inference rules that can be used in conjunction with shapes.
 			</p>
 		</section>
 
@@ -231,6 +232,7 @@
 						<dfn data-cite="shacl12-core#dfn-property-shape" data-lt="property shape|property shapes">property shape</dfn>,
 						<dfn data-cite="shacl12-core#dfn-shacl-property-path" data-lt="shacl property path|shacl property paths">SHACL property path</dfn>,
 						<dfn data-cite="shacl12-core#dfn-sparql-property-path" data-lt="sparql property path|sparql property paths">SPARQL property path</dfn>,
+						<dfn data-cite="shacl12-core#dfn-data-graph" data-lt="data graph">data graph</dfn>,
 						<dfn data-cite="shacl12-core#dfn-shapes-graph" data-lt="shapes graph">shapes graph</dfn>,
 						<dfn data-cite="shacl12-core#dfn-target" data-lt="target|targets">target</dfn>,
 						<dfn data-cite="shacl12-core#dfn-validators" data-lt="validator|validators">validator</dfn>,
@@ -409,12 +411,121 @@
 					This specification describes conformance criteria for:
 				</p>
 				<ul>
-					<li><strong>SHACL-SPARQL processors</strong> as processors that support validation with the SHACL-SPARQL Language</li>
+					<li><strong>SHACL-SPARQL validation processors</strong> as processors that support SHACL validation using
+						<a href="#sparql-constraints"></a> and <a href="#sparql-constraint-components"></a></li>
+					<li><strong>SPARQL node expression processors</strong> as processors that can evaluate
+						<a href="#sparql-node-expressions"></a></li>
+					<li><strong>SHACL-SPARQL rule processors</strong> as processors that support the evaluation of
+						<a href="#sparql-rules"></a></li>
 				</ul>
 				<p>
 					Also see the discussion of well-formedness in the <a data-cite="shacl12-core#conformance">Conformance section of SHACL Core</a>.
 				</p>
 			</section>
+		</section>
+
+		<section id="sparql-prefixes">
+			<h3>Prefix Declarations for SPARQL Queries</h3>
+			<p>
+				This section introduces the mechanisms that are used throughout this document to declare namespace prefixes
+				for SPARQL queries.
+			</p>
+			<p>
+				A <a>shapes graph</a> may include declarations of namespace prefixes so that these prefixes can be used to abbreviate the SPARQL queries derived from the same shapes graph.
+				The syntax of such prefix declarations is illustrated by the following example.
+			</p>
+			<aside class="example" id="prefixes-example">
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:
+	sh:declare [
+		sh:prefix "ex" ;
+		sh:namespace "http://example.com/ns#"^^xsd:anyURI ;
+	] ;
+	sh:declare [
+		sh:prefix "schema" ;
+		sh:namespace "http://schema.org/" ;
+	] ;
+	a sh:ShapesGraph ;    # Optional
+	owl:imports sh: .   # Optional
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@id": "http://example.com/ns#",
+	"@type": "sh:ShapesGraph",
+	"owl:imports": {
+		"@id": "http://www.w3.org/ns/shacl#"
+	},
+	"sh:declare": [
+		{
+			"sh:namespace": {
+				"@type": "xsd:anyURI",
+				"@value": "http://example.com/ns#"
+			},
+			"sh:prefix": "ex"
+		},
+		{
+			"sh:namespace": "http://schema.org/",
+			"sh:prefix": "schema"
+		}
+	]
+}</pre>
+					</div>
+				</div>
+			</aside>
+			<p class="syntax">
+				<a>IRIs</a> or <a>blank nodes</a> that have <a>values</a> for both <code>sh:prefix</code> and <code>sh:namespace</code>
+				are called <dfn data-lt="prefix declaration">prefix declarations</dfn>.
+				The SHACL vocabulary includes the class <code>sh:PrefixDeclaration</code> as type for such <a>prefix declarations</a>
+				although no <code>rdf:type</code> triple is required for them.
+				<span data-syntax-rule="prefix-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:prefix</code></span>.
+				<span data-syntax-rule="prefix-datatype">The values of <code>sh:prefix</code> are <a>literals</a> of datatype <code>xsd:string</code>.</span>
+				<span data-syntax-rule="namespace-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:namespace</code>.</span>
+				<span data-syntax-rule="namespace-datatype">The values of <code>sh:namespace</code> are <a>literals</a> of datatype <code>xsd:anyURI</code> or <code>xsd:string</code>.</span>
+				Such a pair of values specifies a single mapping of a prefix to a namespace.
+				<span data-syntax-rule="declare-nodeKind">The <a>values</a> of the property <code>sh:declare</code> are <a>prefix declarations</a></span>.
+			</p>
+			<p>
+				The recommended <a>subject</a> for values of <code>sh:declare</code> is the IRI of the named graph containing the shapes that use the prefixes.
+				These IRIs are often declared as an instance of <code>sh:ShapesGraph</code> or <code>owl:Ontology</code>, but this is not required.
+			</p>
+			<p>
+				Among others, <a>Prefix declarations</a> can be used by <a>SPARQL-based constraints</a>,
+				the <a>validators</a> of <a href="#sparql-constraint-components">SPARQL-based constraint components</a>,
+				<a href="#sparql-node-expressions">SPARQL-based node expressions</a>, and
+				<a href="#sparql-rules">SPARQL-based inference rules</a>.
+				These nodes can use the property <code>sh:prefixes</code> to specify a set of prefix mappings.
+				An example use of the <code>sh:prefixes</code> property can be found in this
+				<a href="#sparql-constraints-example">example</a>.
+			</p>
+			<p class="syntax">
+				<span data-syntax-rule="prefixes-nodeKind">The values of <code>sh:prefixes</code> are either <a>IRIs</a> or <a>blank nodes</a>.</span>
+				<span data-syntax-rule="prefixes-duplicates">A SHACL processor collects a set of prefix mappings as the union of all
+				individual prefix mappings that are <a>values</a> of the <a>SPARQL property path</a> <code>sh:prefixes/(^owl:versionIRI?/owl:imports)*/sh:declare</code>
+				of the <a>SPARQL-based constraint</a> or <a>validator</a>.
+				The <code>^owl:versionIRI?</code> element supports graphs that are imported by
+				<a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
+				navigating from the version IRI to the shapes graph IRI before following further <code>owl:imports</code>.
+				If such a collection of prefix declarations contains multiple different namespaces for the same <a>value</a> of <code>sh:prefix</code>,
+				then the <a>shapes graph</a> is <a>ill-formed</a>.</span>
+				(Note that SHACL processors MAY ignore prefix declarations that are never reached).
+			</p>
+			<p id="no-prefixes">
+				If a SPARQL query has no <a>value</a> for <code>sh:prefixes</code> then the system will use those <a>prefix declarations</a>
+				from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of <code>sh:ShapesGraph</code>.
+			</p>
+			<p>
+				A SHACL processor transforms the values of <code>sh:select</code> (and similar properties such as <code>sh:ask</code> and <code>sh:construct</code>)
+				into SPARQL by prepending <a data-cite="sparql12-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
+				for all prefix mappings.
+				Each value of <code>sh:prefix</code> is turned into the <code>PNAME_NS</code>, while each value of <code>sh:namespace</code> is turned
+				into the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
+				For the example shapes graph above, a SHACL-SPARQL processor would produce lines such as <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
+				The SHACL-SPARQL processor MUST produce a <a>failure</a> if the resulting query string cannot be parsed into a valid SPARQL 1.2 query.
+			</p>
+			<p>
+				In the rest of this document, the <code>sh:prefixes</code> statements may have been omitted for brevity.
+			</p>
 
 		</section>
 
@@ -684,104 +795,6 @@ ex:
 					<a>predicate</a> position of a <a data-cite="sparql12-query/#QSynTriples">triple pattern</a>.</span>
 					A query that uses the variable <code>PATH</code> in any other position is <a>ill-formed</a>.
 				</p>
-				<section id="sparql-prefixes">
-					<h4>Prefix Declarations for SPARQL Queries</h4>
-					<p>
-						A <a>shapes graph</a> may include declarations of namespace prefixes so that these prefixes can be used to abbreviate the SPARQL queries derived from the same shapes graph.
-						The syntax of such prefix declarations is illustrated by the following example.
-					</p>
-					<aside class="example" id="prefixes-example">
-						<div class="shapes-graph">
-							<div class="turtle">
-ex:
-	sh:declare [
-		sh:prefix "ex" ;
-		sh:namespace "http://example.com/ns#"^^xsd:anyURI ;
-	] ;
-	sh:declare [
-		sh:prefix "schema" ;
-		sh:namespace "http://schema.org/" ;
-	] ;
-	a sh:ShapesGraph ;    # Optional
-	owl:imports sh: .   # Optional
-							</div>
-							<div class="jsonld">
-								<pre class="jsonld">{
-	"@id": "http://example.com/ns#",
-	"@type": "sh:ShapesGraph",
-	"owl:imports": {
-		"@id": "http://www.w3.org/ns/shacl#"
-	},
-	"sh:declare": [
-		{
-			"sh:namespace": {
-				"@type": "xsd:anyURI",
-				"@value": "http://example.com/ns#"
-			},
-			"sh:prefix": "ex"
-		},
-		{
-			"sh:namespace": "http://schema.org/",
-			"sh:prefix": "schema"
-		}
-	]
-}</pre>
-							</div>
-						</div>
-					</aside>
-					<p class="syntax">
-						<a>IRIs</a> or <a>blank nodes</a> that have <a>values</a> for both <code>sh:prefix</code> and <code>sh:namespace</code>
-						are called <dfn data-lt="prefix declaration">prefix declarations</dfn>.
-						The SHACL vocabulary includes the class <code>sh:PrefixDeclaration</code> as type for such <a>prefix declarations</a>
-						although no <code>rdf:type</code> triple is required for them.
-						<span data-syntax-rule="prefix-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:prefix</code></span>.
-						<span data-syntax-rule="prefix-datatype">The values of <code>sh:prefix</code> are <a>literals</a> of datatype <code>xsd:string</code>.</span>
-						<span data-syntax-rule="namespace-count"><a>Prefix declarations</a> have exactly one value for the property <code>sh:namespace</code>.</span>
-						<span data-syntax-rule="namespace-datatype">The values of <code>sh:namespace</code> are <a>literals</a> of datatype <code>xsd:anyURI</code> or <code>xsd:string</code>.</span>
-						Such a pair of values specifies a single mapping of a prefix to a namespace.
-						<span data-syntax-rule="declare-nodeKind">The <a>values</a> of the property <code>sh:declare</code> are <a>prefix declarations</a></span>.
-					</p>
-					<p>
-						The recommended <a>subject</a> for values of <code>sh:declare</code> is the IRI of the named graph containing the shapes that use the prefixes.
-						These IRIs are often declared as an instance of <code>sh:ShapesGraph</code> or <code>owl:Ontology</code>, but this is not required.
-					</p>
-					<p>
-						<a>Prefix declarations</a> can be used by <a>SPARQL-based constraints</a>,
-						the <a>validators</a> of <a href="#sparql-constraint-components">SPARQL-based constraint components</a>,
-						and by similar features defined by SHACL extensions.
-						These nodes can use the property <code>sh:prefixes</code> to specify a set of prefix mappings.
-						An example use of the <code>sh:prefixes</code> property can be found in the
-						<a href="#sparql-constraints-example">example</a> above.
-					</p>
-					<p class="syntax">
-						<span data-syntax-rule="prefixes-nodeKind">The values of <code>sh:prefixes</code> are either <a>IRIs</a> or <a>blank nodes</a>.</span>
-						<span data-syntax-rule="prefixes-duplicates">A SHACL processor collects a set of prefix mappings as the union of all
-						individual prefix mappings that are <a>values</a> of the <a>SPARQL property path</a> <code>sh:prefixes/(^owl:versionIRI?/owl:imports)*/sh:declare</code>
-						of the <a>SPARQL-based constraint</a> or <a>validator</a>.
-						The <code>^owl:versionIRI?</code> element supports graphs that are imported by
-						<a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
-						navigating from the version IRI to the shapes graph IRI before following further <code>owl:imports</code>.
-						If such a collection of prefix declarations contains multiple different namespaces for the same <a>value</a> of <code>sh:prefix</code>,
-						then the <a>shapes graph</a> is <a>ill-formed</a>.</span>
-						(Note that SHACL processors MAY ignore prefix declarations that are never reached).
-					</p>
-					<p id="no-prefixes">
-						If a SPARQL query has no <a>value</a> for <code>sh:prefixes</code> then the system will use those <a>prefix declarations</a>
-						from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of <code>sh:ShapesGraph</code>.
-					</p>
-					<p>
-						A SHACL processor transforms the values of <code>sh:select</code> (and similar properties such as <code>sh:ask</code>)
-						into SPARQL by prepending <a data-cite="sparql12-query/#rPrefixDecl"><code>PREFIX</code></a> declarations
-						for all prefix mappings.
-						Each value of <code>sh:prefix</code> is turned into the <code>PNAME_NS</code>, while each value of <code>sh:namespace</code> is turned
-						into the <code>IRIREF</code> in the <code>PREFIX</code> declaration.
-						For the example shapes graph above, a SHACL-SPARQL processor would produce lines such as <code>PREFIX ex: &lt;http://example.com/ns#&gt;</code>.
-						The SHACL-SPARQL processor MUST produce a <a>failure</a> if the resulting query string cannot be parsed into a valid SPARQL 1.2 query.
-					</p>
-					<p>
-						In the rest of this document, the <code>sh:prefixes</code> statements may have been omitted for brevity.
-					</p>
-				</section>
 			</section>
 			<section id="sparql-constraints-validation">
 				<h3>Validation with SPARQL-based Constraints</h3>
@@ -1725,6 +1738,336 @@ ex:Resource-uriLength
 			</section>
 		</section>
 
+		<section id="sparql-rules">
+			<h2>SPARQL-based Inference Rules</h2>
+			<p>
+				SHACL defines an RDF vocabulary to describe <a>shapes</a> - collections of <a>constraints</a> that apply to a set of nodes.
+				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all instances of a class.
+				One focus area of SHACL is data validation.
+				However, the same principles of describing data patterns in shapes can also be exploited for other purposes.
+				<a>SHACL rules</a> build on SHACL to form a light-weight RDF vocabulary for the exchange of <a>rules</a> that can be used
+				to derive <a>inferred</a> RDF <a>triples</a> from existing <em>asserted</em> <a>triples</a>.
+			</p>
+			<p>
+				The <a>SHACL rules</a> feature defined in this section includes a general framework using the properties
+				such as <code>sh:rule</code> and <code>sh:condition</code>, plus an extension mechanism for specific <a>rule types</a>.
+				This document defines one such rule type: <a>SPARQL rules</a>.
+			</p>
+			
+			<section id="rules-examples" class="informative">
+				<h3>Examples of SHACL Rules</h3>
+				<p>
+					The following example illustrates a simple use case of a <a>SPARQL rule</a> that applies to all instances of
+					the class <code>ex:Rectangle</code> and computes the values of the <code>ex:area</code> property by multiplying
+					the rectangle's width and height:
+				</p>
+				<aside class="example" title="A rule to compute the area of a Rectangle">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property [
+		sh:path ex:color ;
+		sh:datatype xsd:string ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:width ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:height ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] .
+
+ex:RectangleRulesShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:area ?area .
+			}
+			WHERE {
+				$this ex:width ?width .
+				$this ex:height ?height .
+				BIND (?width * ?height AS ?area) .
+			}
+			""" ;
+		# Rule only applies to Rectangles that conform to ex:RectangleShape
+		sh:condition ex:RectangleShape ;
+	] .</pre>
+						</div>
+					</div>
+				</aside>
+				<p>
+					An engine that is capable of executing such rules uses the <a>target</a> statements associated
+					with the <a>shapes</a> in the <a>shapes graph</a> to determine which rules need to be executed on which target nodes.
+					For those target nodes that <a>conform</a> to any <a href="#condition">condition shapes</a>, it executes the provided
+					CONSTRUCT queries to produce the inferred triples.
+					During the execution of the query, the variable <code>this</code> has the current <a>focus node</a> as <a>pre-bound</a> variable.
+					For the following <a>data graph</a>, the <a>triples</a> below would be produced.
+				</p>
+				<aside class="example" title="Sample instance data for the rectangle rule">
+					<div class="data-graph">
+						<div class="turtle">
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:color "green" ;
+	ex:width 7 ;
+	ex:height 8 .
+
+ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
+	a ex:Rectangle ;
+	ex:width 2 ;
+	ex:height 6 .
+						</div>
+					</div>
+					<p>
+						Inferred triples:
+					</p>
+					<pre class="example-inferences">	ex:ExampleRectangle ex:area 56 .</pre>
+				</aside>
+			</section>
+	
+			<section id="rules-syntax">
+				<h2>General Syntax of SHACL Rules</h2>
+				<p>
+					The <a>values</a> of the property <code>sh:rule</code> at a <a>shape</a> are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
+					SHACL has a flexible design in which (potentially) multiple types of rules can be supported,
+					but this document only defines <a>SPARQL rules</a>.
+					Each <dfn data-lt="rule types">rule type</dfn> is identified by an <a>IRI</a> that is used as <code>rdf:type</code> of rules.
+					Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code> which is a <a>IRI</a>.</span>
+				</p>
+				<p>
+					Rules can have multiple types, e.g. to provide instructions that work either in SPARQL or JavaScript,
+					depending on the capabilities of the engine.
+					The creator of such rules needs to make sure that such rules have consistent semantics.
+					Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
+				</p>
+				<p>
+					All rules may have the properties defined in the rest of this section.
+				</p>
+				<section id="condition">
+					<h3>sh:condition</h3>
+					<p>
+						A <a>rule</a> may have values for the property <code>sh:condition</code> to specify <a>shapes</a>
+						that the <a>focus nodes</a> must conform to before the rule gets executed.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="condition-node">The <a>values</a> of <code>sh:condition</code> at a <a>rule</a> must be well-formed <a>shapes</a>.</span>
+					</p>
+				</section>
+				<section id="rules-order">
+					<h3>sh:order</h3>
+					<p>
+						Rules and shapes may specify its relative <dfn>execution order</dfn> as defined in this section.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="rule-order-maxCount">Each <a>rule</a> or <a>shape</a> may have at most one <a>value</a> for the
+						property <code>sh:order</code>.</span>
+						<span data-syntax-rule="rule-order-datatype">The values of <code>sh:order</code> at <a>rules</a> and <a>shapes</a>
+						are <a>literals</a> with datatype <code>xsd:decimal</code> or <code>xsd:integer</code>.</span>
+					</p>
+					<p>
+						If unspecified, then the default <a>execution order</a> is <code>0</code>.
+						These values are used by a <a>rules engine</a> to determine the order of <a>rules</a>.
+						When the <a>rules</a> associated with a <a>shape</a> are executed, <a>rules</a> with larger values will be executed after
+						those with smaller values.
+					</p>
+				<aside class="example" title="Rule order example">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RuleOrderExampleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		rdfs:label "Infer uncles, i.e. male siblings of the parents of $this" ;
+		sh:order 1 ;   # Will be evaluated before 2
+		sh:construct """
+			CONSTRUCT {
+				$this ex:uncle ?uncle .
+			}
+			WHERE {
+				$this ex:parent ?parent .
+				?parent ex:sibling ?uncle .
+				?uncle ex:gender ex:male .
+			}
+			"""
+	] ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		rdfs:label "Infer cousins, i.e. the children of the uncles" ;
+		sh:order 2 ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:cousin ?cousin .
+			}
+			WHERE {
+				$this ex:uncle ?uncle .
+				?cousin ex:parent ?uncle .
+			}
+			"""
+	] .
+							</div>
+						</div>
+					</aside>
+				</section>
+				<section id="deactivated">
+					<h3>sh:deactivated</h3>
+					<p>
+						Rules may be <em>deactivated</em> by setting <code>sh:deactivated</code> to <code>true</code>.
+						Deactivated rules are ignored by the rules engine.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="deactivated-maxCount">Each <a>rule</a> may have at most one <a>value</a> for the
+						property <code>sh:deactivated</code>.</span>
+						<span data-syntax-rule="deactivated-in">The <a>values</a> of <code>sh:deactivated</code> are either
+						of the <code>xsd:boolean</code> literals <code>true</code> or <code>false</code>.</span>
+					</p>
+				</section>
+			</section>
+			<section id="Rules">
+				<h3>The sh:Rules Entailment Regime</h3>
+				<p>
+					SHACL defines the property <code>sh:entailment</code>
+					to link a <a>shapes graph</a> with <em>entailment regimes</em>.
+					The <a>IRI</a> <code>sh:Rules</code> represents the <dfn>SHACL rules entailment regime</dfn>.
+					In the following example, the shapes graph indicates to a SHACL validation engine that the SHACL rules
+					inside of the <a>shapes graph</a> need to be executed prior to starting the validation.
+				</p>
+				<pre class="example-shapes">
+&lt;http://example.org/my-shapes&gt;
+	a owl:Ontology ;
+	sh:entailment sh:Rules .</pre>
+				<p>
+					Following the general policy for SHACL, validation engines that do <em>not</em> support the <a>SHACL rules entailment regime</a>
+					MUST signal a <a>failure</a> if this <a>triple</a> is present.
+					Validation engines that do support the <a>SHACL rules entailment regime</a> execute the rules following the
+					<a href="#rules-execution">rules execution instructions</a> prior to performing the actual validation. 
+				</p>
+			</section>
+			<section id="rules-execution">
+				<h3>General Execution Instructions for SHACL Rules</h3>
+				<p>
+					A <dfn data-lt="rules engine">SHACL rules engine</dfn> is a computer procedure that takes as input
+					a <a>data graph</a> and a <a>shapes graph</a> and is capable of adding <a>triples</a> to the <a>data graph</a>.
+					The new <a>triples</a> that are produced by a rules engine are called the <dfn data-lt="inferring|infer">inferred</dfn> triples.
+				</p>
+				<p>
+					Note that, from a logical perspective, the <a>data graph</a> will be <em>modified</em> if <a>triples</a> get inferred.
+					This means that rules can trigger after other triples have been inferred.
+					However, in cases where the original data should not be modified, implementations may construct a logical <a>data graph</a>
+					that has the original data as one subgraph and a dedicated inferences graph as another subgraph, and where
+					the inferred triples get added to the inferences graph only.
+				</p>
+				<p>
+					In order to count as a SHACL rules engine, an implementation must be capable of <a>inferring</a> <a>triples</a>
+					according to the following procedure (given in pseudo-code), or a different algorithm as long as the result
+					is the same as specified.
+				</p>
+				<p class="issue" data-number="1069">
+					Note that this algorithm only covers a single "iteration" over all rules, without prescribing the behavior
+					if the same rule needs to be applied multiple times after other rules have fired.
+					The latter is left to future work.
+				</p>
+				<div class="algorithm">
+					<pre class="nohighlight">
+	for each <a>shape</a> S in the <a>shapes graph</a>, ordered by <a>execution order</a> {
+		for each non-deactivated <a>rule</a> R in the <a>shape</a>, ordered by <a>execution order</a> {
+			for each <a>target</a> node T of S that <a>conforms</a> to all <a href="#condition">conditions</a> of R {
+				execute R using T as <a>focus node</a> following the <a>execution instructions</a>
+				of its <a>rule types</a>
+			}
+		}
+	}</pre>
+				</div>
+				<p>
+					The <a>triples</a> that are inferred by a <a>rule</a> do not <em>immediately</em> become part of the <a>data graph</a>,
+					i.e. the <a>triples</a> produced by one <a>rule</a> can not always be queried by other <a>rules</a>.
+					These policies reduce the likelihood of race conditions and better support parallel execution.
+				</p>
+				<ul>
+					<li>
+						If two <a>shapes</a> have the same <a>execution order</a> then their newly inferred <a>triples</a> are
+						not visible to each other.
+					</li>
+					<li>
+						If two <a>rules</a> have the same <a>execution order</a> then their newly inferred <a>triples</a> are
+						not visible to each other.
+					</li>
+					<li>
+						If the same <a>rule</a> is executed on multiple target nodes then the newly inferred <a>triples</a> are
+						not visible to the other target nodes.
+					</li>
+				</ul>
+				<p>
+					If a <a>rules engine</a> is not able to execute a given <a>rule</a>
+					because it does not support any of the <a>rule types</a> of the <a>rule</a>,
+					then it reports a <a>failure</a>.
+				</p>
+				<p>
+					At no time are inferred triples visible to the <a>shapes graph</a>, i.e. it is impossible for rules
+					to modify the definitions of rules or shapes.
+				</p>
+			</section>
+
+			<section id="SPARQLRule">
+				<h3>SPARQL Rules</h3>
+				<p>
+					This section defines a <a>rule type</a> called <dfn data-lt="SPARQL rule">SPARQL rules</dfn>,
+					identified by the <a>IRI</a> <code>sh:SPARQLRule</code>.
+					<a>SPARQL rules</a> have the following properties:
+				<p>
+				<table class="term-table">
+					<tr>
+						<th>Property</th>
+						<th>Summary and Syntax Rules</th>
+					</tr>
+					<tr>
+						<td><code>sh:construct</code></td>
+						<td>
+							The SPARQL CONSTRUCT query.
+							<span data-syntax-rule="construct-count"><a>SPARQL rules</a> must have exactly one
+							<a>value</a> for the property <code>sh:construct</code>.</span>
+							<span data-syntax-rule="construct-datatype">The values of <code>sh:construct</code>
+							are <a>literals</a> with datatype <code>xsd:string</code>.</span>
+						</td>
+					</tr>
+					<tr>
+						<td><code>sh:prefixes</code></td>
+						<td>
+							The prefixes to use to turn the <code>sh:construct</code> into a SPARQL query.
+							<a>SPARQL rules</a> may use the property <code>sh:prefixes</code> to declare a dependency on prefixes based on the
+							mechanism defined in <a href="#sparql-prefixes">Prefix Declarations for SPARQL Queries</a>.
+							This mechanism allows users to abbreviate URIs in the <code>sh:construct</code> strings.
+						</td>
+					</tr>
+				</table>
+				<div class="def def-text">
+					<div class="def-header">EXECUTION OF SPARQL RULES</div>
+					<div class="def-text-body">
+						Let <code>Q</code> be the SPARQL CONSTRUCT query derived from the values of the properties
+						<code>sh:construct</code> and <code>sh:prefixes</code> of the <a>SPARQL rule</a> in the <a>shapes graph</a>.
+						For each <a>focus node</a>, execute the query <code>Q</code>
+						<a>pre-binding</a> the variable <code>this</code> to the <a>focus node</a>,
+						and <a>infer</a> the constructed <a>triples</a>.
+					</div>
+				</div>
+			</section>
+		</section>
+
 		<div style="padding-top: 30px">
 			<h1 id="appendix" style="font-size: 160%; font-weight: bold">Appendix</h1>
 		</div>
@@ -1734,7 +2077,7 @@ ex:Resource-uriLength
 			<p>
 				Some features of SHACL-SPARQL rely on the concept of <a>pre-binding of variables</a> as defined in this section.
 			</p>
-			<p class="issue atrisk" data-number="647">
+			<p class="issue atrisk" data-number="999">
 				This feature is "at risk" and may be changed (not removed)
 				to align with currently ongoing work in the RDF and SPARQL 1.2 work in this area.
 				Originally discussed as <a href="https://github.com/w3c/data-shapes/issues/647">Issue 647</a>.
@@ -2050,6 +2393,7 @@ WHERE {
 				<li>Removed support for the optional pre-bound variables <code>shapesGraph</code> and <code>currentShape</code>, see <a href="https://github.com/w3c/data-shapes/issues/426">Issue 426</a></li>
 				<li>SPARQL constraints can now directly specify a <code>sh:severity</code>, see <a href="https://github.com/w3c/data-shapes/issues/573">Issue 573</a></li>
 				<li>If no <code>sh:prefixes</code> are present, the system will use any <code>sh:prefix</code>/<code>sh:namespace</code> pair declared in any <code>sh:ShapesGraph</code>, see <a href="https://github.com/w3c/data-shapes/issues/176">Issue 176</a></li>
+				<li>Added SPARQL-based inference rules based on previous work in SHACL-AF 1.1</li>
 			</ul>
 		</section>
 	</body>
