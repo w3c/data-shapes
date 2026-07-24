@@ -275,7 +275,7 @@
           </tr>
           <tr>
             <td><code>ex:</code></td>
-            <td><code>http://example.com/</code></td>
+            <td><code>http://example/</code></td>
           </tr>
         </table>
         <p>
@@ -765,7 +765,7 @@ This condition ensures that such rules do not loop back to themselves and cause 
           The rule must test whether the base graph already a value and, if not, 
           the rule can then calculate a default value.
         </p>
-        <aside class="example" title="Ground Data">
+        <aside class="example" title="Ground Data with NOT">
           <pre class="block ex-data">
             :A :distanceMiles 5 .
             :A :distanceKm 8 .
@@ -783,7 +783,19 @@ This condition ensures that such rules do not loop back to themselves and cause 
             :B :distanceKilometers 16 .
           </pre>
         </aside>
-
+        <p>
+          It is also possible to perform all [=rule body=] matching against the [=base graph=] by 
+          using `WHERE DATA`.
+        </p>  
+        <aside class="example" title="Ground Data with WHERE">
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE DATA {
+                ?x :distanceMiles ?originalMiles .
+                NOT { ?x :distanceKilometers ?km } 
+                SET ( ?kilometers := xsd:integer(?originalM`iles *  1.60934))
+            }
+          </pre>
       </section>
 
       <!-- ===============
@@ -2158,12 +2170,30 @@ merge(S1, S2) = { <var>μ</var> |
 
       <section id="evaluation-preparation">
         <h3>Preparation for Evaluation</h3>
+        
+        <p class="ednote">We write ... @@ Describe rule set/rule component syntax</p>
+
+        <div class="def">
+          <p>
+            A [=rule set=] has three components: `R.rules`, `R.data`, and `R.imports`.
+            </p>
+        </div>
+
         <p>
-          The first step in evaluating a [=rule set=] is to prepare a single,
-          valid rule set. This involves gathering all imported rule sets, building
-          a single, combined rule set, and then calculating the stratification for
-          the combined rule set.
+          There are three steps in preparing a rule set for evaluation.
         </p>
+        
+        <ol>
+          <li>
+            Gather all imported rule sets, and build a single, combined rule set.
+          </li>
+          <li>
+            The second step is to check each rule is a [=well-formed rule=].
+          </li>
+          <li>
+            The third step is to calculate the stratification for the combined rule set.
+          </li>
+        </ol>
 
         <section id="process-imports">
           <h4>Process Imports</h4>
@@ -2172,19 +2202,16 @@ merge(S1, S2) = { <var>μ</var> |
             recursively reading all rule sets mentioned
             in the imports of that other [=rule set=].
           </p>
-
           <div class="def">
-            <p>
-            A [=rule set=] has three components: `R.rules`, `R.data`, and `R.imports`.
-
             The <dfn>rule set merge</dfn> of two rule sets, `RS1` and `RS2`,
             is a rule set, `MR`, defined as follows:
-
-            </p>
             <pre>
+            define ruleSetMerge(rule set R1,rule Set RS2):
                 MR.rules = RS1.rules &cups; RS2.rules
                 MR.data = merge(RS1.data, RS2.data)
                 MR.imports = {}
+                the result is MR
+            enddefine
             </pre>
             <p>
               where `merge` is the 
@@ -2193,7 +2220,8 @@ merge(S1, S2) = { <var>μ</var> |
             </p>
           </div>
 
-          <div class="algorithm"><pre>
+          <div class="algorithm">
+            <pre>
 define imports(rule set RS, set of URLs V), returning rule set
     let I = the set of import URLs declared for the rule set RS
     let RS2 be a rule set formed from RS.rules and RS.data
@@ -2214,6 +2242,12 @@ result is imports(RS, V)
 </pre>
           </div>
         </section>
+
+        <section id="check-wellformed">
+          <h3>Check rules are well-formed</h3>
+          <p>@@Apply <a href="#wellformed" class="sectionRef"></a>.</p>
+        </section>
+
         <section id="calculate-stratification">
           <h4>Calculate Stratification</h4>
           <p>
@@ -2294,7 +2328,7 @@ let G = <a>evaluation graph</a>
 
 # Evaluate rule body
 # This function returns a sequence of solutions
-define evalRuleElements(B, SEQ, G):
+define evalRuleElements(B, SEQ, G, GD):
 
     for each rule element rElt in B:
 
@@ -2325,7 +2359,8 @@ define evalRuleElements(B, SEQ, G):
             SEQ1 = {}
             for each solution <var>μ</var> in SEQ:
                 S = sequence{ <var>μ</var> }
-                NEG = evalRuleElements(N, S, G)
+                if rElt with DATA,
+                    NEG = evalRuleElements(N, S, G, GD)
                 if NEG is empty
                     add <var>μ</var> to SEQ1
                 endif
@@ -2357,7 +2392,11 @@ define evalRuleElements(B, SEQ, G):
     return SEQ
 enddefine
 
-let SEQ = evalRuleElements(B, SEQ0, G)
+if R.groundData:
+    ## Rule WHERE DATA
+    let SEQ = evalRuleElements(R, SEQ0, GD, GD)
+else
+    let SEQ = evalRuleElements(R, SEQ0, G, GD)
 
 # Evaluate rule head
 let OUT = empty set
@@ -2370,10 +2409,10 @@ for each <var>μ</var> in SEQ:
     OUT = OUT union S
 endfor
 
-result eval(R, G) is OUT
+result evalRule(R, G, GD) is OUT
 </pre>
         </div>
-      <p>Note that `OUT` may contain triples that are also in the data graph.</p>
+      <p class="note">`OUT` may contain triples that are also in the data graph.</p>
       </section>
 
       <section id="eval-rule-set">
@@ -2400,12 +2439,14 @@ let LS be the sequence of layers after stratification
 # Inference graph
 let GI = { t &isin; D | t &notin; G0 }
 
+let GD = G0 &cups; D
+
 # Evaluation graph.
-let GE = G0 &cups; D
+let GE = GD
 
 for each stratum ST in LS:
     for each rule R in ST.once:
-        let X = eval(R, GE)
+        let X = evalRule(R, GE, GD)
         let Y = { t &isin; X | t &notin; GE }
         GI = Y &cups; GI
         GE = Y &cups; GE
@@ -2415,7 +2456,7 @@ for each stratum ST in LS:
     while !finished:
         finished = true
         for each rule R in ST.general:
-            let X = eval(R, GE)
+            let X = evalRule(R, GE, GD)
             let Y = { t &isin; X | t &notin; GE }
             if Y is not empty:
                 finished = false
