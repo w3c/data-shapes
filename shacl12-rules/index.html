@@ -631,6 +631,15 @@ This condition ensures that such rules do not loop back to themselves and cause 
       
       <section id="desc-import">
         <h3>Importing rules</h3>
+        <div class="issue" data-number="1093">
+          <p>
+            The `IMPORTS` statement allows a rule set to include other rule sets
+            by reading a file by using the web.
+            Reading third part data then using it in a <a>rule set evaluation</a>
+            into a rule set presents several well-known security risks, 
+            and the specification does not define how to handle these.
+          </p>
+        </div>
         <p>
           A SHACL [=rule set=] can incorporate other rule sets by
           including their URLs in the [=rule imports=] of the rule set.
@@ -685,10 +694,10 @@ This condition ensures that such rules do not loop back to themselves and cause 
           Rules are organised into [=rule sets=].  
           A rule set and a data graph (the [=base graph=]) are inputs to evaluation.
           The output is a graph, called the [=inference graph=],
-          where the inferred triples do not appear in the data graph.
+          which is the set of triples do not appear in the data graph.
         </p>
         <p>
-	      During evaluation, triples inferred based on one rule are 
+	        During evaluation, triples inferred based on one rule are 
           available for matching in other rules.
           Rule set evaluation proceeds until the [=inference graph=]
           contains all the possible triples from the inputs of 
@@ -726,15 +735,15 @@ This condition ensures that such rules do not loop back to themselves and cause 
         <h3>Matching Ground Data</h3>
         <div class="issue" data-number="960">
           <p>
-          Inferring default values can only be expressed by introducing extra
-          vocabulary to express the difference between inferred triples and
-          triples present in the input graph.
+            Inferring default values can only be expressed by introducing extra
+            vocabulary to express the difference between inferred triples and
+            triples present in the input graph.
           </p>
           <p>
             Proposal:
           </p>
           <pre class="none">
-            # Ngeation element matched against the input graph
+            # Negation element matched against the input graph
             NOT DATA { ?x :distanceKm ?km }
           </pre>
           <pre class="none">
@@ -742,6 +751,37 @@ This condition ensures that such rules do not loop back to themselves and cause 
             WHERE DATA { ... }
           </pre>
         </div>
+
+        <p>
+          Ground data is the triples in the [=base graph=].
+          As <a href="#rule-set-evaluation">rule set evaluation</a> it may be
+          necessary to pattern match on the original and not any inferred
+          triples.
+        </p>
+        <p>
+          An example of this is setting a default value.
+          The rule must test whether the base graph already a value and, if not, 
+          the rule can then calculate a default value.
+        </p>
+        <aside class="example" title="Ground Data">
+          <pre class="block ex-data">
+            :A :distanceMiles 5 .
+            :A :distanceKm 8 .
+            :B :distanceMile 10 .
+          </pre>
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                ?x :distanceMiles ?miles . 
+                NOT DATA { ?x :distanceKilometers ?km }
+                SET ( ?kilometers := xsd:integer(?miles *  1.60934))
+            }
+          </pre>
+          <pre class="block ex">
+            :B :distanceKilometers 16 .
+          </pre>
+        </aside>
+
       </section>
 
       <!-- ===============
@@ -1029,24 +1069,50 @@ This condition ensures that such rules do not loop back to themselves and cause 
 
           <dt><dfn>Inference graph</dfn></dt>
           <dd>
-            An [=inference graph=] is an [=RDF Graph=] produced by evaluating a
-            [=rule set=].  It contains all triples not present in the [=base
+            An [=inference graph=] is an [=RDF Graph=] produced by 
+            a <a>rule set evaluation</a>. 
+            It contains all triples not present in the [=base
             graph=] that are inferred by applying the [=rule set=] to the
-            [=base graph=].
+            [=base graph=].  
           </dd>
 
+          <dt><dfn>Rule set evaluation</dfn></dt>
+          <dd>
+            A [=rule set evaluation=] is the process of applying a [=rule set=]
+            to a [=base graph=] to produce an [=inference graph=].
+            A <dfn>rule evaluation</dfn> is the process evaluating a rule once.
+            Evaluating a rule produces all the triples given by the [=rule head=]
+            given the evaluation of the [=rule body=], regardless of whether a 
+            triple is in the [=base graph=], already inferred during [=rule set evaluation=],
+            or is a new inferrer triple.
+            During [=rule set evaluation=], a rule may be evaluated more than once.
+          </dd>
+
+        </dl>
+        <p>
+          The Shape Rules Language provides two operations, [=infer=] and [=query=].
+        </p>
+        <dl>
           <dt><dfn>Infer</dfn></dt>
           <dd>
             [=Infer=] is the operation that applies a [=rule set=] to a given
             [=base graph=] and produces an [=inference graph=] containing inferred
-            triples.
+            triples. It is applies the full [=rule set evaluation=].
           </dd>
-
           <dt><dfn>Query</dfn></dt>
           <dd>
-            [=Query=] is the operation that determines whether a given goal
-            pattern can be derived from a [=base graph=] using the
-            [=rule set=].
+            <p>
+              [=Query=] is the operation that determines whether a given goal
+              pattern can be derived from a [=base graph=] using the [=rule
+              set=].
+              It may not evaluate all rules, instead, it may evaluate rules
+              that are necessary to answer the query goal.
+            </p>
+            <p>
+              [=Query=] is equivalent to performing an [=infer=] operation
+              followed by matching the goal pattern to the combined [=base
+              graph=] and [=inference graph=].
+            </p>
           </dd>
         </dl>
 
