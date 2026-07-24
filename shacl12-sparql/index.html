@@ -513,7 +513,8 @@ ex:
 			</p>
 			<p id="no-prefixes">
 				If a SPARQL query has no <a>value</a> for <code>sh:prefixes</code> then the system will use those <a>prefix declarations</a>
-				from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of <code>sh:ShapesGraph</code>.
+				from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of <code>sh:ShapesGraph</code>
+				or <code>sh:RulesGraph</code> (which is a subclass of <code>sh:ShapesGraph</code>).
 			</p>
 			<p>
 				A SHACL processor transforms the values of <code>sh:select</code> (and similar properties such as <code>sh:ask</code> and <code>sh:construct</code>)
@@ -985,6 +986,38 @@ ex:hasPattern
 					</div>
 				</aside>
 				<p>
+					Once the constraint component has been declared, its parameters can be used in a shape as illustrated in the following example.
+				</p>
+				<aside class="example" title="Constraint component based on SPARQL">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:CaseInsensitiveSearch
+    a sh:NodeShape ;
+    sh:property [
+    sh:path ex:code ;
+    sh:pattern "^[A-Z]{3}[0-9]{2}$" ;
+    sh:flags "i" ;   # case-insensitive match
+  ] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+  "@graph": [
+    {
+      "@id": "ex:CaseInsensitiveSearch",
+      "@type": "sh:NodeShape",
+      "sh:property": {
+        "@type": "sh:PropertyShape",
+        "sh:path": { "@id": "ex:code" },
+        "sh:pattern": "^[A-Z]{3}[0-9]{2}$",
+        "sh:flags": "i"
+      }
+    }
+  ]
+}</pre>
+						</div>
+					</div>
+				</aside>
+				<p>
 					Constraint components provide instructions to validation engines on how to identify and validate <a>constraints</a> within a <a>shape</a>.
 					In general, if a <a>shape</a> <code>S</code> has a <a>value</a> for a property <code>p</code>, and there is a <a>constraint component</a>
 					<code>C</code> that specifies <code>p</code> as a parameter, and <code>S</code> has values for all <a>mandatory parameters</a> of <code>C</code>,
@@ -1093,7 +1126,10 @@ ex:hasPattern
 						<p>
 							The following example illustrates the declaration of a constraint component based on a SPARQL SELECT query.
 							It is a generalized variation of the example from <a href="#sparql-constraints-example"></a>.
-							That SPARQL query included two constants: the specific property <code>ex:germanLabel</code> and the language tag <code>de</code>.
+							Where that SPARQL query included two constants: the specific property <code>ex:germanLabel</code> and the language tag <code>de</code>, 
+							this example generalizes the constraint so that any property can be defined with a language tag. In practice, the constraint component is applied 
+							by adding the parameter predicate(s) to a shape (e.g., ex:lang "de"), which a SHACL-SPARQL processor pre-binds to the corresponding SPARQL 
+							variable(s) (e.g., <code>$lang</code>) before executing the SELECT validator.
 							Constraint components make it possible to generalize such scenarios, so that constants get <a>pre-bound</a> with <a>parameters</a>.
 							This allows the query logic to be reused in multiple places, without having to write any new SPARQL.
 						</p>
@@ -1153,7 +1189,8 @@ ex:LanguageConstraintComponentUsingSELECT
 							</div>
 						</aside>
 						<p>
-							Once a constraint component has been declared (in a <a>shapes graph</a>), its parameters can be used as illustrated in the following example.
+							Once a constraint component has been declared (in a <a>shapes graph</a>), its parameters can be used as illustrated in the following example. Any property shape 
+							that includes <code>ex:lang</code> is interpreted as using <code>ex:LanguageConstraintComponentUsingSELECT</code> (binding <code>$lang</code> to that value).
 						</p>
 						<aside class="example" title="Shape declaration using ex:LanguageConstraintComponent">
 							<div class="shapes-graph">
@@ -1843,17 +1880,20 @@ ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
 			<section id="rules-definition">
 				<h2>General Definition of SHACL Rules</h2>
 				<p>
-					The <a>SHACL instances</a> of <code>sh:Rule</code> and its subclass <code>sh:SPARQLRule</code> are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
-					SHACL has a flexible design in which (potentially) multiple types of rules can be supported,
+					The <a>SHACL instances</a> of <code>sh:Rule</code> and its subclass, <code>sh:SPARQLRule</code>,
+					are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
+					SHACL has a flexible, extensible design in which multiple types of rules can be supported,
 					but this document only defines <a>SPARQL rules</a>.
-					Each <dfn data-lt="rule types">rule type</dfn> is identified by an <a>IRI</a> that is used as <code>rdf:type</code> of rules.
+					Each <dfn data-lt="rule types">rule type</dfn> is identified by an <a>IRI</a> that is used as
+					their <code>rdf:type</code>.
 					Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
 				</p>
 				<p class="syntax">
-					<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code> which is a <a>IRI</a>.</span>
+					<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code>
+					which is a <a>IRI</a>.</span>
 				</p>
 				<p>
-					Rules can have multiple types, e.g. to provide instructions that work either in SPARQL or JavaScript,
+					Rules can have multiple types, e.g., to provide instructions that work either in SPARQL or JavaScript,
 					depending on the capabilities of the engine.
 					The creator of such rules needs to make sure that such rules have consistent semantics.
 					Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
@@ -1870,12 +1910,13 @@ ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
 					</p>
 					<ul>
 						<li>
-							<dfn>Shape rules</dfn> are <a>rules</a> that are the <a>object</a> of a <code>sh:rule</code> triple in the <a>shapes graph</a>.
-							Shape rules are executed for all <a>target</a> nodes of the <a>shapes</a> that they are linked to via <code>sh:rule</code>.
+							A <dfn>shape rule</dfn> is a <a>rule</a> that is the <a>object</a> of a <code>sh:rule</code> triple.
+							Shape rules are executed for all <a>target</a> nodes of the <a>shape</a> which is the <a>subject</a>
+							of the <code>sh:rule</code> triple.
 						</li>
 						<li>
-							<dfn data-lt="global">Global rules</dfn> are <a>rules</a> that are <em>not</em> linked to a <a>shape</a> via <code>sh:rule</code>.
-							Global rules are executed once (per <a>iteration</a>).
+							A <dfn data-lt="global">global rule</dfn> is a <a>rule</a> that is <em>not</em> linked to a <a>shape</a> by 
+							a <code>sh:rule</code> <a>predicate</a>.
 						</li>
 					</ul>
 					<p>
@@ -1884,7 +1925,7 @@ ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
 					<p>
 						The following example illustrates a <a>global rule</a>.
 					</p>
-					<aside class="example" title="A global rule that is not associated with any shape">
+					<aside class="example" title="A global rule (not associated with any shape)">
 						<div class="shapes-graph">
 							<div class="turtle">
 ex:SymmetricPropertyRule
@@ -1897,7 +1938,7 @@ ex:SymmetricPropertyRule
 			?p a ex:SymmetricProperty .
 			?s ?p ?o .
 		}
-		""" .</pre>
+		""" .
 							</div>
 						</div>
 					</aside>
@@ -2111,6 +2152,23 @@ ex:RuleOrderExampleShape
 						for which it is possible to compute rule dependencies automatically.
 					</p>
 				</section>
+			</section>
+			<section id="rules-graph">
+				<h3>Rules Graph</h3>
+				<p>
+					A <dfn>rules graph</dfn> is a <a>shapes graph</a> that contains <a>SHACL rules</a>.
+				</p>
+				<p>
+					<span data-syntax-rule="RulesGraph">The <code>sh:RulesGraph</code> class MAY be used as an <code>rdf:type</code>
+					of the <a>IRI</a> of a graph that typically acts in the role of a <a>rules graph</a>.</span>
+				</p>
+				<p><em>The remainder of this section is non-normative.</em></p>
+				<p>
+					The graph type classes (<code>sh:DataGraph</code>, <code>sh:ShapesGraph</code>, <code>sh:RulesGraph</code>)
+					represent roles that are not mutually exclusive; a single graph MAY be typed with more than one of these classes.
+					Rules graphs MAY contain <code>sh:rule</code> triples that reference <a>shapes</a> defined in
+					other graphs, allowing rules to be managed independently of shape and ontology definitions.
+				</p>
 			</section>
 			<section id="Rules">
 				<h3>The sh:Rules Entailment Regime</h3>
@@ -2582,6 +2640,7 @@ WHERE {
 				<li>SPARQL constraints can now directly specify a <code>sh:severity</code>, see <a href="https://github.com/w3c/data-shapes/issues/573">Issue 573</a></li>
 				<li>If no <code>sh:prefixes</code> are present, the system will use any <code>sh:prefix</code>/<code>sh:namespace</code> pair declared in any <code>sh:ShapesGraph</code>, see <a href="https://github.com/w3c/data-shapes/issues/176">Issue 176</a></li>
 				<li>Added SPARQL-based inference rules based on previous work in SHACL-AF 1.1</li>
+				<li>Added the graph type <code>sh:RulesGraph</code>, see <a href="https://github.com/w3c/data-shapes/issues/1087">Issue 1087</a></li>
 			</ul>
 		</section>
 	</body>
