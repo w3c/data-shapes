@@ -696,7 +696,7 @@ This condition ensures that such rules do not loop back to themselves and cause 
           Rules are organised into [=rule sets=].  
           A rule set and a data graph (the [=base graph=]) are inputs to evaluation.
           The output is a graph, called the [=inference graph=],
-          which is the set of triples do not appear in the data graph.
+          which is the set of triples that do not appear in the data graph.
         </p>
         <p>
 	        During evaluation, triples inferred based on one rule are 
@@ -1714,6 +1714,54 @@ enddefine
           </p>
         </section>
       </section>
+
+      <section id="process-imports">
+        <h3>Processing Imports</h3>
+        <p>
+          A [=resolved rule set=] is produced from another rule set by 
+          recursively reading all rule sets mentioned
+          in the imports of that other [=rule set=].
+        </p>
+        <div class="def">
+          The <dfn>rule set merge</dfn> of two rule sets, `RS1` and `RS2`,
+          is a rule set, `MR`, defined as follows:
+          <pre>
+define ruleSetMerge(rule set R1,rule Set RS2):
+    MR.rules = RS1.rules &cups; RS2.rules
+    MR.data = merge(RS1.data, RS2.data)
+    MR.imports = {}
+    the result is MR
+enddefine
+          </pre>
+          <p>
+            where `merge` is the 
+            <a data-cite="RDF12-SEMANTICS#dfn-rdf-graph-merge">RDF merge</a>
+            operation.
+          </p>
+        </div>
+
+        <div class="algorithm">
+          <pre>
+define imports(rule set RS, set of URLs V), returning rule set
+    let I = the set of import URLs declared for the rule set RS
+    let RS2 be a rule set formed from RS.rules and RS.data
+    foreach URL x in I:
+        if x &notin; V:
+            V = V &cups; { x }
+            read rule set RS3 from URL x
+            RS2 = rulesetMerge(RS2, imports(RS3, V))
+        endif
+    endfor
+    result is RS2
+enddefine
+
+let RS be a rule set
+let V = {}
+if RS has a location, V = { location of RS }
+result is imports(RS, V)
+          </pre>
+        </div>
+      </section>
     </section>
 
     <section id="concrete-syntax">
@@ -2175,89 +2223,32 @@ merge(S1, S2) = { <var>μ</var> |
 
         <div class="def">
           <p>
+            @@ TODO: Describe rule set/rule component syntax
             A [=rule set=] has three components: `R.rules`, `R.data`, and `R.imports`.
             </p>
         </div>
 
-        <p>
-          There are three steps in preparing a rule set for evaluation.
+        <p>Evaluation of a rule set involves collecting all imported rule sets,
+          building a single, combined rule set as described in 
+          <a href="#process-imports" class="sectionRef"></a>.
+        </p>
+        <p>Then preparing the combined rule set
+          for evaluation with the following steps.
         </p>
         
         <ol>
           <li>
-            Gather all imported rule sets, and build a single, combined rule set.
+            Check each rule is a [=well-formed rule=], as described in
+            <a href="#wellformed" class="sectionRef"></a>.
+          </li>
+          <li>Calculate the [=dependency graph=], as described in
+            <a href="#dependency-graph-construction-algorithm" class="sectionRef"></a>.
           </li>
           <li>
-            The second step is to check each rule is a [=well-formed rule=].
-          </li>
-          <li>
-            The third step is to calculate the stratification for the combined rule set.
+            Calculate the [=stratification=] for the combined rule set, as described in
+            <a href="#stratification-algorithm" class="sectionRef"></a>).
           </li>
         </ol>
-
-        <section id="process-imports">
-          <h4>Process Imports</h4>
-          <p>
-            A [=resolved rule set=] is produced from another rule set by 
-            recursively reading all rule sets mentioned
-            in the imports of that other [=rule set=].
-          </p>
-          <div class="def">
-            The <dfn>rule set merge</dfn> of two rule sets, `RS1` and `RS2`,
-            is a rule set, `MR`, defined as follows:
-            <pre>
-            define ruleSetMerge(rule set R1,rule Set RS2):
-                MR.rules = RS1.rules &cups; RS2.rules
-                MR.data = merge(RS1.data, RS2.data)
-                MR.imports = {}
-                the result is MR
-            enddefine
-            </pre>
-            <p>
-              where `merge` is the 
-              <a data-cite="RDF12-SEMANTICS#dfn-rdf-graph-merge">RDF merge</a>
-              operation.
-            </p>
-          </div>
-
-          <div class="algorithm">
-            <pre>
-define imports(rule set RS, set of URLs V), returning rule set
-    let I = the set of import URLs declared for the rule set RS
-    let RS2 be a rule set formed from RS.rules and RS.data
-    foreach URL x in I:
-        if x &notin; V:
-            V = V &cups; { x }
-            read rule set RS3 from URL x
-            RS2 = rulesetMerge(RS2, imports(RS3, V))
-        endif
-    endfor
-    result is RS2
-enddefine
-
-let RS be a rule set
-let V = {}
-if RS has a location, V = { location of RS }
-result is imports(RS, V)
-</pre>
-          </div>
-        </section>
-
-        <section id="check-wellformed">
-          <h3>Check rules are well-formed</h3>
-          <p>@@Apply <a href="#wellformed" class="sectionRef"></a>.</p>
-        </section>
-
-        <section id="calculate-stratification">
-          <h4>Calculate Stratification</h4>
-          <p>
-            Having created the [=resolved rule set=], calculate the
-            [=dependency graph=]
-            (see <a href="#dependency-graph-construction-algorithm" class="sectionRef"></a>),
-            and then calculate a [=stratification]
-            (see <a href="#stratification-algorithm" class="sectionRef"></a>).
-          </p>
-        </section>
 
       </section>
 
