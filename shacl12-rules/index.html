@@ -404,52 +404,56 @@
       <section id="desc-basic">
         <h3>Basic Patterns</h3>
 
+        <p>
+          The examples in this section describe software components and
+          their dependencies: a frontend calls an application server, and
+          the application server queries a database that has a known
+          vulnerability.
+        </p>
+
         <p>In this first example, we have the following data graph and rule set:</p>
 
         <aside class="example" title="Basic Example">
           <pre class="block ex-data">
-            :A :fatherOf :X .
-            :B :motherOf :X .
-            :C :motherOf :A .
+            :frontend :callsService :app .
+            :app      :queriesDatabase :db .
+            :db       :hasVulnerability :vuln1 .
           </pre>
           <pre class="block ex-rules">
-            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
-            RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :queriesDatabase ?y }
           </pre>
           <pre class="block ex-inferred">
-            :X :childOf :A .
-            :X :childOf :B .
-            :A :childOf :C .
+            :frontend :dependsOn :app .
+            :app      :dependsOn :db .
           </pre>
         </aside>
 
-        <p>The above rules, applied to the data, will conclude 
-          that: `:X` is the `:childOf` `:A` and `:B`:
+        <p>The above rules, applied to the data, will conclude that
+          `:frontend` depends on `:app`, and that `:app` depends on
+          `:db`, whatever the kind of dependency.
         </p>
 
         <p>
-          We can then derive `:descendedFrom` relationships by adding a rule that depends
-          on `:childOf` triples produced by the other rules:
+          We can then derive `:exposedTo` relationships by adding a rule that depends
+          on `:dependsOn` triples produced by the other rules (see also <a href="#rule-dependency" class="sectionRef"></a>) below:
         </p>
-        
-        <aside class="example">
+
+        <aside class="example" title="Depending on inferred triples">
           <pre class="block ex-data">
-            :A :fatherOf :X .
-            :B :motherOf :X .
-            :C :motherOf :A .
+            :frontend :callsService :app .
+            :app      :queriesDatabase :db .
+            :db       :hasVulnerability :vuln1 .
           </pre>
           <pre class="block ex-rules">
-            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
-            RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
-            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :queriesDatabase ?y }
+            RULE { ?x :exposedTo ?v } WHERE { ?x :dependsOn ?y . ?y :hasVulnerability ?v }
           </pre>
           <pre class="block ex-inferred">
-            :A :descendedFrom :C .
-            :X :descendedFrom :B .
-            :X :descendedFrom :A .
-            :X :childOf :B .
-            :X :childOf :A .
-            :A :childOf :C .
+            :app      :exposedTo :vuln1 .
+            :frontend :dependsOn :app .
+            :app      :dependsOn :db .
           </pre>
         </aside>
 
@@ -457,31 +461,45 @@
       <section id="desc-recursion">
         <h3>Recursion</h3>
         <p>
-          We can add a rule that depends on `:descendedFrom` triples
-          to infer that `:X` is `:descendedFrom` `:C`:
+          The `:exposedTo` rule of the previous section only reaches direct
+          dependencies: `:frontend` does not depend directly on `:db`, so
+          no `:exposedTo` triple is inferred for `:frontend`.
+          To propagate exposure along dependency chains of any length, we
+          replace that rule with two rules: a component is exposed to a
+          vulnerability it has, and a component is exposed to any
+          vulnerability that its direct dependencies are exposed to:
         </p>
 
         <aside class="example" title="Rule Recursion">
+          <pre class="block ex-data">
+            :frontend :callsService :app .
+            :app      :queriesDatabase :db .
+            :db       :hasVulnerability :vuln1 .
+          </pre>
           <pre class="block ex-rules">
-            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
-            RULE { ?x :childOf ?y } WHERE { ?y :motherOf ?x }
-            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
-            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?z . ?z :descendedFrom ?y }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :queriesDatabase ?y }
+            RULE { ?x :exposedTo ?v } WHERE { ?x :hasVulnerability ?v }
+            RULE { ?x :exposedTo ?v } WHERE { ?x :dependsOn ?y . ?y :exposedTo ?v }
           </pre>
           <pre class="block ex-inferred">
-            :A :descendedFrom :C .
-            :X :descendedFrom :C .
-            :X :descendedFrom :B .
-            :X :descendedFrom :A .
-            :X :childOf :B .
-            :X :childOf :A .
-            :A :childOf :C .
+            :db       :exposedTo :vuln1 .
+            :app      :exposedTo :vuln1 .
+            :frontend :exposedTo :vuln1 .
+            :frontend :dependsOn :app .
+            :app      :dependsOn :db .
           </pre>
         </aside>
 
-        <p>This adds the triple `:X :descendedFrom :C`.</p>
         <p>
-          This last rule is a <i>recursive</i> rule, the body of the rule 
+          Compared with the previous example, this adds
+          `:db :exposedTo :vuln1` &mdash; the database is exposed to its
+          own vulnerability &mdash; and `:frontend :exposedTo :vuln1`:
+          the exposure reaches `:frontend` through the chain of
+          dependencies, however long the chain.
+        </p>
+        <p>
+          This last rule is a <i>recursive</i> rule: the body of the rule
           depends on the head of the rule.
         </p>
 
@@ -492,24 +510,28 @@
         <p>
           We can use expressions in the body of rules to restrict the values of variables
           in the matching of the body.
-          For example, given data about towns and their populations,
-          we can infer a class for towns with a population greater than 1500:
+          For example, given the severity of each vulnerability,
+          we can give a status to components that are exposed to a severe
+          vulnerability:
         </p>
 
-        <aside class="example">
+        <aside class="example" title="Filtering">
           <pre class="block ex-data">
-            :town1 :population 1000 .
-            :town2 :population 2000 .
+            :app1 :exposedTo :vuln1 .
+            :app2 :exposedTo :vuln2 .
+            :vuln1 :severity 9.1 .
+            :vuln2 :severity 4.3 .
           </pre>
           <pre class="block ex-rules">
-            RULE { ?x rdf:type :largeTown } 
-            WHERE { 
-                ?x :population ?p 
-                FILTER(?p &gt; 1500)
+            RULE { ?x :status :criticallyExposed }
+            WHERE {
+                ?x :exposedTo ?v .
+                ?v :severity ?s .
+                FILTER(?s &gt;= 9.0)
             }
           </pre>
           <pre class="block ex-inferred">
-            :town2 rdf:type :largeTown .
+            :app1 :status :criticallyExposed .
           </pre>
         </aside>
 
@@ -535,28 +557,25 @@
           in the negation element have been completed.  This is called
           <i>[=stratification=]</i> and ensures that the negation is based
           on all the relevant possible triples, whether from the data or 
-          from inferred triples inferred by other rules.
+in the negation element have been completed. The rule containing the negation is said to _depend_ on the rules generating these triples (see <a href="#rule-dependency" class="sectionRef"></a> below).
         </p>
 
         <aside class="example" title="Negation as failure">
           <pre class="block ex-data">
-            :X1 rdf:type :Place ;
-            :population 1000 .
+            :app rdf:type :Component ;
+            :status :criticallyExposed .
 
-            :X2 rdf:type :Place ;
-            :population 2000 .
-
-            :X3 rdf:type :Place .
+            :logger rdf:type :Component .
           </pre>
           <pre class="block ex-rules">
-            RULE { ?x rdf:type :UnclassifiedSize } 
-            WHERE { 
-                ?x rdf:type :Place .
-                NOT { ?x :population ?p . }
+            RULE { ?x :status :safeToDeploy }
+            WHERE {
+                ?x rdf:type :Component .
+                NOT { ?x :status :criticallyExposed }
             }
           </pre>
           <pre class="block ex-inferred">
-            :X3 rdf:type :UnclassifiedSize .
+            :logger :status :safeToDeploy .
           </pre>
         </aside>
 
@@ -570,12 +589,13 @@
           on the data.
         </p>
 
-        <aside class="example">
+        <aside class="example" title="Assignment">
           <pre class="block ex-rules">
-            RULE { ?x :calculatedDistanceKm ?kilometers }
-            WHERE { 
-                ?x :distanceMiles ?miles .
-                SET ( ?kilometers := ?miles * 1.60934 )
+            RULE { ?v :riskScore ?r }
+            WHERE {
+                ?v :severity ?s .
+                ?v :exploitLikelihood ?p .
+                SET ( ?r := ?s * ?p )
             }
           </pre>
         </aside>
@@ -585,14 +605,10 @@
           each time rule evaluation generates triples.
         </p>
 
-        <aside class="example">
+        <aside class="example" title="Blank node in the rule head">
           <pre class="block ex-rules">
-            RULE { [] rdf:type :Person ;
-                      ex:name ?name 
-                   }
-            WHERE { 
-                ...
-            }
+            RULE { [] rdf:type :Notification ; :concerns ?x }
+            WHERE { ?x :status :criticallyExposed }
           </pre>
         </aside>
 
@@ -605,9 +621,7 @@
           RDF terms and are run-once rules.
         </p>
         <p>
-          This condition ensures that rules that create RDF terms do not generate new terms
-          multiple times, with potentially different outcomes, and also that such rules do not 
-          loop back to themselves and cause an unbounded number of RDF terms.
+This condition ensures that such rules do not loop back to themselves and cause an unbounded number of RDF terms.
         </p>
         <p>
           If evaluating the expression in an [=assignment=] causes an error,
@@ -639,16 +653,29 @@
           Triples in datablocks are added to the inference graph and are available for
           matching in the body of rules.
         </p>
-        <p>@@examples to be updated</p>
+  
+        <p>
+          For example, a rule set can ship with known facts asserted
+          directly, rather than derived from data:
+        </p>
 
         <aside class="example" title="Include data in a rule set">
           <pre class="block ex-rules">
             DATA {
-                :father rdfs:subClassOf :familyRelationship .
-                :mother rdfs:subClassOf :familyRelationship .
+                # Versions 2.0.0 and earlier suffer a known vulnerability
+                # and are assumed critically exposed.
+                :appV2 rdf:type :Component ;
+                       :version "2.0.0" ;
+                       :status :criticallyExposed .
             }
           </pre>
         </aside>
+
+        <p class="note">
+          A data block is equivalent to a rule with an empty body:
+          its triples are part of the inference graph without any rule
+          being evaluated.
+        </p>
 
       </section>
 
@@ -1181,19 +1208,26 @@
 
         <aside class="example" title="Open Dependency">
           <pre class="block ex-rules">
-            RULE { ?x :descendedFrom ?y } WHERE { ?x :childOf ?y }
-            RULE { ?x :childOf ?y } WHERE { ?y :fatherOf ?x }
+            RULE { ?x :exposedTo ?v } WHERE { ?x :dependsOn ?y . ?y :hasVulnerability ?v }
+            RULE { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
           </pre>
         </aside>
 
         <p>
           In this second example, the first rule has a closed dependency
-          on the second rule.
+          on the second rule: the triple pattern `?x :status :criticallyExposed`
+          occurs inside a [=negation element=] of the first rule and
+          matches the [=triple template=] in the head of the second rule.
+          The first rule cannot be evaluated until the second rule
+          has generated all its possible output.
         </p>
 
-        <aside class="example">
+        <aside class="example" title="Closed Dependency">
           <pre class="block ex-rules">
-            RULE @@
+            RULE { ?x :status :safeToDeploy }
+            WHERE { ?x rdf:type :Component . NOT { ?x :status :criticallyExposed } }
+
+            RULE { ?x :status :criticallyExposed } WHERE { ?x :exposedTo ?v }
           </pre>
         </aside>
 
@@ -1589,6 +1623,12 @@ enddefine
             [=run-once rule=] is <a href="#eval-rule">evaluated</a>,
             the data used to determine the outcome of the rule will not
             change during further evaluation.
+          </p>
+          <p>
+            A step-by-step application of dependency analysis and
+            stratification to a complete rule set, followed through to
+            evaluation, is given in
+            <a href="#eval-worked-example" class="sectionRef"></a>.
           </p>
         </section>
       </section>
@@ -2317,6 +2357,454 @@ endfor
 the result is GI
 </pre>
         </div>
+      </section>
+
+      <section id="eval-worked-example" class="informative">
+        <h3>Worked Example</h3>
+        <p>
+          This section steps through the evaluation of a complete
+          [=rule set=]: determining the rule dependencies
+          (<a href="#rule-dependency" class="sectionRef"></a>),
+          calculating a stratification
+          (<a href="#stratification" class="sectionRef"></a>),
+          and evaluating each stratum in turn to produce the
+          [=inference graph=]
+          (<a href="#eval-rule-set" class="sectionRef"></a>).
+        </p>
+        <p>
+          The example describes software components and their dependencies:
+          a frontend depends on an application server, which depends on a
+          database and on a logging library. The database has a known
+          vulnerability. The rules propagate exposure to vulnerabilities
+          along the dependency chain, give components exposed to a severe
+          vulnerability the status `:criticallyExposed`, give components that are
+          not critical the status `:safeToDeploy`, and create a
+          notification for each critically exposed component.
+          (In practice, whether a vulnerability affects a component
+          depends on the deployed version; the example elides versions and
+          states the vulnerability directly.)
+          For brevity, the base graph states `:dependsOn` triples directly,
+          rather than deriving them from more specific relations as in
+          <a href="#desc-basic" class="sectionRef"></a>.
+        </p>
+
+        <aside class="example" title="Worked example: data and rules">
+          <pre class="block ex-data">
+            :frontend rdf:type :Component ;
+                      :dependsOn :app .
+            :app      rdf:type :Component ;
+                      :dependsOn :db ;
+                      :dependsOn :logger .
+            :db       rdf:type :Component ;
+                      :hasVulnerability :vuln1 .
+            :logger   rdf:type :Component .
+            :vuln1    :severity 9.1 .
+          </pre>
+          <pre class="block ex-rules">
+            # R1
+            RULE { ?x :exposedTo ?v } WHERE { ?x :hasVulnerability ?v }
+
+            # R2
+            RULE { ?x :exposedTo ?v } WHERE { ?x :dependsOn ?y . ?y :exposedTo ?v }
+
+            # R3
+            RULE { ?x :status :criticallyExposed }
+            WHERE { ?x :exposedTo ?v . ?v :severity ?s . FILTER(?s &gt;= 9.0) }
+
+            # R4
+            RULE { ?x :status :safeToDeploy }
+            WHERE { ?x rdf:type :Component . NOT { ?x :status :criticallyExposed } }
+
+            # R5
+            RULE { [] rdf:type :Notification ; :concerns ?x }
+            WHERE { ?x :status :criticallyExposed }
+          </pre>
+        </aside>
+
+        <p>
+          The rules are labeled `R1` to `R5` in comments and are referred
+          to by these labels in the rest of this section.
+          They are the rules introduced in
+          <a href="#desc-recursion" class="sectionRef"></a> through
+          <a href="#desc-creating-rdf-terms" class="sectionRef"></a>.
+          The rule set has no `IMPORTS`, so import processing
+          leaves it unchanged, and no `DATA` blocks, so evaluation starts
+          from the base graph alone.
+        </p>
+
+        <section id="worked-example-dependencies">
+          <h4>Determining the Dependencies</h4>
+          <p>
+            Each triple pattern in each rule body is compared with the
+            triple templates in every rule head, to determine which rules
+            depend on which
+            (<a href="#rule-dependency" class="sectionRef"></a>).
+          </p>
+          <ul>
+            <li>
+              The body of `R1` is the single triple pattern
+              `?x :hasVulnerability ?v`. No rule head has a triple template
+              that can generate a triple with predicate `:hasVulnerability`,
+              so this pattern can only match the data.
+              `R1` has no dependencies.
+            </li>
+            <li>
+              The body of `R2` has two triple patterns.
+              `?x :dependsOn ?y` cannot match any rule head, so it matches
+              only the data. `?y :exposedTo ?v` matches the head template
+              `?x :exposedTo ?v` of `R1`, and also matches the head of `R2`
+              itself. Both occurrences are [=triple pattern elements=]
+              (they do not occur inside a [=negation element=], and `R2` has
+              no [=assignment element=] and no blank node in its head), so
+              `R2` has an <em>open</em> dependency on `R1` and an
+              <em>open</em> dependency on itself.
+              The dependency of `R2` on itself makes `R2` a recursive rule.
+            </li>
+            <li>
+              In the body of `R3`, the pattern `?x :exposedTo ?v` matches
+              the heads of `R1` and `R2`, giving `R3` an <em>open</em>
+              dependency on each. The pattern `?v :severity ?s` matches no
+              rule head.
+            </li>
+            <li>
+              In the body of `R4`, the pattern `?x rdf:type :Component`
+              matches no rule head: the only head template with predicate
+              `rdf:type` is in `R5`, and its object `:Notification` is
+              a different RDF term from `:Component`, so no generated
+              triple can match.
+              The pattern `?x :status :criticallyExposed` occurs inside the
+              [=negation element=] `NOT { ?x :status :criticallyExposed }` and
+              matches the head template of `R3`. Because the pattern
+              occurs in a negation element, `R4` has a <em>closed</em>
+              dependency on `R3`.
+            </li>
+            <li>
+              In the body of `R5`, the pattern `?x :status :criticallyExposed`
+              matches the head of `R3`. The head of `R5` contains a
+              blank node, so its dependency on `R3` is a <em>closed</em>
+              dependency, even though the pattern is an ordinary
+              [=triple pattern element=].
+              No pattern in any rule body matches the head templates of
+              `R5`, so no rule depends on `R5`.
+            </li>
+          </ul>
+          <p>
+            The [=dependency graph=] therefore has five vertices and six
+            edges:
+          </p>
+          <ul>
+            <li>
+              `R2 &rarr; R1` (open)
+            </li>
+            <li>
+              `R2 &rarr; R2` (open)
+            </li>
+            <li>
+              `R3 &rarr; R1` (open)
+            </li>
+            <li>
+              `R3 &rarr; R2` (open)
+            </li>
+            <li>
+              `R4 &rarr; R3` (closed)
+            </li>
+            <li>
+              `R5 &rarr; R3` (closed)
+            </li>
+          </ul>
+          <p>
+            Although `R4` and `R5` have no direct dependency on `R1` or
+            `R2`, each has a [=transitive dependency=] on both, through
+            `R3`.
+          </p>
+
+          <figure id="fig-worked-example-dep-graph">
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 viewBox="0 0 480 350" width="480"
+                 style="max-width: 480px; height: auto;"
+                 role="img" aria-labelledby="depgraph-title depgraph-desc">
+              <title id="depgraph-title">Dependency graph of the worked example rule set</title>
+              <desc id="depgraph-desc">
+                Five vertices labeled R1, R2, R3, R4, and R5.
+                Dashed arrows mark open dependencies: from R2 to R1,
+                from R2 to itself, from R3 to R1, and from R3 to R2.
+                Solid arrows mark closed dependencies: from R4 to R3
+                and from R5 to R3.
+              </desc>
+              <defs>
+                <marker id="dep-arrow" viewBox="0 0 10 10"
+                        refX="9" refY="5" markerWidth="7" markerHeight="7"
+                        orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+                </marker>
+              </defs>
+              <g fill="none" stroke="currentColor" stroke-width="1.5">
+                <!-- open dependencies (dashed) -->
+                <g stroke-dasharray="6 4" marker-end="url(#dep-arrow)">
+                  <!-- R3 -> R2 -->
+                  <line x1="223.6" y1="135.3" x2="156.4" y2="74.7"/>
+                  <!-- R3 -> R1 -->
+                  <line x1="256.4" y1="135.3" x2="323.6" y2="74.7"/>
+                  <!-- R2 -> R1 -->
+                  <line x1="162" y1="60" x2="316" y2="60"/>
+                  <!-- R2 -> R2 (self-loop) -->
+                  <path d="M 124.4 44.4 C 60 15, 60 105, 124.4 75.6"/>
+                </g>
+                <!-- closed dependencies (solid) -->
+                <g marker-end="url(#dep-arrow)">
+                  <!-- R4 -> R3 -->
+                  <line x1="156.4" y1="225.3" x2="223.6" y2="164.7"/>
+                  <!-- R5 -> R3 -->
+                  <line x1="323.6" y1="225.3" x2="256.4" y2="164.7"/>
+                </g>
+                <!-- vertices -->
+                <circle cx="140" cy="60"  r="22"/>
+                <circle cx="340" cy="60"  r="22"/>
+                <circle cx="240" cy="150" r="22"/>
+                <circle cx="140" cy="240" r="22"/>
+                <circle cx="340" cy="240" r="22"/>
+              </g>
+              <g fill="currentColor" font-size="15" font-weight="bold"
+                 text-anchor="middle">
+                <text x="140" y="65">R2</text>
+                <text x="340" y="65">R1</text>
+                <text x="240" y="155">R3</text>
+                <text x="140" y="245">R4</text>
+                <text x="340" y="245">R5</text>
+              </g>
+              <!-- legend -->
+              <g stroke="currentColor" stroke-width="1.5">
+                <line x1="55"  y1="325" x2="105" y2="325"
+                      stroke-dasharray="6 4"/>
+                <line x1="245" y1="325" x2="295" y2="325"/>
+              </g>
+              <g fill="currentColor" font-size="14">
+                <text x="113" y="330">open dependency</text>
+                <text x="303" y="330">closed dependency</text>
+              </g>
+            </svg>
+            <figcaption>
+              The dependency graph of the worked example rule set.
+              Open dependencies are drawn as dashed arrows and closed
+              dependencies as solid arrows. Each edge points from the
+              rule whose body contains the matching triple pattern to the
+              rule whose head could generate the matching triples.
+              Rules are arranged with stratum 0 at the top and higher
+              strata below, matching the order of evaluation.
+            </figcaption>
+          </figure>
+          <p>
+            The only cycle in the graph is the self-edge `R2 &rarr; R2`,
+            which is an open dependency. No cycle involves a closed
+            dependency, so the [=stratification condition=] is satisfied
+            and the rule set has a well-defined outcome.
+          </p>
+        </section>
+
+        <section id="worked-example-stratification">
+          <h4>Calculating the Stratification</h4>
+          <p>
+            Following the
+            <a href="#stratification-algorithm">stratification algorithm</a>,
+            every rule starts in stratum 0. The edges are then inspected
+            repeatedly until nothing changes:
+          </p>
+          <ul>
+            <li>
+              An <em>open</em> edge requires the source rule to be in the
+              same stratum as its target or higher. All four open edges
+              already satisfy this with every rule at stratum 0, so they
+              cause no changes.
+            </li>
+            <li>
+              A <em>closed</em> edge requires the source rule to be in a
+              strictly higher stratum than its target, because the target
+              must run to completion first. The edge `R4 &rarr; R3`
+              (closed) finds `R4` and `R3` both at stratum 0, so `R4` is
+              moved to stratum 1. Likewise the edge `R5 &rarr; R3`
+              (closed) moves `R5` to stratum 1.
+            </li>
+          </ul>
+          <p>
+            A further pass over the edges makes no changes, so the strata
+            are final. Each stratum is then partitioned into
+            [=run-once rules=] and [=general rules=]. `R5` has a blank
+            node in its head, so it is a [=run-once rule=]; no other rule
+            has an [=assignment element=] or a blank node in its head.
+            The stratification is:
+          </p>
+          <ul>
+            <li>Stratum 0: general `R1`, `R2`, `R3`; no run-once rules</li>
+            <li>Stratum 1: run-once `R5`; general `R4`</li>
+          </ul>
+          <p>
+            This ordering captures the intent of the rules in the higher
+            stratum. Whether a component is safe to deploy, and which
+            components need a notification, can only be decided after
+            <em>all</em> `:status :criticallyExposed` triples have been derived
+            &mdash; and the rule that derives them, `R3`, completes in the
+            stratum below, together with the rules `R1` and `R2` that
+            feed it.
+          </p>
+        </section>
+
+        <section id="worked-example-evaluation">
+          <h4>Evaluating the Strata</h4>
+          <p>
+            Evaluation follows the algorithm of
+            <a href="#eval-rule-set" class="sectionRef"></a>.
+            The evaluation graph `GE` starts as the base graph and the
+            inference graph `GI` starts empty. Each stratum is evaluated to
+            completion in order: the rules of the stratum are evaluated in
+            passes, and passes repeat until a pass produces no new triples.
+            The algorithm does not fix the order in which the rules of a
+            stratum are evaluated within a pass; this trace uses the order
+            `R1`, `R2`, `R3`. A different order can spread the same
+            inferences across a different number of passes but, because
+            stratum 0 runs to completion, it produces the same final graph.
+          </p>
+          <p>
+            Because this rule set has no `DATA` blocks, `GE` is `G0` plus
+            `GI` at every point in the evaluation. The trace therefore
+            tracks only `GI`, showing its state as evaluation proceeds and
+            marking each new triple with the rule that produced it.
+          </p>
+          <p><strong>Stratum 0, first pass.</strong></p>
+          <ul>
+            <li>
+              `R1`: the body matches
+              `:db :hasVulnerability :vuln1`, binding
+              `?x = :db` and `?v = :vuln1`.
+              The head produces `:db :exposedTo :vuln1`.
+              The triple is not in `GE`, so it is added to `GE` and `GI`.
+            </li>
+            <li>
+              `R2`: the body joins `?x :dependsOn ?y` with
+              `?y :exposedTo ?v`. `GE` now contains
+              `:db :exposedTo :vuln1`, so the join yields one solution:
+              `?x = :app`, `?y = :db`, and `?v = :vuln1`
+              (from `:app :dependsOn :db`).
+              The head produces `:app :exposedTo :vuln1`, which is new and
+              is added. There is no solution for `:frontend` yet, because
+              `:app :exposedTo :vuln1` was not in `GE` when this
+              evaluation of `R2` started.
+            </li>
+            <li>
+              `R3`: `?x :exposedTo ?v` now matches for `:db` and `:app`;
+              joining with `:vuln1 :severity 9.1` and applying
+              `FILTER(?s &gt;= 9.0)` keeps both solutions.
+              The head produces `:db :status :criticallyExposed` and
+              `:app :status :criticallyExposed`, both new.
+            </li>
+          </ul>
+          <pre class="block ex-inferred">
+            # GI after stratum 0, first pass
+            :db  :exposedTo :vuln1 .                    # new (R1)
+            :app :exposedTo :vuln1 .                    # new (R2)
+            :db  :status :criticallyExposed .           # new (R3)
+            :app :status :criticallyExposed .           # new (R3)
+          </pre>
+          <p>
+            New triples were produced, so evaluation of stratum 0
+            continues with another pass.
+          </p>
+          <p><strong>Stratum 0, second pass.</strong></p>
+          <ul>
+            <li>
+              `R1`: matches as before; `:db :exposedTo :vuln1` is already
+              in `GE`, so nothing new is produced.
+            </li>
+            <li>
+              `R2`: the join now also yields
+              `?x = :frontend`, `?y = :app`, and `?v = :vuln1`, producing
+              the new triple `:frontend :exposedTo :vuln1`.
+              The exposure has taken two passes to travel two steps along
+              the dependency chain.
+            </li>
+            <li>
+              `R3`: produces the new triple
+              `:frontend :status :criticallyExposed`.
+            </li>
+          </ul>
+          <pre class="block ex-inferred">
+            # GI after stratum 0, second pass
+            :db       :exposedTo :vuln1 .
+            :app      :exposedTo :vuln1 .
+            :frontend :exposedTo :vuln1 .               # new (R2)
+            :db       :status :criticallyExposed .
+            :app      :status :criticallyExposed .
+            :frontend :status :criticallyExposed .      # new (R3)
+          </pre>
+          <p><strong>Stratum 0, third pass.</strong>
+            Every solution of every rule now produces only triples already
+            in `GE`. `GI` is unchanged.
+            No new triples means stratum 0 is complete: every
+            `:exposedTo` triple and every `:status :criticallyExposed` triple that
+            can ever be derived has been derived.
+          </p>
+          <p><strong>Stratum 1, run-once rules.</strong>
+            The [=run-once rules=] of the stratum are evaluated first,
+            each exactly once.
+          </p>
+          <ul>
+            <li>
+              `R5`: the body matches the three `:status :criticallyExposed`
+              triples, giving the solutions `?x = :db`, `?x = :app`, and
+              `?x = :frontend`. For each solution, instantiating the head
+              creates a <em>fresh</em> blank node, producing two triples
+              per solution: a notification for each critical
+              component. `R5` is not evaluated again, even though the
+              general rules of the stratum will now be evaluated
+              repeatedly.
+            </li>
+          </ul>
+          <p><strong>Stratum 1, first pass of the general rules.</strong></p>
+          <ul>
+            <li>
+              `R4`: the pattern `?x rdf:type :Component` matches
+              `:frontend`, `:app`, `:db`, and `:logger`.
+              (It does not match the `rdf:type :Notification` triples
+              just created by `R5`.)
+              The negation element `NOT { ?x :status :criticallyExposed }` rejects
+              the solutions for `:frontend`, `:app`, and `:db`, because
+              `GE` contains a `:status :criticallyExposed` triple for each of them.
+              Only the solution `?x = :logger` survives, producing the new
+              triple `:logger :status :safeToDeploy`.
+            </li>
+          </ul>
+          <pre class="block ex-inferred">
+            # GI after stratum 1
+            :db       :exposedTo :vuln1 .
+            :app      :exposedTo :vuln1 .
+            :frontend :exposedTo :vuln1 .
+            :db       :status :criticallyExposed .
+            :app      :status :criticallyExposed .
+            :frontend :status :criticallyExposed .
+            _:n1      rdf:type :Notification .          # new (R5)
+            _:n1      :concerns :db .                   # new (R5)
+            _:n2      rdf:type :Notification .          # new (R5)
+            _:n2      :concerns :app .                  # new (R5)
+            _:n3      rdf:type :Notification .          # new (R5)
+            _:n3      :concerns :frontend .             # new (R5)
+            :logger   :status :safeToDeploy .           # new (R4)
+          </pre>
+          <p><strong>Stratum 1, second pass of the general rules.</strong>
+            No new triples. Evaluation is complete, and `GI` as shown
+            above is the resulting [=inference graph=].
+          </p>
+          <p>
+            The stratification is what makes this outcome reliable.
+            Evaluated during the first pass of stratum 0, before
+            `:frontend :status :criticallyExposed` was derived, `R4` would have
+            incorrectly concluded `:frontend :status :safeToDeploy`, and
+            `R5` would have created notifications for `:db` and `:app`
+            but none for `:frontend`.
+            Deferring both to stratum 1 means they see the complete set of
+            `:status :criticallyExposed` triples, so the order in which
+            rules are evaluated within each stratum does not affect the
+            final outcome.
+          </p>
+        </section>
       </section>
     </section>
 
