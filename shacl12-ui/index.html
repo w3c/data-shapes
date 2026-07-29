@@ -817,7 +817,9 @@ ex:PersonShape a sh:NodeShape ;
           <a href="#displaying-validation-results">Displaying Validation
           Results</a> pattern. The renderer also uses
           <code>sh:group</code> and <code>sh:order</code> annotations to
-          control the form layout. In this example, the name-related properties
+          control the form layout, as defined in the related
+          <a href="#grouping-and-ordering">Grouping, Ordering, and Layout
+          Hints</a> pattern. In this example, the name-related properties
           are grouped into a <strong>Name</strong> section and ordered
           according to their <code>sh:order</code> values, while the birth
           date is rendered separately because it does not belong to a group.
@@ -2284,10 +2286,143 @@ ex:book1 a ex:Book ;
       <h4>Fetching values from named graphs</h4>
       <div class="issue" data-number="672"></div>
 
-      <h3>Grouping, Ordering, and Layout Hints</h3>
-      <p class="ednote">
-        Add a pattern explaining how renderers can use sh:group, sh:order, and possibly implementation-specific layout annotations to organize property UI components.
+      <h3 id="grouping-and-ordering">Grouping, Ordering, and Layout Hints</h3>
+
+      <p><em>This section is normative, except for the part explicitly marked as non-normative below.</em></p>
+
+      <p>
+        SHACL Renderers MUST determine the presentation order of <a>property shapes</a> and
+        property groups using the value of <code>sh:order</code>. At each level of rendering,
+        property groups and ungrouped <a>property shapes</a> MUST be treated as members of a single
+        ordered sequence.
       </p>
+
+      <p>
+        For a <a>property shape</a> that specifies <code>sh:group</code>, the position of the
+        property shape in the top-level sequence MUST be determined by the <code>sh:order</code> of
+        the referenced property group. The property shape's own <code>sh:order</code> MUST be used
+        only to determine its position within that property group. Within a property group,
+        <a>property shapes</a> MUST be ordered according to their own <code>sh:order</code> values.
+        The same ordering rules MUST be applied recursively to nested property groups, if supported
+        by the renderer.
+      </p>
+
+      <p>
+        The <dfn data-lt="effective orders">effective order</dfn> of a <a>property shape</a> or
+        property group is the value of its <code>sh:order</code>. Where <code>sh:order</code> is not
+        specified, the <a>effective order</a> is the value of <code>shui:defaultOrder</code> in the
+        <a>global configuration</a>, if present. Otherwise the property shape or property group has
+        no <a>effective order</a>.
+      </p>
+
+      <p>
+        Renderers MUST order the members of an ordered sequence by the ascending numeric value of
+        their <a>effective order</a>. Members that have no <a>effective order</a> MUST be placed
+        after all members that have one.
+      </p>
+
+      <p>
+        The <a>global configuration</a> property <code>shui:defaultOrder</code> declares the
+        <a>effective order</a> assumed for <a>property shapes</a> and property groups that do not
+        specify <code>sh:order</code>. Its value is a <a>literal</a> with <a>datatype</a>
+        <code>xsd:decimal</code> or <code>xsd:integer</code>, which are the datatypes that
+        <code>sh:order</code> permits.
+      </p>
+
+      <p>
+        Renderers MUST apply a deterministic tie-breaking algorithm whenever two or more members of
+        an ordered sequence have the same <a>effective order</a>, or whenever two or more members
+        have no <a>effective order</a>. Renderers SHOULD apply the following tie-breaking algorithm:
+      </p>
+      <ol>
+        <li>
+          Members are ordered by their resolved label, as determined by <a>label resolution</a>.
+        </li>
+        <li>
+          Members that have the same resolved label are ordered lexicographically by the identifier
+          of the resource on which the <code>sh:order</code> is defined, that is, its IRI or blank
+          node identifier.
+        </li>
+      </ol>
+
+      <p>
+        Renderers MAY use an alternative tie-breaking algorithm, provided that the algorithm yields
+        deterministic results within that implementation.
+      </p>
+
+      <p><em>The remainder of this section is non-normative.</em></p>
+
+      <p>
+        Deterministic interoperability is guaranteed only when all property groups and property
+        shapes participating in an ordered sequence explicitly specify <code>sh:order</code>, or
+        when the <a>shapes graph</a> declares <code>shui:defaultOrder</code>.
+      </p>
+
+      <p>
+        Presenting property shapes and property groups without <code>sh:order</code> last reflects
+        the behaviour of existing renderers, which append properties that carry no ordering hint to
+        the end of the form. Shape authors who prefer a numeric default can declare one explicitly
+        with <code>shui:defaultOrder</code>. Setting <code>shui:defaultOrder 0</code>, for example,
+        allows authors to assign negative <code>sh:order</code> values to elements that should
+        always be rendered before otherwise unordered elements, while positive values can be used to
+        position elements after them. Because the <a>global configuration</a> is part of the
+        <a>shapes graph</a>, this choice travels with the shapes, so interoperability across
+        implementations is preserved.
+      </p>
+
+      <p>
+        The following example illustrates the interpretation of a missing <code>sh:order</code>
+        value.
+      </p>
+
+      <aside class="example" title="Ordering without shui:defaultOrder">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property ex:description ;
+    sh:property ex:identifier ;
+    sh:property ex:name .
+
+ex:description
+    sh:path dct:description ;
+    sh:order 5 .
+
+ex:identifier
+    sh:path ex:id ;
+    sh:order -10 .
+
+ex:name
+    sh:path rdfs:label .
+          </div>
+        </div>
+
+        <p>
+          No <code>shui:defaultOrder</code> is declared, so <code>ex:name</code> has no effective
+          order and is rendered last. The properties are rendered in the order
+          <code>ex:identifier</code> (effective order -10), <code>ex:description</code> (effective
+          order 5), and <code>ex:name</code>.
+        </p>
+      </aside>
+
+      <aside class="example" title="Ordering with shui:defaultOrder">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:config
+    a shui:Configuration ;
+    shui:defaultOrder 0 .
+          </div>
+        </div>
+
+        <p>
+          Adding this <a>global configuration</a> to the previous shapes graph gives
+          <code>ex:name</code> an effective order of 0, so the properties are rendered in the order
+          <code>ex:identifier</code>, <code>ex:name</code>, <code>ex:description</code>. This
+          demonstrates that assigning a negative <code>sh:order</code> value allows a property to be
+          rendered before properties that rely on the declared default.
+        </p>
+      </aside>
+
       <div class="issue" data-number="775"></div>
       <div class="issue" data-number="824"></div>
 
@@ -2908,7 +3043,8 @@ ex:Concept-prefLabel
             and paged independently of the rest of the form.
             Each value becomes one row.
             The columns of the table are derived from the node shape specified using `sh:node` for the property,
-            in the order specified using `sh:order`.
+            in the order specified using `sh:order`, as defined in
+            <a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a>.
           </p>
           <img src="images/viewers/ValueTableViewer.png" alt="Example of a rendered ValueTableViewer"
                style="max-width: 100%; height: auto;"/>
@@ -3018,7 +3154,9 @@ ex:Label a sh:PropertyShape ;
 
       <p>
         For property shapes annotated with the same role, user interfaces should prefer the shape with the smallest <code>sh:order</code> value. If multiple shapes
-        share the same role, they must be sorted and processed in ascending order of their <code>sh:order</code> values. In addition, any property shape
+        share the same role, they must be sorted and processed in ascending order of their <code>sh:order</code> values. This use of <code>sh:order</code> determines
+        the precedence of property shapes for a role, and is unrelated to the presentation order defined in
+        <a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a>. In addition, any property shape
         using a qualified role annotation is always preferred over a shape using a direct, unqualified role annotation.
       </p>
 
@@ -3344,6 +3482,21 @@ ex:Name a sh:PropertyShape ;
         <tr>
           <td>sh:rootClass</td>
           <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">Non-Validating Property Shape Characteristics</td>
+        </tr>
+        <tr>
+          <td>sh:order</td>
+          <td><a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a></td>
+        </tr>
+        <tr>
+          <td>sh:group</td>
+          <td><a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a></td>
+        </tr>
+        <tr>
+          <td>sh:PropertyGroup</td>
+          <td><a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a></td>
         </tr>
         </tbody>
       </table>
