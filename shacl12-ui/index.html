@@ -2148,11 +2148,15 @@ ex:book1 a ex:Book ;
       </p>
 
       <h3>Enumerations, Select Lists, and Autocomplete</h3>
+      <p>
+        Using <code>sh:in</code> together with a <a href="../shacl12-sparql/#SelectExpression">select expression</a>, possibly with
+        a SPARQL <code>SERVICE</code> clause, and a <code>sh:node</code> shape annotated with <a href="#property-roles">property
+        roles</a> is one way of sourcing and displaying the items of a dynamic selection list; see
+        <a href="#selection-list-items">Resolving Selection List Items</a>.
+      </p>
       <p class="ednote">
-        Add a pattern for select widgets. This should cover common sources for option lists: sh:in, class-based instance selection,
-        SKOS concepts, node expressions, and implementation-provided query services. It should distinguish static enumerations from dynamic lookups.
-
-        Some of the UI meetings have discussed using node expressions, dynamic SHACL, and SPARQL with the SERVICE clause.
+        Add a pattern for select widgets that covers the remaining common sources for option lists: class-based instance
+        selection and SKOS concepts. It should distinguish static enumerations from dynamic lookups.
       </p>
       <div class="issue" data-number="846"></div>
       <h4>Fetching values from named graphs</h4>
@@ -2216,6 +2220,11 @@ ex:book1 a ex:Book ;
             An auto-complete field to enter the label of instances of the class specified for the property.
             For example, if the `sh:class` of the property is `ex:Country` and the user starts
             typing "Nig", then "Niger" and "Nigeria" would show up as possible choices.
+          </p>
+          <p>
+            See <a href="#selection-list-items">Resolving Selection List Items</a> for how a shape can control the display of
+            the selected value and of the candidate options, and how a shape author can supply a dedicated fulltext search query
+            via <code>shui:searchQuery</code>.
           </p>
           <img src="images/editors/AutoCompleteEditor.png" alt="Example of a rendered AutoCompleteEditor"/>
           <pre class="example">
@@ -2420,6 +2429,10 @@ ex:ValueWithWeight-unit
           <p>
             <b>Rendering:</b>
             A drop-down editor for enum fields (based on the `sh:in` list, in that order).
+          </p>
+          <p>
+            See <a href="#selection-list-items">Resolving Selection List Items</a> for how a shape can control the display of
+            the selected value and of the candidate options when the `sh:in` list is sourced dynamically.
           </p>
           <img src="images/editors/EnumSelectEditor.png" alt="Example of a rendered EnumSelectEditor"/>
           <pre class="example">
@@ -2857,7 +2870,7 @@ ex:ConceptTableShape-altLabel
       <h3>Direct Role Annotation</h3>
 
       <p>
-        Property roles can be annotated on property shapes by using the <code></code>shui:propertyRole</code> predicate and linking directly to a property role instance.
+        Property roles can be annotated on property shapes by using the <code>shui:propertyRole</code> predicate and linking directly to a property role instance.
         SHACL renderers may use such direct annotations to drive the way specific user-interface elements are displayed.
       </p>
 
@@ -2952,11 +2965,28 @@ ex:Name a sh:PropertyShape ;
         by SHACL Renderers. Additional property roles may be defined in other namespaces.
       </p>
 
-      <h4>shui:LabelRole</h4>
+      <h4 id="LabelRole">shui:LabelRole</h4>
 
       <p>
         The <code>shui:LabelRole</code> is used to identify properties whose values serve as human-readable display labels.
         Common examples of display label predicates include <code>rdfs:label</code>, <code>skos:prefLabel</code>, and <code>schema:name</code>.
+      </p>
+
+      <h4 id="SubLabelRole">shui:SubLabelRole</h4>
+
+      <p>
+        The <code>shui:SubLabelRole</code> is used to identify properties whose values serve as secondary, less prominent display
+        text shown alongside a <a href="#LabelRole"><code>shui:LabelRole</code></a> value, for example to help a user disambiguate
+        between resources that otherwise share the same label.
+      </p>
+
+      <h4 id="DepictionRole">shui:DepictionRole</h4>
+
+      <p>
+        The <code>shui:DepictionRole</code> is used to identify properties whose values serve as a depiction, such as a portrait,
+        logo, or icon, of a resource. The value node of a property shape annotated with <code>shui:DepictionRole</code> is expected
+        to be an <a>IRI</a> that can be dereferenced to obtain the depiction, for example the value of a <code>foaf:depiction</code>
+        or <code>schema:image</code> property.
       </p>
 
       <h3>Definitions</h3>
@@ -2974,6 +3004,229 @@ ex:Name a sh:PropertyShape ;
         The property used to annotate property shapes with roles. Its value is expected to be either an instance of <code>shui:PropertyRole</code> or a
         resource that itself declares a <code>shui:propertyRole</code> and an associated <code>sh:order</code> value.
       </p>
+    </section>
+
+    <section id="selection-list-items">
+      <h2>Resolving Selection List Items</h2>
+
+      <p>
+        Widgets such as the <a href="#AutoCompleteEditor"><code>shui:AutoCompleteEditor</code></a> and the
+        <a href="#EnumSelectEditor"><code>shui:EnumSelectEditor</code></a>, and possibly others, present the user with a list of
+        candidate values and need to render both the currently selected value and each candidate as more than a bare <a>IRI</a>.
+        This section defines how a <a>shapes graph</a> can combine <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic
+        SHACL</a> with <a href="#property-roles">Property Roles</a> to declare, alongside the source of a value list, the
+        additional display metadata — such as a label, a sub label, or a depiction — that a SHACL Renderer may use for each item.
+      </p>
+
+      <p>
+        Because the roles described in this section are declared as static annotations on a <a>node shape</a>, non-SPARQL and
+        hybrid backends can consume them directly to drive the same display, without needing to evaluate any SPARQL expression.
+      </p>
+
+      <h3>Using sh:node and shui:propertyRole to Resolve Item Display</h3>
+
+      <p>
+        A <a>property shape</a> that constrains its values using <code>sh:in</code> together with a
+        <a href="../shacl12-sparql/#SelectExpression">select expression</a> MAY also declare a <code>sh:node</code> constraint
+        pointing at a <a>node shape</a> whose property shapes are annotated with <a href="#property-roles">property roles</a>. When
+        a SHACL Renderer detects this combination of <code>sh:node</code> and <code>sh:in</code> with a nested
+        <code>sh:select</code> on a property shape, it MAY use the property roles declared on the <code>sh:node</code> shape to
+        resolve a label, a sub label, a depiction, or other display metadata for each candidate value, including the value
+        currently selected. The query given as the value of <code>sh:select</code> MAY use the SPARQL <code>SERVICE</code> keyword
+        to make a federated call.
+      </p>
+
+      <aside class="example" title="Resolving the display of AutoCompleteEditor options using sh:node and shui:propertyRole">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:name "Author" ;
+        sh:path dct:creator ;
+        sh:class ex:Person ;
+        sh:node ex:PersonDisplayShape ;
+        sh:in [
+            sh:select """
+                PREFIX ex: &lt;http://example.com/&gt;
+                PREFIX schema: &lt;https://schema.org/&gt;
+                SELECT ?value
+                WHERE {
+                     SERVICE &lt;http://example.com/sparql&gt; {
+                         ?value a ex:Person ;
+                                   schema:name ?name .
+                    }
+                }
+            """
+        ]
+    ] .
+
+ex:PersonDisplayShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path schema:name ;
+        shui:propertyRole shui:LabelRole ;
+        sh:order 1 ;
+    ] ;
+    sh:property [
+        sh:path ex:pseudonym ;
+        shui:propertyRole shui:SubLabelRole ;
+        sh:order 2 ;
+    ] .
+          </div>
+        </div>
+        <p>
+          The <code>sh:in</code> constraint on <code>dct:creator</code> uses a <a href="../shacl12-sparql/#SelectExpression">select
+          expression</a> to fetch candidate <code>ex:Person</code> resources from a federated SPARQL endpoint using
+          <code>SERVICE</code>. The accompanying <code>sh:node ex:PersonDisplayShape</code> constraint declares that the
+          <code>schema:name</code> of each candidate serves as its <a href="#LabelRole"><code>shui:LabelRole</code></a> and that
+          <code>ex:pseudonym</code> serves as its <a href="#SubLabelRole"><code>shui:SubLabelRole</code></a>.
+        </p>
+      </aside>
+
+      <p>
+        For the purposes of resolving item display metadata as described in this section, when multiple property shapes on the
+        <code>sh:node</code> shape are annotated with the same <code>shui:propertyRole</code>, the property shape with the
+        <em>highest</em> <code>sh:order</code> value wins. Remaining ties are broken using codepoint comparison. Implementations
+        MAY define additional, custom property roles, beyond <a href="#LabelRole"><code>shui:LabelRole</code></a>,
+        <a href="#SubLabelRole"><code>shui:SubLabelRole</code></a>, and <a href="#DepictionRole"><code>shui:DepictionRole</code></a>,
+        to drive more specialized displays.
+      </p>
+
+      <p>
+        If none of the property shapes on the <code>sh:node</code> shape declare a
+        <a href="#LabelRole"><code>shui:LabelRole</code></a>, SHACL Renderers SHOULD fall back to the
+        <a href="#label-and-lang">label resolution</a> mechanism to determine a label for each value.
+      </p>
+
+      <h3 id="searchQuery">shui:searchQuery</h3>
+
+      <p>
+        Some SPARQL backends offer fulltext search capabilities over their data that cannot be expressed efficiently, or at all,
+        using the <a href="../shacl12-sparql/#SelectExpression">select expression</a> given as the value of <code>sh:in</code>. The
+        property <code>shui:searchQuery</code> lets a shape author give full control over the query used to fetch autocomplete
+        items whenever the shape author prefers to use such a fulltext search facility.
+      </p>
+
+      <p>
+        <code>shui:searchQuery</code> is specified as an additional value on the same node expression that carries the
+        <code>sh:select</code> property, i.e. the value of <code>sh:in</code>. Its value MUST be a valid SPARQL 1.2 SELECT query,
+        following the same prefix handling and single-variable projection rules as <a href="../shacl12-sparql/#SelectExpression"
+        >select expressions</a>. The value of <code>shui:searchQuery</code> MUST NOT contain a <code>LIMIT</code> or an
+        <code>OFFSET</code> solution modifier.
+      </p>
+
+      <p>
+        Within the value of <code>shui:searchQuery</code>, <code>?searchTerm</code> and <code>?uiLanguage</code> are reserved
+        string parameters bound at execution time by the SHACL Renderer: <code>?searchTerm</code> is bound to the string entered
+        by the end user in the user interface, and <code>?uiLanguage</code> is bound to the language currently preferred by the
+        user context.
+      </p>
+
+      <p>
+        When a SHACL Renderer detects a <code>shui:searchQuery</code>, it MUST use that query, instead of the query given by
+        <code>sh:select</code>, to filter the candidate values while the end user is searching. Implementations MAY combine the
+        query used for filtering with the queries needed to resolve the property roles declared on the <code>sh:node</code> shape.
+      </p>
+
+      <aside class="example" title="Using shui:searchQuery to enable fulltext search">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:name "Author" ;
+        sh:path dct:creator ;
+        sh:class ex:Person ;
+        sh:node ex:PersonDisplayShape ;
+        sh:in [
+            sh:select """
+                PREFIX ex: &lt;http://example.com/&gt;
+                PREFIX schema: &lt;https://schema.org/&gt;
+
+                SELECT ?value
+                WHERE {
+                     SERVICE &lt;http://example.com/sparql&gt; {
+                         ?value a ex:Person ;
+                    }
+                }
+            """ ;
+
+            # This query is wrapped by the auto-generated query that adds the property shapes with property roles.
+            # If shui:searchQuery is not given, the SHACL Renderer generates this query itself.
+            shui:searchQuery """
+                PREFIX ex: &lt;http://example.com/&gt;
+                PREFIX text: &lt;http://jena.apache.org/text#&gt;
+
+                SELECT ?value WHERE {
+                    SERVICE &lt;http://example.com/sparql&gt; {
+                        ?value text:query (?searchTerm ?uiLanguage) .
+                        ?value a ex:Person .
+                    }
+                }
+            """
+        ] ;
+    ] .
+
+ex:PersonDisplayShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path schema:name ;
+        shui:propertyRole shui:LabelRole ;
+        sh:order 1 ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ex:pseudonym ;
+        shui:propertyRole shui:SubLabelRole ;
+        sh:order 2 ;
+    ] .
+          </div>
+        </div>
+        <p>
+          Here, <code>sh:select</code> still declares the general candidate query for <code>dct:creator</code>, but whenever the
+          end user types into the autocomplete field, the SHACL Renderer instead evaluates <code>shui:searchQuery</code>, binding
+          the text entered by the user to <code>?searchTerm</code> and the preferred user-interface language to
+          <code>?uiLanguage</code>, to take advantage of the fulltext index exposed via <code>text:query</code>.
+        </p>
+      </aside>
+
+      <p>
+        The example below illustrates one possible way for a SHACL Renderer to combine the <code>shui:searchQuery</code> from the
+        previous example with the property roles declared on <code>ex:PersonDisplayShape</code>, using the filtering query as a
+        sub-query and adding, grouped and sampled by the candidate value, the property paths for each role in the outer query.
+        This combined query is generated by the SHACL Renderer; shape authors are not expected to author it themselves, as writing
+        an efficient combined query typically requires backend-specific knowledge.
+      </p>
+
+      <pre class="example">
+PREFIX text: &lt;http://jena.apache.org/text#&gt;
+PREFIX ex: &lt;https://example.com/&gt;
+PREFIX schema: &lt;https://schema.org/&gt;
+
+SELECT ?value (SAMPLE(?prop_1) AS ?prop1) (SAMPLE(?prop_2) AS ?prop2) WHERE {
+  {
+    SELECT DISTINCT ?value WHERE {
+      SERVICE &lt;http://example.com/sparql&gt; {
+        ?value text:query (?searchTerm ?uiLanguage) .
+        ?value a ex:Person .
+      }
+    }
+    LIMIT 10 # Added by the SHACL Renderer.
+  }
+  SERVICE &lt;http://example.com/sparql&gt; {
+    ?value schema:name ?prop_1 .
+    FILTER (lang(?prop_1) = ?uiLanguage || lang(?prop_1) = "")
+
+    OPTIONAL {
+      ?value ex:pseudonym ?prop_2 .
+      FILTER (lang(?prop_2) = ?uiLanguage || lang(?prop_2) = "")
+    }
+  }
+}
+GROUP BY ?value</pre>
     </section>
 
     <section id="syntax-rules" class="appendix">
