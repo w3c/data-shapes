@@ -2229,6 +2229,8 @@ ex:Granddaughter
 							do
 								Execute one <a>iteration</a> over all <a>iterating rules</a> in the layer
 							while the iteration has produced newly inferred triples
+
+						Delete the <a>temporary triples</a> and their <a>reifiers</a>
 					</pre>
 				</div>
 				<p>
@@ -2249,6 +2251,76 @@ ex:Granddaughter
 					At no time are inferred triples visible to the <a>shapes graph</a>, i.e. it is impossible for rules
 					to modify the definitions of rules or shapes.
 				</p>
+			</section>
+			<section id="tempTriple">
+				<h3>Temporary Triples</h3>
+				<p>
+					It is sometimes useful for inference rules to produce triples that are only visible during the execution
+					of other rules but do not end up in the final inferences.
+					A <dfn>temporary triple</dfn> is an inferred <a>triple</a> for which the inferences graph contains a
+					<a>reifier</a> with the <a>value</a> <code>sh:tempTriple true</code>.
+					Rules can produce such triples as illustrated in the following example:
+				</p>
+				<aside class="example" title="An example rule that produces temporary triples" id="tempTriple-example">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Person
+	a sh:ShapeClass ;
+	sh:rule ex:CollectOffspringsRule ;
+	sh:rule ex:SetYoungestOffspringsRule .
+
+ex:CollectOffspringsRule
+	a sh:SPARQLRule ;
+	sh:layer 0 ;
+	sh:runOnce true ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:offspring ?offspring .
+			?reifier sh:tempTriple true .
+			?reifier rdf:reifies ?tt .
+		}
+		WHERE {
+			$this ex:child+ ?offspring .
+			BIND (BNODE() AS ?reifier) .
+			BIND (TRIPLE($this, ex:offspring, ?offspring) AS ?tt) .
+		}
+	""" .
+
+ex:SetYoungestOffspringsRule
+	a sh:SPARQLRule ;
+	sh:layer 1 ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:youngestOffspring ?o .
+		}
+		WHERE {
+			{
+				SELECT $this ?o
+				WHERE {
+					$this ex:offspring ?o .
+					?o ex:age ?age .
+				}
+				ORDER BY ?age
+				LIMIT 1
+			}
+		}
+	""" .
+						</div>
+					</div>
+					<p>
+						The first rule computes <code>ex:offspring</code> triples as the (transitive)
+						children of each Person.
+						The second rule uses the <code>ex:offspring</code> triples to infer the <code>ex:oldestOffspring</code>
+						of each Person.
+						The final inferences only include the <code>ex:oldestOffspring</code> triples.
+					</p>
+					<p>
+						Note the example is for illustration purposes only.
+						The same result could be achieved with a single rule that does everything in one go.
+						Creating temporary triples can be helpful if it avoids repetitive computations that are
+						needed by multiple rules down the road.
+					</p>
+				</aside>
 			</section>
 			<section id="sourceRule">
 				<h3>Tracking the Rule that has produced a Triple (sh:sourceRule)</h3>
