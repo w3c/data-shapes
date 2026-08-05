@@ -1872,10 +1872,11 @@ ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
 	ex:height 6 .
 						</div>
 					</div>
-					<p>
-						Inferred triples:
-					</p>
-					<pre class="example-inferences">	ex:ExampleRectangle ex:area 56 .</pre>
+					<div class="inferences-graph">
+						<div class="turtle">
+ex:ExampleRectangle ex:area 56 .
+						</div>
+					</div>
 				</aside>
 			</section>
 	
@@ -2128,10 +2129,8 @@ ex:RunAfterRule
 		""" .
 							</div>
 						</div>
-						<p>
-							Inferred triples:
-						</p>
-						<pre class="example-inferences">
+						<div class="inferences-graph">
+							<div class="turtle">
 ex:Grandma
 	a ex:Person ;
 	ex:child ex:Son ;
@@ -2150,8 +2149,118 @@ ex:Grandson
 
 ex:Granddaughter
 	a ex:Person .
-						</pre>
+							</div>
+						</div>
 					</aside>
+				</section>
+				<section id="expectedPredicate">
+					<h3>Expected Derived Triples (sh:expectedPredicate)</h3>
+					<p>
+						SHACL Core includes the following properties to <em>derive</em> property values that are not necessarily asserted in the <a>data graph</a>:
+					</p>
+					<ul>
+						<li>
+							<a data-cite="shacl12-core#syntax-rule-path-defaultValue"><code>sh:defaultValue</code></a> defines what values should be used
+							when no other other values are present for a property.
+							For example, the default value of <code>ex:childCount</code> could be <code>0</code>.
+						</li>
+						<li>
+							<a data-cite="shacl12-core#syntax-rule-path-defaultValue"><code>sh:values</code></a> defines general instructions for computing
+							derived values for a property.
+							For example, the <code>ex:area</code> of a rectangle may be derived by multiplying its <code>ex:width</code> and <code>ex:height</code>.
+						</li>
+					</ul>
+					<p>
+						Both properties can use <a>node expressions</a> as defined in <a data-cite="shacl12-node-expr"></a>.
+						Both properties can only be used to compute the <a>objects</a> of a given <a>predicate</a> for the
+						<a>subjects</a> that are targetted by <a>shapes</a>.
+						This means that <code>sh:defaultValue</code> and <code>sh:values</code> describe implicit triples
+						that are similar to inferences produced by rules.
+					</p>
+					<p>
+						When a <a>rule</a> refers to a certain property, it is reasonable for the rule to expect that these
+						implicit triples are present.
+						This section explains how <a>rules</a> can make sure that such derived triples are present before the rule executes.
+					</p>
+					<p>
+						For a given <a>predicate</a> <code>p</code>, the <dfn>derived value nodes</dfn> are all <a>value nodes</a>
+						that can be computed using <code>sh:defaultValue</code> and <code>sh:values</code>
+						as defined by <a data-cite="shacl12-core#value-nodes"></a> in any (non-deactivated)
+						<a>property shape</a> that uses <code>p</code> as <code>sh:path</code> in the <a>shapes graph</a>.
+						For these <a>derived value nodes</a> <code>v</code> the <dfn>derived triples</dfn> are the <a>triples</a>
+						where <code>v</code> is the <a>object</a>, <code>p</code> is the <a>predicate</a> and the <a>subjects</a>
+						are the <a>target nodes</a> of the property shapes.
+					</p>
+					<p>
+						The <dfn>expected derived triples</dfn> of a <a>rule</a> are the <a>derived triples</a> for all <a>values</a>
+						of the property <code>sh:expectedPredicate</code> at the <a>rule</a>.
+						All this is best explained by an example:
+					</p>
+					<aside class="example" title="Example of expected derived triples">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property ex:RectangleShape-area ;
+	sh:rule ex:Rectangle-computeSmall .
+
+ex:RectangleShape-area
+	a sh:PropertyShape ;
+	sh:path ex:area ;
+	sh:defaultValue 1 ;
+	sh:values [
+		sparql:multiply ( [ shnex:pathValues ex:width ] [ shnex:pathValues ex:height ] )
+	] .
+
+ex:Rectangle-computeSmall
+	a sh:SPARQLRule ;
+	rdfs:comment "This rule expects that the values of ex:area have been derived." ;
+	sh:expectedPredicate ex:area ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:isSmall true .
+		}
+		WHERE {
+			$this ex:area ?area .
+			FILTER (?area &lt; 100) .
+		}
+	""" .
+							</div>
+						</div>
+						<p>
+							The following <a>data graph</a> defines some rectangle instances:
+						</p>
+						<div class="data-graph">
+							<div class="turtle">
+ex:IncompleteRectangle
+	a ex:Rectangle .
+
+ex:SmallRectangle
+	a ex:Rectangle ;
+	ex:width 4 ;
+	ex:height 5 .
+
+ex:LargeRectangle
+	a ex:Rectangle ;
+	ex:width 11 ;
+	ex:height 10 .
+							</div>
+						</div>
+						<div class="inferences-graph">
+							<div class="turtle">
+# IncompleteRectangle has default area of 1 which makes it small
+ex:IncompleteRectangle ex:isSmall true .
+
+# SmallRectangle has area computed via sh:values as 20
+ex:SmallRectangle ex:isSmall true .
+							</div>
+						</div>
+					</aside>
+					<p>
+						Unless told otherwise, a SHACL rules engine will remove the derived triples from
+						the inferences at the end of the execution process.
+					</p>
 				</section>
 			</section>
 			<section id="rules-graph">
@@ -2294,12 +2403,14 @@ ex:SetYoungestOffspringsRule
 				<div class="algorithm">
 					<pre class="text">
 						For all <a>layers</a> in the rule set (in ascending order):
+							Compute the <a>expected derived triples</a> of the layer
 							Execute one <a>iteration</a> over all <a>run-once rules</a> in the layer
 							do
 								Execute one <a>iteration</a> over all <a>iterating rules</a> in the layer
 							while the iteration has produced newly inferred triples
 
 						Delete the <a>temporary triples</a> and their <a>reifiers</a>
+						Delete the <a>derived triples</a> and their <a>reifiers</a>
 					</pre>
 				</div>
 				<p>
