@@ -1172,32 +1172,170 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
 
       <p>This section explains the UI concepts and how they work together.</p>
 
+      <section id="focus-node-and-node-shape-resolution">
+        <h3>Focus Node and Node Shape Resolution</h3>
+
+        <p>
+          <dfn data-lt="focus node and node shape resolution" id="dfn-focus-node-and-node-shape-resolution" tabindex="0" aria-haspopup="dialog" data-dfn-type="dfn">Focus Node and Node Shape Resolution</dfn>
+          determines, from the available inputs, the (<a>focus node</a>, <a>node shape</a>) pairs to be rendered.
+          It is the only part of this document in which the <a>focus node</a> or the <a>node shape</a> may be absent;
+          every other part, including the <a>SHACL Renderer</a>, operates on fully determined inputs.
+        </p>
+
+        <p>
+          This algorithm defines what is computed, not how it is invoked. An implementation MAY expose it as a single
+          entry point that accepts optional inputs, as separate entry points, or as a standalone function reused by
+          other software. None of these arrangements is assumed here.
+        </p>
+
+        <p>Inputs:</p>
+        <ul>
+          <li><strong>Data graph</strong> — The <a>data graph</a>.</li>
+          <li><strong>Shapes graph</strong> — The <a>shapes graph</a>.</li>
+          <li><strong>Focus node</strong> — A <a>focus node</a>, which may be absent.</li>
+          <li><strong>Node shape</strong> — A <a>node shape</a>, which may be absent.</li>
+        </ul>
+        <p>
+          The <strong>focus node</strong> and the <strong>node shape</strong> are the only inputs in this document that
+          may be absent.
+        </p>
+
+        <p>Output:</p>
+        <ul>
+          <li>
+            An ordered list of (<a>focus node</a>, <a>node shape</a>) pairs, which may be empty. Every pair in the output
+            is fully determined: neither member of any pair is absent. A list is used, rather than a set, only so that a
+            single invocation yields the pairs in a definite sequence. The focus nodes derive from SHACL Core target
+            resolution, which produces a set with no inherent order, so the order of the pairs is an implementation
+            detail and is not fixed here.
+          </li>
+        </ul>
+
+        <p>Steps:</p>
+        <ol>
+          <li>
+            If both the <strong>focus node</strong> and the <strong>node shape</strong> are present, return a list
+            containing the single pair (<strong>focus node</strong>, <strong>node shape</strong>).
+          </li>
+          <li>
+            If the <strong>node shape</strong> is present and the <strong>focus node</strong> is absent, compute the
+            <a href="../shacl12-core/#targets">target</a> of the <strong>node shape</strong> in the
+            <strong>data graph</strong> using target resolution as defined in [[SHACL-CORE]], and return one pair per
+            produced <a>focus node</a>, each pairing that focus node with the <strong>node shape</strong>. Target
+            declarations are used to produce focus nodes for a shape; all SHACL Core target mechanisms apply, including
+            implicit class-based targets. This step introduces no new machinery: the focus nodes are exactly those that
+            SHACL Core target resolution produces for the shape.
+          </li>
+          <li>
+            If the <strong>focus node</strong> is present and the <strong>node shape</strong> is absent, resolution is
+            out of scope in the current revision.
+            <p class="note">
+              This is an open question. It is not target resolution inverted: several <a>node shapes</a> may target one
+              node, so selecting a <a>node shape</a> among them is a ranking problem rather than a lookup.
+            </p>
+          </li>
+          <li>
+            If both the <strong>focus node</strong> and the <strong>node shape</strong> are absent, resolution is out of
+            scope in the current revision.
+          </li>
+        </ol>
+
+        <section id="focus-node-and-node-shape-resolution-multiplicity">
+          <h4>Zero, one, or several pairs</h4>
+          <p>
+            The output may contain zero, one, or several pairs. How each of these cardinalities is treated belongs to
+            resolution rather than to rendering.
+          </p>
+          <ul>
+            <li>
+              <strong>Zero pairs.</strong> Nothing is rendered. The implementation decides what, if anything, the user
+              sees in its place.
+            </li>
+            <li>
+              <strong>One pair.</strong> The pair is rendered by the <a>SHACL Renderer</a>.
+            </li>
+            <li>
+              <strong>Several pairs.</strong> How the pairs are surfaced is deliberately left to the implementation.
+              Rendering all of them at once as a list, rendering one at a time with a means of selecting between them,
+              paginating, or any other arrangement are all conforming. This latitude is deliberate rather than an
+              omission.
+            </li>
+          </ul>
+          <p>
+            An implementation that supports <a>Focus Node and Node Shape Resolution</a> MUST allow the user to reach
+            every pair in the output; it MUST NOT expose only a subset. Reaching a pair means being able to act on it in
+            whichever mode the <a>SHACL Renderer</a> is operating in: viewing the pair in view mode, or viewing and
+            editing it in edit mode. The requirement constrains which pairs are reachable, not which modes an
+            implementation offers.
+          </p>
+
+          <aside class="example" title="Rendering several pairs: an alerts dashboard">
+            <p>
+              A monitoring dashboard has a <a>data graph</a> of alerts and a <a>shapes graph</a> containing an alert
+              <a>node shape</a>, and is given the <a>node shape</a> but no <a>focus node</a>. Resolution returns one
+              (<a>focus node</a>, <a>node shape</a>) pair for every alert that the alert <a>node shape</a> targets. The
+              dashboard renders each pair as its own <a>Node UI Component</a>, laid out as a list of cards. Rendering the
+              same pairs one at a time behind a selector, or paginating them, would be equally conforming: the only
+              requirement is that every alert can be reached.
+            </p>
+          </aside>
+        </section>
+
+        <section id="focus-node-and-node-shape-resolution-conformance">
+          <h4>Conformance</h4>
+          <p>
+            Support for <a>Focus Node and Node Shape Resolution</a> is OPTIONAL. An implementation MAY support it. An
+            implementation that supports it MUST produce the output pairs as defined above and MUST satisfy the
+            reachability requirement stated above.
+          </p>
+        </section>
+      </section>
+
       <section id="renderer">
         <h3>SHACL Renderer</h3>
         <p>
           A <dfn>SHACL Renderer</dfn>
           is software that processes SHACL
-            <a>shapes</a> and data and dynamically generates a user-interface using one
-            or more <a>node UI components</a>. Implementations may add supplementary UI elements, such as a submit
+            <a>shapes</a> and data and dynamically generates a user-interface. Implementations MAY add supplementary UI
+            elements, such as a submit
             button to save changes, controls to toggle between edit and view modes, selectors for <a>focus node</a> and
             <a>node shape</a>, or visualizations of <a>validation report</a> messages.
 
-            They may also provide:
+            They MAY also provide:
             <ul>
               <li>State management for editing, viewing, and tracking data changes</li>
               <li>Widget management, including widget selection strategies</li>
-              <li>Logic for determining the initial focus node (target) and the best suited node shape</li>
+              <li>Support for <a>Focus Node and Node Shape Resolution</a>, for the cases where the <a>focus node</a> or the <a>node shape</a> is not provided directly</li>
               <li>An interface to interact with the data layer</li>
             </ul>
-
-            A SHACL Renderer operates on a <a>data graph</a> and a <a>shapes graph</a>, and may also take a
-            <a>focus node</a> and a <a>node shape</a>. When all four inputs are provided, the renderer
-            operates in <strong>manual mode</strong>. When the focus node or node shape is not provided,
-            the renderer may operate in <strong>automatic mode</strong>, in which case the application determines
-            appropriate values for the missing inputs.
         </p>
 
-        <p class="ednote">TODO: review SHACL Renderer definition, particularly the manual and automatic mode, now that we have the scoring system defined.</p>
+        <p>
+          Rendering is defined over exactly one (<a>focus node</a>, <a>node shape</a>) pair. Both members of the pair are
+          always present: at this step there is no undefined case and no multiplicity. Determining which pairs to render,
+          including any case in which the <a>focus node</a> or the <a>node shape</a> is absent, or in which zero or
+          several pairs result, is the responsibility of <a>Focus Node and Node Shape Resolution</a>. Where resolution
+          yields several pairs, rendering is performed once per pair.
+        </p>
+
+        <p>
+          Given a <a>data graph</a>, a <a>shapes graph</a>, a scoring graph, and one fully determined
+          (<a>focus node</a>, <a>node shape</a>) pair, a SHACL Renderer produces one <a>Node UI Component</a>. This
+          aligns with the definition of a <a>Node UI Component</a> as being generated from a single <a>focus node</a>.
+        </p>
+
+        <p>
+          The scoring graph is the RDF graph that holds the widget matcher definitions — the
+          <code>shui:WidgetScore</code> and <code>shui:WidgetAcceptMatcher</code> instances — that drive widget
+          selection, as defined in the <a href="#scoring-system">Scoring System</a> section. When selecting
+          widgets, the renderer passes down the prepared scoring graph produced by the scoring graph preparation step,
+          which is what the scoring functions operate on.
+        </p>
+
+        <p class="ednote">
+          The prepared scoring graph and the mandatory scoring graph preparation step referenced here are introduced by
+          PR #994. Until that change lands, read the reference to the prepared scoring graph as the scoring graph itself.
+        </p>
 
         <div class="issue" data-number="609"></div>
       </section>
@@ -2452,6 +2590,10 @@ ex:book1 a ex:Book ;
       <p class="ednote">
         TODO: Add a pattern describing how applications choose the initial node shape and focus node for rendering.
         This pattern should explain that applications may nominate one or more root node shapes for entry-point forms.
+        Where a <a>node shape</a> is nominated but no <a>focus node</a> is given, the resulting pairs are those computed
+        by <a>Focus Node and Node Shape Resolution</a>. Choosing a root <a>node shape</a> from a given <a>focus node</a>,
+        and discovering entry-point <a>node shapes</a> when neither input is given, are out of scope in the current
+        revision and are open questions there.
       </p>
 
       <h3>Conditional Shape Selection</h3>
