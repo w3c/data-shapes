@@ -631,17 +631,6 @@ This condition ensures that such rules do not loop back to themselves and cause 
       
       <section id="desc-import">
         <h3>Importing Rule Sets</h3>
-        <div class="issue" data-number="1093">
-          <p>
-            The `IMPORTS` statement allows a rule set to include other rule sets
-            by reading a document using the web.
-            This third-party data is then used in a <a>rule set evaluation</a>
-            This presents several well-known security risks, 
-            and the specification does not define how to handle these.
-            The `IMPORTS` feature may not be appropriate as  part of the
-            SRL specification.
-          </p>
-        </div>
         <p>
           A SHACL [=rule set=] can incorporate other rule sets by
           including their URLs in the [=rule set imports=] of the rule set.
@@ -654,6 +643,10 @@ This condition ensures that such rules do not loop back to themselves and cause 
           Traversing `IMPORTS` statements during the processing of rule sets may lead to
           cyclic imports. A rule set is imported only once; 
           cycles in the import statements graph do not lead to infinite loops.
+        </p>
+        <p>
+          Support for importing rule sets is optional for SRL processors.
+          See <a href="#process-imports" class="sectionRef"></a> for further details.
         </p>
       </section>
 
@@ -712,10 +705,11 @@ This condition ensures that such rules do not loop back to themselves and cause 
         </p>
         <ol>
           <li>
-            The imports of the input rule set are resolved to form a
+            Where supported, the imports of the input rule set are resolved to form a
             rule set that includes all the rules of all 
             imported rule sets.
-            (<a href="#process-imports" class="sectionRef"></a>).
+            A processor MUST signal an error if any import is not acceptable
+            to the processor (<a href="#process-imports" class="sectionRef"></a>).
           </li>
           <li>
             A [=stratification=] is calculated (<a href="#stratification-algorithm"></a>
@@ -1718,6 +1712,34 @@ enddefine
 
       <section id="process-imports">
         <h3>Processing Imports</h3>
+         <p>
+          Reading documents from the web has security implications.
+          Support for importing rule sets is optional for SRL processors.
+          Further, implementations MAY provide partial support,
+          such as supporting imports of certain rules sets and not others,
+          and possibily from a verified copy.
+        </p>
+        <p>
+          The following condition apply to imports processing:
+        </p>
+        <ul>
+          <li>Implementations that do not support importing rule sets MUST reject
+            a rule sets that contain `IMPORTS` statements and signal an error.
+          </li>
+          <li>
+            An implementation that provies partial support 
+            MUST signal an error if it encounters an import 
+            that it does not support.
+          </li>
+          <li>
+            An implementation MUST signal an error if it can not resolve the import document,
+            or if the document not syntactically valid.
+          </li>
+          <li>
+            Processors MUST only import a rule set once to avoid infinite loops
+            when processing `IMPORTS` statements.
+          </li>
+        </ul>
         <p>
           A [=resolved rule set=] is produced from another rule set by 
           recursively reading all rule sets mentioned
@@ -2917,7 +2939,9 @@ the result is GI
     <section id="shapes-rules-grammar">
       <h2>Shape Rules Language Grammar</h2>
 
-      <p>A <a>Shape Rules Language document</a> is an <a data-cite="RDF12-CONCEPTS#dfn-rdf-string">RDF string</a>
+      <p>
+        A <dfn data-lt="SRL document">Shape Rules Language document</dfn>
+        is an <a data-cite="RDF12-CONCEPTS#dfn-rdf-string">RDF string</a>
         encoded in UTF-8 [[!RFC3629]].
         Only <a data-cite="I18N-GLOSSARY#dfn-scalar-value" class="lint-ignore">Unicode scalar values</a>,
         in the ranges <code class="codepoint">U+0000</code> to <code class="codepoint">U+D7FF</code> 
@@ -3355,6 +3379,26 @@ the result is GI
     <section id="security" class="appendix informative">
       <h2>Security Considerations</h2>
       <p class="todo">TODO</p>
+      <p>
+        SRL documents can contain `IMPORTS` statements that reference other [=SRL documents=].
+        If an imported document itself contains its own `IMPORTS` statements,
+        those documents are also imported. 
+      </p>
+      <p>
+        While useful to modularise [=rule sets=], the use of `IMPORTS` statements can 
+        introduce security risks.
+        Risks include, but are not limited to, [=rule sets=]
+        causing excessive computation, whether maliciously or accidental, while being evaluated;
+        and HTTP requests being intercepted and a different document being returned,
+        including out-of-date copies.
+      </p>        
+      <p>
+        See <a href="#imports-processing" class="sectionRef"></a>.
+      </p>
+      <p class="ednote">
+        Need input on the security considerations.
+      </p>
+
     </section>
 
     <section id="privacy" class="appendix informative">
