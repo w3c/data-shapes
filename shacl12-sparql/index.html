@@ -417,6 +417,8 @@
 						<a href="#sparql-constraints"></a> and <a href="#sparql-constraint-components"></a></li>
 					<li><strong>SPARQL node expression processors</strong> as processors that can evaluate
 						<a href="#sparql-node-expressions"></a></li>
+					<li><strong>SPARQL custom functions processors</strong> as processors that can evaluate
+						<a href="#sparql-functions"></a></li>
 					<li><strong>SHACL-SPARQL rule processors</strong> as processors that support the evaluation of
 						<a href="#sparql-rules"></a></li>
 				</ul>
@@ -1443,10 +1445,9 @@ ex:hasLang
 				If the variable has no <a>binding</a> in the result set <a>solution</a>,
 				then the <a>values</a> of <code>sh:annotationValue</code> are used, if present.
 			</p>
-			<p>
-				Here is an example illustrating the use of result annotations.
-			</p>
-			<pre class="example-shapes">
+			<aside class="example" title="Example of using result annotations">
+				<div class="shapes-graph">
+					<div class="turtle">
 ex:AnnotationExample
 	a sh:NodeShape ;
 	sh:targetNode ex:ExampleResource ;
@@ -1462,11 +1463,11 @@ ex:AnnotationExample
 				BIND (NOW() AS ?time) .
 			}
 			""" ;
-	] .</pre>
-			<p>
-				Validation produces the following validation report:
-			</p>
-			<pre class="example-results">
+	] .
+					</div>
+				</div>
+				<div class="results-graph">
+					<div class="turtle">
 [	a sh:ValidationReport ;
 	sh:conforms false ;
 	sh:result [
@@ -1479,7 +1480,10 @@ ex:AnnotationExample
 		sh:sourceShape ex:AnnotationExample ;
 		ex:time "2015-03-27T10:58:00"^^xsd:dateTime ;  # Example
 	]
-] .</pre>
+] .
+					</div>
+				</div>
+			</aside>
 		</section>
 
 		<section id="sparql-node-expressions">
@@ -1776,6 +1780,62 @@ ex:Resource-uriLength
 					</p>
 				</aside>
 			</section>
+		</section>
+
+		<section id="sparql-functions">
+			<h2>Declaring SPARQL Functions based on Node Expressions</h2>
+			<p>
+				<a data-cite="shacl12-node-expr"></a> defines <a data-cite="shacl12-node-expr#custom-list-parameter-functions">Custom List Parameter Functions</a>
+				as a mechanism to declare new node expression functions.
+				These can be used as part of other node expressions.
+				This section introduces a mechanism for SPARQL processors to make such list parameter functions
+				available as SPARQL functions, using the <a data-cite="sparql12-query/#extensionFunctions">Extensible Value Testing</a>
+				extension point of SPARQL.
+			</p>
+			<aside class="example" title="An example custom list parameter expression function">
+				<p>
+					This function takes two parameters and uses a <a>SPARQL expr expression</a> as its body expression.
+					In that SPARQL expression, the variables `$arg0` and `$arg1` are used to access the list parameter values.
+				</p>
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:spacedConcat
+    a sh:ListParameterExpressionFunction ;
+    rdfs:label "Spaced concat expression"@en ;
+    rdfs:subClassOf sh:ListParameterExpression ;
+    sh:bodyExpression [
+		sh:sparqlExpr "CONCAT($arg0, ' ', $arg1)"
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg0 ;
+		sh:name "first string" ;
+		sh:description "The first string to concatenate." ;
+		sh:datatype xsd:string ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg1 ;
+		sh:name "second string" ;
+		sh:description "The second string to concatenate." ;
+		sh:datatype xsd:string ;
+	] .
+					</div>
+				</div>
+				<p>
+					A SPARQL engine that supports SPARQL functions based on node expressions is able
+					to process a SPARQL query such as the following:
+				</p>
+				<pre class="text">
+SELECT ?person ?fullName
+WHERE {
+	?person a ex:Person .
+	?person ex:firstName ?firstName .
+	?person ex:lastName ?lastName .
+	BIND (ex:spacedConcat(?firstName, ?lastName) AS ?fullName) .
+}
+				</pre>
+			</aside>
 		</section>
 
 		<section id="sparql-rules">
