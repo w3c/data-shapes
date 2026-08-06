@@ -2972,10 +2972,10 @@ ex:Name a sh:PropertyShape ;
         Common examples of display label predicates include <code>rdfs:label</code>, <code>skos:prefLabel</code>, and <code>schema:name</code>.
       </p>
 
-      <h4 id="SubLabelRole">shui:SubLabelRole</h4>
+      <h4 id="DescriptionRole">shui:DescriptionRole</h4>
 
       <p>
-        The <code>shui:SubLabelRole</code> is used to identify properties whose values serve as secondary, less prominent display
+        The <code>shui:DescriptionRole</code> is used to identify properties whose values serve as secondary, less prominent display
         text shown alongside a <a href="#LabelRole"><code>shui:LabelRole</code></a> value, for example to help a user disambiguate
         between resources that otherwise share the same label.
       </p>
@@ -3015,7 +3015,7 @@ ex:Name a sh:PropertyShape ;
         candidate values and need to render both the currently selected value and each candidate as more than a bare <a>IRI</a>.
         This section defines how a <a>shapes graph</a> can combine <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic
         SHACL</a> with <a href="#property-roles">Property Roles</a> to declare, alongside the source of a value list, the
-        additional display metadata — such as a label, a sub label, or a depiction — that a SHACL Renderer may use for each item.
+        additional display metadata — such as a label, a description, or a depiction — that a SHACL Renderer may use for each item.
       </p>
 
       <p>
@@ -3031,7 +3031,7 @@ ex:Name a sh:PropertyShape ;
         pointing at a <a>node shape</a> whose property shapes are annotated with <a href="#property-roles">property roles</a>. When
         a SHACL Renderer detects this combination of <code>sh:node</code> and <code>sh:in</code> with a nested
         <code>sh:select</code> on a property shape, it MAY use the property roles declared on the <code>sh:node</code> shape to
-        resolve a label, a sub label, a depiction, or other display metadata for each candidate value, including the value
+        resolve a label, a description, a depiction, or other display metadata for each candidate value, including the value
         currently selected. The query given as the value of <code>sh:select</code> MAY use the SPARQL <code>SERVICE</code> keyword
         to make a federated call.
       </p>
@@ -3066,13 +3066,24 @@ ex:PersonDisplayShape
     a sh:NodeShape ;
     sh:property [
         sh:path schema:name ;
-        shui:propertyRole shui:LabelRole ;
-        sh:order 1 ;
+        shui:propertyRole [
+            shui:propertyRole shui:LabelRole ;
+            sh:order 0
+        ] ;
+    ] ;
+    sh:property [
+        sh:path schema:alternateName ;
+        shui:propertyRole [
+            shui:propertyRole shui:LabelRole ;
+            sh:order 1
+        ] ;
     ] ;
     sh:property [
         sh:path ex:pseudonym ;
-        shui:propertyRole shui:SubLabelRole ;
-        sh:order 2 ;
+        shui:propertyRole [
+            shui:propertyRole shui:DescriptionRole ;
+            sh:order 0
+        ] ;
     ] .
           </div>
         </div>
@@ -3080,17 +3091,26 @@ ex:PersonDisplayShape
           The <code>sh:in</code> constraint on <code>dct:creator</code> uses a <a href="../shacl12-sparql/#SelectExpression">select
           expression</a> to fetch candidate <code>ex:Person</code> resources from a federated SPARQL endpoint using
           <code>SERVICE</code>. The accompanying <code>sh:node ex:PersonDisplayShape</code> constraint declares that the
-          <code>schema:name</code> of each candidate serves as its <a href="#LabelRole"><code>shui:LabelRole</code></a> and that
-          <code>ex:pseudonym</code> serves as its <a href="#SubLabelRole"><code>shui:SubLabelRole</code></a>.
+          <code>schema:name</code> of each candidate serves as its <a href="#LabelRole"><code>shui:LabelRole</code></a>, with
+          <code>schema:alternateName</code> declared as a lower-priority fallback for the same role, and that
+          <code>ex:pseudonym</code> serves as its <a href="#DescriptionRole"><code>shui:DescriptionRole</code></a>.
         </p>
       </aside>
 
       <p>
-        For the purposes of resolving item display metadata as described in this section, when multiple property shapes on the
-        <code>sh:node</code> shape are annotated with the same <code>shui:propertyRole</code>, the property shape with the
-        <em>highest</em> <code>sh:order</code> value wins. Remaining ties are broken using codepoint comparison. Implementations
-        MAY define additional, custom property roles, beyond <a href="#LabelRole"><code>shui:LabelRole</code></a>,
-        <a href="#SubLabelRole"><code>shui:SubLabelRole</code></a>, and <a href="#DepictionRole"><code>shui:DepictionRole</code></a>,
+        In the example above, both <code>schema:name</code> and <code>schema:alternateName</code> are annotated with
+        <code>shui:LabelRole</code>; since <code>schema:name</code> declares the smaller <code>sh:order</code> value
+        (<code>0</code>, versus <code>1</code> for <code>schema:alternateName</code>), it is the one used to resolve the
+        label. More generally, when multiple property shapes on the <code>sh:node</code> shape are annotated with the same
+        <code>shui:propertyRole</code>, the same rule as <a href="#property-roles">qualified role annotation</a> applies: the
+        property shape with the smallest <code>sh:order</code> value wins. A property shape that declares
+        <code>sh:order</code> is always preferred over a tied property shape that does not. If a tie remains — because
+        the tied property shapes share the same <code>sh:order</code> value, or because none of them declares
+        <code>sh:order</code> — it is broken by comparing the Unicode codepoints of the string form of each property
+        shape's <code>sh:path</code> (its IRI, for the common case of a simple path); the property shape whose path
+        sorts first wins. Implementations MAY define
+        additional, custom property roles, beyond <a href="#LabelRole"><code>shui:LabelRole</code></a>,
+        <a href="#DescriptionRole"><code>shui:DescriptionRole</code></a>, and <a href="#DepictionRole"><code>shui:DepictionRole</code></a>,
         to drive more specialized displays.
       </p>
 
@@ -3130,6 +3150,16 @@ ex:PersonDisplayShape
         query used for filtering with the queries needed to resolve the property roles declared on the <code>sh:node</code> shape.
       </p>
 
+      <p>
+        Because <code>shui:searchQuery</code> is evaluated independently of <code>sh:select</code>, nothing guarantees that a
+        candidate matched by <code>shui:searchQuery</code> is also present in the value set produced by <code>sh:select</code>.
+        Shape authors SHOULD design <code>shui:searchQuery</code> so that it only returns values within the same scope as
+        <code>sh:select</code> (e.g., by reusing the same type and graph constraints), to avoid offering the end user candidates
+        that would fail the <code>sh:in</code> constraint. Regardless of how a value was located, it remains subject to the
+        <code>sh:in</code> constraint, and a SHACL Renderer or validating engine MAY reject a value returned by
+        <code>shui:searchQuery</code> if it does not satisfy that constraint.
+      </p>
+
       <aside class="example" title="Using shui:searchQuery to enable fulltext search">
         <div class="shapes-graph">
           <div class="turtle">
@@ -3149,7 +3179,7 @@ ex:BookShape
                 SELECT ?value
                 WHERE {
                      SERVICE &lt;http://example.com/sparql&gt; {
-                         ?value a ex:Person ;
+                         ?value a ex:Person .
                     }
                 }
             """ ;
@@ -3174,14 +3204,18 @@ ex:PersonDisplayShape
     a sh:NodeShape ;
     sh:property [
         sh:path schema:name ;
-        shui:propertyRole shui:LabelRole ;
-        sh:order 1 ;
+        shui:propertyRole [
+            shui:propertyRole shui:LabelRole ;
+            sh:order 0
+        ] ;
         sh:minCount 1 ;
     ] ;
     sh:property [
         sh:path ex:pseudonym ;
-        shui:propertyRole shui:SubLabelRole ;
-        sh:order 2 ;
+        shui:propertyRole [
+            shui:propertyRole shui:DescriptionRole ;
+            sh:order 0
+        ] ;
     ] .
           </div>
         </div>
@@ -3203,7 +3237,7 @@ ex:PersonDisplayShape
 
       <pre class="example">
 PREFIX text: &lt;http://jena.apache.org/text#&gt;
-PREFIX ex: &lt;https://example.com/&gt;
+PREFIX ex: &lt;http://example.com/&gt;
 PREFIX schema: &lt;https://schema.org/&gt;
 
 SELECT ?value (SAMPLE(?prop_1) AS ?prop1) (SAMPLE(?prop_2) AS ?prop2) WHERE {
@@ -3218,11 +3252,11 @@ SELECT ?value (SAMPLE(?prop_1) AS ?prop1) (SAMPLE(?prop_2) AS ?prop2) WHERE {
   }
   SERVICE &lt;http://example.com/sparql&gt; {
     ?value schema:name ?prop_1 .
-    FILTER (lang(?prop_1) = ?uiLanguage || lang(?prop_1) = "")
+    FILTER (langMatches(lang(?prop_1), ?uiLanguage) || lang(?prop_1) = "")
 
     OPTIONAL {
       ?value ex:pseudonym ?prop_2 .
-      FILTER (lang(?prop_2) = ?uiLanguage || lang(?prop_2) = "")
+      FILTER (langMatches(lang(?prop_2), ?uiLanguage) || lang(?prop_2) = "")
     }
   }
 }
