@@ -60,9 +60,9 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-        // Replace code div blocks in shapes, data, and results graph with tabs
+        // Replace code div blocks in shapes, data, scoring, and results graph with tabs
         for (const graph of document.querySelectorAll(
-          ".shapes-graph, .data-graph, .results-graph"
+          ".shapes-graph, .data-graph, .scoring-graph, .results-graph"
         )) {
           const tabs = document.createElement("aside");
           tabs.classList.add("ds-selector-tabs");
@@ -589,6 +589,15 @@
           </div>
         </div>
 
+        <div class="scoring-graph">
+          <div class="turtle">
+# This box represents an input scoring graph
+          </div>
+          <div class="jsonld">
+            <pre class="text">// This box represents an input scoring graph</pre>
+          </div>
+        </div>
+
         <div class="results-graph">
           <div class="turtle">
 # This box represents an output results graph
@@ -808,7 +817,9 @@ ex:PersonShape a sh:NodeShape ;
           <a href="#displaying-validation-results">Displaying Validation
           Results</a> pattern. The renderer also uses
           <code>sh:group</code> and <code>sh:order</code> annotations to
-          control the form layout. In this example, the name-related properties
+          control the form layout, as defined in the related
+          <a href="#grouping-and-ordering">Grouping, Ordering, and Layout
+          Hints</a> pattern. In this example, the name-related properties
           are grouped into a <strong>Name</strong> section and ordered
           according to their <code>sh:order</code> values, while the birth
           date is rendered separately because it does not belong to a group.
@@ -920,7 +931,7 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
         </aside>
 
         <p class="note">
-          Note that `schema:honorificPrefix` has no `sh:minCount`, so it is 
+          Note that `schema:honorificPrefix` has no `sh:minCount`, so it is
           optional. The `rdfs:label` node expression should therefore handle
           missing values. For brevity, this example assumes that
           `schema:honorificPrefix` is always present.
@@ -1120,7 +1131,7 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
 
         <p>
           We have only briefly touched on cardinality constraints. Other useful
-          but more complex topics include logical constraints and using 
+          but more complex topics include logical constraints and using
           <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>
           to populate the values for the enum and autocomplete editors.
           You can find these in the <a href="#patterns">Patterns</a> section.
@@ -1210,96 +1221,152 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
             example, prefer a Boolean Select widget when the shape requires a
             boolean value via a <code>sh:datatype</code> constraint.</li>
         </ul>
+        <p>
+          The scoring graph is populated with instances of `shui:WidgetMatcher`. A
+          `shui:WidgetMatcher` associates a widget (via `shui:widget`) with the
+          conditions under which it applies, expressed as SHACL shapes referenced through
+          `shui:shapesGraphShape` (validated against the shape node in the shapes graph)
+          and `shui:dataGraphShape` (validated against the focus node in the data graph).
+          Two kinds of matcher are defined:
+        </p>
+        <ul>
+          <li><strong>`shui:WidgetScore`</strong> — a matcher that additionally carries a
+            `shui:score`. When its shapes match, its widget is recorded with that score
+            by the <a href="#scoring-algorithm-score-function">score function</a>.
+          </li>
+          <li><strong>`shui:WidgetAcceptMatcher`</strong> — a matcher used by the
+            <a href="#scoring-algorithm-accept-function">accept function</a> to decide whether a
+            widget is applicable at all. A widget without a `shui:WidgetAcceptMatcher` is
+            accepted unconditionally.
+          </li>
+        </ul>
+        <p>
+          The <a href="#scoring-algorithm-score-function">score function</a> is the entry point to the scoring system.
+          It combines both kinds of matcher: a widget is returned only if one of its `shui:WidgetScore` instances
+          matches and the widget is accepted according to its `shui:WidgetAcceptMatcher` instances.
+        </p>
+        <p>
+          A widget can also be attached to a shape directly, using `shui:editor` or `shui:viewer`. Such a widget
+          takes part in scoring like any other: the scoring graph is expected to contain a `shui:WidgetScore`
+          whose `shui:shapesGraphShape` matches shapes that declare the widget in this way.
+          <a href="#scoring-algorithm-scoring-graph-preparation">Scoring graph preparation</a> supplies such a
+          `shui:WidgetScore` for declared widgets that have none, so that a widget attached to a shape is never
+          silently ignored.
+        </p>
       </section>
 
-      <section id="select-function">
-        <h3>Select Function</h3>
-
+      <section id="scoring-algorithm-scoring-graph-preparation">
+        <h3>Scoring Graph Preparation</h3>
         <p>
-          The <strong>Select</strong> function determines which widget should be used for a given combination of a focus node and a property shape.
+          A widget can be attached to a shape directly, with `shui:editor` or `shui:viewer`, without the
+          <strong>scoring graph</strong> saying anything about that widget. Scoring graph preparation extends the
+          <strong>scoring graph</strong> with a `shui:WidgetScore` for each such widget, so that it participates in
+          the <a href="#scoring-algorithm-score-function">score function</a> like any other widget.
         </p>
-
+        <p>
+          A scoring graph MUST be prepared by this function before it is passed to the
+          <a href="#scoring-algorithm-score-function">score function</a>. Without preparation, a widget that is only
+          attached to a shape with `shui:editor` or `shui:viewer` is never returned.
+        </p>
         <p>
           Inputs:
         </p>
         <ul>
-          <li><strong>Focus node</strong> — The node to validate, may also be <code>undefined</code>.</li>
-          <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
-          <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
-          <li><strong>Shapes graph</strong> — RDF graph containing the SHACL shapes.</li>
-          <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
-          <li><strong>Widget predicate</strong> — The predicate used to specify the widget in the <strong>Shape node</strong>, typically <code>shui:editor</code> or <code>shui:viewer</code>.</li>
+          <li><strong>Shapes graph</strong> — The RDF graph containing the SHACL shapes.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the `shui:WidgetMatcher` definitions
+            (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`).
+          </li>
         </ul>
-
         <p>Output:</p>
         <ul>
-          <li>A <strong>Widget IRI</strong> — The IRI of the widget to use, typically a subclass of <code>shui:Widget</code>.</li>
+          <li>A <strong>prepared scoring graph</strong> — the <strong>scoring graph</strong> extended with a
+            `shui:WidgetScore` for each explicitly declared widget that has none.
+          </li>
         </ul>
-
         <p>Steps:</p>
         <ol>
-          <li>If the <strong>Shape node</strong> has a <strong>Widget IRI</strong> defined via <strong>Widget predicate:</strong>
+          <li>Initialize the <strong>prepared scoring graph</strong> as a copy of the <strong>scoring graph</strong>.</li>
+          <li>Let <code>D</code> be the value of the <a>global configuration</a> property `shui:defaultWidgetScore`.
+            If no such value is given, let <code>D</code> be <code>40</code>, which is the score conventionally used by the
+            `shui:WidgetScore` instances of the <a href="#builtin-widgets">built-in widgets</a> that match an explicitly
+            declared widget.
+          </li>
+          <li>For each property <code>P</code> in <code>shui:editor</code> and <code>shui:viewer</code>
             <ol>
-              <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>AM</code> with a matching <code>shui:widget</code> value.</li>
-              <li>If there is no <strong>Accept Matcher</strong> defined for the widget, return the <strong>Widget IRI</strong>.</li>
-              <li>Call the <strong>matcher</strong> function with the following inputs:
-                <ul>
-                  <li><strong>Focus node</strong> — The focus node or undefined if there are no focus nodes.</li>
-                  <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
-                  <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
-                  <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-                  <li><strong>Matcher node</strong> — The <strong>Accept Matcher</strong> <code>AM</code>.</li>
-                  <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
-                </ul>
+              <li>Collect the set of <a>values</a> <code>W</code> of the property <code>P</code> of the <a>shapes</a> in the
+                <strong>shapes graph</strong>. These are the widgets that are explicitly declared on a shape. A value of
+                <code>P</code> at a node that is not a shape does not declare a widget and is ignored.
               </li>
-              <li>If the return value is <code>true</code>, return the <strong>Widget IRI</strong>.</li>
-              <li>If the return value is <code>false</code>, continue with the next step. When a widget is not accepted it falls through to scoring.</li>
+              <li>For each <code>W</code>
+                <ol>
+                  <li>If the <strong>scoring graph</strong> contains an instance of `shui:WidgetScore` whose `shui:widget`
+                    value is <code>W</code>, continue with the next <code>W</code>. The <strong>scoring graph</strong>
+                    already defines how <code>W</code> is scored.
+                  </li>
+                  <li>Otherwise, add an instance of `shui:WidgetScore` to the <strong>prepared scoring graph</strong> with
+                    the following:
+                    <ul>
+                      <li><code>W</code> as `shui:widget`.</li>
+                      <li><code>D</code> as `shui:score`.</li>
+                      <li>As `shui:shapesGraphShape`, a `sh:NodeShape` with a single property shape whose `sh:path` is
+                        <code>P</code> and whose `sh:hasValue` is <code>W</code>.
+                      </li>
+                    </ul>
+                  </li>
+                </ol>
+              </li>
             </ol>
           </li>
-          <li>Call the <strong>score</strong> function with the following inputs and store the return value in an array <code>matches</code>:
-            <ul>
-              <li><strong>Best</strong> — A boolean flag; must be <code>false</code>.</li>
-              <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
-              <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
-              <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
-              <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-              <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
-            </ul>
-          </li>
-          <li>
-            For each score result in array <code>matches</code>
-            <ol>
-              <li>Get the <strong>Widget IRI</strong> from the score result as <code>WI</code>.</li>
-              <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>AM</code> with a matching <code>shui:widget</code> value.</li>
-              <li>If there is no <strong>Accept Matcher</strong> defined for the widget, return <code>WI</code>.</li>
-              <li>Call the <strong>matcher</strong> function with the following inputs:
-                <ul>
-                  <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
-                  <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
-                  <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
-                  <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-                  <li><strong>Matcher node</strong> — The <strong>Accept Matcher</strong> <code>AM</code>.</li>
-                  <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
-                </ul>
-              </li>
-              <li>If the return value is <code>true</code>, return <code>WI</code>.</li>
-              <li>If the return value is <code>false</code>, continue with the next iteration.</li>
-            </ol>
-          </li>
-          <li>If there are no more <strong>score results</strong> in array <code>matches</code>, return undefined.</li>
+          <li>Return the <strong>prepared scoring graph</strong>.</li>
         </ol>
-
-        <section id="select-function-processing">
-          <h4>Processing</h4>
+        <aside class="example" title="A widget score added by scoring graph preparation">
+          <div class="shapes-graph">
+            <div class="turtle">
+ex:PersonShapeName
+    a sh:PropertyShape ;
+    sh:path ex:name ;
+    shui:editor ex:MyCustomEditor ;
+.
+            </div>
+          </div>
           <p>
-            The <strong>Select</strong> function MUST raise an error and terminate the algorithm in the following scenarios:
+            The scoring graph says nothing about <code>ex:MyCustomEditor</code>, so preparation adds the following
+            <code>shui:WidgetScore</code>, which matches exactly those shapes that declare that widget with
+            <code>shui:editor</code>:
           </p>
-          <ul>
-            <li>Any mandatory inputs are missing.</li>
-            <li>Widget Score instances are malformed.</li>
-          </ul>
-
-        </section>
+          <div class="scoring-graph">
+            <div class="turtle">
+[]  a shui:WidgetScore ;
+    shui:widget ex:MyCustomEditor ;
+    shui:score 40 ;
+    shui:shapesGraphShape [
+        a sh:NodeShape ;
+        sh:property [
+            sh:path shui:editor ;
+            sh:hasValue ex:MyCustomEditor ;
+        ] ;
+    ] ;
+.
+            </div>
+          </div>
+        </aside>
+        <p class="ednote">
+          The <a>global configuration</a> is defined by
+          <a href="https://github.com/w3c/data-shapes/pull/900">PR #900</a>, which is not merged yet.
+          Add `shui:defaultWidgetScore` to its property table once it is.
+        </p>
+        <p class="note">
+          Scoring graph preparation depends only on the <strong>shapes graph</strong> and the <strong>scoring graph</strong>,
+          not on a focus node or a shape node. It is therefore the same for every call of the score function over those two
+          graphs, and implementations MAY perform it once and reuse the result. Applying it to an already prepared scoring
+          graph makes no further changes.
+        </p>
+        <p class="note">
+          A widget that the <strong>scoring graph</strong> already scores is left untouched, even when the existing
+          `shui:WidgetScore` instances do not cover the declared case. A scoring graph that scores a widget is expected to
+          also define how that widget is scored when a shape declares it, conventionally with a `shui:WidgetScore` whose
+          `shui:shapesGraphShape` tests the `shui:editor` or `shui:viewer` property.
+        </p>
       </section>
 
 
@@ -1321,7 +1388,9 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
         <p>Steps:</p>
         <ol>
           <li>If <strong>shape node</strong> is empty, return <code>true</code>.</li>
-          <li>If the <strong>focus node</strong> is not a subject in the <strong>target graph</strong>, return <code>false</code>.</li>
+          <li>If the <strong>focus node</strong> is not a literal and is not a subject in the <strong>target
+            graph</strong>, return <code>false</code>.
+          </li>
           <li>Validate the <strong>focus node</strong> according to standard SHACL validation with the following:
             <ul>
               <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
@@ -1354,8 +1423,12 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
           <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
           <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
           <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
-          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
-          <li><strong>Matcher node</strong> — The RDF node containing the widget score definition, an instance of <code>shui:WidgetAcceptMatcher</code>.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the `shui:WidgetMatcher` definitions
+            (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`).
+          </li>
+          <li><strong>Matcher node</strong> — The RDF node containing the widget matcher definition, an instance of
+            `shui:WidgetMatcher` (for example a `shui:WidgetScore` or a `shui:WidgetAcceptMatcher`).
+          </li>
         </ul>
         <p>Steps:</p>
           <ol>
@@ -1376,7 +1449,7 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
               <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
               <li><strong>Data graph</strong> as <strong>target graph</strong>.</li>
               <li>The value of the `shui:dataGraphShape` property of <strong>matcher node</strong> as <strong>shape node</strong>.</li>
-              <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+              <li><strong>Scoring graph</strong> as <strong>shapes graph</strong>.</li>
             </ul>
           </li>
             <li>If the function returns <code>false</code>, return <code>false</code>.</li>
@@ -1387,56 +1460,109 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
       <section id="scoring-algorithm-score-function">
         <h3>Score Function</h3>
           <p>
-            The score function used to find the best widget or an ordered list of matches.
+            The score function determines which widgets should be used for a given combination of a focus node and a
+            shape node. It is the entry point to the scoring system: it returns the widgets whose
+            <code>shui:WidgetScore</code> matches and that are accepted according to their
+            <code>shui:WidgetAcceptMatcher</code> instances, ordered from best to worst match.
           </p>
           <p>
             Inputs:
           </p>
         <ul>
-          <li><strong>Best</strong> — A boolean flag; if true, return only the first matching result.</li>
-          <li><strong>Focus node</strong> — The node to validate.</li>
+          <li><strong>Focus node</strong> — The node to validate, may also be <code>undefined</code>.</li>
           <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
           <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
           <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
-          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the `shui:WidgetMatcher` definitions
+            (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`). It MUST be a scoring graph that has been prepared
+            according to <a href="#scoring-algorithm-scoring-graph-preparation">scoring graph preparation</a>.
+          </li>
         </ul>
+        <p>Output:</p>
+        <ul>
+          <li>An ordered sequence of <strong>widget results</strong>, sorted by descending <code>shui:score</code> so that
+            the best match comes first. The sequence is empty if no widget matches and is accepted.
+          </li>
+        </ul>
+        <p>
+          A <strong>widget result</strong> holds the <code>shui:widget</code> of a matching <code>shui:WidgetScore</code>,
+          the IRI of that <code>shui:WidgetScore</code>, and its <code>shui:score</code>.
+        </p>
         <p>Steps:</p>
         <ol>
-          <li>Initialize an empty list <code>results</code>.</li>
+          <li>Initialize an empty ordered sequence <code>results</code>.</li>
           <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong>, sorted by <code>shui:score</code>
             in descending order and then lexicographically by the Unicode codepoint values of <code>shui:widget</code>.</li>
-          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>
+          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>, in that order
             <ol>
-              <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>M</code> with a matching <code>shui:widget</code> value.</li>
               <li>Call the matcher function with the following:
                 <ul>
                   <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
                   <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
                   <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
                   <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
-                  <li><code>M</code> as <strong>matcher node</strong>.</li>
+                  <li><code>S</code> as <strong>matcher node</strong>.</li>
                   <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
                 </ul>
               </li>
-              <li>
-                If the matcher function returns <code>true</code>, and <strong>best</strong> is <code>true</code>, return the object with the following:
+              <li>If the matcher function returns <code>false</code>, continue with the next instance.</li>
+              <li>Call the accept function with the following:
+                <ul>
+                  <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+                  <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
+                  <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+                  <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+                  <li>The <code>shui:widget</code> of <code>S</code> as <strong>widget node</strong>.</li>
+                  <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
+                </ul>
+              </li>
+              <li>If the accept function returns <code>false</code>, continue with the next instance.</li>
+              <li>Let <code>R</code> be the widget result with the following:
                 <ul>
                   <li>The <code>shui:widget</code> of <code>S</code>.</li>
                   <li>The IRI of <code>S</code>.</li>
                   <li>The <code>shui:score</code> of <code>S</code>.</li>
                 </ul>
               </li>
-              <li>If the matcher function returns <code>true</code>, record widget score by appending the object to <code>results</code>.</li>
+              <li>Record the widget score by appending <code>R</code> to <code>results</code>.</li>
             </ol>
           </li>
           <li>Return <code>results</code>.</li>
         </ol>
+        <p class="note">
+          A caller that only needs the best matching widget takes the first result of the sequence.
+          The order of the results is fixed by the <code>shui:score</code> values and <code>shui:widget</code> IRIs alone,
+          which are known before any widget matcher is evaluated. The score function therefore does not need to evaluate
+          every widget matcher in order to produce its first result, and implementations MAY produce <code>results</code>
+          lazily — for example as an iterator or a generator — evaluating the matchers for each <code>shui:WidgetScore</code>
+          only when the caller requests the next result. Only the matchers up to and including the first accepted widget then
+          have to be evaluated: if the best scoring widget is rejected by its <code>shui:WidgetAcceptMatcher</code>, the next
+          best is evaluated, and so on. Because widget matchers are evaluated independently of one another, lazy and eager
+          evaluation produce the same sequence.
+        </p>
+        <p class="note">
+          Several <code>shui:WidgetScore</code> instances may share the same <code>shui:widget</code>, in which case the accept
+          function is called more than once for that widget with the same inputs. The accept function is deterministic for a
+          given focus node and shape node, so implementations MAY evaluate it once per widget and reuse the result.
+        </p>
+
+        <section id="scoring-algorithm-score-function-processing">
+          <h4>Processing</h4>
+          <p>
+            The score function MUST raise an error and terminate the algorithm in the following scenarios:
+          </p>
+          <ul>
+            <li>Any mandatory inputs are missing.</li>
+            <li>Widget Score instances are malformed.</li>
+          </ul>
+        </section>
       </section>
 
       <section id="scoring-algorithm-accept-function">
         <h3>Accept Function</h3>
           <p>
-            The accept function used to check if a widget is applicable.
+            The accept function used by the <a href="#scoring-algorithm-score-function">score function</a> to check if a
+            widget is applicable.
           </p>
           <p>
             Inputs:
@@ -1447,7 +1573,9 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
           <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
           <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
           <li><strong>Widget node</strong> — The IRI of the widget to check acceptance for.</li>
-          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+        <li><strong>Scoring graph</strong> — The RDF graph containing the `shui:WidgetMatcher` definitions
+          (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`).
+        </li>
         </ul>
         <p>Steps:</p>
         <ol>
@@ -1480,7 +1608,7 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
         </p>
       </section>
 
-      <section id="select-function-widget-score-validation">
+      <section id="scoring-algorithm-widget-score-validation">
         <h3>Widget Score Validation</h3>
         <p>Widget Scores are malformed if they fail to validate against this <a href="./widgets/score-validator.ttl">score validation shapes graph</a>.</p>
       </section>
@@ -2158,10 +2286,143 @@ ex:book1 a ex:Book ;
       <h4>Fetching values from named graphs</h4>
       <div class="issue" data-number="672"></div>
 
-      <h3>Grouping, Ordering, and Layout Hints</h3>
-      <p class="ednote">
-        Add a pattern explaining how renderers can use sh:group, sh:order, and possibly implementation-specific layout annotations to organize property UI components.
+      <h3 id="grouping-and-ordering">Grouping, Ordering, and Layout Hints</h3>
+
+      <p><em>This section is normative, except for the part explicitly marked as non-normative below.</em></p>
+
+      <p>
+        SHACL Renderers MUST determine the presentation order of <a>property shapes</a> and
+        property groups using the value of <code>sh:order</code>. At each level of rendering,
+        property groups and ungrouped <a>property shapes</a> MUST be treated as members of a single
+        ordered sequence.
       </p>
+
+      <p>
+        For a <a>property shape</a> that specifies <code>sh:group</code>, the position of the
+        property shape in the top-level sequence MUST be determined by the <code>sh:order</code> of
+        the referenced property group. The property shape's own <code>sh:order</code> MUST be used
+        only to determine its position within that property group. Within a property group,
+        <a>property shapes</a> MUST be ordered according to their own <code>sh:order</code> values.
+        The same ordering rules MUST be applied recursively to nested property groups, if supported
+        by the renderer.
+      </p>
+
+      <p>
+        The <dfn data-lt="effective orders">effective order</dfn> of a <a>property shape</a> or
+        property group is the value of its <code>sh:order</code>. Where <code>sh:order</code> is not
+        specified, the <a>effective order</a> is the value of <code>shui:defaultOrder</code> in the
+        <a>global configuration</a>, if present. Otherwise the property shape or property group has
+        no <a>effective order</a>.
+      </p>
+
+      <p>
+        Renderers MUST order the members of an ordered sequence by the ascending numeric value of
+        their <a>effective order</a>. Members that have no <a>effective order</a> MUST be placed
+        after all members that have one.
+      </p>
+
+      <p>
+        The <a>global configuration</a> property <code>shui:defaultOrder</code> declares the
+        <a>effective order</a> assumed for <a>property shapes</a> and property groups that do not
+        specify <code>sh:order</code>. Its value is a <a>literal</a> with <a>datatype</a>
+        <code>xsd:decimal</code> or <code>xsd:integer</code>, which are the datatypes that
+        <code>sh:order</code> permits.
+      </p>
+
+      <p>
+        Renderers MUST apply a deterministic tie-breaking algorithm whenever two or more members of
+        an ordered sequence have the same <a>effective order</a>, or whenever two or more members
+        have no <a>effective order</a>. Renderers SHOULD apply the following tie-breaking algorithm:
+      </p>
+      <ol>
+        <li>
+          Members are ordered by their resolved label, as determined by <a>label resolution</a>.
+        </li>
+        <li>
+          Members that have the same resolved label are ordered lexicographically by the identifier
+          of the resource on which the <code>sh:order</code> is defined, that is, its IRI or blank
+          node identifier.
+        </li>
+      </ol>
+
+      <p>
+        Renderers MAY use an alternative tie-breaking algorithm, provided that the algorithm yields
+        deterministic results within that implementation.
+      </p>
+
+      <p><em>The remainder of this section is non-normative.</em></p>
+
+      <p>
+        Deterministic interoperability is guaranteed only when all property groups and property
+        shapes participating in an ordered sequence explicitly specify <code>sh:order</code>, or
+        when the <a>shapes graph</a> declares <code>shui:defaultOrder</code>.
+      </p>
+
+      <p>
+        Presenting property shapes and property groups without <code>sh:order</code> last reflects
+        the behaviour of existing renderers, which append properties that carry no ordering hint to
+        the end of the form. Shape authors who prefer a numeric default can declare one explicitly
+        with <code>shui:defaultOrder</code>. Setting <code>shui:defaultOrder 0</code>, for example,
+        allows authors to assign negative <code>sh:order</code> values to elements that should
+        always be rendered before otherwise unordered elements, while positive values can be used to
+        position elements after them. Because the <a>global configuration</a> is part of the
+        <a>shapes graph</a>, this choice travels with the shapes, so interoperability across
+        implementations is preserved.
+      </p>
+
+      <p>
+        The following example illustrates the interpretation of a missing <code>sh:order</code>
+        value.
+      </p>
+
+      <aside class="example" title="Ordering without shui:defaultOrder">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property ex:description ;
+    sh:property ex:identifier ;
+    sh:property ex:name .
+
+ex:description
+    sh:path dct:description ;
+    sh:order 5 .
+
+ex:identifier
+    sh:path ex:id ;
+    sh:order -10 .
+
+ex:name
+    sh:path rdfs:label .
+          </div>
+        </div>
+
+        <p>
+          No <code>shui:defaultOrder</code> is declared, so <code>ex:name</code> has no effective
+          order and is rendered last. The properties are rendered in the order
+          <code>ex:identifier</code> (effective order -10), <code>ex:description</code> (effective
+          order 5), and <code>ex:name</code>.
+        </p>
+      </aside>
+
+      <aside class="example" title="Ordering with shui:defaultOrder">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:config
+    a shui:Configuration ;
+    shui:defaultOrder 0 .
+          </div>
+        </div>
+
+        <p>
+          Adding this <a>global configuration</a> to the previous shapes graph gives
+          <code>ex:name</code> an effective order of 0, so the properties are rendered in the order
+          <code>ex:identifier</code>, <code>ex:name</code>, <code>ex:description</code>. This
+          demonstrates that assigning a negative <code>sh:order</code> value allows a property to be
+          rendered before properties that rely on the declared default.
+        </p>
+      </aside>
+
       <div class="issue" data-number="775"></div>
       <div class="issue" data-number="824"></div>
 
@@ -2782,7 +3043,8 @@ ex:Concept-prefLabel
             and paged independently of the rest of the form.
             Each value becomes one row.
             The columns of the table are derived from the node shape specified using `sh:node` for the property,
-            in the order specified using `sh:order`.
+            in the order specified using `sh:order`, as defined in
+            <a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a>.
           </p>
           <img src="images/viewers/ValueTableViewer.png" alt="Example of a rendered ValueTableViewer"
                style="max-width: 100%; height: auto;"/>
@@ -2892,7 +3154,9 @@ ex:Label a sh:PropertyShape ;
 
       <p>
         For property shapes annotated with the same role, user interfaces should prefer the shape with the smallest <code>sh:order</code> value. If multiple shapes
-        share the same role, they must be sorted and processed in ascending order of their <code>sh:order</code> values. In addition, any property shape
+        share the same role, they must be sorted and processed in ascending order of their <code>sh:order</code> values. This use of <code>sh:order</code> determines
+        the precedence of property shapes for a role, and is unrelated to the presentation order defined in
+        <a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a>. In addition, any property shape
         using a qualified role annotation is always preferred over a shape using a direct, unqualified role annotation.
       </p>
 
@@ -3218,6 +3482,21 @@ ex:Name a sh:PropertyShape ;
         <tr>
           <td>sh:rootClass</td>
           <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">Non-Validating Property Shape Characteristics</td>
+        </tr>
+        <tr>
+          <td>sh:order</td>
+          <td><a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a></td>
+        </tr>
+        <tr>
+          <td>sh:group</td>
+          <td><a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a></td>
+        </tr>
+        <tr>
+          <td>sh:PropertyGroup</td>
+          <td><a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a></td>
         </tr>
         </tbody>
       </table>
