@@ -2292,6 +2292,76 @@ ex:Granddaughter
 					<a href="#rules-execution">rules execution instructions</a> prior to performing the actual validation. 
 				</p>
 			</section>
+			<section id="tempTriple">
+				<h3>Temporary Triples</h3>
+				<p>
+					It is sometimes useful for inference rules to produce triples that are only visible during the execution
+					of other rules but do not end up in the final inferences.
+					A <dfn>temporary triple</dfn> is an inferred <a>triple</a> for which the inference graph contains a
+					<a>reifier</a> with the <a>value</a> <code>sh:tempTriple true</code>.
+					<a>Temporary triples</a> and their <a>reifiers</a> are visible to executing rules.
+					Rules can produce such triples as illustrated in the following example:
+				</p>
+				<aside class="example" title="An example rule that produces temporary triples" id="tempTriple-example">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Person
+	a sh:ShapeClass ;
+	sh:rule ex:CollectOffspringsRule ;
+	sh:rule ex:SetYoungestOffspringsRule .
+
+ex:CollectOffspringsRule
+	a sh:SPARQLRule ;
+	sh:layer 0 ;
+	sh:runOnce true ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:offspring ?offspring {| sh:tempTriple true |} .
+		}
+		WHERE {
+			$this ex:child+ ?offspring .
+		}
+	""" .
+
+ex:SetYoungestOffspringsRule
+	a sh:SPARQLRule ;
+	sh:layer 1 ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:youngestOffspring ?o .
+		}
+		WHERE {
+			{
+				SELECT $this ?o
+				WHERE {
+					$this ex:offspring ?o .
+					?o ex:age ?age .
+				}
+				ORDER BY ?age
+				LIMIT 1
+			}
+		}
+	""" .
+						</div>
+					</div>
+					<p>
+						The first rule computes <code>ex:offspring</code> triples as the (transitive)
+						children of each Person.
+						The second rule uses the <code>ex:offspring</code> triples to infer the <code>ex:youngestOffspring</code>
+						of each Person.
+						The final inferences only include the <code>ex:youngestOffspring</code> triples.
+						All temporary triples, i.e., triples whose reifier is marked with <code>sh:tempTriple true</code>,
+						are automatically deleted by the SHACL engine at the end of the inference process.
+					</p>
+				</aside>
+				<p>
+					Creating temporary triples can be helpful when a computation is too complex to be carried out by a single rule.
+					The complex computation can then be decomposed into <em>multiple</em> rules:
+					some rules infer <em>partial</em> results, from which other rules derive the <em>final</em> results.
+					The partial results are only functional to the computation of the final results and are no longer needed once the latter have been obtained.
+					By marking these partial results as temporary triples, they are automatically removed after the final results have been computed.
+				</p>
+			</section>
 			<section id="rules-execution">
 				<h3>General Execution Instructions for SHACL Rules</h3>
 				<p>
@@ -2330,6 +2400,8 @@ ex:Granddaughter
 							do
 								Execute one <a>iteration</a> over all <a>iterating rules</a> in the layer
 							while the iteration has produced newly inferred triples
+
+						Delete the <a>temporary triples</a> and their <a>reifiers</a>
 					</pre>
 				</div>
 				<p>
