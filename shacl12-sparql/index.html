@@ -417,6 +417,8 @@
 						<a href="#sparql-constraints"></a> and <a href="#sparql-constraint-components"></a></li>
 					<li><strong>SPARQL node expression processors</strong> as processors that can evaluate
 						<a href="#sparql-node-expressions"></a></li>
+					<li><strong>SPARQL custom functions processors</strong> as processors that can evaluate
+						<a href="#sparql-functions"></a></li>
 					<li><strong>SHACL-SPARQL rule processors</strong> as processors that support the evaluation of
 						<a href="#sparql-rules"></a></li>
 				</ul>
@@ -1443,10 +1445,9 @@ ex:hasLang
 				If the variable has no <a>binding</a> in the result set <a>solution</a>,
 				then the <a>values</a> of <code>sh:annotationValue</code> are used, if present.
 			</p>
-			<p>
-				Here is an example illustrating the use of result annotations.
-			</p>
-			<pre class="example-shapes">
+			<aside class="example" title="Example of using result annotations">
+				<div class="shapes-graph">
+					<div class="turtle">
 ex:AnnotationExample
 	a sh:NodeShape ;
 	sh:targetNode ex:ExampleResource ;
@@ -1462,11 +1463,11 @@ ex:AnnotationExample
 				BIND (NOW() AS ?time) .
 			}
 			""" ;
-	] .</pre>
-			<p>
-				Validation produces the following validation report:
-			</p>
-			<pre class="example-results">
+	] .
+					</div>
+				</div>
+				<div class="results-graph">
+					<div class="turtle">
 [	a sh:ValidationReport ;
 	sh:conforms false ;
 	sh:result [
@@ -1479,7 +1480,10 @@ ex:AnnotationExample
 		sh:sourceShape ex:AnnotationExample ;
 		ex:time "2015-03-27T10:58:00"^^xsd:dateTime ;  # Example
 	]
-] .</pre>
+] .
+					</div>
+				</div>
+			</aside>
 		</section>
 
 		<section id="sparql-node-expressions">
@@ -1510,6 +1514,8 @@ ex:AnnotationExample
 						variable that is projected from the <code>SELECT</code> clause when the query is evaluated against the <a>focus graph</a>.
 						The value of <code>focusNode</code> is <a>pre-bound</a> as the value of the SPARQL variable <code>this</code>.
 						The value of each scope variable is <a>pre-bound</a> as a SPARQL variable with the same name and value.
+						If the name of a variable in scope is not a string literal, use <code>"arg" + str(name)</code>.
+						For example, if the variable name is <code>"0"^^xsd:integer</code>, use <code>arg0</code>.
 						A <a>failure</a> is produced when one of the scope variables is called <code>this</code>.
 						<br/>
 						<br/>
@@ -1695,6 +1701,8 @@ ex:Bernd
 						when the query is evaluated against the <a>focus graph</a>.
 						The value of <code>focusNode</code> is <a>pre-bound</a> as the value of the SPARQL variable <code>this</code>.
 						The value of each scope variable is <a>pre-bound</a> as a SPARQL variable with the same name and value.
+						If the name of a variable in scope is not a string literal, use <code>"arg" + str(name)</code>.
+						For example, if the variable name is <code>"0"^^xsd:integer</code>, use <code>arg0</code>.
 						A <a>failure</a> is produced when one of the scope variables is called <code>this</code>.
 						<br/>
 						<br/>
@@ -1775,6 +1783,225 @@ ex:Resource-uriLength
 						Note that the query is executed with the current <a>focus node</a> <a>pre-bound</a> to the variable <code>this</code>.
 					</p>
 				</aside>
+			</section>
+		</section>
+
+		<section id="sparql-functions">
+			<h2>Declaring SPARQL Functions based on Node Expressions</h2>
+			<p>
+				<a data-cite="shacl12-node-expr"></a> defines <a data-cite="shacl12-node-expr#custom-list-parameter-functions">Custom List Parameter Functions</a>
+				as a mechanism to declare new node expression functions.
+				These can be evaluated as part of other SHACL node expressions, but may also be useful to other engines
+				that support function-like execution.
+			</p>
+			<p>
+				The SPARQL specification defines an <a data-cite="sparql12-query/#extensionFunctions">extension point</a> that
+				enables certain SPARQL engines to provide additional SPARQL functions.
+				This section introduces a declarative mechanism allowing SPARQL processors to make SHACL list parameter functions
+				available as SPARQL functions using that extension point.
+			</p>
+			<section>
+				<h3>Example SPARQL Function using general Node Expressions</h3>
+				<p>
+				</p>
+				<aside class="example" title="An example custom function using shnex: node expressions">
+					<p>
+						This function takes a class as its (only) parameter and returns the number of instances of that class.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:instanceCount
+	a sh:ListParameterExpressionFunction ;
+	rdfs:label "instance count"@en ;
+	rdfs:subClassOf sh:ListParameterExpression ;
+	sh:bodyExpression [
+		shnex:count [
+			shnex:instancesOf [
+				shnex:arg 0
+			]
+		]
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg0 ;
+		sh:name "class" ;
+		sh:description "The class to count the instances of." ;
+		sh:nodeKind sh:IRI ;
+	] .
+						</div>
+					</div>
+					<p>
+						A SPARQL engine that supports SPARQL functions based on node expressions is able
+						to process a SPARQL query such as the following:
+					</p>
+					<pre class="text">
+SELECT ?class ?count
+WHERE {
+	?class a owl:Class .
+	BIND (ex:instanceCount(?class) AS ?count) .
+}
+					</pre>
+				</aside>
+			</section>
+			<section>
+				<h3>Example SPARQL Functions using SPARQL-based Node Expressions</h3>
+				<p>
+					The following custom list parameter functions use "nested" SPARQL queries at evaluation time.
+				</p>
+				<aside class="example" title="An example custom function using sh:sparqlExpr">
+					<p>
+						This function takes two parameters and uses a <a>SPARQL expr expression</a> as its body expression.
+						In that SPARQL expression, the variables `$arg0` and `$arg1` are used to access the list parameter values.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:spacedConcat
+	a sh:ListParameterExpressionFunction ;
+	rdfs:label "spaced concat"@en ;
+	rdfs:subClassOf sh:ListParameterExpression ;
+	sh:bodyExpression [
+		sh:sparqlExpr "CONCAT($arg0, ' ', $arg1)"
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg0 ;
+		sh:name "first string" ;
+		sh:description "The first string to concatenate." ;
+		sh:datatype xsd:string ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg1 ;
+		sh:name "second string" ;
+		sh:description "The second string to concatenate." ;
+		sh:datatype xsd:string ;
+	] .
+						</div>
+					</div>
+					<p>
+						A SPARQL engine that supports SPARQL functions based on node expressions is able
+						to process a SPARQL query such as the following:
+					</p>
+					<pre class="text">
+SELECT ?person ?fullName
+WHERE {
+	?person a ex:Person .
+	?person ex:firstName ?firstName .
+	?person ex:lastName ?lastName .
+	BIND (ex:spacedConcat(?firstName, ?lastName) AS ?fullName) .
+}
+					</pre>
+				</aside>
+				<p>
+					The following example uses a <code>sh:select</code> node expression as its body.
+				</p>
+				<aside class="example" title="An example custom function using sh:select">
+					<p>
+						This function takes two parameters and uses a <a>SPARQL expr expression</a> as its body expression.
+						In that SPARQL expression, the variables `$arg0` and `$arg1` are used to access the list parameter values.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:langLabelCount
+    a sh:ListParameterExpressionFunction ;
+    rdfs:label "lang label count"@en ;
+    rdfs:subClassOf sh:ListParameterExpression ;
+    sh:bodyExpression [
+		sh:select """
+			PREFIX ex: &lt;http://example.com/ns#&gt;
+			PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+			SELECT (COUNT(?label) AS ?result)
+			WHERE {
+				?predicate rdfs:subPropertyOf* rdfs:label .
+				$arg0 ?predicate ?label .
+				BIND (COALESCE($arg1, 'en') AS ?matchLang) .
+				FILTER langMatches(lang(?label), ?matchLang) .
+			}
+		""" ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg0 ;
+		sh:name "subject" ;
+		sh:description "The subject node to get the label count of." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg1 ;
+		sh:name "match language" ;
+		sh:description "The language to filter, defaulting to 'en'." ;
+		sh:datatype xsd:string ;
+		sh:defaultValue "en" ;
+		sh:optional true ;
+	] .
+						</div>
+					</div>
+					<p>
+						This function accepts an optional parameter for the match language, as declared using the
+						<code>sh:optional true</code> triple.
+						However, note that the SHACL constraints from the <code>sh:parameter</code> declarations are
+						not automatically enforced, nor will the declared <code>sh:defaultValue</code> be used at runtime.
+						These mainly serve documentation purposes.
+					</p>
+					<div class="data-graph">
+						<div class="turtle">
+ex:Cougar
+	rdfs:label "Cougar"@en ;
+	rdfs:label "Mountain Lion"@en-US ;
+	rdfs:label "Puma"@de .
+
+# Example SPARQL function calls:
+#   ex:langLabelCount(ex:Cougar, 'en') = 2
+#   ex:langLabelCount(ex:Cougar) = 2
+#   ex:langLabelCount(ex:Cougar, 'de') = 1
+#   ex:langLabelCount(?unbound, 'en') = SPARQL error
+						</div>
+					</div>
+				</aside>
+			</section>
+			<section>
+				<h3>Evaluation of Custom SPARQL Functions</h3>
+				<p>
+					This document does not define exact constraints on how and when such custom SPARQL functions are added.
+					The recommendation is that SPARQL engines SHOULD register a function for any <a>SHACL instance</a> of
+					<code>sh:ListParameterExpressionFunction</code> from any provided <a>shapes graph</a>.
+					If a function with the same <a>IRI</a> is already registered, SHACL engines MUST ignore the
+					attempt to redefine it unless the function was previously added as a custom SPARQL function.
+					A SPARQL engine MUST NOT modify the registered SPARQL functions while it is executing any SPARQL query.
+				</p>
+				<div class="def" id="SPARQLFunctions-evaluation">
+					<div class="def-header">EVALUATION OF CUSTOM SPARQL FUNCTIONS</div>
+					<p>
+						Let <code>f</code> be the <code>iri</code> of a SPARQL <a data-cite="sparql12-query#ririOrFunction">function call</a>
+						and <code>args</code> be the list of <code>Expression</code> arguments.
+						Let <code>function</code> be the corresponding custom list parameter function in the <a>graph</a>
+						where it has been defined, with <code>f</code> as its <a>IRI</a>.
+					</p>
+					<p>
+						Evaluate each SPARQL expression from <code>args</code>, yielding a new list of <a>nodes</a> <code>nodesList</code>.
+						Where the evaluation has caused an <a data-cite="sparql12-query#sparql-error">error</a>,
+						the result of the SPARQL function call is also an error,
+						unless the corresponding <code>sh:parameter</code> for the argument has <code>sh:optional true</code>.
+						In that case, the argument will be unbound in the scope.
+					</p>
+					<p>
+						Let <code>rs</code> be the <a data-cite="shacl12-node-expr#dfn-output-nodes">output nodes</a>
+						of <code>evalExpr(function, focusGraph, f, scope)</code> where <code>focusGraph</code> is the
+						currently active query graph from the SPARQL context, and <code>scope</code> is the map of evaluated
+						arguments from <code>nodesList</code> with the index of the argument as the variable name (map key).
+					</p>
+					<p>
+						If the list of output nodes <code>rs</code> has exactly one member, then return that node.
+						Otherwise, or if the evaluation produces an <a data-cite="shacl12-node-expr#dfn-evaluation-failure">evaluation failure</a>,
+						the result of the SPARQL function call is an error.
+					</p>
+				</div>
+				<p class="note">
+					During the evaluation of SPARQL queries, there is no dedicated <a>focus node</a>.
+					Instead, the <code>focusNode</code> passed into a custom SPARQL function based on a node expression
+					is the <a>IRI</a> of the function itself.
+				</p>
 			</section>
 		</section>
 
