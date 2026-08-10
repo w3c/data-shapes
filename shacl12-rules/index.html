@@ -1162,7 +1162,7 @@ This condition ensures that such rules do not loop back to themselves and cause 
               </td>
             </tr>
             <tr>
-              <td><code>filter.expression</code></td>
+              <td><code>filter.expr</code></td>
               <td>The [=expression=] of a [=filter element=]</td>
             </tr>
             <tr>
@@ -1170,7 +1170,7 @@ This condition ensures that such rules do not loop back to themselves and cause 
               <td>The [=assignment variable=] of the [assignment element].</td>
             </tr>
             <tr>
-              <td><code>assign.expression</code></td>
+              <td><code>assign.expr</code></td>
               <td>The [=assignment expression=] </td>
             </tr>
             <tr>
@@ -1512,13 +1512,13 @@ define buildDependencyGraph(ruleSet):
     ## edgeLabelMap maps (R1, R2) to "open" or "closed"
     let edgeLabelMap be a map from pair (rule, rule) to label
 
-    foreach rule R1 in ruleSet:
+    foreach rule R1 in ruleSet.rules:
         ## Classify each triple pattern TP in the rule as requiring "open" or "closed"
         ## depending on whether it is in a negation element or not.
         let bodyDependencies = {}
-        foreach rule element RBE in the body of R1:
+        foreach rule element RBE in R1.body:
             if RBE is a negation element:
-                foreach triple pattern TP in RBE:
+                foreach triple pattern TP in RBE.inner
                     let item be a pair (TP, "closed")
                     add item to bodyDependencies
                 endfor
@@ -1533,17 +1533,16 @@ define buildDependencyGraph(ruleSet):
         endfor
 
         foreach pair (triple pattern TP, depLabel) in bodyDependencies:
-            if R1 has an assignment element:
+            if R1.body has an assignment element:
               set depLabel to "closed"
             endif
-            if R1 has a triple template with a blank node:
+            if R1.head has a triple template with a blank node:
               set depLabel to "closed"
             endif
-            ## Find depenencies for this triple pattern element or negation element.
-            foreach rule R2 in ruleSet:
-                foreach triple template TT in head of R2:
-                    ## "possibly generate" / matching is defined in
-                    ## section 3.3 
+            ## Find dependencies for this triple pattern element or negation element.
+            foreach rule R2 in ruleSet.rules:
+                foreach triple template TT in R2.head:
+                    ## "possibly generate" / matching is defined in section 4.3
                     if TT can possibly match triple pattern TP:
                         let key = (R1, R2)
                         if edgeLabelMap contains key:
@@ -1561,7 +1560,7 @@ define buildDependencyGraph(ruleSet):
 
     let DP = { }
     foreach entry ((R1, R2), label) in edgeLabelMap:
-        add edge (R1 -&gt; R2) labeled label to DP
+        add an edge (R1 -&gt; R2) labeled with label to DP
     endfor
 
     the result is DP
@@ -1569,21 +1568,6 @@ define buildDependencyGraph(ruleSet):
             </pre>
           </div>
         </section>
-
-        <p>
-          Examples:
-        </p>
-
-        <aside class="example" title="Example of triple patttern dependencies">
-          <pre class="block ex-rules">
-            @@
-          </pre>
-        </aside>
-        <aside class="example" title="Example of rule dependencies">
-          <pre class="block ex-rules">
-            @@
-          </pre>
-        </aside>
       </section>
       
       <section id="stratification">
@@ -1683,7 +1667,7 @@ define stratification(ruleSet):
     let maxStratum = 0
 
     ## initialize stratumMap
-    foreach rule in ruleSet:
+    foreach rule in ruleSet.rules:
         stratumMap.set(rule, 0)
         endfor
 
@@ -2253,13 +2237,6 @@ merge(S1, S2) = { <var>μ</var> |
       <section id="evaluation-preparation">
         <h3>Preparation for Evaluation</h3>
         
-        <div class="def">
-          <p>
-            @@ TODO: Describe rule set/rule component syntax
-            A [=rule set=] has three components: `R.rules`, `R.data`, and `R.imports`.
-            </p>
-        </div>
-
         <p>Evaluation of a rule set involves collecting all imported rule sets,
           building a single, combined rule set as described in 
           <a href="#process-imports" class="sectionRef"></a>.
@@ -2342,19 +2319,14 @@ enddefine
 
         <div class="algorithm">
 <pre>
-let R be a well-formed rule.
+let R be a well-formed rule
 
-let rule R = (H, B) where
-             H is the sequence of triple templates in the head
-             B is the sequence of triple pattern elements,
-                condition elements, negation elements,
-                and assignment elements in the body
-
-Replace each blank node in a triple pattern in B
-with a variable not used in the rule so that the same
-variable is used for each occurrence of the same blank 
-node, and a different variable is used for different
-blank nodes.
+let B be R.body 
+  where each blank node in a triple pattern in B
+  is replaced by a variable which is not used in the rule. 
+  The same variable is used for each occurrence of the
+  same blank node, and a different variable is used for 
+  different blank nodes.
 
 # Solution sequence of one solution that does not map any variables.
 let SEQ0: Solution sequence = { <var>μ</var><sub>0</sub> }
@@ -2364,6 +2336,10 @@ let G = <a>evaluation graph</a>
 # Evaluate rule body
 # This function returns a sequence of solutions
 define evalRuleElements(B, SEQ, G, GD):
+    where 
+      B is a sequence of rule elements
+      SEQ is a solution sequence 
+      G and GD are RDF graphs
 
     for each rule element rElt in B:
 
@@ -2380,37 +2356,37 @@ define evalRuleElements(B, SEQ, G, GD):
             endfor
         endif
 
-        if rElt is a condition element with expression F:
+        if rElt is a condition element F:
             SEQ1 = {}
             for each solution <var>μ</var> in SEQ:
-                let x = evalFunction(F, <var>μ</var>)
+                let x = evalFunction(F.expr, <var>μ</var>)
                 if EBV(x) is <var>true</var>:
                     add <var>μ</var> to SEQ1
                 endif
             endfor
         endif
 
-        if rElt is a negation expression with body elements N:
+        if rElt is a negation expression N:
             SEQ1 = {}
             for each solution <var>μ</var> in SEQ:
                 S = sequence{ <var>μ</var> }
                 if rElt with DATA:
-                    NEG = evalRuleElements(N, S, GD, GD)
+                    NEG = evalRuleElements(N.inner, S, GD, GD)
                 else:
-                    NEG = evalRuleElements(N, S, G, GD)
+                    NEG = evalRuleElements(N.inner, S, G, GD)
                 if NEG is empty
                     add <var>μ</var> to SEQ1
                 endif
             endfor
         endif
 
-        if rElt is an assignment with variable V and expression expr
+        if rElt is an assignment A:
             SEQ1 = {}
             for each solution <var>μ</var> in SEQ:
-                let x = evalFunction(expr, <var>μ</var>)
+                let x = evalFunction(A.expr, <var>μ</var>)
                 if x is not an error:
                     ## Add mapping V -> x to solution μ
-                    let <var>μ2</var> be a solution mapping <var>μ</var> &cups; { (V, x) }
+                    let <var>μ2</var> be a solution mapping <var>μ</var> &cups; { (A.var, x) }
                     add <var>μ2</var> to SEQ1
                 else
                     # Error: drop solution <var>μ</var>
@@ -2429,7 +2405,7 @@ define evalRuleElements(B, SEQ, G, GD):
     return SEQ
 enddefine
 
-if R.groundData:
+if R.data:
     ## Rule WHERE DATA
     let SEQ = evalRuleElements(R, SEQ0, GD, GD)
 else
@@ -2439,7 +2415,7 @@ else
 let OUT = empty set
 for each <var>μ</var> in SEQ:
     let S = {}
-    for each triple template TT in H:
+    for each triple template TT in R.head:
         let triple = subst(<var>μ</var>, TT)
         Add triple to S
     endfor
