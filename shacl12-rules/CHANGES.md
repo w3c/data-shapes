@@ -9,7 +9,7 @@ This file is temporary while the specification is in-development — it is not
 intended for publication.
 
 ## 2026-08-12
-IMPORTS is now optional, and if provied it may be only partial
+IMPORTS is now optional, and if provided it may be only partial
 Remove RDF syntax.
 Media type is "applciation/sparql-rl"
 Evaluation for NOT DATA and WHERE DATA
