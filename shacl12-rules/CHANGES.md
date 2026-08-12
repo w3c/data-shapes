@@ -8,6 +8,12 @@ It is not a comprehensive list of changes to the specification.
 This file is temporary while the specification is in-development — it is not
 intended for publication.
 
+## 2026-08-12
+IMPORTS is now optional, and if provied it may be only partial
+Remove RDF syntax.
+Media type is "applciation/sparql-rl"
+Evaluation for NOT DATA and WHERE DATA
+"FOR ?var IN <shape>" removed
 
 ## 2026-07-18
 GH-1074
