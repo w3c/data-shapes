@@ -1,6 +1,4 @@
-# SHACL 1.2 Rules Tests
-
-
+# SPARQL 1.2 Rules Tests
 
 ## Manifests
 
@@ -42,3 +40,12 @@ These test rule sets to detect where the stratification condition is violated.
 All the test are syntactically legal and well-formed.
 
 ## Evaluation tests
+
+The result of an evaluation test is the inference graph. 
+
+There are two directories of evaluation tests. `eval/` has feature
+tests and `eval2/` has some larger tests.
+
+## Examples
+
+The complete examples from the SPARQL-RL spec.
