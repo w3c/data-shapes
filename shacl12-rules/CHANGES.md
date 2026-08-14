@@ -11,7 +11,7 @@ intended for publication.
 ## 2026-08-12
 IMPORTS is now optional, and if provided it may be only partial
 Remove RDF syntax.
-Media type is "applciation/sparql-rl"
+Media type is "application/sparql-rl"
 Evaluation for NOT DATA and WHERE DATA
 "FOR ?var IN <shape>" removed
 
