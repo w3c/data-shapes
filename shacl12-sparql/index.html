@@ -2128,6 +2128,66 @@ ex:ExampleRectangle ex:area 56 .
 					The creator of such rules needs to make sure that such rules have consistent semantics.
 					Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
 				</p>
+				<section id="ruleSet">
+					<h3>Rule Sets</h3>
+					<p>
+						The input to a SHACL rules processor is a set of rules called a <dfn>rule set</dfn>.
+						A <a>rule set</a> is identified by an <a>IRI</a>.
+						The property <code>sh:ruleSet</code> can be used to declare that a <a>rule</a> is member of a <a>rule set</a>.
+						The <dfn>default rule set</dfn> of a <a>graph</a> is the set of <a>rules</a> in the graph that do not have
+						any <a>value</a> for <code>sh:ruleSet</code>, or whose only value for <code>sh:ruleSet</code> is
+						<code>sh:DefaultRuleSet</code>.
+					</p>
+					<p>
+						Rule sets can use the property <code>sh:importsRuleSet</code> to include other rule sets.
+						<code>sh:DefaultRuleSet</code> is a reserved <a>IRI</a> that can be used as a <a>subject</a> of
+						<a>triples</a> with the <a>predicate</a> <code>sh:importsRuleSet</code> to include other rule sets into the <a>default rule set</a>.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="ruleSet-nodeKind">Each <a>rule</a> may have <a>values</a> for the
+						property <code>sh:ruleSet</code> and those values are <a>IRIs</a> and
+						SHOULD be <a>SHACL instances</a> of <code>sh:RuleSet</code>.</span>
+						<span data-syntax-rule="ruleSet-iri">A <a>rule set</a> MUST be identified by an <a>IRI</a>,
+						i.e. it MUST NOT be a <a>blank node</a>.</span>
+						<span data-syntax-rule="importsRuleSet-nodeKind">A <a>rule set</a> includes all rules from rule sets
+						that are used as values of the property <code>sh:importsRuleSet</code>.</span>
+						<span data-syntax-rule="importsRuleSet-defaultRuleSet">The <a>value</a> <code>sh:DefaultRuleSet</code>
+						MUST NOT be used as an <a>object</a> of <code>sh:importsRuleSet</code>.</span>
+					</p>
+					<aside class="example" title="Example of rules and rule sets" id="example-ruleset">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:Rule1
+	a sh:SPARQLRule ;
+	sh:construct "..." ;
+	sh:ruleSet ex:RuleSet1 .
+
+ex:Rule2
+	a sh:SPARQLRule ;
+	sh:construct "..." ;
+	sh:ruleSet ex:RuleSet2 .
+
+ex:Rule3
+	a sh:SPARQLRule ;
+	sh:construct "..." ;
+	sh:ruleSet sh:DefaultRuleSet .
+
+ex:RuleSet1
+	a sh:RuleSet ;
+	sh:importsRuleSet ex:RuleSet2 .
+
+ex:RuleSet2
+	a sh:RuleSet .
+							</div>
+						</div>
+						<p>
+							In this example, <code>ex:Rule3</code> is in the <a>default rule set</a>, the same as if it had
+							no value for <code>sh:ruleSet</code> at all.
+							The <a>rule set</a> <code>ex:RuleSet1</code> includes <code>ex:Rule1</code> and <code>ex:Rule2</code>
+							(via <code>ex:RuleSet2</code>), while <code>ex:RuleSet2</code> includes only <code>ex:Rule2</code>.
+						</p>
+					</aside>
+				</section>
 				<section id="global-rules">
 					<h3>Shape Rules and Global Rules (sh:rule)</h3>
 					<p class="syntax">
@@ -2606,7 +2666,8 @@ ex:SetYoungestOffspringsRule
 				<h3>General Execution Instructions for SHACL Rules</h3>
 				<p>
 					A <dfn data-lt="rules engine">SHACL rules engine</dfn> is a computer procedure that takes as input
-					a <a>data graph</a> and a <a>shapes graph</a> and is capable of adding <a>triples</a> to the <a>data graph</a>.
+					a <a>data graph</a>, a <a>shapes graph</a> and an optional <a>rule set</a> (defaulting to the <a>default rule set</a> of the <a>shapes graph</a>)
+					and is capable of adding <a>triples</a> to the <a>data graph</a>.
 					The new <a>triples</a> that are produced by a rules engine are called the <dfn data-lt="inferring|infer">inferred</dfn> triples.
 				</p>
 				<p>
@@ -2625,7 +2686,7 @@ ex:SetYoungestOffspringsRule
 					These <a>target nodes</a> become the <a>focus nodes</a> of the executing <a>shape rule</a>.
 				</p>
 				<p>
-					For a given set of <a>rules</a> in the <a>shapes graph</a>
+					For a given <a>rule set</a> in the <a>shapes graph</a>
 					an <dfn data-lt="iterate">iteration</dfn> is a single <a>execution</a> of each individual rule in the order as
 					specified by <a href="#rule-order"></a>, skipping the rules that are <a href="#deactivated-rules">deactivated</a>.
 					Within an iteration, the inferred triples of one rule become immediately visible to the next rule.
@@ -2635,7 +2696,7 @@ ex:SetYoungestOffspringsRule
 				</p>
 				<div class="algorithm">
 					<pre class="text">
-						For all <a>layers</a> in the rule set (in ascending order):
+						For all <a>layers</a> in the <a>rule set</a> (in ascending order):
 							Compute the <a>expected derived triples</a> for all rules in the layer
 							Execute one <a>iteration</a> over all <a>run-once rules</a> in the layer
 							do
