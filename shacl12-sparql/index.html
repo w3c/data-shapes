@@ -2018,7 +2018,7 @@ ex:Cougar
 			<p>
 				The <a>SHACL rules</a> feature defined in this section includes a general framework using the properties
 				such as <code>sh:rule</code> and <code>sh:condition</code>, plus an extension mechanism for specific <a>rule types</a>.
-				This document defines one such rule type: <a>SPARQL rules</a>.
+				This document defines two such rule types: <a>SPARQL rules</a> and <a>triple rules</a>.
 			</p>
 			
 			<section id="rules-examples" class="informative">
@@ -2779,6 +2779,159 @@ _:id sh:sourceRule ex:SymmetricPropertyRule .</pre>
 					Since <a>global</a> SPARQL rules do not use <a>pre-binding</a>, the syntax limitations
 					mentioned in <a href="#pre-binding"></a> do not apply to them.
 				</p>
+			</section>
+			<section id="TripleRule">
+				<h3>Triple Rules</h3>
+				<p>
+					This section defines a <a>rule type</a> called <dfn data-lt="triple rule">triple rules</dfn>, identified by
+					the <a>IRI</a> <code>sh:TripleRule</code>.
+					<a>Triple rules</a> have the following properties:
+				</p>
+				<table class="term-table">
+					<tr>
+						<th>Property</th>
+						<th>Summary and Syntax Rules</th>
+					</tr>
+					<tr>
+						<td><code>sh:subject</code></td>
+						<td>
+							The <a>node expression</a> used to compute the <a>subjects</a> of the <a>triples</a>.
+							<span data-syntax-rule="TripleRule-subject">Each <a>triple rule</a> must have at most one
+							<a>value</a> of the property <code>sh:subject</code> (which must be a well-formed <a>node expression</a>).
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<td><code>sh:predicate</code></td>
+						<td>
+							The <a>node expression</a> used to compute the <a>predicates</a> of the <a>triples</a>.
+							<span data-syntax-rule="TripleRule-predicate">Each <a>triple rule</a> must have at most one
+							<a>value</a> of the property <code>sh:predicate</code> (which must be a well-formed <a>node expression</a>).
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<td><code>sh:object</code></td>
+						<td>
+							The <a>node expression</a> used to compute the <a>objects</a> of the <a>triples</a>.
+							<span data-syntax-rule="TripleRule-object">Each <a>triple rule</a> must have at most one
+							<a>value</a> of the property <code>sh:object</code> (which must be a well-formed <a>node expression</a>).
+							</span>
+						</td>
+					</tr>
+				</table>
+				<div class="def def-text">
+					<div class="def-header">EXECUTION OF TRIPLE RULES</div>
+					<div class="def-text-body">
+						Let <code>S</code>, <code>P</code> and <code>O</code> be the sets of <a>nodes</a> produced by evaluating
+						the <a>node expressions</a> that are the values of <code>sh:subject</code>, <code>sh:predicate</code>
+						and <code>sh:object</code> respectively at the <a>triple rule</a>.
+						Where <code>sh:subject</code>, <code>sh:predicate</code>, or <code>sh:object</code> are absent, use
+						the list consisting of the current <a>focus node</a>.
+						For each combination of members <code>s</code> of <code>S</code>, <code>p</code> of <code>P</code> and
+						<code>o</code> of <code>O</code>, <a>infer</a> a <a>triple</a> with <a>subject</a> <code>s</code>,
+						<a>predicate</a> <code>p</code> and <a>object</a> <code>o</code>.
+						Skip ill-formed <a>triples</a>, for example when a <a>blank node</a> is used as <a>predicate</a>.
+					</div>
+				</div>
+				<aside class="example" title="An example triple rule computing instances of Square" id="TripleRule-Rectangle-example">
+					<p>
+						In this example, any instance of `ex:Rectangle` where the width equals the height
+						will receive an extra `rdf:type ex:Square` triple.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Rectangle
+	a sh:ShapeClass ;
+	rdfs:label "Rectangle" ;
+	sh:property [
+		sh:path ex:height ;
+		sh:datatype xsd:integer ;
+		sh:maxCount 1 ;
+		sh:minCount 1 ;
+		sh:name "height" ;
+	] ;
+	sh:property [
+		sh:path ex:width ;
+		sh:datatype xsd:integer ;
+		sh:maxCount 1 ;
+		sh:minCount 1 ;
+		sh:name "width" ;
+	] ;
+	sh:rule [
+		a sh:TripleRule ;
+		# sh:subject defaults to the current focus node
+		sh:predicate rdf:type ;
+		sh:object ex:Square ;
+		sh:condition ex:Rectangle ;
+		sh:condition [
+			sh:property [
+				sh:path ex:width ;
+				sh:equals ex:height ;
+			] ;
+		] ;
+	] .							
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:InvalidRectangle
+	a ex:Rectangle .
+
+ex:NonSquareRectangle
+	a ex:Rectangle ;
+	ex:height 2 ;
+	ex:width 3 .
+
+ex:SquareRectangle
+	a ex:Rectangle ;
+	ex:height 4 ;
+	ex:width 4 .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+ex:SquareRectangle rdf:type ex:Square .
+						</div>
+					</div>
+				</aside>
+				<aside class="example" title="An example triple rule computing the number of children of a Person" id="TripleRule-childCount-example">
+					<p>
+						In this example, a SHACL rules engine will infer a `ex:childCount` triple for any instance of `ex:Person`
+						using a node expression combining `shnex:count` and `shnex:pathValues`.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:PersonShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:rule ex:PersonShape-childCount-rule .
+
+ex:PersonShape-childCount-rule
+	a sh:TripleRule ;
+	sh:runOnce true ;
+	sh:predicate ex:childCount ;
+	sh:object [
+		shnex:count [
+			shnex:pathValues ex:child
+		]
+	] .
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:Dad
+	a ex:Person ;
+	ex:child ex:SomeDaughter ;
+	ex:child ex:SomeSon .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+ex:Dad ex:childCount 2 .
+						</div>
+					</div>
+				</aside>
 			</section>
 		</section>
 
