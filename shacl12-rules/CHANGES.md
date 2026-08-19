@@ -1,4 +1,4 @@
-# SHACL 1.2. Rules — CHANGES
+# SPARQL-RL - CHANGES
 
 This document records major changes and new material that would be of interest to
 implementers.
@@ -7,6 +7,9 @@ It is not a comprehensive list of changes to the specification.
 
 This file is temporary while the specification is in-development — it is not
 intended for publication.
+
+## 2026-08-19
+Move from SHACL 1.2 Rules to SPARQL 12 RL / SPARQL-RL.
 
 ## 2026-08-12
 IMPORTS is now optional, and if provided it may be only partial
