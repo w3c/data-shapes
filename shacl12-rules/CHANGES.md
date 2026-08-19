@@ -9,7 +9,10 @@ This file is temporary while the specification is in-development — it is not
 intended for publication.
 
 ## 2026-08-19
-Move from SHACL 1.2 Rules to SPARQL 12 RL / SPARQL-RL.
+Move from "SHACL 1.2 Rules" to "SPARQL 12 RL" / SPARQL-RL.
+Move tests to `shacl12-test-suite/tests/sparql-rl/`
+Chnage test namespace to `PREFIX srlt: <http://www.w3.org/ns/sparql-rl-tests#>`
+Change root test manifest to `manifest-sparql-rl.ttl`
 
 ## 2026-08-12
 IMPORTS is now optional, and if provided it may be only partial
