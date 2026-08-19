@@ -12,10 +12,8 @@
         github: "w3c/data-shapes",
         //preProcess:     [  ],
         edDraftURI: "https://w3c.github.io/data-shapes/shacl12-rules/",
-        shortName: "shacl12-rules",
+        shortName: "sparql12-rules",
         copyrightStart: "2025",
-        // Can remove SHACL12-*?
-        xref: ["RDF12-CONCEPTS", "SPARQL12-QUERY", "SHACL12-CORE", "SHACL12-SPARQL", "SHACL12-NODE-EXPR" ] ,
 //        maxTocLevel: 2,
 
         editors: [
@@ -46,31 +44,20 @@
             w3cid: "73545"
           }
         ],
-
+        lint: {
+//          "informative-dfn": false,
+          "no-unused-dfns": false
+        },
         //implementationReportURI: "http://w3c.github.io/data-shapes/shacl12-test-suite/tests/rules",
         //testSuiteURI: "http://w3c.github.io/data-shapes/shacl12-test-suite/tests/rules",
 
         // No previous REC
-        //previousPublishDate: "2017-07-20",
+        //previousPublishDate: "",
         //previousMaturity: "REC",
-        //prevRecShortname: "shacl",
-        //prevRecURI: "https://www.w3.org/TR/2017/REC-shacl-20170720/",
-        localBiblio: {
-          "shacl12-shacl-shacl": {
-            title: "SHACL 1.2 SHACL-SHACL",
-            href: "https://w3c.github.io/data-shapes/shacl12-shacl-shacl/",
-            status: "ED",
-            publisher: "W3C",
-          }
-        },
-        // Remove in final version
-        lint: {
-          "informative-dfn": false,
-          "no-unused-dfns": false
-        },
+        //prevRecShortname: "",
+        //prevRecURI: "https://www.w3.org/TR/",
       };
     </script>
-    <link rel="stylesheet" href="style.css"/>
 
     <style>
 
@@ -1929,7 +1916,7 @@ merge(S1, S2) = { <var>μ</var> |
         </p>
 
         <div class="algorithm">
-<pre>
+<pre class="nohighlight">
 define evalFunction(F, μ):
     ## F is an expression: an RDF term, a variable, or op(expr1, ..., exprN)
     ## where op is a function or a functional form.
@@ -1965,30 +1952,16 @@ enddefine
           <a data-cite="SPARQL12-QUERY#BGPsparql">SPARQL graph pattern matching</a>.
         </p>
 
-
         <div class="algorithm">
-<pre>
-let R be a well-formed rule
-
-let B be R.body 
-  where each blank node in a triple pattern in R.body
-  is replaced by a variable which is not used in the rule. 
-  The same variable is used for each occurrence of the
-  same blank node, and a different variable is used for 
-  different blank nodes.
-
-# Solution sequence of one solution that does not map any variables.
-let SEQ0: Solution sequence = { <var>μ</var><sub>0</sub> }
-
-let G = <a>evaluation graph</a>
-
+<pre class="nohighlight">
 # Evaluate rule body
 # This function returns a sequence of solutions
+
 define evalRuleElements(B, SEQ, G, GD):
     where 
-      B is a sequence of rule elements
-      SEQ is a solution sequence 
-      G and GD are RDF graphs
+        B is a sequence of rule elements
+        SEQ is a solution sequence 
+        G and GD are RDF graphs
 
     for each rule element rElt in B:
 
@@ -2049,24 +2022,37 @@ define evalRuleElements(B, SEQ, G, GD):
     return SEQ
 enddefine
 
-if R.data:
-    ## Rule WHERE DATA
-    let SEQ = evalRuleElements(R, SEQ0, GD, GD)
-else
-    let SEQ = evalRuleElements(R, SEQ0, G, GD)
+define evalRule(R, G, GD):
+    where 
+        R is a well-formed rule
+        G and GD are RDF graphs
+    let B be R.body 
+        where each blank node in a triple pattern in R.body
+        is replaced by a variable which is not used in the rule. 
+        The same variable is used for each occurrence of the
+        same blank node, and a different variable is used for 
+       each different blank node.
 
-# Evaluate rule head
-let OUT = empty set
-for each <var>μ</var> in SEQ:
-    let S = {}
-    for each triple template TT in R.head:
-        let triple = subst(<var>μ</var>, TT)
-        Add triple to S
+    # Solution sequence of one solution that does not map any variables.
+    let SEQ0: Solution sequence = { <var>μ</var><sub>0</sub> }
+
+    if R.data:
+        let SEQ = evalRuleElements(B, SEQ0, GD, GD)
+    else
+        let SEQ = evalRuleElements(B, SEQ0, G, GD)
+    
+    # Evaluate rule head
+    let OUT = empty set
+    for each <var>μ</var> in SEQ:
+        let S = {}
+        for each triple template TT in R.head:
+            let triple = subst(<var>μ</var>, TT)
+            Add triple to S
+        endfor
+        OUT = OUT union S
     endfor
-    OUT = OUT union S
-endfor
-
-result evalRule(R, G, GD) is OUT
+    return OUT
+enddefine
 </pre>
         </div>
       <p class="note">`OUT` may contain triples that are also in the data graph.</p>
@@ -2084,7 +2070,7 @@ result evalRule(R, G, GD) is OUT
         </p>
 
         <div class="algorithm">
-<pre>
+<pre class="nohighlight">
 let G0 be the input base graph
 let RS be the rule set
 let D be the graph of all DATA triples in RS
@@ -2103,22 +2089,22 @@ let GE = GD
 
 for each stratum ST in LS:
     for each rule R in ST.once:
-        let X = evalRule(R, GE, GD)
+        let X = evalRule(R, GE, G0)
         let Y = { t &isin; X | t &notin; GE }
-        GI = Y &cups; GI
-        GE = Y &cups; GE
+        GI = GI &cups; Y
+        GE = GE &cups; Y
     endfor
 
     let finished = false
     while !finished:
         finished = true
         for each rule R in ST.general:
-            let X = evalRule(R, GE, GD)
+            let X = evalRule(R, GE, G0)
             let Y = { t &isin; X | t &notin; GE }
             if Y is not empty:
                 finished = false
-                GI = Y &cups; GI
-                GE = Y &cups; GE
+                GI = GI &cups; Y
+                GE = GE &cups; Y
             endif
         endfor
     endwhile
