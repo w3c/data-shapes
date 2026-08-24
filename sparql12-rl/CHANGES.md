@@ -9,18 +9,20 @@ This file is temporary while the specification is in-development — it is not
 intended for publication.
 
 ## 2026-08-24
-Grammar: `FOR ?var IN <iri>` (`ForClause`) removed; the 2026-08-12 entry below
-recorded this removal before it had happened.
-Grammar: the body-first `IF ... THEN ...` form (`Rule2`) removed; `Rule1` folded
-into `Rule`. Productions renumbered accordingly (156 productions to 153).
+GH-1191: Grammar: `FOR ?var IN <iri>` (`ForClause`) removed; the 2026-08-12
+entry below recorded this removal before it had happened.
+GH-1191: Grammar: the body-first `IF ... THEN ...` form (`Rule2`) removed;
+`Rule1` folded into `Rule`. Productions renumbered accordingly
+(156 productions to 153).
 A `WHERE DATA` rule body and a `NOT DATA` negation element no longer give rise
 to rule dependencies.
 Blank nodes in a rule head are freshened per solution.
+Test namespace prefix is `srlt:` in every manifest.
 
 ## 2026-08-19
 Move from "SHACL 1.2 Rules" to "SPARQL 12 RL" / SPARQL-RL.
 Move tests to `shacl12-test-suite/tests/sparql-rl/`
-Change test namespace to `PREFIX srt: <http://www.w3.org/ns/sparql-rl-tests#>`
+Change test namespace to `PREFIX srlt: <http://www.w3.org/ns/sparql-rl-tests#>`
 Change root test manifest to `manifest-sparql-rl.ttl`
 
 ## 2026-08-12

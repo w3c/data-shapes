@@ -7,7 +7,7 @@ vocabulary.
 
 ```
 PREFIX mf:   <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#>
-PREFIX srt:  <http://www.w3.org/ns/sparql-rl-tests#>
+PREFIX srlt: <http://www.w3.org/ns/sparql-rl-tests#>
 ```
 
 Each directory has a test manifest. A manifest file may contain `mf:include` to load
