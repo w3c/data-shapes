@@ -20,8 +20,8 @@ The top level manifest is `manifest-sparql-rl.ttl`.
 * [Syntax tests](syntax/)
 * [Evaluation tests](eval/)
 * [Evaluation examples](eval2/)
-* [Starification tests](stratification/)
-* [Wellformed-ness tests](wellformed/)
+* [Stratification tests](stratification/)
+* [Well-formedness tests](wellformed/)
 
 ### Syntax tests
 
@@ -35,7 +35,7 @@ All the test are syntactically legal, i.e. conform to the SPARQL-RL Rules gramma
 additional parsing rules.
 
 To pass a test, the parser must accept or reject a rule set as stated by the test
-type. A negative well-formedness is a ruleset that violates oen or more well-formed
+type. A negative well-formedness is a ruleset that violates one or more well-formed
 conditions of the SPARQL-RL abstract rule syntax.
 
 ### Stratification
