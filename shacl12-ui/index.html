@@ -2640,6 +2640,131 @@ ex:config
       </p>
     </section>
 
+    <section id="search-query">
+      <h2>Search Query Extension</h2>
+
+      <p>
+        A property shape's permissible value nodes can be computed dynamically using a
+        <a href="../shacl12-sparql/#SelectExpression">select expression</a> (<code>sh:select</code>) inside
+        <code>sh:in</code>, including a SPARQL <code>SERVICE</code> clause against an external endpoint, as
+        described in <a href="../shacl12-node-expr/#dynamic-shacl">Dynamic SHACL</a>. Such a query resolves the
+        full candidate set and cannot be parameterized with a user's live search input, nor can it take advantage of
+        vendor-specific full-text search (FTS) extensions.
+      </p>
+
+      <p>
+        This section defines <code>shui:searchQuery</code>, an optional property of a
+        <a href="../shacl12-sparql/#SelectExpression">select expression</a> that lets shape authors provide a
+        separate SPARQL <code>SELECT</code> query dedicated to resolving candidate value nodes from live,
+        user-provided search input, for example within an <a href="#AutoCompleteEditor">AutoCompleteEditor</a>.
+      </p>
+
+      <h3>shui:searchQuery</h3>
+
+      <p>
+        A well-formed value of <code>shui:searchQuery</code> is a <a>literal</a> of <a>datatype</a>
+        <code>xsd:string</code>, appearing on the same blank node as <code>sh:select</code> within an
+        <code>sh:in</code> list, and containing a SPARQL <code>SELECT</code> query subject to the constraints below.
+        A <a href="../shacl12-sparql/#SelectExpression">select expression</a> MAY have at most one value for
+        <code>shui:searchQuery</code>.
+      </p>
+
+      <p>
+        When an end user enters or changes search input for a property rendered with a widget that consumes
+        candidate values from <code>sh:in</code>, a SHACL Renderer that supports this extension MAY evaluate the
+        query given by <code>shui:searchQuery</code> in place of <code>sh:select</code> to retrieve the candidate
+        value nodes offered to the user.
+      </p>
+
+      <p>
+        The query MUST expect the following variables to be pre-bound by the renderer before evaluation:
+      </p>
+
+      <table class="term-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>$searchTerm</code></td>
+            <td>An <code>xsd:string</code> literal containing the current search input entered by the end user.</td>
+          </tr>
+          <tr>
+            <td><code>$uiLanguage</code></td>
+            <td>
+              A language-tagged literal identifying the user's current UI language preference, as determined by
+              <a href="#lang-resolution">Language Resolution</a>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        Using the <a href="../shacl12-sparql/#sparql-prefixes">prefix handling rules</a>, the SPARQL query derived
+        from the value of <code>shui:searchQuery</code> MUST project exactly one variable in its <code>SELECT</code>
+        clause, representing the matching IRIs or literals. The query MUST NOT include a <code>LIMIT</code> or
+        <code>OFFSET</code> solution modifier; result pagination and limits remain under the exclusive control of the
+        renderer.
+      </p>
+
+      <p>
+        If a renderer does not support <code>shui:searchQuery</code> but does support Dynamic SHACL the renderer SHOULD 
+        fall back to evaluating the baseline query given by <code>sh:select</code>.
+      </p>
+
+      <p class="note">
+        This specification does not define how property roles, such as <code>shui:LabelRole</code>, are resolved or
+        auto-injected into the search query. Renderers MAY combine value filtering and label retrieval in a single
+        query, or perform them as separate queries.
+      </p>
+
+      <aside class="example" title="Federated full-text search using shui:searchQuery">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:name "Author" ;
+        sh:path dct:creator ;
+        sh:class ex:Person ;
+        sh:in [
+            sh:select """
+                PREFIX ex: &lt;http://example.com/&gt;
+                SELECT ?value WHERE {
+                    SERVICE &lt;http://example.com/sparql&gt; {
+                        ?value a ex:Person .
+                    }
+                }
+            """ ;
+            <b>shui:searchQuery</b> """
+                PREFIX ex: &lt;http://example.com/&gt;
+                PREFIX text: &lt;http://jena.apache.org/text#&gt;
+                SELECT ?value WHERE {
+                    SERVICE &lt;http://example.com/sparql&gt; {
+                        ?value text:query ($searchTerm $uiLanguage) .
+                        ?value a ex:Person .
+                    }
+                }
+            """ ;
+        ]
+    ] .
+          </div>
+        </div>
+        <p>
+          As the user types into the <a href="#AutoCompleteEditor">AutoCompleteEditor</a> rendered for
+          <code>ex:BookShape</code>'s <code>Author</code> property, the renderer binds the typed text to
+          <code>?searchTerm</code> and the current UI language to <code>?uiLanguage</code>, then evaluates
+          <code>shui:searchQuery</code> to query the Apache Jena Text index via the <code>SERVICE</code> clause.
+          If the renderer does not support <code>shui:searchQuery</code> but does support Dynamic SHACL, 
+          the baseline <code>sh:select</code> query is used instead, returning all instances of <code>ex:Person</code>.
+        </p>
+      </aside>
+    </section>
+
     <section id="builtin-widgets">
       <h2>Built-in Widgets</h2>
 
