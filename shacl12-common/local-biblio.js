@@ -96,6 +96,20 @@ var localBibliography = {
     "status": "WD",
     "publisher": "W3C"
   },
+  // Renamed from shacl12-rules and not yet published under its new shortName,
+  // so it is absent from SpecRef and must be cited from here.
+  "sparql12-rl": {
+    "editors": [
+      "Robert David",
+      "David Habgood",
+      "Andy Seaborne",
+      "Simon Steyskal"
+    ],
+    "href": "https://w3c.github.io/data-shapes/sparql12-rl/",
+    "title": "SPARQL 1.2 RL",
+    "status": "ED",
+    "publisher": "W3C"
+  },
   "SPARQL12-CONCEPTS": {
     "authors": [
         "The W3C RDF &amp; SPARQL Working Group"
