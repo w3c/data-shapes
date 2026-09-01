@@ -1,0 +1,83 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix sparql: <http://www.w3.org/ns/sparql#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property ex:RectangleShape-area ;
+	sh:rule ex:Rectangle-computeSmall .
+
+ex:RectangleShape-area
+	a sh:PropertyShape ;
+	sh:path ex:area ;
+	sh:defaultValue 1 ;
+	sh:values [
+		sparql:multiply ( [ shnex:pathValues ex:width ] [ shnex:pathValues ex:height ] )
+	] .
+
+ex:Rectangle-computeSmall
+	a sh:SPARQLRule ;
+	rdfs:comment "This rule expects that the values of ex:area have been derived." ;
+	sh:expectedPredicate ex:area ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:isSmall true .
+		}
+		WHERE {
+			$this ex:area ?area .
+			FILTER (?area < 100) .
+		}
+	""" .
+
+ex:IncompleteRectangle
+	a ex:Rectangle .
+
+ex:SmallRectangle
+	a ex:Rectangle ;
+	ex:width 4 ;
+	ex:height 5 .
+
+ex:LargeRectangle
+	a ex:Rectangle ;
+	ex:width 11 ;
+	ex:height 10 .
+
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <expectedPredicate-example>
+    ) .
+
+<expectedPredicate-example>
+  rdf:type sht:Infer ;
+  rdfs:label "Test of sh:expectedPredicate as used in the spec" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result (
+    ( ex:IncompleteRectangle ex:isSmall true )
+	( ex:SmallRectangle ex:isSmall true )
+  ) ;
+  mf:status sht:approved ;
+  # This test requires a full NodeExpr implementation,
+  # which is not required to pass the SPARQL rules compliance
+  # TODO: Simpler tests that only rely on constant node expressions (Core)
+  sht:compliance sht:SPARQL, sht:NodeExpr ;  
+.

@@ -1,0 +1,97 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:langLabelCount
+    a sh:ListParameterExpressionFunction ;
+    rdfs:label "lang label count"@en ;
+    rdfs:subClassOf sh:ListParameterExpression ;
+    sh:bodyExpression [
+		sh:select """
+			PREFIX ex: <http://example.com/ns#>
+			PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+			SELECT (COUNT(?label) AS ?result)
+			WHERE {
+				?predicate rdfs:subPropertyOf* rdfs:label .
+				$arg0 ?predicate ?label .
+				BIND (COALESCE($arg1, 'en') AS ?matchLang) .
+				FILTER langMatches(lang(?label), ?matchLang) .
+			}
+		""" ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg0 ;
+		sh:name "subject" ;
+		sh:description "The subject node to get the label count of." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path shnex:arg1 ;
+		sh:name "match language" ;
+		sh:description "The language to filter, defaulting to 'en'." ;
+		sh:datatype xsd:string ;
+		sh:defaultValue "en" ;
+		sh:optional true ;
+	] .
+
+ex:Cougar
+	rdfs:label "Cougar"@en ;
+	rdfs:label "Mountain Lion"@en-US ;
+	rdfs:label "Puma"@de .
+
+ex:TestShape
+  a sh:NodeShape ;
+  rdfs:label "Test shape" ;
+  sh:sparql ex:TestShape-sparql ;
+  sh:targetNode ex:TestResource ;
+.
+ex:TestShape-sparql
+  sh:select """
+	  PREFIX ex: <http://example.com/ns#>
+  	SELECT $this ?value
+    WHERE {
+      BIND (ex:langLabelCount(ex:Cougar, 'en') AS ?v1) .
+      BIND (ex:langLabelCount(ex:Cougar) AS ?v2) .
+      BIND (ex:langLabelCount(ex:Cougar, 'de') AS ?v3) .
+      BIND (ex:langLabelCount(?none, 'en') AS ?v4) .
+      BIND (CONCAT(str(?v1), ' ', str(?v2), ' ', str(?v3), ' ', str(bound(?v4))) AS ?value) .
+	  }""" ;
+  sh:severity sh:Warning ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <langLabelCount-example>
+    ) ;
+.
+<langLabelCount-example>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of langLabelCount function from spec" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:TestResource ;
+          sh:resultSeverity sh:Warning ;
+          sh:sourceConstraint ex:TestShape-sparql ;
+          sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+          sh:sourceShape ex:TestShape ;
+          sh:value "2 2 1 false" ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
