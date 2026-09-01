@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html>
+	<head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark">
+		<title>SHACL 1.2 Inference Rules</title>
+		<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove" defer></script>
+		<script class="remove">
+
+			function prepareSyntaxRules() {
+				document.querySelectorAll("[data-syntax-rule]").forEach(element => {
+					let ruleId = element.getAttribute("data-syntax-rule");
+					let tr = document.createElement("tr");
+					tr.classList.add("syntax-rule-tr");
+					let td1 = document.createElement("td");
+					td1.classList.add("syntax-rule-id");
+					let a = document.createElement("a");
+					a.classList.add("syntax-rule-id-a");
+					a.href = "#syntax-rule-" + ruleId;
+					a.textContent = ruleId;
+					td1.appendChild(a);
+					let td2 = document.createElement("td");
+					td2.innerHTML = element.innerHTML;
+					tr.appendChild(td1);
+					tr.appendChild(td2);
+
+					// Replace <dfn> elements inside `tr` with <a> elements
+					tr.querySelectorAll("dfn").forEach(dfn => {
+    					let a = document.createElement("a");
+    					a.textContent = dfn.textContent;
+    					dfn.replaceWith(a);
+					});
+
+					document.getElementById("syntax-rules-table").appendChild(tr);
+					element.setAttribute("id", "syntax-rule-" + ruleId);
+				});
+			}
+
+			function prepareValidators() {
+				document.querySelectorAll("[data-validator]").forEach(element => {
+					let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
+					let tr = document.createElement("tr");
+					tr.classList.add("validator-tr");
+					let td = document.createElement("td");
+					tr.appendChild(td);
+					let a = document.createElement("a");
+					a.classList.add("validator-id-a");
+					a.href = `#validator-${validatorId}`;
+					a.textContent = `sh:${validatorId}`;
+					td.appendChild(a);
+					td.innerHTML += ": " + element.innerHTML;
+					document.getElementById("validators-table").appendChild(tr);
+					element.id = "validator-" + validatorId;
+				});
+			}
+
+			document.addEventListener("DOMContentLoaded", () => {
+				// Replace code div blocks in shapes, data, and results graph with tabs
+				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .inferences-graph")) {
+					const tabs = document.createElement("aside");
+					tabs.classList.add("ds-selector-tabs");
+					graph.firstElementChild.classList.add("selected");
+
+					for (const child of graph.children) {
+						child.classList.add("tab");
+					}
+
+					tabs.append(...graph.children);
+					graph.append(tabs)
+				}
+
+				// Generate buttons for the selection logic
+				for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
+					const selectors = document.createElement("div");
+					selectors.classList.add("selectors");
+
+					// Check if JSON-LD div exists in this tab group
+					const hasJsonld = tabs.querySelector(".jsonld");
+
+					selectors.innerHTML = `
+						<button class="selected" data-selects="turtle">Turtle</button>
+						${hasJsonld ? '<button data-selects="jsonld">JSON-LD</button>' : ''}
+					`
+
+					tabs.prepend(selectors);
+				}
+
+				// Add example button selection logic
+				for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
+					button.onclick = () => {
+						const ex = button.closest(".ds-selector-tabs");
+						ex.querySelector("button.selected").classList.remove("selected");
+						ex.querySelector(".selected").classList.remove("selected");
+						button.classList.add('selected');
+						ex.querySelector("." + button.dataset.selects).classList.add("selected");
+					}
+				}
+			});
+
+			var respecConfig = {
+				group: "wg/data-shapes",
+				github: "w3c/data-shapes",
+				edDraftURI: "https://w3c.github.io/data-shapes/shacl12-inference-rules/",
+				specStatus: "ED",
+				preProcess : [ prepareSyntaxRules, prepareValidators ],
+				shortName:  "shacl12-inference-rules",
+				subjectPrefix: "[shacl12-inference-rules]",
+				editors: [
+					{
+						name:       "Holger Knublauch",
+						company:    "TopQuadrant, Inc.",
+						companyURL: "http://topquadrant.com/",
+						mailto:     "holger@knublauch.com",
+						w3cid:      46500
+					},
+					{
+						name:       "Matt Goldberg",
+						company:    "Corning",
+						companyURL: "https://www.corning.com",
+						mailto:     "goldbermg3@corning.com",
+						w3cid:      164111
+					},
+					{
+						name:       "Scott Henninger",
+						company:    "JPMorgan Chase & Co.",
+						companyURL: "https://www.jpmorganchase.com/",
+						mailto:     "scotthenninger@gmail.com",
+						w3cid:      80464
+					},
+					{
+						name:       "Livio Robaldo",
+						company:    "Swansea University",
+						companyURL: "https://www.swansea.ac.uk/",
+						mailto:     "livio.robaldo@swansea.ac.uk",
+						w3cid:      157543
+					},
+					{
+						name:		"Simon Steyskal",
+						company:	"Siemens AG",
+						companyURL: "https://siemens.com",
+						//mailto: "simon.steyskal@siemens.com",
+						w3cid:		73545
+					}
+				],
+				testSuiteURI: "https://w3c.github.io/data-shapes/data-shapes-test-suite/",
+
+				previousPublishDate: "2017-07-20",
+				previousMaturity: "REC",
+				prevRecShortname: "shacl",
+				prevRecURI: "https://www.w3.org/TR/2017/REC-shacl-20170720/#part2",
+				lint: {
+					"no-unused-dfns": false,  // This should be removed near the end of the process
+  				},
+				wgPublicList: "public-shacl"
+			};
+		</script>
+		<link rel="stylesheet" href="style.css"/>
+	</head>
+	<body>
+		<section id="abstract">
+			<p>
+				This document defines the Inference Rules support of the SHACL Shapes Constraint Language (SHACL).
+				While the Core part of SHACL focuses on the basic syntax of shapes and constraint validation of data graphs,
+				the SHACL Inference Rules cover features that can be used to infer new triples from existing triples in the data graph.
+			</p>
+		</section>
+
+		<section id="sotd">
+		</section>
+
+    	<section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
+
+		<section id="introduction">
+			<h2>Introduction</h2>
+			<p>
+				This document specifies the Inference Rules support of the Shapes Constraint Language (SHACL).
+			</p>
+			<section id="terminology">
+				<h3>Terminology</h3>
+				<p>
+					Throughout this document, the following terminology is used.
+				</p>
+				<p>
+					The SHACL inference rules defined in this document are sometimes simply called SHACL rules or even rules.
+					SHACL SPARQL rules are sometimes simply called SPARQL rules.
+				</p>
+				<p class="note">
+					Inference rules should not be confused with constraints.
+					Constraints define conditions that a data graph should conform to,
+					while rules define how additional (implicit) statements can be derived/inferred from the statements
+					that are explicitly asserted in a data graph.
+				</p>
+				<p>
+					Terminology that is linked to portions of RDF 1.2 Concepts and Abstract Syntax is used in SHACL Inference Rules as defined there.
+					Terminology that is linked to portions of other SHACL 1.2 documents is used in SHACL Inference Rules as defined there.
+					A single linkage is sufficient to provide a definition for all occurrences of a particular term in this document.
+				</p>
+				<p>
+					Definitions are complete within this document, i.e., if there is no rule to
+					make some situation true in this document then the situation is false.
+				</p>
+				<div class="def" id="rdf-terminology">
+					<div class="term-def-header">Basic RDF Terminology</div>
+					<div>
+						This document uses the terms
+						<dfn data-cite="rdf12-concepts#dfn-rdf-graph" data-lt="graph|graphs|RDF graphs">RDF graph</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-rdf-triple" data-lt="triple|triples">RDF triple</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-iri" data-lt="IRI|IRIs">IRI</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-rdf-literal" data-lt="literal|literals">literal</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-blank-node" data-lt="blank node|blank nodes">blank node</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-rdf-node" data-lt="node|nodes">node</dfn> of an RDF graph,
+						<dfn data-cite="rdf12-concepts#dfn-datatype" data-lt="datatype|datatypes">datatype</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-reifier">reifier</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-rdf-term" data-lt="term|terms">RDF term</dfn>, and
+						<dfn data-cite="rdf12-concepts#dfn-subject" data-lt="subject|subjects">subject</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-predicate" data-lt="predicate|predicates">predicate</dfn>, and
+						<dfn data-cite="rdf12-concepts#dfn-object" data-lt="object|objects">object</dfn> of RDF triples
+						as defined in RDF 1.2 Concepts and Abstract Syntax [[!rdf12-concepts]].
+					</div>
+				</div>
+				<div class="def" id="shacl-terminology">
+					<div class="term-def-header">Basic SHACL Terminology</div>
+					<div>
+						This document uses the terms
+						<dfn data-cite="shacl12-core#dfn-focus-node" data-lt="focus node|focus nodes">focus node</dfn>,
+						<dfn data-cite="shacl12-core#dfn-value" data-lt="value">value</dfn>,
+						<dfn data-cite="shacl12-core#dfn-value-node" data-lt="value node|value nodes">value node</dfn>,
+						<dfn data-cite="shacl12-core#dfn-constraint" data-lt="constraint|constraints">constraint</dfn>,
+						<dfn data-cite="shacl12-core#dfn-constraint-component" data-lt="constraint component|constraint components">constraint component</dfn>,
+						<dfn data-cite="shacl12-core#dfn-parameter" data-lt="parameter|parameters">parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-mandatory-parameter" data-lt="mandatory parameter|mandatory parameters">mandatory parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-optional-parameter" data-lt="optional parameter|optional parameters">optional parameter</dfn>,
+						<dfn data-cite="shacl12-core#dfn-parameter-value" data-lt="parameter value">parameter value</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shape" data-lt="shape|shapes">shape</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-shape" data-lt="node shape|node shapes">node shape</dfn>,
+						<dfn data-cite="shacl12-core#dfn-property-shape" data-lt="property shape|property shapes">property shape</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-property-path" data-lt="shacl property path|shacl property paths">SHACL property path</dfn>,
+						<dfn data-cite="shacl12-core#dfn-sparql-property-path" data-lt="sparql property path|sparql property paths">SPARQL property path</dfn>,
+						<dfn data-cite="shacl12-core#dfn-data-graph" data-lt="data graph">data graph</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shapes-graph" data-lt="shapes graph">shapes graph</dfn>,
+						<dfn data-cite="shacl12-core#dfn-target" data-lt="target|targets|target nodes">target</dfn>,
+						<dfn data-cite="shacl12-core#dfn-validators" data-lt="validator|validators">validator</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-expression" data-lt="node expression|node expresssions">node expression</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-expression-function" data-lt="node expression function|node expresssion functions">node expression function</dfn>,
+						<dfn data-cite="shacl12-core#dfn-function-name" data-lt="node expression function name">function name</dfn>,
+						<dfn data-cite="shacl12-core#dfn-output-nodes" data-lt="output nodes">output nodes</dfn>,
+						<dfn data-cite="shacl12-core#dfn-focus-graph" data-lt="focus graph">focus graph</dfn>,
+						<dfn data-cite="shacl12-core#dfn-conform" data-lt="conform|conforms">conform</dfn>,
+						<dfn data-cite="shacl12-core#dfn-failure" data-lt="failure|failures">failure</dfn>,
+						<dfn data-cite="shacl12-core#dfn-validation-result" data-lt="validation result">validation result</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-instance" data-lt="shacl instance">SHACL instance</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-subclass" data-lt="shacl subclass">SHACL subclass</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-superclass">SHACL superclass</dfn>,
+						<dfn data-cite="shacl12-core#dfn-shacl-type" data-lt="shacl type">SHACL type</dfn>,
+						<dfn data-cite="shacl12-core#dfn-well-formed">well-formed</dfn>,
+						<dfn data-cite="shacl12-core#dfn-ill-formed">ill-formed</dfn>,
+						as defined in the SHACL 1.2 Core specification [[!shacl12-core]].
+					</div>
+				</div>
+				<div class="def" id="shacl-sparql-terminology">
+					<div class="term-def-header">Basic SHACL-SPARQL Terminology</div>
+					<div>
+						This document uses the terms
+						<dfn data-cite="shacl12-sparql#dfn-binding" data-lt="binding">binding</dfn>,
+						<dfn data-cite="shacl12-sparql#dfn-pre-binding" data-lt="pre-binding|pre-bound">pre-binding</dfn>,
+						as defined in the SHACL 1.2 SPARQL specification [[!shacl12-sparql]].
+					</div>
+				</div>
+			</section>
+
+			<section id="conventions">
+				<h3>Document Conventions</h3>
+				<p>
+					The syntax of SHACL is RDF.
+					The examples in this document use Turtle [[rdf12-turtle]].
+					Other RDF serializations such as RDF/XML may be used in practice.
+					The reader should be familiar with basic RDF concepts [[rdf12-concepts]] such as triples and with SPARQL [[sparql12-query]].
+				</p>
+				<p>
+					Within this document, the following namespace prefix bindings are used:
+				</p>
+				<table class="term-table">
+					<tr>
+						<th>Prefix</th>
+						<th>Namespace</th>
+					</tr>
+					<tr>
+						<td><code>owl:</code></td>
+						<td><code>http://www.w3.org/2002/07/owl#</code></td>
+					</tr>
+					<tr>
+						<td><code>rdf:</code></td>
+						<td><code>http://www.w3.org/1999/02/22-rdf-syntax-ns#</code></td>
+					</tr>
+					<tr>
+						<td><code>rdfs:</code></td>
+						<td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
+					</tr>
+					<tr>
+						<td><code>sh:</code></td>
+						<td><code><a href="http://www.w3.org/ns/shacl">http://www.w3.org/ns/shacl#</a></code></td>
+					</tr>
+					<tr>
+						<td><code>shnex:</code></td>
+						<td><code><a href="http://www.w3.org/ns/shacl-node-expr">http://www.w3.org/ns/shacl-node-expr#</a></code></td>
+					</tr>
+					<tr>
+						<td><code>sparql:</code></td>
+						<td><code>http://www.w3.org/ns/sparql#</code></td>
+					</tr>
+					<tr>
+						<td><code>xsd:</code></td>
+						<td><code>http://www.w3.org/2001/XMLSchema#</code></td>
+					</tr>
+					<tr>
+						<td><code>ex:</code></td>
+						<td><code>http://example.com/ns#</code></td>
+					</tr>
+				</table>
+
+				<p>
+					Within this document, the following JSON-LD context is used:
+				</p>
+				<pre class="jsonld">{
+  "@context": {
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ex": "http://example.com/ns#"
+  }
+}</pre>
+				<p>
+					Note that the URI of the graph defining the SHACL vocabulary itself is equivalent to
+					the namespace above, i.e. it includes the <code>#</code>.
+					References to the SHACL vocabulary, e.g. via <code>owl:imports</code> should include the <code>#</code>.
+				</p>
+				<p>
+					Throughout the document, color-coded boxes containing RDF graphs in Turtle will appear.
+					These fragments of Turtle documents use the prefix bindings given above.
+				</p>
+				<div class="shapes-graph">
+					<div class="turtle">
+# This box represents an input shapes graph
+
+&lt;s&gt; ex:p &lt;o&gt; .
+					</div>
+					<div class="jsonld">
+						<pre class="text">// This box represents an input shapes graph</pre>
+						<pre class="jsonld">{
+	"@id": "s",
+	"ex:p": {
+		"@id": "o"
+	}
+}</pre>
+					</div>
+				</div>
+
+				<div class="data-graph">
+					<div class="turtle">
+# This box represents an input data graph.
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@graph": [
+	]
+}</pre>
+					</div>
+				</div>
+
+				<div class="inferences-graph">
+					<div class="turtle">
+# This box represents the inferred triples that are produced by the rules
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{}</pre>
+					</div>
+				</div>
+
+				<p class="syntax">
+					Grey boxes such as this include syntax rules that apply to the <a>shapes graph</a>.
+				</p>
+
+				<p>
+					SPARQL variables using the <code>$</code> marker represent external <a>bindings</a> that are <a>pre-bound</a> in the SPARQL query before execution.
+				</p>
+
+				<p>
+					<code>true</code> denotes the RDF term <code>"true"^^xsd:boolean</code>.
+					<code>false</code> denotes the RDF term <code>"false"^^xsd:boolean</code>.
+				</p>
+
+			</section>
+
+			<section id="conformance">
+				<p>
+					This document defines the <strong>SHACL Inference Rules</strong> framework that extends SHACL Core.
+					This specification describes conformance criteria for:
+				</p>
+				<ul>
+					<li><strong>SHACL inference rule processors</strong> as processors that support the evaluation of <a>rules</a></li>
+				</ul>
+				<p>
+					Also see the discussion of well-formedness in the <a data-cite="shacl12-core#conformance">Conformance section of SHACL Core</a>.
+				</p>
+			</section>
+		</section>
+
+		<section id="getting-started">
+			<h2>Getting Started with SHACL Inference Rules</h2>
+			<p>
+				SHACL defines an RDF vocabulary to describe <a>shapes</a> - collections of <a>constraints</a> that apply to a set of nodes.
+				Shapes can be associated with nodes using a flexible <a>target</a> mechanism, e.g. for all instances of a class.
+				One focus area of SHACL is data validation.
+				However, the same principles of describing data patterns in shapes can also be exploited for other purposes.
+				<a>SHACL rules</a> build on SHACL to form a light-weight RDF vocabulary for the exchange of <a>rules</a> that can be used
+				to derive <a>inferred</a> RDF <a>triples</a> from existing <em>asserted</em> <a>triples</a>.
+			</p>
+			<p>
+				The <a>SHACL rules</a> feature defined in this document includes a general framework using the properties
+				such as <code>sh:rule</code> and <code>sh:condition</code>, plus an extension mechanism for specific <a>rule types</a>.
+				This document defines two such rule types: <a>SHACL SPARQL rules</a> and <a>triple rules</a>.
+			</p>
+			
+			<section id="sparql-rule-example" class="informative">
+				<h3>An Example SPARQL Rule</h3>
+				<p>
+					The following example illustrates a simple use case of a <a>SPARQL rule</a> that applies to all instances of
+					the class <code>ex:Rectangle</code> and computes the values of the <code>ex:area</code> property by multiplying
+					the rectangle's width and height:
+				</p>
+				<aside class="example" id="RectangleShape-example-sparql" title="A SPARQL rule to compute the area of a Rectangle">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property [
+		sh:path ex:color ;
+		sh:datatype xsd:string ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:width ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:height ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] .
+
+ex:RectangleRulesShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:area ?area .
+			}
+			WHERE {
+				$this ex:width ?width .
+				$this ex:height ?height .
+				BIND (?width * ?height AS ?area) .
+			}
+			""" ;
+		# Rule only applies to Rectangles that conform to ex:RectangleShape
+		sh:condition ex:RectangleShape ;
+	] .
+						</div>
+					</div>
+				</aside>
+				<p>
+					An engine that is capable of executing such rules uses the <a>target</a> statements associated
+					with the <a>shapes</a> in the <a>shapes graph</a> to determine which rules need to be executed on which target nodes.
+					For those target nodes that <a>conform</a> to any <a href="#condition">condition shapes</a>, it executes the provided
+					CONSTRUCT queries to produce the inferred triples.
+					During the execution of the query, the variable <code>this</code> has the current <a>focus node</a> as <a>pre-bound</a> variable.
+				</p>
+				<p>
+					For the following <a>data graph</a>, the <a>triples</a> below would be produced.
+				</p>
+				<aside class="example" title="Sample instance data for the rectangle rule">
+					<div class="data-graph">
+						<div class="turtle">
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:color "green" ;
+	ex:width 7 ;
+	ex:height 8 .
+
+ex:InvalidRectangle    # Lacks a value for ex:color, so sh:condition is not met
+	a ex:Rectangle ;
+	ex:width 2 ;
+	ex:height 6 .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+ex:ExampleRectangle ex:area 56 .
+						</div>
+					</div>
+				</aside>
+			</section>
+			
+			<section id="triple-rule-example" class="informative">
+				<h3>An Example Triple Rule</h3>
+				<p>
+					In addition to SPARQL-based inference rules, this document introduces <a>triple rules</a>.
+					These rules rely on <a>node expressions</a> instead of SPARQL queries to compute the inferred triples.
+					Here is the same scenario as the previous example, using a triple rule.
+				</p>
+				<aside class="example" id="RectangleShape-example-triple-rule" title="A triple rule to compute the area of a Rectangle">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property [
+		sh:path ex:color ;
+		sh:datatype xsd:string ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:width ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] ;
+	sh:property [
+		sh:path ex:height ;
+		sh:datatype xsd:integer ;
+		sh:minCount 1 ;
+		sh:maxCount 1 ;
+	] .
+
+ex:RectangleRulesShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		a sh:TripleRule ;
+		# Rule only applies to Rectangles that conform to ex:RectangleShape
+		sh:condition ex:RectangleShape ;
+		sh:predicate ex:area ;  # This predicate will be inferred
+		sh:object [  # The object(s) will be computed with this node expression
+			sparql:multiply (
+				[ shnex:pathValues ex:width ]
+				[ shnex:pathValues ex:height ]
+			)
+		] ;
+	] .
+						</div>
+					</div>
+				</aside>
+			</section>
+		</section>
+
+		<section id="syntax">
+			<h2>Syntax of SHACL Rules</h2>
+			<p>
+				The <a>SHACL instances</a> of <code>sh:Rule</code>, including its subclasses <code>sh:SPARQLRule</code> and <code>sh:TripleRule</code>,
+				are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
+				SHACL has a flexible, extensible design in which multiple types of rules can be supported,
+				but this document only defines two of them: <a>SPARQL rules</a> and <a>triple rules</a>.
+			</p>
+			<p>
+				Each <dfn>rule type</dfn> is identified by an <a>IRI</a> that is used as
+				their <code>rdf:type</code>.
+				Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
+			</p>
+			<p class="syntax">
+				<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code>
+				which is a <a>IRI</a>.</span>
+			</p>
+			<p>
+				Rules can have multiple types, e.g., to provide instructions that work either in SPARQL or JavaScript,
+				depending on the capabilities of the engine.
+				The creator of such rules needs to make sure that such rules have consistent semantics.
+				Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
+			</p>
+			<section id="global-rules">
+				<h3>Shape Rules and Global Rules (sh:rule)</h3>
+				<p class="syntax">
+					<span data-syntax-rule="rule">The property <code>sh:rule</code> can be used to link a <a>shape</a> (<a>subject</a>)
+					with a <a>shape rule</a> (<a>object</a>).
+					The <a>subjects</a> of <code>sh:rule</code> triples are <a>IRIs</a>.</span>
+				</p>
+				<p>
+					<a>SHACL rules</a> can be divided into two categories:
+				</p>
+				<ul>
+					<li>
+						A <dfn>shape rule</dfn> is a <a>rule</a> that is the <a>object</a> of a <code>sh:rule</code> triple.
+						Shape rules are executed for all <a>target</a> nodes of the <a>shape</a> which is the <a>subject</a>
+						of the <code>sh:rule</code> triple.
+					</li>
+					<li>
+						A <dfn data-lt="global">global rule</dfn> is a <a>rule</a> that is <em>not</em> linked to a <a>shape</a> by 
+						a <code>sh:rule</code> <a>predicate</a>.
+					</li>
+				</ul>
+				<p>
+					An example of a <a>shape rule</a> was shown above in <a href="#RectangleShape-example-sparql"></a>.
+				</p>
+				<p>
+					The following example illustrates a <a>global rule</a>.
+				</p>
+				<aside class="example" title="A global rule (not associated with any shape)">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:SymmetricPropertyRule
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT {
+			?o ?p ?s .
+		}
+		WHERE {
+			?p a ex:SymmetricProperty .
+			?s ?p ?o .
+		}
+		""" .
+						</div>
+					</div>
+				</aside>
+			</section>
+			<section id="condition">
+				<h3>Conditions on Shape Rules (sh:condition)</h3>
+				<p>
+					A <a>shape rule</a> may have values for the property <code>sh:condition</code> to specify <a>shapes</a>
+					that the <a>target nodes</a> must conform to before they become <a>focus nodes</a> for the rule.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="condition-node">The <a>values</a> of <code>sh:condition</code> at a <a>rule</a> must be well-formed <a>shapes</a>.</span>
+				</p>
+				<p>
+					If the <a>value</a> <code>C</code> of <code>sh:condition</code> is a <a>SHACL instance</a> of both <code>sh:NodeShape</code>
+					and <code>rdfs:Class</code>, then the focus nodes must also conform to the <a>constraints</a> of the
+					<a data-cite="shacl12-core#deactivated">non-deactivated</a> <a>SHACL superclasses</a> of <code>C</code>
+					that are also <a>SHACL instances</a> of both <code>sh:NodeShape</code> and <code>rdfs:Class</code>.
+					This is similar to how <a data-cite="shacl12-core#implicit-targetClass">Implicit Class Targets</a> are interpreted during validation.
+				</p>
+			</section>
+			<section id="deactivated-rules">
+				<h3>Deactivated Rules (sh:deactivated)</h3>
+				<p>
+					Rules may be <em>deactivated</em> by setting <code>sh:deactivated</code> to <code>true</code>.
+					Deactivated rules are ignored by the rules engine.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="deactivated-maxCount">Each <a>rule</a> may have at most one <a>value</a> for the
+					property <code>sh:deactivated</code>.</span>
+					<span data-syntax-rule="deactivated-in">The <a>values</a> of <code>sh:deactivated</code> are either
+					of the <code>xsd:boolean</code> literals <code>true</code> or <code>false</code>.</span>
+				</p>
+			</section>
+			<section id="rule-layers">
+				<h3>Grouping of Rules into Layers (sh:layer)</h3>
+				<p>
+					Rules may be grouped into <dfn data-lt="layer">layers</dfn>, identified by a numeric value.
+					During execution, a SHACL rules engine will iterate over all rules in the same layer
+					before moving to the next layer.
+					Layers with a smaller numeric value will be executed before those with a larger number.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="rule-layer-maxCount">Each <a>rule</a> may have at most one <a>value</a> for the
+					property <code>sh:layer</code>.</span>
+					<span data-syntax-rule="rule-layer-datatype">The values of <code>sh:layer</code> at <a>rules</a>
+					are <a>literals</a> with datatype <code>xsd:integer</code>.</span>
+				</p>
+				<p>
+					If unspecified, then the default <a>layer</a> of a rule is <code>0</code>.
+				</p>
+				<p>
+					An example of <code>sh:layer</code> to control the execution order of rules is provided in <a href="#example-rules-before-after"></a>.
+				</p>
+			</section>
+			<section id="rule-order">
+				<h3>Ordering of Rules (sh:order)</h3>
+				<p>
+					Rules may specify their relative <dfn>execution order</dfn> within the same <a>layer</a> as defined in this section.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="rule-order-maxCount">Each <a>rule</a> may have at most one <a>value</a> for the
+					property <code>sh:order</code>.</span>
+					<span data-syntax-rule="rule-order-datatype">The values of <code>sh:order</code> at <a>rules</a>
+					are <a>literals</a> with datatype <code>xsd:decimal</code> or <code>xsd:integer</code>.</span>
+				</p>
+				<p>
+					If unspecified, then the default <a>execution order</a> is <code>0</code>.
+					When the <a>rules</a> are executed, within the same <a>layer</a>, <a>rules</a> with larger order values will be executed after those with smaller values.
+				</p>
+				<aside class="example" title="Rule order example">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RuleOrderExampleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		rdfs:label "Infer uncles, i.e. male siblings of the parents of $this" ;
+		sh:order 1 ;   # Will be evaluated before 2
+		sh:construct """
+			CONSTRUCT {
+				$this ex:uncle ?uncle .
+			}
+			WHERE {
+				$this ex:parent ?parent .
+				?parent ex:sibling ?uncle .
+				?uncle ex:gender ex:male .
+			}
+			"""
+	] ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		rdfs:label "Infer cousins, i.e. the children of the uncles" ;
+		sh:order 2 ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:cousin ?cousin .
+			}
+			WHERE {
+				$this ex:uncle ?uncle .
+				?cousin ex:parent ?uncle .
+			}
+			"""
+	] .
+						</div>
+					</div>
+				</aside>
+			</section>
+			<section id="run-once">
+				<h3>Run-once Rules (sh:runOnce)</h3>
+				<p>
+					A SHACL rules engine <a>iterates</a> over the rules, allowing the same rule to be
+					executed multiple times until no further triples are inferred.
+					However, some rules may produce fresh <a>blank nodes</a> with each execution and therefore cause infinite iterations.
+				</p>
+				<p>
+					Rules may use the property <code>sh:runOnce</code> to instruct a rules engine that the rule is
+					only executed once and before the other rules in the same <a>layer</a>.
+				</p>
+				<p class="syntax">
+					<span data-syntax-rule="run-once-maxCount">Each <a>rule</a> may have at most one <a>value</a> for the
+					property <code>sh:runOnce</code>.</span>
+					<span data-syntax-rule="run-once-datatype">The values of <code>sh:runOnce</code> at <a>rules</a>
+					are <a>literals</a> with <a>datatype</a> <code>xsd:boolean</code>.</span>
+				</p>
+				<p>
+					A <dfn>run-once rule</dfn> is a <a>rule</a> for which at most one <a>iteration</a> is performed (per <a>shape</a>, if it is a <a>shape rule</a>), i.e. it is executed at most once per <a>focus node</a>.
+					All other rules are called <dfn>iterating rules</dfn>.
+					A <a>rule</a> that has <code>true</code> as its <a>value</a> for <code>sh:runOnce</code> is a <a>run-once rule</a>.
+				</p>
+				<aside class="example" title="Example of run-once rules and layers" id="example-rules-before-after">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RunBeforeRule
+	a sh:SPARQLRule ;
+	sh:runOnce true ;
+	sh:layer 0 ;     # This triple is optional (0 is the default layer)
+	sh:construct """
+		CONSTRUCT {
+			ex:Grandma a ex:Person .
+			ex:Son a ex:Person .
+			ex:Grandson a ex:Person .
+			ex:Granddaughter a ex:Person .
+			ex:Grandma ex:child ex:Son .
+			ex:Son ex:child ex:Grandson .
+			ex:Son ex:child ex:Granddaughter .
+		}
+		WHERE {
+		}
+		""" .
+
+ex:Person
+	a sh:ShapeClass ;
+	sh:rule ex:IteratingRule ;
+	sh:rule ex:RunAfterRule .
+
+ex:IteratingRule
+	a sh:SPARQLRule ;
+	rdfs:comment "This is a recursive rule that needs to iterate multiple times." ;
+	sh:layer 0 ;     # This triple is optional (0 is the default layer)
+	sh:construct """
+		CONSTRUCT {
+			$this ex:offspring ?offspring .
+		}
+		WHERE {
+			$this ex:child/ex:offspring? ?offspring .
+		}
+		""" .
+
+ex:RunAfterRule
+	a sh:SPARQLRule ;
+	sh:runOnce true ;
+	sh:layer 1 ;    # Execute after the iterating rules have finished
+	sh:construct """
+		CONSTRUCT {
+			?reifier rdf:reifies ?triple .
+			?reifier ex:source sh:RulesEntailment .
+		}
+		WHERE {
+			$this ex:offspring ?offspring .
+			BIND (BNODE() AS ?reifier) .
+			BIND (TRIPLE($this, ex:offspring, ?offspring) AS ?triple) .
+		}
+		""" .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+ex:Grandma
+	a ex:Person ;
+	ex:child ex:Son ;
+	ex:offspring ex:Son {| ex:source sh:RulesEntailment |} ;
+	ex:offspring ex:Grandson {| ex:source sh:RulesEntailment |} ;
+	ex:offspring ex:Granddaughter {| ex:source sh:RulesEntailment |} .
+
+ex:Son
+	a ex:Person ;
+	ex:child ex:Grandson, ex:Granddaughter ;
+	ex:offspring ex:Grandson {| ex:source sh:RulesEntailment |} ;
+	ex:offspring ex:Granddaughter {| ex:source sh:RulesEntailment |} .
+
+ex:Grandson
+	a ex:Person .
+
+ex:Granddaughter
+	a ex:Person .
+						</div>
+					</div>
+				</aside>
+			</section>
+			<section id="expectedPredicate">
+				<h3>Expected Derived Triples (sh:expectedPredicate)</h3>
+				<p>
+					SHACL Core includes the following properties to <em>derive</em> property values that are not necessarily asserted in the <a>data graph</a>:
+				</p>
+				<ul>
+					<li>
+						<a data-cite="shacl12-core#syntax-rule-path-defaultValue"><code>sh:defaultValue</code></a> defines what values should be used
+						when no other values are present for a property.
+						For example, the default value of <code>ex:childCount</code> could be <code>0</code>.
+					</li>
+					<li>
+						<a data-cite="shacl12-core#syntax-rule-path-defaultValue"><code>sh:values</code></a> defines general instructions for computing
+						derived values for a property.
+						For example, the <code>ex:area</code> of a rectangle may be derived by multiplying its <code>ex:width</code> and <code>ex:height</code>.
+					</li>
+				</ul>
+				<p>
+					Both properties can use <a>node expressions</a> including those defined in <a data-cite="shacl12-node-expr"></a>.
+					Both properties can only be used to compute the <a>objects</a> of a given <a>predicate</a> for the
+					<a>subjects</a> that are targeted by <a>shapes</a>.
+					This means that <code>sh:defaultValue</code> and <code>sh:values</code> describe implicit triples
+					that are similar to inferences produced by rules.
+				</p>
+				<p>
+					When a <a>rule</a> refers to a certain property, it is reasonable for the rule to expect that these
+					implicit triples are present.
+					This section explains how <a>rules</a> can make sure that such derived triples are present before the rule executes.
+				</p>
+				<p>
+					For a given <a>predicate</a> <code>p</code>, the <dfn>derived value nodes</dfn> are all <a>value nodes</a>
+					that can be computed using <code>sh:defaultValue</code> and <code>sh:values</code>
+					as defined by <a data-cite="shacl12-core#value-nodes"></a> in any (non-deactivated)
+					<a>property shape</a> that uses <code>p</code> as <code>sh:path</code> in the <a>shapes graph</a>.
+					For these <a>derived value nodes</a> <code>v</code> the <dfn>derived triples</dfn> are the <a>triples</a>
+					where <code>v</code> is the <a>object</a>, <code>p</code> is the <a>predicate</a> and the <a>subjects</a>
+					are the <a>target nodes</a> of the property shapes.
+				</p>
+				<p>
+					The <dfn>expected derived triples</dfn> of a <a>rule</a> are the <a>derived triples</a> for all <a>values</a>
+					of the property <code>sh:expectedPredicate</code> at the <a>rule</a>.
+					All this is best explained by an example:
+				</p>
+				<aside class="example" title="Example of expected derived triples">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property ex:RectangleShape-area ;
+	sh:rule ex:Rectangle-computeSmall .
+
+ex:RectangleShape-area
+	a sh:PropertyShape ;
+	sh:path ex:area ;
+	sh:defaultValue 1 ;
+	sh:values [
+		sparql:multiply ( [ shnex:pathValues ex:width ] [ shnex:pathValues ex:height ] )
+	] .
+
+ex:Rectangle-computeSmall
+	a sh:SPARQLRule ;
+	rdfs:comment "This rule expects that the values of ex:area have been derived." ;
+	sh:expectedPredicate ex:area ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:isSmall true .
+		}
+		WHERE {
+			$this ex:area ?area .
+			FILTER (?area &lt; 100) .
+		}
+	""" .
+						</div>
+					</div>
+					<p>
+						The following <a>data graph</a> defines some rectangle instances:
+					</p>
+					<div class="data-graph">
+						<div class="turtle">
+ex:IncompleteRectangle
+	a ex:Rectangle .
+
+ex:SmallRectangle
+	a ex:Rectangle ;
+	ex:width 4 ;
+	ex:height 5 .
+
+ex:LargeRectangle
+	a ex:Rectangle ;
+	ex:width 11 ;
+	ex:height 10 .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+# Derived triples, visible only while rules execute:
+# ex:IncompleteRectangle ex:area 1 .
+# ex:SmallRectangle ex:area 20 .
+# ex:LargeRectangle ex:area 110 .
+
+# Inferred triples:
+ex:IncompleteRectangle ex:isSmall true .
+ex:SmallRectangle ex:isSmall true .
+						</div>
+					</div>
+				</aside>
+				<p>
+					A SHACL rules engine will remove the derived triples from the inferences at the end of
+					processing each layer, except those triples that have also been inferred by rules.
+					Some engines may have a setting to keep all derived triples, for example
+					when data is exported to systems that do not support SHACL.
+				</p>
+			</section>
+		</section>
+
+		<section id="ruleSet">
+			<h2>Rule Sets</h2>
+			<p>
+				The input to a SHACL rules processor is a set of rules called a <dfn>rule set</dfn>.
+				A <a>rule set</a> is identified by an <a>IRI</a>.
+				The property <code>sh:hasRule</code> can be used to declare that a <a>rule set</a> has a given <a>rule</a> as a member.
+				The <dfn>default rule set</dfn> of a <a>graph</a> is the set of all <a>rules</a> in the graph.
+				Rule sets can use the property <code>sh:includesRuleSet</code> to (transitively) include other rule sets.
+			</p>
+			<p class="syntax">
+				<span data-syntax-rule="RuleSet-nodeKind">All <a>SHACL instances</a> of <code>sh:RuleSet</code> have a <a>IRI</a>.</span>
+				<span data-syntax-rule="hasRule"><a>Rule sets</a> can have <a>values</a> for <code>sh:hasRule</code> and those values are <a>rules</a>.</span>
+				<span data-syntax-rule="includesRuleSet-nodeKind">The <a>values</a> of <code>sh:includesRuleSet</code> at a <a>rule set</a> are <a>IRIs</a>.</span>
+			</p>
+			<aside class="example" title="Example of rules and rule sets" id="example-ruleset">
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:Rule1
+	a sh:SPARQLRule ;
+	sh:construct "..." .
+
+ex:Rule2
+	a sh:SPARQLRule ;
+	sh:construct "..." .
+
+ex:RuleSet1
+	a sh:RuleSet ;
+	sh:includesRuleSet ex:RuleSet2 ;
+	sh:hasRule ex:Rule1 .
+
+ex:RuleSet2
+	a sh:RuleSet ;
+	sh:hasRule ex:Rule2 .
+					</div>
+				</div>
+				<p>
+					The <a>rule set</a> <code>ex:RuleSet1</code> contains <code>ex:Rule1</code> and <code>ex:Rule2</code>
+					(via <code>ex:RuleSet2</code>), while <code>ex:RuleSet2</code> contains only <code>ex:Rule2</code>.
+				</p>
+			</aside>
+		</section>
+
+		<section id="rules-graph">
+			<h2>Rules Graph</h2>
+			<p>
+				A <dfn>rules graph</dfn> is a <a>shapes graph</a> that contains <a>SHACL rules</a>.
+			</p>
+			<p>
+				<span data-syntax-rule="RulesGraph">The <code>sh:RulesGraph</code> class MAY be used as an <code>rdf:type</code>
+				of the <a>IRI</a> of a graph that typically acts in the role of a <a>rules graph</a>.</span>
+			</p>
+			<p><em>The remainder of this section is non-normative.</em></p>
+			<p>
+				The graph type classes (<code>sh:DataGraph</code>, <code>sh:ShapesGraph</code>, <code>sh:RulesGraph</code>)
+				represent roles that are not mutually exclusive; a single graph MAY be typed with more than one of these classes.
+				Rules graphs MAY contain <code>sh:rule</code> triples that reference <a>shapes</a> defined in
+				other graphs, allowing rules to be managed independently of shape and ontology definitions.
+			</p>
+		</section>
+
+		<section id="RulesEntailment">
+			<h2>The sh:RulesEntailment Regime</h2>
+			<p>
+				SHACL defines the property <code>sh:entailment</code>
+				to link a <a>shapes graph</a> with <em>entailment regimes</em>.
+				The <a>IRI</a> <code>sh:RulesEntailment</code> represents the <dfn>SHACL rules entailment regime</dfn>.
+				In the following example, the shapes graph indicates to a SHACL validation engine that the SHACL rules
+				inside of the <a>shapes graph</a> need to be executed prior to starting the validation.
+			</p>
+			<aside class="example" title="Activating SHACL Inference Rules entailment">
+				<div class="shapes-graph">
+					<div class="turtle">
+&lt;http://example.org/my-shapes&gt;
+	a owl:Ontology ;
+	sh:entailment sh:RulesEntailment .
+					</div>
+				</div>
+			</aside>
+			<p>
+				Following the general policy for SHACL, validation engines that do <em>not</em> support the <a>SHACL rules entailment regime</a>
+				MUST signal a <a>failure</a> if this <a>triple</a> is present.
+				Validation engines that do support the <a>SHACL rules entailment regime</a> execute the rules following the
+				<a href="#rules-execution">rules execution instructions</a> prior to performing the actual validation. 
+			</p>
+		</section>
+
+		<section id="tempTriple">
+			<h2>Temporary Triples</h2>
+			<p>
+				It is sometimes useful for inference rules to produce triples that are only visible during the execution
+				of other rules but do not end up in the final inferences.
+				A <dfn>temporary triple</dfn> is an inferred <a>triple</a> for which the <a>inference graph</a> contains a
+				<a>reifier</a> with the <a>value</a> <code>sh:tempTriple true</code>.
+				<a>Temporary triples</a> and their <a>reifiers</a> are visible to executing rules.
+				Rules can produce such triples as illustrated in the following example:
+			</p>
+			<aside class="example" title="An example rule that produces temporary triples" id="tempTriple-example">
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:Person
+	a sh:ShapeClass ;
+	sh:rule ex:CollectOffspringsRule ;
+	sh:rule ex:SetYoungestOffspringsRule .
+
+ex:CollectOffspringsRule
+	a sh:SPARQLRule ;
+	sh:layer 0 ;
+	sh:runOnce true ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:offspring ?offspring {| sh:tempTriple true |} .
+		}
+		WHERE {
+			$this ex:child+ ?offspring .
+		}
+	""" .
+
+ex:SetYoungestOffspringsRule
+	a sh:SPARQLRule ;
+	sh:layer 1 ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:youngestOffspring ?o .
+		}
+		WHERE {
+			{
+				SELECT $this ?o
+				WHERE {
+					$this ex:offspring ?o .
+					?o ex:age ?age .
+				}
+				ORDER BY ?age
+				LIMIT 1
+			}
+		}
+	""" .
+					</div>
+				</div>
+				<p>
+					The first rule computes <code>ex:offspring</code> triples as the (transitive)
+					children of each Person.
+					The second rule uses the <code>ex:offspring</code> triples to infer the <code>ex:youngestOffspring</code>
+					of each Person.
+					The final inferences only include the <code>ex:youngestOffspring</code> triples.
+					All temporary triples, i.e., triples whose reifier is marked with <code>sh:tempTriple true</code>,
+					are automatically deleted by the SHACL engine at the end of the inference process.
+				</p>
+			</aside>
+			<p>
+				Creating temporary triples can be helpful when a computation is too complex to be carried out by a single rule.
+				The complex computation can then be decomposed into <em>multiple</em> rules:
+				some rules infer <em>partial</em> results, from which other rules derive the <em>final</em> results.
+				The partial results are only functional to the computation of the final results and are no longer needed once the latter have been obtained.
+				By marking these partial results as temporary triples, they are automatically removed after the final results have been computed.
+			</p>
+		</section>
+
+		<section id="rules-execution">
+			<h2>General Execution Instructions for SHACL Rules</h2>
+			<p>
+				A <dfn data-lt="rules engine">SHACL rules engine</dfn> is a computer procedure that takes as input
+				a <a>data graph</a> called the <dfn>base graph</dfn>, a <a>shapes graph</a>, and an optional <a>rule set</a> (defaulting to the <a>default rule set</a> of the <a>shapes graph</a>)
+				and is capable of producing <a>triples</a> that are not in the <a>base graph</a>.
+				The new <a>triples</a> that are produced by a rules engine are called the <dfn data-lt="inferring|infer">inferred</dfn> triples.
+				The <dfn>inference graph</dfn> consists of these <a>inferred</a> triples.
+				The <dfn>evaluation graph</dfn> is the union of the <a>base graph</a> and the <a>inference graph</a>.
+			</p>
+			<p>
+				An <dfn>execution</dfn> of a <a>rule</a> is the process that produces <a>inferred</a> triples from the <a>rule</a>
+				based on the <a>execution instructions</a> of its <a>rule types</a>.
+				If the <a>rule</a> is a <a>shape rule</a> (i.e., it is linked to at least one <a>shape</a> via <code>sh:rule</code>),
+				then the rule is executed for each <a>target node</a> of each of the linked and <a data-cite="shacl12-core#deactivated">non-deactivated</a>
+				<a>shapes</a> that <a>conform</a> to all <a data-cite="shacl12-core#deactivated">non-deactivated</a> <a href="#condition">conditions</a> of the <a>rule</a>.
+				These <a>target nodes</a> become the <a>focus nodes</a> of the executing <a>shape rule</a>.
+				During execution, the <a>evaluation graph</a> is used as the active query graph, and only the <a>inference graph</a> is updated.
+			</p>
+			<p>
+				For a given <a>rule set</a> in the <a>shapes graph</a>
+				an <dfn data-lt="iterate">iteration</dfn> is a single <a>execution</a> of each individual rule in the order as
+				specified by <a href="#rule-order"></a>, skipping the rules that are <a href="#deactivated-rules">deactivated</a>.
+				Within an iteration, the inferred triples of one rule become immediately visible to the next rule.
+			</p>
+			<p>
+				The <dfn>execution of a rule set</dfn> is defined as follows:
+			</p>
+			<div class="algorithm">
+				<pre class="text">
+					For all <a>layers</a> in the <a>rule set</a> (in ascending order):
+						Compute the <a>expected derived triples</a> for all rules in the layer
+						Execute one <a>iteration</a> over all <a>run-once rules</a> in the layer
+						do
+							Execute one <a>iteration</a> over all <a>iterating rules</a> in the layer
+						while the iteration has produced newly inferred triples
+						Delete the <a>derived triples</a> (except those that were also inferred by rules)
+							and their <a>reifiers</a>
+
+					Delete the <a>temporary triples</a> and their <a>reifiers</a>
+				</pre>
+			</div>
+			<p>
+				If any of the <a>rules</a> reports a <a>failure</a> during <a>execution</a>,
+				then the <a>execution of a rule set</a> also produces a <a>failure</a>.
+			</p>
+			<p>
+				If a <a>rules engine</a> is not able to execute a given <a>rule</a>
+				because it does not support any of the <a>rule types</a> of the <a>rule</a>,
+				then it reports a <a>failure</a>.
+			</p>
+			<p>
+				Rule engines MAY also report a failure after a pre-configured maximum iteration count has been exceeded or
+				a pre-configured maximum number of inferred triples has been produced.
+				This can help as a guard to avoid out-of-memory problems and infinite loops.
+			</p>
+			<p>
+				At no time are inferred triples visible to the <a>shapes graph</a>, i.e. it is impossible for rules
+				to modify the definitions of rules or shapes.
+			</p>
+		</section>
+
+		<section id="sourceRule">
+			<h2>Tracking the Rule that has produced a Triple (sh:sourceRule)</h2>
+			<p>
+				Rule engines MAY have an option to generate additional triples that can be used to track
+				which rules have produced the inferred triples.
+				The property <code>sh:sourceRule</code> can be used in a <a>reifier</a> of a triple in the inferences graph
+				to link the triple with the <a>rule</a>.
+				The values of <code>sh:sourceRule</code> SHOULD be <a>IRIs</a>.
+			</p>
+			<p>
+				The following example indicates that the triple <code>ex:Alice ex:friend ex:Bob</code> has been
+				inferred by the rule <code>ex:SymmetricPropertyRule</code>.
+			</p>
+			<pre>
+&lt;&lt; ex:Alice ex:friend ex:Bob &gt;&gt; sh:sourceRule ex:SymmetricPropertyRule .</pre>
+			<p>
+				Fully expanded into RDF triples this is equivalent to:
+			</p>
+			<pre>
+_:id rdf:reifies &lt;&lt;( ex:Alice ex:friend ex:Bob )&gt;&gt; .
+_:id sh:sourceRule ex:SymmetricPropertyRule .</pre>
+			<p>
+				If a rule engine adds these triples, the triples MUST NOT be visible to executing rules.
+			</p>
+		</section>
+
+		<section id="rule-variations">
+			<h2>Variations of SHACL Rule Implementations</h2>
+			<p>
+				The <a href="#rules-execution">general execution algorithm</a> described above is intentionally
+				kept generic and offers a lot of flexibility to specific implementations.
+				In particular, the algorithm is non-deterministic in the sense that unless the order of rules
+				is specified explicitly, the results may differ across executions.
+				This is, for example, the case when rules draw conclusions from the number of certain triples
+				yet those triples may be produced by other rules.
+				In this document, the responsibility of producing a predictable ordering and layering/grouping of
+				rules is left to the rule author.
+			</p>
+			<p>
+				Some SHACL rule implementations MAY implement different algorithms to determine
+				the <a>run-once rules</a> (ignoring <code>sh:runOnce</code>),
+				the <a href="#rule-order">rule order</a> (ignoring <code>sh:order</code>), and
+				the <a href="#rule-layers">layers</a> (ignoring <code>sh:layer</code>).
+				This can, for example, be used by engines that support controlled subsets of SHACL rules
+				for which it is possible to compute rule dependencies automatically.
+				Another example is a rule engine that automatically prevents infinite loops because rules
+				generate blank nodes.
+				These implementation MAY produce different results from those that only rely on the
+				explicitly given <code>sh:order</code>, <code>sh:runOnce</code> and <code>sh:layer</code> values.
+			</p>
+			<p>
+				Some SHACL rule implementations MAY also report additional <a>failures</a> that are not reported
+				by the default algorithm.
+			</p>
+			<p class="issue" data-number="1073">
+				This would be a good place to cross-reference the ongoing SRL work, if this becomes a SHACL Rules variation.
+			</p>
+		</section>
+
+		<section id="Built-in-RuleTypes">
+			<h2>Built-in Rule Types</h2>
+			<p>
+				The SHACL inference rules framework defines a general syntax of rules and their execution algorithm.
+				This document defines the two <a>rule types</a> from the following two subsections.
+			</p>
+			<p>
+				Note that not all implementations are required to implement both of these types for conformance.
+				A <a>rules engine</a> that encounters a rule for which it does not implement any
+				<a>rule type</a> reports a <a>failure</a>, as defined in <a href="#rules-execution"></a>.
+			</p>
+			<section id="SPARQLRule">
+				<h3>SHACL SPARQL Rules</h3>
+				<p>
+					This section defines a <a>rule type</a> called <dfn data-lt="SPARQL rules">SHACL SPARQL rules</dfn>, often just "SPARQL Rules", 
+					identified by the <a>IRI</a> <code>sh:SPARQLRule</code>.
+					<a>SPARQL rules</a> have the following properties:
+				</p>
+				<table class="term-table">
+					<tr>
+						<th>Property</th>
+						<th>Summary and Syntax Rules</th>
+					</tr>
+					<tr>
+						<td><code>sh:construct</code></td>
+						<td>
+							The SPARQL CONSTRUCT query.
+							<span data-syntax-rule="construct-count"><a>SPARQL rules</a> must have exactly one
+							<a>value</a> for the property <code>sh:construct</code>.</span>
+							<span data-syntax-rule="construct-datatype">The values of <code>sh:construct</code>
+							are <a>literals</a> with datatype <code>xsd:string</code>.</span>
+						</td>
+					</tr>
+					<tr>
+						<td><code>sh:prefixes</code></td>
+						<td>
+							The prefixes to use to turn the <code>sh:construct</code> into a SPARQL query.
+							<a>SPARQL rules</a> may use the property <code>sh:prefixes</code> to declare a dependency on prefixes based on the
+							mechanism defined in <a data-cite="shacl12-sparql#sparql-prefixes">Prefix Declarations for SPARQL Queries</a>.
+							This mechanism allows users to abbreviate URIs in the <code>sh:construct</code> strings.
+						</td>
+					</tr>
+				</table>
+				<div class="def def-text">
+					<div class="def-header">EXECUTION OF SPARQL RULES</div>
+					<div class="def-text-body">
+						Let <code>Q</code> be the SPARQL CONSTRUCT query derived from the values of the properties
+						<code>sh:construct</code> and <code>sh:prefixes</code> of the <a>SPARQL rule</a> in the <a>shapes graph</a>.
+						<ul>
+							<li>
+								If the rule is a <a>shape rule</a>:
+								For each <a>focus node</a>, execute the query <code>Q</code>
+								<a>pre-binding</a> the variable <code>this</code> to the <a>focus node</a>,
+								and <a>infer</a> the constructed <a>triples</a>.
+							</li>
+							<li>
+								If the rule is a <a>global rule</a>:
+								Execute the query <code>Q</code> without any <a>pre-binding</a>,
+								and <a>infer</a> the constructed <a>triples</a>.
+							</li>
+						</ul>
+					</div>
+				</div>
+				<p class="note">
+					For <a>SPARQL rules</a> that are <a>shape rules</a> (i.e., linked to a shape with <code>sh:rule</code>),
+					a <a>SHACL rules engine</a> also counts as a SHACL-SPARQL processor
+					and the syntax limitations required by <a>pre-binding</a> do apply to shape rules.
+					Since <a>global</a> SPARQL rules do not use <a>pre-binding</a>, the syntax limitations
+					required by <a>pre-binding</a> do not apply to them.
+				</p>
+			</section>
+			<section id="TripleRule">
+				<h3>Triple Rules</h3>
+				<p>
+					This section defines a <a>rule type</a> called <dfn data-lt="triple rule">triple rules</dfn>, identified by
+					the <a>IRI</a> <code>sh:TripleRule</code>.
+					<a>Triple rules</a> have the following properties:
+				</p>
+				<table class="term-table">
+					<tr>
+						<th>Property</th>
+						<th>Summary and Syntax Rules</th>
+					</tr>
+					<tr>
+						<td><code>sh:subject</code></td>
+						<td>
+							The <a>node expression</a> used to compute the <a>subjects</a> of the <a>triples</a>.
+							<span data-syntax-rule="TripleRule-subject">Each <a>triple rule</a> must have at most one
+							<a>value</a> of the property <code>sh:subject</code> (which must be a well-formed <a>node expression</a>).
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<td><code>sh:predicate</code></td>
+						<td>
+							The <a>node expression</a> used to compute the <a>predicates</a> of the <a>triples</a>.
+							<span data-syntax-rule="TripleRule-predicate">Each <a>triple rule</a> must have at most one
+							<a>value</a> of the property <code>sh:predicate</code> (which must be a well-formed <a>node expression</a>).
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<td><code>sh:object</code></td>
+						<td>
+							The <a>node expression</a> used to compute the <a>objects</a> of the <a>triples</a>.
+							<span data-syntax-rule="TripleRule-object">Each <a>triple rule</a> must have at most one
+							<a>value</a> of the property <code>sh:object</code> (which must be a well-formed <a>node expression</a>).
+							</span>
+						</td>
+					</tr>
+				</table>
+				<div class="def def-text">
+					<div class="def-header">EXECUTION OF TRIPLE RULES</div>
+					<div class="def-text-body">
+						Let <code>S</code>, <code>P</code> and <code>O</code> be the sets of <a>nodes</a> produced by evaluating
+						the <a>node expressions</a> that are the values of <code>sh:subject</code>, <code>sh:predicate</code>
+						and <code>sh:object</code> respectively at the <a>triple rule</a>.
+						Where <code>sh:subject</code>, <code>sh:predicate</code>, or <code>sh:object</code> are absent, use
+						the list consisting of the current <a>focus node</a> (which is empty for <a>global rules</a>).
+						For each combination of members <code>s</code> of <code>S</code>, <code>p</code> of <code>P</code> and
+						<code>o</code> of <code>O</code>, <a>infer</a> a <a>triple</a> with <a>subject</a> <code>s</code>,
+						<a>predicate</a> <code>p</code> and <a>object</a> <code>o</code>.
+						Skip ill-formed <a>triples</a>, for example when a <a>blank node</a> is used as <a>predicate</a>.
+					</div>
+				</div>
+				<aside class="example" title="An example triple rule computing instances of Square" id="TripleRule-Rectangle-example">
+					<p>
+						In this example, any instance of `ex:Rectangle` where the width equals the height
+						will receive an extra `rdf:type ex:Square` triple.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:Rectangle
+	a sh:ShapeClass ;
+	rdfs:label "Rectangle" ;
+	sh:property [
+		sh:path ex:height ;
+		sh:datatype xsd:integer ;
+		sh:maxCount 1 ;
+		sh:minCount 1 ;
+		sh:name "height" ;
+	] ;
+	sh:property [
+		sh:path ex:width ;
+		sh:datatype xsd:integer ;
+		sh:maxCount 1 ;
+		sh:minCount 1 ;
+		sh:name "width" ;
+	] ;
+	sh:rule [
+		a sh:TripleRule ;
+		# sh:subject defaults to the current focus node
+		sh:predicate rdf:type ;
+		sh:object ex:Square ;
+		sh:condition ex:Rectangle ;
+		sh:condition [
+			sh:property [
+				sh:path ex:width ;
+				sh:equals ex:height ;
+			] ;
+		] ;
+	] .							
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:InvalidRectangle
+	a ex:Rectangle .
+
+ex:NonSquareRectangle
+	a ex:Rectangle ;
+	ex:height 2 ;
+	ex:width 3 .
+
+ex:SquareRectangle
+	a ex:Rectangle ;
+	ex:height 4 ;
+	ex:width 4 .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+	ex:SquareRectangle rdf:type ex:Square .
+						</div>
+					</div>
+				</aside>
+				<aside class="example" title="An example triple rule computing the number of children of a Person" id="TripleRule-childCount-example">
+					<p>
+						In this example, a SHACL rules engine will infer a `ex:childCount` triple for any instance of `ex:Person`
+						using a node expression combining `shnex:count` and `shnex:pathValues`.
+					</p>
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:PersonShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:rule ex:PersonShape-childCount-rule .
+
+ex:PersonShape-childCount-rule
+	a sh:TripleRule ;
+	sh:runOnce true ;
+	sh:predicate ex:childCount ;
+	sh:object [
+		shnex:count [
+			shnex:pathValues ex:child
+		]
+	] .
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:Dad
+	a ex:Person ;
+	ex:child ex:SomeDaughter ;
+	ex:child ex:SomeSon .
+						</div>
+					</div>
+					<div class="inferences-graph">
+						<div class="turtle">
+	ex:Dad ex:childCount 2 .
+						</div>
+					</div>
+				</aside>
+			</section>
+		</section>
+
+		<div style="padding-top: 30px">
+			<h1 id="appendix" style="font-size: 160%; font-weight: bold">Appendix</h1>
+		</div>
+
+		<section id="syntax-rules" class="appendix">
+			<h2>Summary of Syntax Rules</h2>
+			<p>
+				This section enumerates all normative syntax rules of this document.
+				This section is automatically generated from other parts of this spec and hyperlinks are provided back
+				into the prose if the context of the rule in unclear.
+				Nodes that violate these rules in a <a>shapes graph</a> are <a>ill-formed</a>.
+			</p>
+			<table class="term-table" id="syntax-rules-table">
+				<tr>
+					<th>Syntax Rule Id</th>
+					<th>Syntax Rule Text</th>
+				</tr>
+			</table>
+		</section>
+
+		<section id="security" class="appendix informative">
+			<h2>Security and Privacy Considerations</h2>
+			<p>
+				Applying a SHACL inference rule set to a data graph can result in
+				significant computation and memory usage, which may be exploited
+				to cause denial of service.
+				Applications should take care to limit the amount of computation and 
+				memory usage that can be caused by applying such rule sets.
+			</p>
+			<p>
+				SHACL inference rules can be used to process and create arbitrary application data;
+				security considerations will vary by domain of use.
+				Security/privacy protocols should be imposed which reflect the sensitivity of the information in the outcome of rule set evaluation.
+			</p>
+			<p>
+				Security considerations of this document include all the security considerations of
+				<a data-cite="shacl12-sparql/#security">SHACL SPARQL</a>,
+				<a data-cite="shacl12-core/#security">SHACL Core</a>.
+			</p>
+		</section>
+
+		<section id="ack" class="appendix informative">
+			<h2>Acknowledgements</h2>
+			<p>
+				Original SHACL core specifications were produced by the RDF Data Shapes Working Group.
+				See the <a href="https://www.w3.org/TR/2017/REC-shacl-20170720/#ack">Core specification's Acknowledgements section</a> and
+				the <a href="https://www.w3.org/TR/2017/NOTE-shacl-af-20170608/#ack">Advanced Features specification's Acknowledgements section</a>.
+			</p>
+		</section>
+
+	</body>
+</html>
