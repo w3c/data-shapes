@@ -549,6 +549,10 @@
           <code>owl:imports</code> should include the <code>#</code>.
         </p>
         <p>
+          The <a href="../shacl12-vocabularies/shacl-ui.ttl">Turtle serialization of the SHACL UI
+          vocabulary</a> contains the complete SHACL UI vocabulary.
+        </p>
+        <p>
           Throughout the specification, color-coded boxes containing RDF graphs
           in Turtle and JSON-LD will appear. The color and title of a box
           indicate whether it is a Shapes graph, a Data graph, or something
@@ -2649,6 +2653,214 @@ ex:config
       </p>
     </section>
 
+    <section id="search-query">
+      <h2>Search Query</h2>
+
+      <p>
+        This section defines <code>shui:searchQuery</code>, an optional property of a <a>property shape</a>
+        that lets shape authors provide a dedicated SPARQL <code>SELECT</code> query for retrieving candidate
+        value nodes from live, user-provided search input, for example within an
+        <a href="#AutoCompleteEditor">AutoCompleteEditor</a>.
+      </p>
+
+      <h3>shui:searchQuery</h3>
+
+      <p>
+        A well-formed value of <code>shui:searchQuery</code> is a <a>literal</a> of <a>datatype</a>
+        <code>xsd:string</code>, appearing directly on a <a>property shape</a>, and containing a SPARQL
+        <code>SELECT</code> query conforming to the constraints below. A <a>property shape</a> has at most
+        one value for <code>shui:searchQuery</code>.
+      </p>
+
+      <p>
+        When an end user enters or changes search input for a property rendered with a widget that consumes
+        candidate value nodes, a SHACL Renderer that supports this extension MAY evaluate the query given by
+        <code>shui:searchQuery</code> to retrieve the candidate value nodes offered to the user.
+      </p>
+
+      <p>
+        The query MUST expect the following variables to be pre-bound by the renderer before evaluation:
+      </p>
+
+      <table class="term-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>$searchTerm</code></td>
+            <td>An <code>xsd:string</code> literal containing the current search input entered by the end user.</td>
+          </tr>
+          <tr>
+            <td><code>$uiLanguage</code></td>
+            <td>
+              An <code>xsd:string</code> literal containing the BCP47 language tag identifying the user's current
+              UI language preference, as determined by <a href="#lang-resolution">Language Resolution</a>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        Implementations MAY pre-bind additional implementation-specific variables.
+      </p>
+
+      <p>
+        Using the <a href="../shacl12-sparql/#sparql-prefixes">prefix handling rules</a>, the SPARQL query derived
+        from the value of <code>shui:searchQuery</code> MUST project at least one variable in its <code>SELECT</code>
+        clause. A SHACL Renderer only depends on the first variable of the <code>SELECT</code> clause's projection,
+        which represents the matching IRIs or literals for each candidate value node. The query MAY project
+        additional variables beyond the first, and a SHACL Renderer MAY add bindings for such additional variables
+        to the candidate value nodes it offers to the end user, for example to carry a label or other data
+        associated with each candidate value node. The query MAY include a <code>LIMIT</code> or <code>OFFSET</code>
+        solution modifier; if present, the renderer MAY use it to limit the number of candidate value nodes
+        returned to the user.
+      </p>
+
+      <p>
+        A <a>property shape</a> with a <code>shui:searchQuery</code> signals that a live search widget is
+        appropriate for that property, even without an explicit <code>shui:editor</code> statement. Accordingly, the
+        presence of <code>shui:searchQuery</code> raises the <a href="#AutoCompleteEditor">AutoCompleteEditor</a>'s
+        score, as described in its Score rules.
+      </p>
+
+      <p class="note">
+        This specification does not define how <a href="#property-roles">property roles</a>, such as
+        <code>shui:LabelRole</code>, are resolved or auto-injected into the search query. Renderers MAY combine
+        value filtering and label retrieval in a single query, using the additional bindings beyond the first
+        described above, or retrieve them via different mechanisms.
+      </p>
+
+      <aside class="example" title="Full-text search using shui:searchQuery">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:TaskShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Task ;
+    sh:property [
+        sh:name "Assignee" ;
+        sh:path ex:assignee ;
+        sh:class ex:Person ;
+        <ins>shui:searchQuery</ins> """
+            PREFIX ex: &lt;http://example.com/&gt;
+            PREFIX text: &lt;http://jena.apache.org/text#&gt;
+            SELECT ?value WHERE {
+                ?value text:query ($searchTerm $uiLanguage) .
+                ?value a ex:Person .
+            }
+        """ ;
+    ] .
+          </div>
+        </div>
+        <p>
+          As the user types into the <a href="#AutoCompleteEditor">AutoCompleteEditor</a> rendered for
+          <code>ex:TaskShape</code>'s <code>Assignee</code> property, the renderer binds the typed text to
+          <code>$searchTerm</code> and the current UI language to <code>$uiLanguage</code>, then evaluates
+          <code>shui:searchQuery</code> to query a local full-text index of <code>ex:Person</code> instances.
+        </p>
+      </aside>
+
+      <p>
+        A <a>property shape</a>'s permissible value nodes can also be computed dynamically using a
+        <a href="../shacl12-sparql/#SelectExpression">select expression</a> (<code>sh:select</code>) inside
+        <code>sh:in</code>, including a SPARQL <code>SERVICE</code> clause against an external endpoint, as
+        described in <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>. Such a query resolves the
+        full candidate set and cannot be parameterized with a user's live search input, nor can it take advantage
+        of vendor-specific full-text search (FTS) extensions. When a <a>property shape</a> combines
+        <code>sh:in</code> with <code>shui:searchQuery</code>, a renderer that supports <code>shui:searchQuery</code>
+        evaluates it in place of the <code>sh:in</code>-derived query while the user is searching. A renderer that
+        does not support <code>shui:searchQuery</code> but does support Dynamic SHACL MAY fall back to the
+        baseline query given by <code>sh:in</code>'s <code>sh:select</code> instead.
+      </p>
+
+      <aside class="example" title="Federated full-text search using shui:searchQuery">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:BookShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Book ;
+    sh:property [
+        sh:name "Author" ;
+        sh:path dct:creator ;
+        sh:in [
+            sh:select """
+                PREFIX ex: &lt;http://example.com/&gt;
+                SELECT ?value WHERE {
+                    SERVICE &lt;http://example.com/sparql&gt; {
+                        ?value a ex:Person .
+                    }
+                }
+            """ ;
+        ] ;
+        <ins>shui:searchQuery</ins> """
+            PREFIX ex: &lt;http://example.com/&gt;
+            PREFIX text: &lt;http://jena.apache.org/text#&gt;
+            SELECT ?value WHERE {
+                SERVICE &lt;http://example.com/sparql&gt; {
+                    ?value text:query ($searchTerm $uiLanguage) .
+                    ?value a ex:Person .
+                }
+            }
+        """ ;
+    ] .
+          </div>
+        </div>
+        <p>
+          As the user types into the <a href="#AutoCompleteEditor">AutoCompleteEditor</a> rendered for
+          <code>ex:BookShape</code>'s <code>Author</code> property, the renderer binds the typed text to
+          <code>$searchTerm</code> and the current UI language to <code>$uiLanguage</code>, then evaluates
+          <code>shui:searchQuery</code> to query the Apache Jena Text index via the <code>SERVICE</code> clause.
+          If the renderer does not support <code>shui:searchQuery</code> but does support Dynamic SHACL,
+          the baseline <code>sh:select</code> query is used instead, returning all instances of <code>ex:Person</code>.
+        </p>
+      </aside>
+
+      <h3 id="search-query-validation">Validation of Search Query Results</h3>
+
+      <p>
+        Shape authors SHOULD write <code>shui:searchQuery</code> so that its result set, for any given
+        <code>$searchTerm</code>, is a subset of the value nodes permitted by the other constraints on the
+        <a>property shape</a> (such as <code>sh:class</code>, <code>sh:node</code>, or <code>sh:in</code>), or
+        exactly that same set. A <code>shui:searchQuery</code> that returns value nodes outside that set risks
+        offering end users candidate values that do not conform to the <a>property shape</a>.
+      </p>
+
+      <p>
+        Because a value node returned by <code>shui:searchQuery</code> is offered to the end user as though it
+        were drawn from <code>sh:in</code>, implementations MAY apply SHACL validation to the outcomes of
+        <code>shui:searchQuery</code>, where the outcomes are value nodes of the <a>property shape</a>.
+      </p>
+
+      <p>
+        Such validation runs the <a>property shape</a> in isolation once for each value node returned by the
+        query, using that value node as the sole value for the property shape's <a>property path</a>, and checks
+        whether the result <a>conforms</a> to the surrounding <a>property shape</a>.
+      </p>
+
+      <p>
+        For a <a>property shape</a> such as <code>ex:BookShape</code>'s <code>Author</code> property above, where
+        <code>sh:in</code> itself contains a <code>sh:select</code>
+        <a href="../shacl12-sparql/#SelectExpression">select expression</a> with a SPARQL <code>SERVICE</code>
+        clause, checking whether a value node conforms to the surrounding <a>property shape</a> requires
+        re-evaluating that <code>sh:in</code> constraint. This requires a SHACL validation engine that supports
+        federated SHACL validation — at minimum, the piece of
+        <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a> that allows <code>sh:in</code> to contain
+        a <code>sh:select</code> <a href="../shacl12-sparql/#SelectExpression">select expression</a>.
+      </p>
+
+      <p>
+        For such federated validation, the isolated <a>property shape</a> used to check a value node SHOULD
+        contain only the <code>sh:in</code> constraint, and no other constraints from the surrounding
+        <a>property shape</a>. A value node retrieved via <code>SERVICE</code> generally has no corresponding
+        triples in the local data graph, so a validation engine evaluating any other constraint (such as
+        <code>sh:class</code> or <code>sh:node</code>) as part of the same isolated run would evaluate it against
+        the local data graph and likely report a spurious violation.
+      </p>
+    </section>
+
     <section id="builtin-widgets">
       <h2>Built-in Widgets</h2>
 
@@ -2663,6 +2875,7 @@ ex:config
             <b>Score:</b>
             <ul>
               <li>`40` if the property indicates its preference for `shui:AutoCompleteEditor` using a `shui:editor` statement and has a `sh:class` constraint, and the value is an IRI.</li>
+              <li>`20` if the property has `shui:searchQuery`.</li>
               <li>`10` if the property has a `sh:nodeKind sh:IRI` and a `sh:class` constraint.</li>
             </ul>
           <p>
