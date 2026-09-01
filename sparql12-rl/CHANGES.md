@@ -1,4 +1,4 @@
-# SPARQL-RL - CHANGES
+# SPARQL-RL - CHANGELOG
 
 This document records major changes and new material that would be of interest to
 implementers.
