@@ -566,7 +566,131 @@ in the negation element have been completed. The rule containing the negation is
           then the current solution mapping is rejected by the [=assignment=].
         </p>
       </section>
-      
+
+      <section id="desc-construct-syntax">
+        <h3>Alternative CONSTRUCT-based Syntax</h3>
+        <p>
+          As an alternative to the native `RULE { head } WHERE { body }`
+          syntax shown above, a [=rule=] may be written using the keyword
+          `CONSTRUCT` in place of the [=rule head=]'s opening brace,
+          matching a subset of the syntax of a
+          <a data-cite="SPARQL12-QUERY#construct">SPARQL `CONSTRUCT` query</a>.
+          The two rules below are equivalent:
+        </p>
+
+        <aside class="example" title="Native and CONSTRUCT-based syntax">
+          <pre class="block ex-rules">
+            RULE { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+
+            CONSTRUCT { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+          </pre>
+        </aside>
+
+        <p>
+          When a [=rule=] is given an identifier, the identifier still
+          precedes the `CONSTRUCT` keyword:
+        </p>
+
+        <aside class="example" title="Named rule with CONSTRUCT">
+          <pre class="block ex-rules">
+            RULE :SampleRule1
+            { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+
+            RULE :SampleRule1
+            CONSTRUCT { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+          </pre>
+        </aside>
+
+        <p>
+          In the `CONSTRUCT`-based syntax, [=assignment elements=] are
+          written using SPARQL's `BIND(expr AS ?var)` form instead
+          of the native `SET(?var := expr)` form, and
+          [=negation elements=] are written using SPARQL's
+          `FILTER NOT EXISTS { pattern }` form instead of the
+          native `NOT { pattern }` form:
+        </p>
+
+        <p>
+          As explained in <a href="#srl-sparql-relationship" class="sectionRef"></a>,
+          `BIND` does not reject a solution when evaluating its expression
+          fails; unlike the native `SET` form, it simply leaves the
+          [=assignment variable=] unbound and passes the solution on.
+          Because a [=rule=]'s variables are always bound before use,
+          whether in a [=filter element=], another [=assignment element=],
+          or a [=triple template=] of the [=rule head=], every `BIND` whose
+          variable is used later in the [=rule body=] or [=rule head=] MUST
+          be followed by `FILTER BOUND(?var)` to reject solutions where
+          the expression could not be evaluated:
+        </p>
+
+        <aside class="example" title="Assignment with BIND">
+          <pre class="block ex-rules">
+            RULE { ?v :riskScore ?r }
+            WHERE {
+                ?v :severity ?s .
+                ?v :exploitLikelihood ?p .
+                SET ( ?r := ?s * ?p )
+            }
+
+            CONSTRUCT { ?v :riskScore ?r }
+            WHERE {
+                ?v :severity ?s .
+                ?v :exploitLikelihood ?p .
+                BIND ( ?s * ?p AS ?r ) .
+                FILTER BOUND(?r) .
+            }
+          </pre>
+        </aside>
+
+        <p class="issue">
+          Is the FILTER bound(?r) really needed above?
+          It is only ever used in the head of the rule, and that head has no other triple pattern.
+          So dropping the FILTER would always produce exactly the same results.
+        </p>
+
+        <aside class="example" title="Negation with FILTER NOT EXISTS">
+          <pre class="block ex-rules">
+            RULE { ?x :status :safeToDeploy }
+            WHERE {
+                ?x rdf:type :Component .
+                NOT { ?x :status :criticallyExposed }
+            }
+
+            CONSTRUCT { ?x :status :safeToDeploy }
+            WHERE {
+                ?x rdf:type :Component .
+                FILTER NOT EXISTS { ?x :status :criticallyExposed }
+            }
+          </pre>
+        </aside>
+
+        <p>
+          The `BOUND` function, which is otherwise not part of the SRL
+          syntax (see <a href="#srl-sparql-relationship" class="sectionRef"></a>),
+          is permitted in the `CONSTRUCT`-based syntax, but only when its
+          argument is a variable that is the [=assignment variable=] of a
+          `BIND` appearing earlier in the same [=rule body=],
+          and as the only element the `FILTER` keyword.
+        </p>
+
+        <p>
+          When a [=rule=] is written using `CONSTRUCT`, the native
+          `SET` and `NOT` forms are not permitted in its [=rule body=];
+          `BIND` and `FILTER NOT EXISTS` MUST be used instead.
+          Likewise, `WHERE DATA` and `NOT DATA` are not permitted in the
+          `CONSTRUCT`-based syntax: a [=rule=] whose body must be matched
+          against the [=base graph=] rather than the current inference
+          state has to use the native `RULE { head } WHERE DATA { body }`
+          syntax.
+        </p>
+
+        <p class="issue">
+          The omission of WHERE DATA and NOT DATA assumes that these features will be rarely used.
+          We would otherwise need to work with named graphs, and then it gets rather ugly.
+        </p>
+  
+      </section>
+
       <section id="desc-import">
         <h3>Importing Rule Sets</h3>
         <p>
@@ -1684,14 +1808,19 @@ enddefine
         </li>
         <li>
           Some functions are not included in the SRL syntax.  There is no
-          `COALESCE`, nor `BOUND`.  There are no hash functions.  There
+          `COALESCE`.  There are no hash functions.  There
           is no `RAND`, which has different results each time it is
-          called. 
+          called.
           <div class="note">
             `NOW()` is permitted and is defined to return the same
             point in time throughout a rule set evaluation. This is the
             same as `NOW()` in SPARQL.
           </div>
+        </li>
+        <li>
+          `BOUND` is only permitted in the
+          <a href="#desc-construct-syntax" class="sectionRef"></a>
+          alternative syntax, as described there.
         </li>
       </ul>
     </section>
