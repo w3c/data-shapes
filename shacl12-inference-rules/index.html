@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 	<head>
-    <meta charset="utf-8" />
-    <meta name="color-scheme" content="light dark">
+	<meta charset="utf-8" />
+	<meta name="color-scheme" content="light dark">
 		<title>SHACL 1.2 Inference Rules</title>
 		<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove" defer></script>
 		<script class="remove">
@@ -26,9 +26,9 @@
 
 					// Replace <dfn> elements inside `tr` with <a> elements
 					tr.querySelectorAll("dfn").forEach(dfn => {
-    					let a = document.createElement("a");
-    					a.textContent = dfn.textContent;
-    					dfn.replaceWith(a);
+						let a = document.createElement("a");
+						a.textContent = dfn.textContent;
+						dfn.replaceWith(a);
 					});
 
 					document.getElementById("syntax-rules-table").appendChild(tr);
@@ -168,7 +168,7 @@
 		<section id="sotd">
 		</section>
 
-    	<section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
+		<section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
 
 		<section id="introduction">
 			<h2>Introduction</h2>
@@ -323,12 +323,12 @@
 				</p>
 				<pre class="jsonld">{
   "@context": {
-    "owl": "http://www.w3.org/2002/07/owl#",
-    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-    "sh": "http://www.w3.org/ns/shacl#",
-    "xsd": "http://www.w3.org/2001/XMLSchema#",
-    "ex": "http://example.com/ns#"
+	"owl": "http://www.w3.org/2002/07/owl#",
+	"rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+	"rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+	"sh": "http://www.w3.org/ns/shacl#",
+	"xsd": "http://www.w3.org/2001/XMLSchema#",
+	"ex": "http://example.com/ns#"
   }
 }</pre>
 				<p>
@@ -696,7 +696,7 @@ ex:SymmetricPropertyRule
 					If unspecified, then the default <a>execution order</a> is <code>0</code>.
 					When the <a>rules</a> are executed, within the same <a>layer</a>, <a>rules</a> with larger order values will be executed after those with smaller values.
 				</p>
-				<aside class="example" title="Rule order example">
+				<aside class="example" title="Rule order example" id="example-rule-order">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:RuleOrderExampleShape
@@ -836,6 +836,34 @@ ex:Granddaughter
 						</div>
 					</div>
 				</aside>
+			</section>
+			<section id="orderVsLayer">
+				<h3>Using sh:order and sh:layer</h3>
+				<p>
+					The choice between <code>sh:order</code> and <code>sh:layer</code> depends on whether a rule set requires simple sequencing within a 
+					single pass of the iteration loop or genuine separation between phases.It is useful to think of one such pass - a single execution 
+					of each rule in the sequence given by <code>sh:order</code> - as a phase for general (iterating) rules.
+				</p>
+				<p>
+					Use <code>sh:order</code> when rules form a straightforward producer-consumer chain in which a rule's inferred triples 
+					must be visible to a later rule within the same pass. <a href="#example-rule-order">Example 5</a>, where one rule infers 
+					<code>ex:uncle</code> (<code>sh:order 1</code>) before a second rule uses those triples to infer <code>ex:cousin</code> 
+					(<code>sh:order 2</code>), is representative of this case. Note that <code>sh:order</code> sequences rules only within a pass. Because 
+					the layer's iteration loop repeats while new triples are produced, a later rule's output persists and is visible to earlier rules on 
+					subsequent passes.</p>
+					
+<p>Use <code>sh:layer</code>, by contrast, when a later group of rules must run only after an earlier group has 
+					reached its fixpoint and after that group's intermediate results have been cleaned up. This is appropriate for multi-step 
+					computations whose partial results should not persist, as in <a href="#tempTriple-example">Example 10</a>, where a layer-0 rule constructs ex:offspring as temporary 
+					triples and a layer-1 rule consumes them to infer only the final <code>ex:youngestOffspring</code> triples. 
+</p>
+<p>
+					<code>sh:order</code> is 
+					also appropriate for post-processing that must follow recursive closure, as in <a href="#example-rules-before-after">Example 6</a>, 
+					where a layer-1 run-once rule executes only after the iterating rules in the preceding layer have finished. 
+					In short, use <code>sh:order</code> when you need deterministic sequencing of rules within an iteration pass, and <code>sh:layer</code> 
+					when you need phase separation around the per-layer fixpoint and cleanup semantics.
+				</p>
 			</section>
 			<section id="expectedPredicate">
 				<h3>Expected Derived Triples (sh:expectedPredicate)</h3>
@@ -1201,14 +1229,17 @@ _:id sh:sourceRule ex:SymmetricPropertyRule .</pre>
 		<section id="rule-variations">
 			<h2>Variations of SHACL Rule Implementations</h2>
 			<p>
-				The <a href="#rules-execution">general execution algorithm</a> described above is intentionally
-				kept generic and offers a lot of flexibility to specific implementations.
-				In particular, the algorithm is non-deterministic in the sense that unless the order of rules
-				is specified explicitly, the results may differ across executions.
-				This is, for example, the case when rules draw conclusions from the number of certain triples
-				yet those triples may be produced by other rules.
-				In this document, the responsibility of producing a predictable ordering and layering/grouping of
-				rules is left to the rule author.
+				The <a href="#rules-execution">general execution algorithm</a> described above and the SPARQL language 
+				itself offer implementations considerable flexibility. Consequently, the execution of rules may be 
+				non-deterministic. With respect to <code>sh:order</code> in particular, note that rules sharing the same 
+				<code>sh:order</code> value within a layer are executed in an arbitrary order, so their combined output 
+				may vary across executions. This is especially problematic when rules draw conclusions from the number 
+				of certain triples, yet those triples may themselves be produced by other rules. It is the responsibility 
+				of the rule developer to avoid such non-determinism by appropriately defining the execution order and 
+				layering of rules where necessary. By contrast, <a href="../sparql12-rl/">SPARQL-RL</a> rules do not 
+				suffer from this problem: their stratification algorithm always computes the same execution order, 
+				thereby guaranteeing that the same output is returned across executions - that is, that the computation 
+				is deterministic.
 			</p>
 			<p>
 				Some SHACL rule implementations MAY implement different algorithms to determine
