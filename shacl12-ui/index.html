@@ -2675,7 +2675,7 @@ ex:config
       </p>
 
       <p>
-        The query MUST expect the following variables to be pre-bound by the renderer before evaluation:
+        The SHACL renderer MUST pre-bind the following variables:
       </p>
 
       <table class="term-table">
@@ -2694,7 +2694,14 @@ ex:config
             <td><code>$uiLanguage</code></td>
             <td>
               An <code>xsd:string</code> literal containing the BCP47 language tag identifying the user's current
-              UI language preference, as determined by <a href="#lang-resolution">Language Resolution</a>.
+              UI language preference.
+            </td>
+          </tr>
+                    <tr>
+            <td><code>$contentLanguage</code></td>
+            <td>
+              An <code>xsd:string</code> literal containing the BCP47 language tag identifying the user's current
+              content language preference.
             </td>
           </tr>
         </tbody>
@@ -2707,11 +2714,8 @@ ex:config
       <p>
         Using the <a href="../shacl12-sparql/#sparql-prefixes">prefix handling rules</a>, the SPARQL query derived
         from the value of <code>shui:searchQuery</code> MUST project at least one variable in its <code>SELECT</code>
-        clause. A SHACL Renderer only depends on the first variable of the <code>SELECT</code> clause's projection,
-        which represents the matching IRIs or literals for each candidate value node. The query MAY project
-        additional variables beyond the first, and a SHACL Renderer MAY add bindings for such additional variables
-        to the candidate value nodes it offers to the end user, for example to carry a label or other data
-        associated with each candidate value node. The query MAY include a <code>LIMIT</code> or <code>OFFSET</code>
+        clause. A SHACL Renderer depends on the first variable of the <code>SELECT</code> clause's projection,
+        which represents the matching IRIs or literals for each candidate value node. The query MAY include a <code>LIMIT</code> or <code>OFFSET</code>
         solution modifier; if present, the renderer MAY use it to limit the number of candidate value nodes
         returned to the user.
       </p>
@@ -2762,10 +2766,11 @@ ex:TaskShape
       <p>
         A <a>property shape</a>'s permissible value nodes can also be computed dynamically using a
         <a href="../shacl12-sparql/#SelectExpression">select expression</a> (<code>sh:select</code>) inside
-        <code>sh:in</code>, including a SPARQL <code>SERVICE</code> clause against an external endpoint, as
-        described in <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>. Such a query resolves the
-        full candidate set and cannot be parameterized with a user's live search input, nor can it take advantage
-        of vendor-specific full-text search (FTS) extensions. When a <a>property shape</a> combines
+        <code>sh:in</code>, possibly including a SPARQL <code>SERVICE</code> clause against an external endpoint, as
+        described in <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>. Such a 
+        <a href="../shacl12-sparql/#SelectExpression">select expression</a> resolves the
+        full candidate set and cannot be parameterized with a user's live search input, making it impossible to use
+        vendor-specific full-text search extensions. When a <a>property shape</a> combines
         <code>sh:in</code> with <code>shui:searchQuery</code>, a renderer that supports <code>shui:searchQuery</code>
         evaluates it in place of the <code>sh:in</code>-derived query while the user is searching. A renderer that
         does not support <code>shui:searchQuery</code> but does support Dynamic SHACL MAY fall back to the
@@ -2818,42 +2823,26 @@ ex:BookShape
 
       <p>
         Shape authors SHOULD write <code>shui:searchQuery</code> so that its result set, for any given
-        <code>$searchTerm</code>, is a subset of the value nodes permitted by the other constraints on the
-        <a>property shape</a> (such as <code>sh:class</code>, <code>sh:node</code>, or <code>sh:in</code>), or
-        exactly that same set. A <code>shui:searchQuery</code> that returns value nodes outside that set risks
+        <code>$searchTerm</code>, is a subset of the value nodes permitted by the constraints on the
+        <a>property shape</a>. A <code>shui:searchQuery</code> that returns value nodes outside that set risks
         offering end users candidate values that do not conform to the <a>property shape</a>.
       </p>
 
       <p>
         Because a value node returned by <code>shui:searchQuery</code> is offered to the end user as though it
-        were drawn from <code>sh:in</code>, implementations MAY apply SHACL validation to the outcomes of
-        <code>shui:searchQuery</code>, where the outcomes are value nodes of the <a>property shape</a>.
+        were drawn from <code>sh:in</code>, an implementation MAY validate those value nodes by re-executing
+        <code>sh:in</code>'s <a href="../shacl12-sparql/#SelectExpression">select expression</a> bound to all
+        the value nodes returned by <code>shui:searchQuery</code>, for example by adding a SPARQL
+        <code>VALUES</code> clause that restricts the query's projected variable to those value nodes.
       </p>
 
       <p>
-        Such validation runs the <a>property shape</a> in isolation once for each value node returned by the
-        query, using that value node as the sole value for the property shape's <a>property path</a>, and checks
-        whether the result <a>conforms</a> to the surrounding <a>property shape</a>.
-      </p>
-
-      <p>
-        For a <a>property shape</a> such as <code>ex:BookShape</code>'s <code>Author</code> property above, where
-        <code>sh:in</code> itself contains a <code>sh:select</code>
-        <a href="../shacl12-sparql/#SelectExpression">select expression</a> with a SPARQL <code>SERVICE</code>
-        clause, checking whether a value node conforms to the surrounding <a>property shape</a> requires
-        re-evaluating that <code>sh:in</code> constraint. This requires a SHACL validation engine that supports
-        federated SHACL validation — at minimum, the piece of
-        <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a> that allows <code>sh:in</code> to contain
-        a <code>sh:select</code> <a href="../shacl12-sparql/#SelectExpression">select expression</a>.
-      </p>
-
-      <p>
-        For such federated validation, the isolated <a>property shape</a> used to check a value node SHOULD
-        contain only the <code>sh:in</code> constraint, and no other constraints from the surrounding
-        <a>property shape</a>. A value node retrieved via <code>SERVICE</code> generally has no corresponding
-        triples in the local data graph, so a validation engine evaluating any other constraint (such as
-        <code>sh:class</code> or <code>sh:node</code>) as part of the same isolated run would evaluate it against
-        the local data graph and likely report a spurious violation.
+        The results of that bound execution are then the candidate value nodes offered to the end user for
+        the widget; any value node returned by <code>shui:searchQuery</code> that is absent from those results
+        is not offered as a candidate. For a <a>property shape</a> such as <code>ex:BookShape</code>'s
+        <code>Author</code> property above, this re-executes the <code>sh:select</code> query's SPARQL
+        <code>SERVICE</code> clause with the value nodes returned by <code>shui:searchQuery</code>, without
+        evaluating any of the surrounding <a>property shape</a>'s other constraints.
       </p>
     </section>
 
