@@ -24,10 +24,10 @@ The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/sha
 ##### Editor's drafts
 
 * [SHACL 1.2 Overview](https://w3c.github.io/data-shapes/shacl12-overview/)
-* [SHACL 1.2 Rules](https://w3c.github.io/data-shapes/shacl12-rules/)
 * [SHACL 1.2 UI](https://w3c.github.io/data-shapes/shacl12-ui/)
 * [SHACL 1.2 Compact Syntax](https://w3c.github.io/data-shapes/shacl12-cs/)
 * [SHACL 1.2 Profiling](https://w3c.github.io/data-shapes/shacl12-profiling/)
+* [SPARQL 1.2 RL](https://w3c.github.io/data-shapes/sparql12-rl/)
 
 All of the above specifications are drafts that are automatically rebuilt on pushes to this repository.
 
