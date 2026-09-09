@@ -570,21 +570,26 @@ ex:RectangleRulesShape
 				SHACL has a flexible, extensible design in which multiple types of rules can be supported,
 				but this document only defines two of them: <a>SPARQL rules</a> and <a>triple rules</a>.
 			</p>
-			<p>
-				Each <dfn>rule type</dfn> is identified by an <a>IRI</a> that is used as
-				their <code>rdf:type</code>.
-				Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
-			</p>
 			<p class="syntax">
 				<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code>
 				which is a <a>IRI</a>.</span>
 			</p>
-			<p>
-				Rules can have multiple types, e.g., to provide instructions that work either in SPARQL or JavaScript,
-				depending on the capabilities of the engine.
-				The creator of such rules needs to make sure that such rules have consistent semantics.
-				Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
-			</p>
+			<section id="rule-types">
+				<h3>Rule Types</h3>
+				<p>
+					A <dfn>rule type</dfn> is identified by an <a>IRI</a>.
+					Each <a>rule type</a> defines <dfn>execution instructions</dfn> that can be implemented by rule engines through the function
+					<code>execute(rule, focusNodes) -&gt; inferredTriples</code> where
+					<code>rule</code> is the rule to execute, <code>focusNodes</code> is a set of <a>nodes</a> provided by a rule engine,
+					and <code>inferredTriples</code> is the graph of (output) <a>triples</a> that are not in the <a>base graph</a>.
+				</p>
+				<p>
+					<a>Rule</a> <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
+					Rules can have multiple types, e.g., to provide instructions that work either in SPARQL or JavaScript,
+					depending on the capabilities of the engine.
+					The creator of rules with multiple types needs to make sure that such rules have consistent semantics.
+				</p>
+			</section>
 			<section id="global-rules">
 				<h3>Shape Rules and Global Rules (sh:rule)</h3>
 				<p class="syntax">
@@ -1122,18 +1127,31 @@ ex:SetYoungestOffspringsRule
 			</p>
 			<p>
 				An <dfn>execution</dfn> of a <a>rule</a> is the process that produces <a>inferred</a> triples from the <a>rule</a>
-				based on the <a>execution instructions</a> of its <a>rule types</a>.
-				If the <a>rule</a> is a <a>shape rule</a> (i.e., it is linked to at least one <a>shape</a> via <code>sh:rule</code>),
-				then the rule is executed for each <a>target node</a> of each of the linked and <a data-cite="shacl12-core#deactivated">non-deactivated</a>
-				<a>shapes</a> that <a>conform</a> to all <a data-cite="shacl12-core#deactivated">non-deactivated</a> <a href="#condition">conditions</a> of the <a>rule</a>.
-				These <a>target nodes</a> become the <a>focus nodes</a> of the executing <a>shape rule</a>.
-				During execution, the <a>evaluation graph</a> is used as the active query graph, and only the <a>inference graph</a> is updated.
+				based on the <a>execution instructions</a> of any one of its <a>rule types</a>:
+			</p>
+			<ul>
+				<li>
+					If the <a>rule</a> is a <a>shape rule</a> (i.e., it is linked to at least one <a>shape</a> via <code>sh:rule</code>),
+					then the rule is executed for each <a>target node</a> of each of the linked and <a data-cite="shacl12-core#deactivated">non-deactivated</a>
+					<a>shapes</a> that <a>conform</a> to all <a data-cite="shacl12-core#deactivated">non-deactivated</a> <a href="#condition">conditions</a> of the <a>rule</a>.
+					These <a>target nodes</a> become the <a>focus nodes</a> of the executing <a>shape rule</a>: <code>execute(rule, focusNodes)</code>.
+				</li>
+				<li>
+					If the <a>rule</a> is a <a>global rule</a> (i.e., not linked to any <a>shape</a> via <code>sh:rule</code>),
+					then the rule is executed with an empty set of focus nodes: <code>execute(rule, [])</code>.
+				</li>
+			</ul>
+			<p>
+				During execution of a rule, the <a>evaluation graph</a> is used as the active query graph.
+				After execution of a rule, the inferred triples from the <code>execute</code> function are added to the <a>inference graph</a>.
 			</p>
 			<p>
 				For a given <a>rule set</a> in the <a>shapes graph</a>
 				an <dfn data-lt="iterate">iteration</dfn> is a single <a>execution</a> of each individual rule in the order as
 				specified by <a href="#rule-order"></a>, skipping the rules that are <a href="#deactivated-rules">deactivated</a>.
-				Within an iteration, the inferred triples of one rule become immediately visible to the next rule.
+				Within an iteration, the inferred triples of one rule become immediately visible to the next rule, but
+				rules with the same order can not see each other's inferred triples until the iteration has completed.
+				This means that rules with the same order may be executed in parallel.
 			</p>
 			<p>
 				The <dfn>execution of a rule set</dfn> is defined as follows:
