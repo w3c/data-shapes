@@ -2007,16 +2007,11 @@ ex:Cougar
 			<p>
 				Some features of SHACL-SPARQL rely on the concept of <a>pre-binding of variables</a> as defined in this section.
 			</p>
-			<p class="issue atrisk" data-number="999">
-				This feature is "at risk" and may be changed (not removed)
-				to align with currently ongoing work in the RDF and SPARQL 1.2 work in this area.
-				Originally discussed as <a href="https://github.com/w3c/data-shapes/issues/647">Issue 647</a>.
-			</p>
 			<div class="syntax" data-syntax-rule="pre-binding-limitations">
 				<p>
 					The definition of pre-binding used by SHACL requires the following restrictions on SPARQL queries.
-					SHACL-SPARQL processors MUST report a <a>failure</a> when it is operating on a <a>shapes graph</a>
-					that contains SHACL-SPARQL queries (via <code>sh:ask</code>, <code>sh:construct</code> and <code>sh:select</code>)
+					A SHACL-SPARQL processor MUST report a <a>failure</a> when it is operating on a <a>shapes graph</a>
+					that contains SPARQL queries (via properties such as <code>sh:ask</code>, <code>sh:construct</code> and <code>sh:select</code>)
 					that are executed with pre-bound variables and violate any of these "MUST" restrictions.
 					Note that the term <em>potentially pre-bound variables</em> includes the variables <code>this</code>,
 					<code>value</code> (for ASK queries),
@@ -2037,37 +2032,71 @@ ex:Cougar
 			</div>
 
 			<div class="def def-text">
-				<div class="def-header">DEFINITION: <dfn>Values Insertion</dfn></div>
-				<div class="def-text-body">
-					<p>
-						For solution mapping <code>μ</code>, define <code>Table(μ)</code> to be the multiset formed from <code>μ</code>.
-					</p>
-					<p>
-						&nbsp;&nbsp;&nbsp;<code>Table(μ) = { μ }</code><br/>
-						&nbsp;&nbsp;&nbsp;<code>Card[μ] = 1</code>
-					</p>
-					<p>
-						Define the <em>Values Insertion</em> function <code>Replace(X, μ)</code> to
-						replace each occurrence <code>Y</code> of a
-						<a data-cite="sparql12-query/#sparqlTranslateBasicGraphPatterns">Basic Graph Pattern</a>,
-						<a data-cite="sparql12-query/#sparqlTranslatePathExpressions">Property Path Expression</a>,
-						<a data-cite="sparql12-query/#sparqlTranslateGraphPatterns"><code>Graph(Var, pattern)</code></a>
-						in <code>X</code> with <code>join(Y, Table(μ))</code>.
-					</p>
-				</div>
-			</div>
-
-			<div class="def def-text">
 				<div class="def-header">DEFINITION: <dfn data-lt="pre-binding|pre-bind|pre-bound|pre-bound variables|pre-binds">Pre-binding of variables</dfn></div>
 				<div class="def-text-body">
 					<p>
-						The evaluation of the <a data-cite="sparql12-query/#idp2427544">SPARQL Query</a>
-						<code>Q = (E, DS, QF)</code> with <em>pre-bound</em> variables <code>μ</code>
-						is defined as the evaluation of SPARQL query <code>Q' = (Replace(E, μ), DS, QF)</code>.
+						Let <code>P</code> be a map from variables to <a>nodes</a> <code>P = { ?var1: node1, ?var2: node2, ... }</code> (the <em>pre-bound variables</em>)
+						where any of the nodes may be unbound,
+						and <code>V</code> be a <a data-cite="sparql12-query#inline-data">VALUES clause</a> consisting of the same mappings from <code>P</code>
+						representing a <a data-cite="sparql12-query/#defn_sparqlSolutionSequence">sequence</a> with exactly one solution where each variable 
+						appears exactly once, using <code>UNDEF</code> for unbound variables.
+					</p>
+					<p>
+						For example:<br/>
+						<code>P = { ?this: ex:FocusNode, ?value: 42, ?other: null }</code></br>
+						<code>V = "VALUES (?this ?value ?other) { (ex:FocusNode 42 UNDEF) }"</code>
+					</p>
+					<p>
+						Note that for the purpose of this definition we assume that the processor is capable of preserving the identity of <a>blank nodes</a>,
+						even though the current <a data-cite="sparql12-query/#grammarBNodes">SPARQL 1.2 grammar</a> does not support this.
+					</p>
+					<p>
+						For a SPARQL query <code>Q</code> and the pre-bound variables <code>P</code>,
+						the results of the query must be identical to a variation <code>Q'</code>
+						in which <code>V</code> is inserted into the beginning of each <code>{ ... }</code> block of the WHERE clause
+						where that is syntactically valid.
 					</p>
 				</div>
 			</div>
-
+			<p>
+				For example, with <code>P = { ?this: ex:Node, ?match: 42 }</code> the query <code>Q</code>
+			</p>
+			<div class="def def-sparql">
+				<pre class="def-sparql-body">
+					SELECT $this
+					WHERE {
+						{
+							$this ex:prop1 ?value1 .
+						}
+						UNION
+						{
+							$this ex:prop2 ?value2 .
+							FILTER (?value2 = $match) .
+						}
+					}
+				</pre>
+			</div>
+			<p>
+				is interpreted like this variation <code>Q'</code>:
+			</p>
+			<div class="def def-sparql">
+				<pre class="def-sparql-body">
+					SELECT ?this
+					WHERE {
+						VALUES ( ?this ?match ) { ( ex:Node 42 ) }
+						{
+							VALUES ( ?this ?match ) { ( ex:Node 42 ) }
+							?this ex:prop1 ?value1 .
+						}
+						UNION
+						{
+							VALUES ( ?this ?match ) { ( ex:Node 42 ) }
+							?this ex:prop2 ?value2 .
+							FILTER (?value2 = ?match) .
+						}
+					}
+				</pre>
+			</div>
 		</section>
 
 		<section id="syntax-rules" class="appendix">
@@ -2324,6 +2353,7 @@ WHERE {
 				<li>Removed support for the optional pre-bound variables <code>shapesGraph</code> and <code>currentShape</code>, see <a href="https://github.com/w3c/data-shapes/issues/426">Issue 426</a></li>
 				<li>SPARQL constraints can now directly specify a <code>sh:severity</code>, see <a href="https://github.com/w3c/data-shapes/issues/573">Issue 573</a></li>
 				<li>If no <code>sh:prefixes</code> are present, the system will use any <code>sh:prefix</code>/<code>sh:namespace</code> pair declared in any <code>sh:ShapesGraph</code>, see <a href="https://github.com/w3c/data-shapes/issues/176">Issue 176</a></li>
+				<li>Updated definition of <a>pre-binding</a>, see <a href="https://github.com/w3c/data-shapes/issues/999">Issue 999</a></li>
 			</ul>
 		</section>
 	</body>
