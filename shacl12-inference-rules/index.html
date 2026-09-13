@@ -399,7 +399,7 @@
 					This specification describes conformance criteria for:
 				</p>
 				<ul>
-					<li><strong>SHACL inference rule processors</strong> as processors that support the evaluation of <a>rules</a></li>
+					<li><strong><a>SHACL rules engines</a></strong> as processors that support the evaluation of <a>rules</a></li>
 				</ul>
 				<p>
 					Also see the discussion of well-formedness in the <a data-cite="shacl12-core#conformance">Conformance section of SHACL Core</a>.
@@ -570,21 +570,26 @@ ex:RectangleRulesShape
 				SHACL has a flexible, extensible design in which multiple types of rules can be supported,
 				but this document only defines two of them: <a>SPARQL rules</a> and <a>triple rules</a>.
 			</p>
-			<p>
-				Each <dfn>rule type</dfn> is identified by an <a>IRI</a> that is used as
-				their <code>rdf:type</code>.
-				Each rule type also defines <dfn>execution instructions</dfn> that can be implemented by rule engines.
-			</p>
 			<p class="syntax">
 				<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code>
 				which is a <a>IRI</a>.</span>
 			</p>
-			<p>
-				Rules can have multiple types, e.g., to provide instructions that work either in SPARQL or JavaScript,
-				depending on the capabilities of the engine.
-				The creator of such rules needs to make sure that such rules have consistent semantics.
-				Rule <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
-			</p>
+			<section id="rule-types">
+				<h3>Rule Types</h3>
+				<p>
+					A <dfn>rule type</dfn> is identified by an <a>IRI</a>.
+					Each <a>rule type</a> defines <dfn>execution instructions</dfn> that can be implemented by rule engines through the function
+					<code>execute(rule, focusNodes) -&gt; inferredTriples</code> where
+					<code>rule</code> is the rule to execute, <code>focusNodes</code> is a set of <a>nodes</a> provided by a rule engine,
+					and <code>inferredTriples</code> is the graph of (output) <a>triples</a> that are not in the <a>base graph</a>.
+				</p>
+				<p>
+					<a>Rule</a> <code>R</code> has <a>rule type</a> <code>T</code> if <code>R</code> is a <a>SHACL instance</a> of <code>T</code>.
+					Rules can have multiple types, e.g., to provide instructions that work either in SPARQL or JavaScript,
+					depending on the capabilities of the engine.
+					The creator of rules with multiple types needs to make sure that such rules have consistent semantics.
+				</p>
+			</section>
 			<section id="global-rules">
 				<h3>Shape Rules and Global Rules (sh:rule)</h3>
 				<p class="syntax">
@@ -959,7 +964,7 @@ ex:SmallRectangle ex:isSmall true .
 		<section id="ruleSet">
 			<h2>Rule Sets</h2>
 			<p>
-				The input to a SHACL rules processor is a set of rules called a <dfn>rule set</dfn>.
+				The input to a SHACL rules engine is a set of rules called a <dfn>rule set</dfn>.
 				A <a>rule set</a> is identified by an <a>IRI</a>.
 				The property <code>sh:hasRule</code> can be used to declare that a <a>rule set</a> has a given <a>rule</a> as a member.
 				The <dfn>default rule set</dfn> of a <a>graph</a> is the set of all <a>rules</a> in the graph.
@@ -1125,12 +1130,23 @@ ex:SetYoungestOffspringsRule
 			</p>
 			<p>
 				An <dfn>execution</dfn> of a <a>rule</a> is the process that produces <a>inferred</a> triples from the <a>rule</a>
-				based on the <a>execution instructions</a> of its <a>rule types</a>.
-				If the <a>rule</a> is a <a>shape rule</a> (i.e., it is linked to at least one <a>shape</a> via <code>sh:rule</code>),
-				then the rule is executed for each <a>target node</a> of each of the linked and <a data-cite="shacl12-core#deactivated">non-deactivated</a>
-				<a>shapes</a> that <a>conform</a> to all <a data-cite="shacl12-core#deactivated">non-deactivated</a> <a href="#condition">conditions</a> of the <a>rule</a>.
-				These <a>target nodes</a> become the <a>focus nodes</a> of the executing <a>shape rule</a>.
-				During execution, the <a>evaluation graph</a> is used as the active query graph, and only the <a>inference graph</a> is updated.
+				based on the <a>execution instructions</a> of any one of its <a>rule types</a>:
+			</p>
+			<ul>
+				<li>
+					If the <a>rule</a> is a <a>shape rule</a> (i.e., it is linked to at least one <a>shape</a> via <code>sh:rule</code>),
+					then the rule is executed for each <a>target node</a> of each of the linked and <a data-cite="shacl12-core#deactivated">non-deactivated</a>
+					<a>shapes</a> that <a>conform</a> to all <a data-cite="shacl12-core#deactivated">non-deactivated</a> <a href="#condition">conditions</a> of the <a>rule</a>.
+					These <a>target nodes</a> become the <a>focus nodes</a> of the executing <a>shape rule</a>: <code>execute(rule, focusNodes)</code>.
+				</li>
+				<li>
+					If the <a>rule</a> is a <a>global rule</a> (i.e., not linked to any <a>shape</a> via <code>sh:rule</code>),
+					then the rule is executed with an empty set of focus nodes: <code>execute(rule, [])</code>.
+				</li>
+			</ul>
+			<p>
+				During execution of a rule, the <a>evaluation graph</a> is used as the active query graph.
+				After execution of a rule, the inferred triples from the <code>execute</code> function are added to the <a>inference graph</a>.
 			</p>
 			<p>
 				For a given <a>rule set</a> in the <a>shapes graph</a>
@@ -1298,7 +1314,7 @@ _:id sh:sourceRule ex:SymmetricPropertyRule .</pre>
 				</div>
 				<p class="note">
 					For <a>SPARQL rules</a> that are <a>shape rules</a> (i.e., linked to a shape with <code>sh:rule</code>),
-					a <a>SHACL rules engine</a> also counts as a SHACL-SPARQL processor
+					a <a>SHACL rules engine</a> also counts as a SHACL-SPARQL processor (as defined by <a data-cite="shacl12-sparql"></a>)
 					and the syntax limitations required by <a>pre-binding</a> do apply to shape rules.
 					Since <a>global</a> SPARQL rules do not use <a>pre-binding</a>, the syntax limitations
 					required by <a>pre-binding</a> do not apply to them.
