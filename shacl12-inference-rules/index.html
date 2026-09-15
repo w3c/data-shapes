@@ -421,6 +421,7 @@
 				The <a>SHACL rules</a> feature defined in this document includes a general framework using the properties
 				such as <code>sh:rule</code> and <code>sh:condition</code>, plus an extension mechanism for specific <a>rule types</a>.
 				This document defines two such rule types: <a>SHACL SPARQL rules</a> and <a>triple rules</a>.
+				This document also defines a declarative mechanism for <a href="#SPARQLRuleType">custom rule types</a>.
 			</p>
 			
 			<section id="sparql-rule-example" class="informative">
@@ -568,7 +569,8 @@ ex:RectangleRulesShape
 				The <a>SHACL instances</a> of <code>sh:Rule</code>, including its subclasses <code>sh:SPARQLRule</code> and <code>sh:TripleRule</code>,
 				are called <dfn data-lt="rule|rules|SHACL rule">SHACL rules</dfn>.
 				SHACL has a flexible, extensible design in which multiple types of rules can be supported,
-				but this document only defines two of them: <a>SPARQL rules</a> and <a>triple rules</a>.
+				but this document only defines two of them (<a>SPARQL rules</a> and <a>triple rules</a>)
+				and a mechanism to declare <a href="#SPARQLRuleType">custom rule types</a>.
 			</p>
 			<p class="syntax">
 				<span data-syntax-rule="rule-type">Each <a>SHACL rule</a> has at least one <code>rdf:type</code>
@@ -1482,6 +1484,170 @@ ex:Dad
 					</div>
 				</aside>
 			</section>
+		</section>
+
+		<section id="SPARQLRuleType">
+			<h2>Custom Rule Types</h2>
+			<p>
+				The class <code>sh:SPARQLRuleType</code> can be used to declare new <a>rule types</a> called <dfn>custom rule types</dfn>.
+				<span data-syntax-rule="SPARQLRuleType-construct">Each <a>custom rule type</a> has exactly one <a>value</a> of <code>sh:construct</code>
+				and that <a>value</a> is a <a>literal</a> with <a>datatype</a> <code>xsd:string</code>.</span>
+				<span data-syntax-rule="SPARQLRuleType-prefixes">Like <a>SPARQL rules</a>, a <a>custom rule type</a> can use the property
+				<code>sh:prefixes</code> to declare prefixes to be used with the <code>sh:construct</code>.</span>
+			</p>
+			<p>
+				<span data-syntax-rule="SPARQLRuleType-parameter">A <a>custom rule type</a> can declare <em>parameters</em> with the same syntax
+				as <a data-cite="shacl12-sparql#constraint-components-parameters">SPARQL-based constraint components</a></span>.
+			</p>
+			<div class="def def-text">
+				<div class="def-header">EXECUTION OF CUSTOM RULE TYPES</div>
+				<div class="def-text-body">
+					Let <code>R</code> be a <a>SHACL instance</a> of the <a>custom rule type</a> <code>T</code>.
+					Let <code>Q</code> be the SPARQL CONSTRUCT query that is produced from the <a>value</a> of <code>sh:construct</code>
+					at <code>T</code> in the <a>rules graph</a>, using the <a data-cite="shacl12-sparql#sparql-prefixes">prefix declarations</a> at <code>T</code>.
+					Using a <a>pre-binding</a> map for each declared <code>sh:parameter</code> at <code>T</code> similar to
+					<a data-cite="shacl12-sparql#constraint-components-parameters">SPARQL-based constraint components</a>,
+					evaluate <code>Q</code> like a corresponding <a href="#SPARQLRule">SPARQL Rule</a> but using the extra pre-bound variables.
+				</div>
+			</div>
+			<p>
+				In the example below, the CONSTRUCT query is executed with the SPARQL variable <code>$property</code> pre-bound to the
+				value of <code>ex:property</code>.
+			</p>
+			<aside class="example" title="An example custom rule type to declare symmetric properties" id="SPARQLRuleType-symmetric-example">
+				<p>
+					In this example, a SHACL rules engine will infer missing triples in the inverse direction for every value
+					of the given properties, using a custom rule type.
+				</p>
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:SymmetricPropertyRule
+	a sh:SPARQLRuleType ;
+	rdfs:label "Symmetric property rule type" ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:property ;
+		sh:name "property" ;
+		sh:description "The property that shall be treated as symmetric." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:construct """
+		CONSTRUCT {
+			?o $property ?s .
+		}
+		WHERE {
+			?s $property ?o .
+		}
+	""" .
+
+ex:MarriedToRule
+	a ex:SymmetricPropertyRule ;
+	ex:property ex:marriedTo .
+
+ex:OverlapsRule
+	a ex:SymmetricPropertyRule ;
+	ex:property ex:overlaps .
+					</div>
+				</div>
+				<div class="data-graph">
+					<div class="turtle">
+ex:John ex:marriedTo ex:Mary .
+					</div>
+				</div>
+				<div class="inferences-graph">
+					<div class="turtle">
+ex:Mary ex:marriedTo ex:John .
+					</div>
+				</div>
+			</aside>
+			<p>
+				The following example uses a <a>custom rule type</a> as a <a>shape rule</a>, meaning that the variable
+				<code>$this</code> will point at the current focus node when the rule executes.
+			</p>
+			<aside class="example" title="An example custom rule type to convert units" id="SPARQLRuleType-unit-example">
+				<p>
+					In this example, a SHACL rules engine will infer a `ex:feet` triple for any instance of `ex:Measurement`
+					using a custom rule type.
+				</p>
+				<div class="shapes-graph">
+					<div class="turtle">
+ex:InferValueViaMultiply
+	a sh:SPARQLRuleType ;
+	rdfs:label "Infer value via multiply" ;
+	rdfs:comment """
+		A reusable rule type that computes the value of a target property from the value
+		of a source property (at the same subject $this), using a multiplier.
+	""" ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:sourceProperty ;
+		sh:name "source property" ;
+		sh:description "The property containing the base value." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:targetProperty ;
+		sh:name "target property" ;
+		sh:description "The property that shall be inferred from the base value." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:multiplier ;
+		sh:name "multiplier" ;
+		sh:description "The multiplier that is applied to the base value." ;
+		sh:datatype ( xsd:decimal xsd:integer ) ;
+	] ;
+	sh:construct """
+		CONSTRUCT {
+			$this $targetProperty ?result .
+		}
+		WHERE {
+			$this $sourceProperty ?baseValue .
+			BIND (?baseValue * $multiplier AS ?result) .
+		}
+	""" .
+
+ex:Measurement
+	a sh:ShapeClass ;
+	sh:property ex:Measurement-meters ;
+	sh:property ex:Measurement-feet ;
+	sh:rule ex:Measurement-feet-rule .
+
+ex:Measurement-meters
+	a sh:PropertyShape ;
+	sh:path ex:meters ;
+	sh:datatype xsd:decimal ;
+	sh:unit "m" .
+
+ex:Measurement-feet
+	a sh:PropertyShape ;
+	sh:path ex:feet ;
+	sh:datatype xsd:decimal ;
+	sh:unit "ft" .
+
+ex:Measurement-feet-rule
+	a ex:InferValueViaMultiply ;
+	ex:sourceProperty ex:meters ;
+	ex:targetProperty ex:feet ;
+	ex:multiplier 3.28084 .
+					</div>
+				</div>
+				<div class="data-graph">
+					<div class="turtle">
+ex:M1
+	a ex:Measurement ;
+	ex:meters 2.0 .
+					</div>
+				</div>
+				<div class="inferences-graph">
+					<div class="turtle">
+ex:M1
+	ex:feet 6.56168 .
+					</div>
+				</div>
+			</aside>
 		</section>
 
 		<div style="padding-top: 30px">
