@@ -289,6 +289,10 @@
           </dfn>
           ,
           <dfn>
+            <a href="https://www.w3.org/TR/shacl/#dfn-deactivated">deactivated</a>
+          </dfn>
+          ,
+          <dfn>
             <a href="https://www.w3.org/TR/shacl/#dfn-failure">failure</a>
           </dfn>
           ,
@@ -396,7 +400,7 @@
             <a href="https://www.w3.org/TR/shacl/#dfn-subject">subject</a>
           </dfn>
           ,
-          <dfn>
+          <dfn data-lt="targets">
             <a href="https://www.w3.org/TR/shacl/#dfn-target">target</a>
           </dfn>
           ,
@@ -1186,29 +1190,183 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
         <p>
           A <dfn>SHACL Renderer</dfn>
           is software that processes SHACL
-            <a>shapes</a> and data and dynamically generates a user-interface using one
-            or more <a>node UI components</a>. Implementations may add supplementary UI elements, such as a submit
-            button to save changes, controls to toggle between edit and view modes, selectors for <a>focus node</a> and
-            <a>node shape</a>, or visualizations of <a>validation report</a> messages.
+            <a>shapes</a> and data and dynamically generates a user-interface using one or more
+            <a>Node UI Components</a>. Implementations MAY add supplementary UI
+            elements, such as a submit
+            button to save changes, controls to toggle between edit and view modes, or visualizations of
+            <a>validation report</a> messages.
 
-            They may also provide:
+            They MAY also provide:
             <ul>
               <li>State management for editing, viewing, and tracking data changes</li>
               <li>Widget management, including widget selection strategies</li>
-              <li>Logic for determining the initial focus node (target) and the best suited node shape</li>
               <li>An interface to interact with the data layer</li>
             </ul>
-
-            A SHACL Renderer operates on a <a>data graph</a> and a <a>shapes graph</a>, and may also take a
-            <a>focus node</a> and a <a>node shape</a>. When all four inputs are provided, the renderer
-            operates in <strong>manual mode</strong>. When the focus node or node shape is not provided,
-            the renderer may operate in <strong>automatic mode</strong>, in which case the application determines
-            appropriate values for the missing inputs.
         </p>
 
-        <p class="ednote">TODO: review SHACL Renderer definition, particularly the manual and automatic mode, now that we have the scoring system defined.</p>
+        <p>
+          A SHACL Renderer operates on a <a>data graph</a>, a <a>shapes graph</a>, a
+          <a href="#scoring-algorithm-scoring-graph-preparation">prepared scoring graph</a>, a <a>focus node</a>, and a
+          <a>node shape</a>. The <a>focus node</a> and the <a>node shape</a> are both present; a renderer is not given
+          absent inputs to resolve.
+        </p>
 
-        <div class="issue" data-number="609"></div>
+        <p>
+          The scoring graph is the RDF graph that holds the widget matcher definitions — the
+          <code>shui:WidgetScore</code> and <code>shui:WidgetAcceptMatcher</code> instances — that drive widget
+          selection, as defined in the <a href="#scoring-system">Scoring System</a> section. The renderer uses the
+          <a href="#scoring-algorithm-scoring-graph-preparation">prepared scoring graph</a> produced by scoring graph
+          preparation, which is what the scoring functions operate on.
+        </p>
+
+        <p>
+          Each <a>Node UI Component</a> is generated from a single <a>focus node</a> and a single <a>node shape</a>, both
+          of which are present. Determining which <a>focus node</a> and <a>node shape</a> each component renders,
+          including any case in which either is absent or in which zero or several arise, is not the renderer's
+          concern. It is <a>Focus Node and Node Shape Resolution</a>, performed by a <a>SHACL UI Application</a>, which
+          supplies the renderer with fully determined pairs.
+        </p>
+      </section>
+
+      <section id="ui-application">
+        <h3>SHACL UI Application</h3>
+
+        <p>
+          A <dfn data-plurals="SHACL UI Applications" id="dfn-shacl-ui-application" tabindex="0" aria-haspopup="dialog" data-dfn-type="dfn">SHACL UI Application</dfn>
+          is software that drives one or more <a>SHACL Renderer</a> instances. It obtains the (<a>focus node</a>,
+          <a>node shape</a>) pairs to be rendered through <a>Focus Node and Node Shape Resolution</a>, and presents the
+          resulting <a>Node UI Components</a> to the user.
+        </p>
+
+        <p>
+          The three concepts have distinct roles. <a>Focus Node and Node Shape Resolution</a> computes the pairs. A
+          SHACL UI Application decides how the user encounters them. A <a>SHACL Renderer</a> receives a single, fully
+          determined pair and renders it. Resolution performs no presentation, and the renderer performs no resolution.
+        </p>
+
+        <p>
+          A SHACL UI Application MAY provide logic for determining the initial <a>focus node</a> and <a>node shape</a>,
+          and supplementary UI elements that operate across pairs, such as selectors for the <a>focus node</a> and the
+          <a>node shape</a>, or a means of navigating from one pair to another.
+        </p>
+
+        <p>
+          <a>Focus Node and Node Shape Resolution</a> may yield zero, one, or several pairs. How they are surfaced is
+          left to the SHACL UI Application: rendering all of them at once as a list, rendering one at a time behind a
+          selector, paginating, or any other arrangement are all conforming. The specification deliberately prescribes
+          no arrangement; the choice belongs to the implementation.
+        </p>
+
+        <p>
+          A SHACL UI Application MUST allow the user to reach every pair in the output; it MUST NOT expose only a
+          subset. Reaching a pair means being able to act on it in whichever mode the <a>SHACL Renderer</a> is
+          operating in: viewing the pair in view mode, or viewing and editing it in edit mode. The requirement
+          constrains which pairs are reachable, not which modes an implementation offers. It does not require that
+          every pair is displayed at once: a pair the user can navigate to has been reached.
+        </p>
+
+        <aside class="example" title="Several pairs: an alerts dashboard">
+          <p>
+            A monitoring dashboard has a <a>data graph</a> of alerts and a <a>shapes graph</a> containing an alert
+            <a>node shape</a>, and is given the <a>node shape</a> but no <a>focus node</a>. Resolution returns one
+            (<a>focus node</a>, <a>node shape</a>) pair for every alert that the alert <a>node shape</a> targets. The
+            dashboard renders each pair as its own <a>Node UI Component</a>, laid out as a list of cards. Rendering the
+            same pairs one at a time behind a selector, or paginating them, would be equally conforming: the only
+            requirement is that every alert can be reached.
+          </p>
+        </aside>
+
+        <aside class="example" title="Many pairs: page-rank-style entry points">
+          <p>
+            A <a>SHACL UI Application</a> resolves a large number of (<a>focus node</a>, <a>node shape</a>) pairs, too
+            many to reasonably list one by one. Rather than presenting every pair at once, it runs a page-rank-style
+            algorithm over the resolved <a>focus nodes</a> to identify a small set of best-fitting root nodes, and
+            offers those as starting points for navigation. The root node selection takes into account that every
+            resolved <a>focus node</a> must remain reachable by traversing the <a>data graph</a> from one of the
+            selected root nodes, so the reachability requirement is met and no pair is lost. The tree the user
+            navigates is built from the edges of the <a>data graph</a>, not from the order of the resolved pairs.
+          </p>
+        </aside>
+
+        <section id="focus-node-and-node-shape-resolution">
+          <h4>Focus Node and Node Shape Resolution</h4>
+
+          <p>
+            <dfn data-lt="focus node and node shape resolution" id="dfn-focus-node-and-node-shape-resolution" tabindex="0" aria-haspopup="dialog" data-dfn-type="dfn">Focus Node and Node Shape Resolution</dfn>
+            determines, from the available inputs, all (<a>focus node</a>, <a>node shape</a>) pairs. Its
+            <a>focus node</a> and <a>node shape</a> inputs may be absent; it resolves them into pairs in which both
+            members are always present.
+          </p>
+
+          <p>Inputs:</p>
+          <ul>
+            <li><strong>Data graph</strong> — The <a>data graph</a>.</li>
+            <li><strong>Shapes graph</strong> — The <a>shapes graph</a>.</li>
+            <li><strong>Focus node</strong> — A <a>focus node</a>, which may be absent.</li>
+            <li><strong>Node shape</strong> — A <a>node shape</a>, which may be absent.</li>
+          </ul>
+
+          <p>Output:</p>
+          <ul>
+            <li>
+              A list of (<a>focus node</a>, <a>node shape</a>) pairs, which may be empty. Every pair in the output is
+              fully determined: neither member of any pair is absent. The list is flat: any structure a user navigates —
+              a tree, a ranking, a set of entry points — is derived separately by the <a>SHACL UI Application</a> from
+              the <a>data graph</a>, and is not carried by this output.
+            </li>
+          </ul>
+
+          <p>Steps:</p>
+          <ol>
+            <li>
+              If both the <strong>focus node</strong> and the <strong>node shape</strong> are present, return a list
+              containing the single pair (<strong>focus node</strong>, <strong>node shape</strong>).
+            </li>
+            <li>
+              If the <strong>node shape</strong> is present and the <strong>focus node</strong> is absent, compute the
+              <a>targets</a> of the <strong>node shape</strong>, and return one pair per produced <a>focus node</a>,
+              each pairing that focus node with the <strong>node shape</strong>.
+            </li>
+            <li>
+              If the <strong>focus node</strong> is present and the <strong>node shape</strong> is absent, compute the
+              <a>targets</a> of every <a>node shape</a> in the <strong>shapes graph</strong> that is not
+              <a>deactivated</a>, and return one pair per <a>node shape</a> whose <a>targets</a> include the
+              <strong>focus node</strong>, each pairing that node shape with the <strong>focus node</strong>.
+            </li>
+            <li>
+              If both the <strong>focus node</strong> and the <strong>node shape</strong> are absent, compute the
+              <a>targets</a> of every <a>node shape</a> in the <strong>shapes graph</strong> that is not
+              <a>deactivated</a>, and return one pair per produced <a>focus node</a>, each pairing that focus node with
+              the <a>node shape</a> that produced it.
+            </li>
+          </ol>
+
+          <p>
+            <a>Targets</a> are computed as defined in the <a href="../shacl12-core/#targets">Targets</a> section of
+            [[SHACL-CORE]]. All SHACL Core target mechanisms apply, including implicit class-based targets. Resolution
+            introduces no new machinery: the focus nodes are exactly the ones a <a>node shape</a>'s <a>targets</a>
+            produce.
+          </p>
+
+          <p class="note">
+            Steps 3 and 4 return every matching pair rather than choosing between them: resolution enumerates, and
+            discards nothing. Several <a>node shapes</a> may target the same <a>focus node</a>, and in step 4 the
+            <a>shapes graph</a> as a whole may target a large number of nodes. Which pair a user encounters first, and
+            in what arrangement, is a presentation concern of the <a>SHACL UI Application</a>.
+          </p>
+
+          <p>
+            A <a>SHACL UI Application</a> MUST support step 1: when both a <a>focus node</a> and a <a>node shape</a> are
+            given, it resolves them to that single pair. An implementation that accepts only fully determined inputs
+            therefore conforms.
+          </p>
+
+          <p>
+            Support for steps 2, 3, and 4, in which the <a>focus node</a>, the <a>node shape</a>, or both are absent, is
+            OPTIONAL. An implementation that supports one of these steps MUST produce the pairs that step defines, and
+            MUST satisfy the reachability requirement stated above.
+          </p>
+        </section>
       </section>
 
       <section id="node-ui-component">
@@ -2461,6 +2619,9 @@ ex:book1 a ex:Book ;
       <p class="ednote">
         TODO: Add a pattern describing how applications choose the initial node shape and focus node for rendering.
         This pattern should explain that applications may nominate one or more root node shapes for entry-point forms.
+        Where a <a>node shape</a> is nominated but no <a>focus node</a> is given, the resulting pairs are those computed
+        by <a>Focus Node and Node Shape Resolution</a>. What this pattern still needs to describe is how an application
+        nominates which <a>node shapes</a> serve as entry points, rather than resolving over all of them.
       </p>
 
       <h3>Conditional Shape Selection</h3>
