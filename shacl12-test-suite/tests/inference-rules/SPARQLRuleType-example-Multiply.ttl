@@ -1,0 +1,103 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix sparql: <http://www.w3.org/ns/sparql#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:InferValueViaMultiply
+	a sh:SPARQLRuleType ;
+	rdfs:label "Infer value via multiply" ;
+	rdfs:subClassOf sh:Rule ;
+	rdfs:comment """
+		A reusable rule type that computes the value of a target property from the value
+		of a source property (at the same subject $this), using a multiplier.
+	""" ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:sourceProperty ;
+		sh:name "source property" ;
+		sh:description "The property containing the base value." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:targetProperty ;
+		sh:name "target property" ;
+		sh:description "The property that shall be inferred from the base value." ;
+		sh:nodeKind sh:IRI ;
+	] ;
+	sh:parameter [
+		a sh:Parameter ;
+		sh:path ex:multiplier ;
+		sh:name "multiplier" ;
+		sh:description "The multiplier that is applied to the base value." ;
+		sh:datatype ( xsd:decimal xsd:integer ) ;
+	] ;
+	sh:construct """
+		CONSTRUCT {
+			$this $targetProperty ?result .
+		}
+		WHERE {
+			$this $sourceProperty ?baseValue .
+			BIND (?baseValue * $multiplier AS ?result) .
+		}
+	""" .
+
+ex:Measurement
+	a sh:ShapeClass ;
+	sh:property ex:Measurement-meters ;
+	sh:property ex:Measurement-feet ;
+	sh:rule ex:Measurement-feet-rule .
+
+ex:Measurement-meters
+	a sh:PropertyShape ;
+	sh:path ex:meters ;
+	sh:datatype xsd:decimal ;
+	sh:unit "m" .
+
+ex:Measurement-feet
+	a sh:PropertyShape ;
+	sh:path ex:feet ;
+	sh:datatype xsd:decimal ;
+	sh:unit "ft" .
+
+ex:Measurement-feet-rule
+	a ex:InferValueViaMultiply ;
+	ex:sourceProperty ex:meters ;
+	ex:targetProperty ex:feet ;
+	ex:multiplier 3.28084 .
+
+ex:M1
+	a ex:Measurement ;
+	ex:meters 2.0 .
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <SPARQLRuleType-example-Multiply>
+    ) .
+
+<SPARQLRuleType-example-Multiply>
+  rdf:type sht:Infer ;
+  rdfs:label "Test of a sh:SPARQLRuleType as used in the spec" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result (
+  	( ex:M1 ex:feet 6.56168 )
+  ) ;
+  mf:status sht:approved ;
+.
