@@ -35,6 +35,21 @@ So we have two separate rule documents and there is no real bridge between them.
 To achieve interoperability, implementations will need to transform the syntax before rules can be executed.
 In other words, the situation between SHACL Rules and SRL is similar to SHACL Rules and SWRL, RIF or N3.
 If the W3C mission is to produce standards (for interoperability) we have failed.
+
+Example in CONSTRUCT (supported by sh:SPARQLRule right now)
+
+```
+    CONSTRUCT { ?r ex:area ?area }
+    WHERE { ?r ex:width ?width . ?r ex:height ?height . BIND (?width * ?height AS ?area) }
+```
+
+Example in SRL syntax
+
+```
+    RULE { ?r ex:area ?area }
+    WHERE { ?r ex:width ?width . ?r ex:height ?height . SET (?area := ?width * ?height) }
+```
+
 Furthermore, the current SPARQL-RL draft directly violates the charter and would need to be published
 under a different charter.
 
@@ -97,6 +112,11 @@ rule language, I believe there is a simple compromise that the SRL group could a
 can at least syntactically interoperate and so that we don't end up with two competing standards
 that unnecessarily confuse and divide the user community.
 
+## Proposal 0: No changes, keep them separate
+
+This could formally work if SRL is published next year and the WG charter is changed for 2027, to allow non-SHACL specs.
+But even formal objections to such a charter change are possible, as well as other objections to the document.
+
 ## Proposal 1: Generalize SRL Syntax to also support CONSTRUCT (aka SPARQL-Full vs SPARQL-RL)
 
 This was suggested by Holger across these tickets:
@@ -117,6 +137,9 @@ This would allow SRL rules to be executed by a SHACL engine, assuming that the l
 (either by hand or automatically through stratification).
 A key benefit is that users can step outside of the SRL expressiveness for individual rules,
 i.e. rule types can be mixed.
+
+Furthermore, it is reasonable to assume that the future will produce different subsets of SPARQL
+with different computational characteristics, and CONSTRUCT may allow this better than a custom SRL syntax.
 
 Example of an SRL rule set in SHACL RDF syntax (see also [source](https://github.com/w3c/data-shapes/pull/1230#discussion_r3964203449)):
 
@@ -167,8 +190,12 @@ which means the stratification can be applied once and is no longer needed befor
 
 For SRL the cost is that the grammar requires a few additional lines so that either CONSTRUCT+BIND or RULE+SET
 can be used. They would both map to the same runtime objects, so implementation overhead is likely small.
+
 For SRL the benefit is that users that already know CONSTRUCT can get started immediately and even use
 existing SPARQL-based tooling to develop and test the rules.
+
+Another benefit for the SRL spec is that it doesn't need to worry about SHACL - the link becomes indirect through syntactical overlap.
+This would mean that the SRL Rule Type from Proposal 2 would not really be required.
 
 ## Proposal 2: Add SRL Rule Type
 
@@ -194,10 +221,5 @@ Concerns have been recorded in the PR: <https://github.com/w3c/data-shapes/pull/
 ## Proposal 3: Support both
 
 This acknowledges that none of us can fully predict the future so we could elect to give the choice to the users.
+
 If there is a clear winner in the coming years, future versions could deprecate one or the other syntax.
-
-## Proposal 4: No changes, keep them separate
-
-Not sure if anyone is in favor of that, could be seen as a failure.
-It could formally work if SRL is published next year and the WG charter is changed for 2027, to allow non-SHACL specs.
-But even formal objections to such a charter change are possible, as well as other objections to the document.
