@@ -66,7 +66,9 @@ This was suggested by Holger across these tickets:
 
 The core observation is that the expressiveness of SRL is a subset of SPARQL CONSTRUCTs.
 SRL has introduced syntactic sugar (SET for BIND+FILTER bound and NOT for FILTER NOT EXISTS)
-but there is nothing in SRL that could not also be expressed in SHACL Rules via CONSTRUCT.
+but there is nothing in SRL that could not also be expressed in SHACL Rules via CONSTRUCT
+(except a detail with the execution of NOW() as [Simon pointed out](https://github.com/w3c/data-shapes/pull/1263#discussion_r4067169049)
+and a [yet-to-be-implemented equivalent for WHERE DATA/NOT DATA](https://github.com/w3c/data-shapes/issues/1271)).
 
 What SRL is adding is the ability to automatically compute the layers of rules (stratification).
 This is a nice feature that would be beneficial also for users of SHACL rules that don't even know
