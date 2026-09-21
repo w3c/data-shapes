@@ -226,6 +226,8 @@ Concerns have been recorded in the PR: <https://github.com/w3c/data-shapes/pull/
 
 ## Proposal 3: Support both
 
+This combines Proposal 1 (CONSTRUCT) and Proposal 2 (dedicated SHACL rule type for SRL).
+
 This acknowledges that none of us can fully predict the future so we could elect to give the choice to the users.
 
 If there is a clear winner in the coming years, future versions could deprecate one or the other syntax.
