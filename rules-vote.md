@@ -53,65 +53,6 @@ Example in SRL syntax
 Furthermore, the current SPARQL-RL draft directly violates the charter and would need to be published
 under a different charter.
 
-### How did we get here (Holger's Opinion)
-
-I was always under the assumption that the Task Force would end up with a proposal
-that honors the original requirement which was to produce a SHACL-based language.
-So concepts such as attaching rules to shapes/classes were expected.
-I anticipated that the resulting language would have lesser expressiveness than general SPARQL,
-so that optimizated algorithms such as incremental inferencing become possible.
-This wasn't the problem.
-But I did not anticipate that the language would completely sever any links to SHACL and instead
-become just another language for flat rule lists.
-
-So while I was observing the TF work from the outside (I don't have time to work on all documents myself)
-I was assuming that sooner or later such a link between rules and shapes was added.
-But the opposite happened, and gradually any remaining references to SHACL (even the namespace) were deleted.
-Anything that made SHACL Rules different from other rule languages was removed.
-SRL was not even properly able to match instances of a class, which is fundamental to linking rules to (SHACL) ontologies.
-
-In June, even people from the outside noticed and asked [Why *SHACL* Rules?](https://github.com/w3c/data-shapes/issues/939).
-And this caused a flurry of discussions. I raised quite a number of issues trying to bring SRL closer to SHACL:
-
-- [Attaching rules to shapes](https://github.com/w3c/data-shapes/issues/765)
-- [How to match all (SHACL) instances of a class in Rules?](https://github.com/w3c/data-shapes/issues/961)
-
-Related to this, Simon proposed
-
-- [FOR ?v IN <shape>](https://github.com/w3c/data-shapes/issues/1074)
-
-I also made suggestions on how to improve the (now deleted) RDF syntax of SRL:
-
-- [Do we even need head/body triples](https://github.com/w3c/data-shapes/issues/954)
-- [Why the keyword "RULE"](https://github.com/w3c/data-shapes/issues/955)
-- [Allow deactivation of individual rules](https://github.com/w3c/data-shapes/issues/962)
-
-After all these attempts to influence SRL were rejected, the WG decided to the start a new document SHACL 1.2 Inference Rules
-that is essentially a better version of what we started in SHACL-AF, in parallel to SRL.
-I spent a significant portion of the last three months working on this document.
-This was not planned given that I was already the main editor of three other documents.
-
-I am disappointed that the Task Force did not implement the original plan and that any feedback that I have given so far
-has been rejected.  The only thing I have achieved was the deletion of the SRL native RDF syntax and this change was
-perhaps only made because I indicated that we would raise a formal objection otherwise.
-
-Furthermore, I believe that the process of how we reached the current draft was unfair:
-The Task Force made its key decisions (esp the introduction of the non-standard SPARQL keywords SET and NOT)
-before it was obvious that SHACL support was off the menu.
-As it is very difficult to change an existing draft (anyone can block commits and I am not even an editor of SRL),
-and all my requests to reconsider these choices were rejected, there was no way for me to cast -1 votes or block commits myself.
-So the current situation is the result of an asymmetric process in which I have no real power unless I cast formal objections
-to block the whole document.
-
-Meanwhile I have made numerous changes to SHACL Rules to make a closer integration with SRL possible:
-sh:RuleSet, sh:layer, sh:runOnce, clarifications to sh:order, sh:ruleProcessor, extensible rule types,
-and an alignment of the core rule execution algorithm to use layers and iteration.
-
-While I acknowledge the desire of people in the SRL Task Force to produce a minimalistic and conceptually sound
-rule language, I believe there is a simple compromise that the SRL group could accept so that both languages
-can at least syntactically interoperate and so that we don't end up with two competing standards
-that unnecessarily confuse and divide the user community.
-
 ## Proposal 0: No changes, keep them separate
 
 This could formally work if SRL is published next year and the WG charter is changed for 2027, to allow non-SHACL specs.
@@ -231,3 +172,67 @@ This combines Proposal 1 (CONSTRUCT) and Proposal 2 (dedicated SHACL rule type f
 This acknowledges that none of us can fully predict the future so we could elect to give the choice to the users.
 
 If there is a clear winner in the coming years, future versions could deprecate one or the other syntax.
+
+
+## Related Personal Statements (Optional)
+
+This section is for general opinionated statements that don't fit easily into the individual votes.
+
+### Holger: How did we get here
+
+I was always under the assumption that the Task Force would end up with a proposal
+that honors the original requirement which was to produce a SHACL-based language.
+So concepts such as attaching rules to shapes/classes were expected.
+I anticipated that the resulting language would have lesser expressiveness than general SPARQL,
+so that optimizated algorithms such as incremental inferencing become possible.
+This wasn't the problem.
+But I did not anticipate that the language would completely sever any links to SHACL and instead
+become just another language for flat rule lists.
+
+So while I was observing the TF work from the outside (I don't have time to work on all documents myself)
+I was assuming that sooner or later such a link between rules and shapes was added.
+But the opposite happened, and gradually any remaining references to SHACL (even the namespace) were deleted.
+Anything that made SHACL Rules different from other rule languages was removed.
+SRL was not even properly able to match instances of a class, which is fundamental to linking rules to (SHACL) ontologies.
+
+In June, even people from the outside noticed and asked [Why *SHACL* Rules?](https://github.com/w3c/data-shapes/issues/939).
+And this caused a flurry of discussions. I raised quite a number of issues trying to bring SRL closer to SHACL:
+
+- [Attaching rules to shapes](https://github.com/w3c/data-shapes/issues/765)
+- [How to match all (SHACL) instances of a class in Rules?](https://github.com/w3c/data-shapes/issues/961)
+
+Related to this, Simon proposed
+
+- [FOR ?v IN <shape>](https://github.com/w3c/data-shapes/issues/1074)
+
+I also made suggestions on how to improve the (now deleted) RDF syntax of SRL:
+
+- [Do we even need head/body triples](https://github.com/w3c/data-shapes/issues/954)
+- [Why the keyword "RULE"](https://github.com/w3c/data-shapes/issues/955)
+- [Allow deactivation of individual rules](https://github.com/w3c/data-shapes/issues/962)
+
+After all these attempts to influence SRL were rejected, the WG decided to the start a new document SHACL 1.2 Inference Rules
+that is essentially a better version of what we started in SHACL-AF, in parallel to SRL.
+I spent a significant portion of the last three months working on this document.
+This was not planned given that I was already the main editor of three other documents.
+
+I am disappointed that the Task Force did not implement the original plan and that any feedback that I have given so far
+has been rejected.  The only thing I have achieved was the deletion of the SRL native RDF syntax and this change was
+perhaps only made because I indicated that we would raise a formal objection otherwise.
+
+Furthermore, I believe that the process of how we reached the current draft was unfair:
+The Task Force made its key decisions (esp the introduction of the non-standard SPARQL keywords SET and NOT)
+before it was obvious that SHACL support was off the menu.
+As it is very difficult to change an existing draft (anyone can block commits and I am not even an editor of SRL),
+and all my requests to reconsider these choices were rejected, there was no way for me to cast -1 votes or block commits myself.
+So the current situation is the result of an asymmetric process in which I have no real power unless I cast formal objections
+to block the whole document.
+
+Meanwhile I have made numerous changes to SHACL Rules to make a closer integration with SRL possible:
+sh:RuleSet, sh:layer, sh:runOnce, clarifications to sh:order, sh:ruleProcessor, extensible rule types,
+and an alignment of the core rule execution algorithm to use layers and iteration.
+
+While I acknowledge the desire of people in the SRL Task Force to produce a minimalistic and conceptually sound
+rule language, I believe there is a simple compromise that the SRL group could accept so that both languages
+can at least syntactically interoperate and so that we don't end up with two competing standards
+that unnecessarily confuse and divide the user community.
