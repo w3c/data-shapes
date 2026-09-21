@@ -129,6 +129,12 @@ which means the stratification can be applied once and is no longer needed befor
 For SRL the cost is that the grammar requires a few additional lines so that either CONSTRUCT+BIND or RULE+SET
 can be used. They would both map to the same runtime objects, so implementation overhead is likely small.
 
+An alternative implementation strategy is to leave the SRL grammar unchanged but define a pre-processor
+by making https://w3c.github.io/data-shapes/sparql12-rl/#srl-sparql-relationship normative.
+Such SRL implementations would be able to convert CONSTRUCT to RULE on the fly and report a failure if they
+receive a CONSTRUCT that cannot be converted.
+Likely this would be a different vote "1b".
+
 For SRL the benefit is that users that already know CONSTRUCT can get started immediately and even use
 existing SPARQL-based tooling to develop and test the rules.
 
