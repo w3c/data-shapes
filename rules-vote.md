@@ -197,6 +197,12 @@ existing SPARQL-based tooling to develop and test the rules.
 Another benefit for the SRL spec is that it doesn't need to worry about SHACL - the link becomes indirect through syntactical overlap.
 This would mean that the SRL Rule Type from Proposal 2 would not really be required.
 
+### Concerns re. proposal `#1` - David Habgood
+
+1. for the use case where authors write rules with the intent of them being executed in a specific way, it is not clear without external context what the author's intent was. When text is copied / sent over chat/email etc. context can be lost
+2. users may miss differences in semantics where the same tokens are used with different meanings. See https://dl.acm.org/doi/10.1145/3487051#sec-2-3-3
+
+In addition I think implementations can provide translations fairly easily e.g. https://kurrawong.github.io/codemirror-lang-rdf/?sample=sparql-conversion (NB this is not an engine just a parser)
 ## Proposal 2: Add SRL Rule Type
 
 This is proposed by Andy in [Add SPARQL-RL as a rule type in the SHACL Inf Rules framework](https://github.com/w3c/data-shapes/issues/1229).
