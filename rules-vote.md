@@ -53,11 +53,6 @@ Example in SRL syntax
 Furthermore, the current SPARQL-RL draft directly violates the charter and would need to be published
 under a different charter.
 
-## Proposal 0: No changes, keep them separate
-
-This could formally work if SRL is published next year and the WG charter is changed for 2027, to allow non-SHACL specs.
-But even formal objections to such a charter change are possible, as well as other objections to the document.
-
 ## Proposal 1: Generalize SRL Syntax to also support CONSTRUCT (aka SPARQL-Full vs SPARQL-RL)
 
 This was suggested by Holger across these tickets:
@@ -145,8 +140,9 @@ This would mean that the SRL Rule Type from Proposal 2 would not really be requi
 1. for the use case where authors write rules with the intent of them being executed in a specific way, it is not clear without external context what the author's intent was. When text is copied / sent over chat/email etc. context can be lost
 2. users may miss differences in semantics where the same tokens are used with different meanings. See https://dl.acm.org/doi/10.1145/3487051#sec-2-3-3
 
-In addition I think implementations can provide translations fairly easily e.g. https://kurrawong.github.io/codemirror-lang-rdf/?sample=sparql-conversion (NB this is not an engine just a parser)
 ## Proposal 2: Add SRL Rule Type
+
+### Proposal 2a: Add Rule Type for Rule Sets
 
 This is proposed by Andy in [Add SPARQL-RL as a rule type in the SHACL Inf Rules framework](https://github.com/w3c/data-shapes/issues/1229).
 
@@ -154,8 +150,8 @@ This is proposed by Andy in [Add SPARQL-RL as a rule type in the SHACL Inf Rules
 ex:MyRuleSet
     a sh:RuleSet ;
     sh:hasRule [
-        a srl:SRL ;
-        srl:program """
+        a sh:SRL ;
+        sh:srlProgram """
             RULE { ?r ex:area ?area }
             WHERE { ?r ex:width ?width . ?r ex:height ?height . SET (?area := ?width * ?height) }
 
@@ -165,15 +161,79 @@ ex:MyRuleSet
     ] .
 ```
 
-Concerns have been recorded in the PR: <https://github.com/w3c/data-shapes/pull/1230>
+Concerns have been recorded in the PR: <https://github.com/w3c/data-shapes/pull/1230>,
+for example that this definition should rather go into the SRL document
+(in which case the syntax would slightly change to srl:SRL and srl:program).
+
+### Proposal 2b: Add Rule Type for individual SRL rules
+
+This is not covered by a PR yet but could make sense:
+
+```
+ex:MyRuleSet
+    a sh:RuleSet ;
+    sh:hasRule [
+        a srl:Rule ;
+        sh:construct """
+            RULE { ?r ex:area ?area }
+            WHERE { ?r ex:width ?width . ?r ex:height ?height . SET (?area := ?width * ?height) }
+        """ ;
+    ] ;
+    sh:hasRule [
+        a srl:Rule ;
+        sh:construct """
+            RULE { ?r ex:large true }
+            WHERE { ?r ex:area ?area . FILTER (?area > 100) }
+        """ ;
+    ] .
+```
+
+In this design, the existing rule set infrastructure of SHACL RDF syntax is used
+whereas 2a relied on nesting complete rule sets into (large) rule literals.
+It would allow users to use the syntactic sugar of SRL.
+And it would be a mechanism to enforce certain contracts as an engine that goes not fully recognize
+the srl:Rule type would need to throw a failure.
+
+A downside is that this cannot directly be executed with a vanilla SHACL engine.
+Another downside is that people have to know the different syntax.
+Switching between the syntaxes may be unclear, e.g. if someone edits a rule that uses a SPARQL-Full
+feature then she also needs to switch from RULE to CONSTRUCT etc.
 
 ## Proposal 3: Support both
 
-This combines Proposal 1 (CONSTRUCT) and Proposal 2 (dedicated SHACL rule type for SRL).
+This combines Proposal 1 (CONSTRUCT) and Proposal 2 (dedicated SHACL rule types for SRL).
 
 This acknowledges that none of us can fully predict the future so we could elect to give the choice to the users.
 
 If there is a clear winner in the coming years, future versions could deprecate one or the other syntax.
+
+There could be voted on:
+
+### Proposal 3a (1 + 2a)
+
+### Proposal 3b (1 + 2b)
+
+
+## Proposal 4: Keep SHACL and SRL rather separate
+
+This is again a spectrum of options. Please suggest others if they are not listed.
+
+### Proposal 4a: Release them both with the current design at the end of the year
+
+This is where we are heading right now.
+The syntactic mapping between SRL and CONSTRUCT is explained in a non-normative section of SPARQL-RL.
+Tools that wish to support both can use a transformation, as suggested by David Habgood this can be
+done fairly easily e.g. https://kurrawong.github.io/codemirror-lang-rdf/?sample=sparql-conversion
+(NB this is not an engine just a parser)
+
+### Proposal 4b: Release the SHACL documents now and SPARQL-RL under a new charter next year
+
+This could formally work if SRL is published next year and the WG charter is changed for 2027, to allow non-SHACL specs.
+It would avoid the problem that SRL currently is not based on SHACL.
+It would not solve the integration problem, i.e. there would still only be two unrelated/loosely coupled/competing standards.
+
+Note that formal objections to such a charter change are possible, as well as other objections to the document.
+So this path does not guarantee the outcome.
 
 
 ## Related Personal Statements (Optional)
