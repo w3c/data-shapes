@@ -180,14 +180,14 @@ ex:MyRuleSet
     a sh:RuleSet ;
     sh:hasRule [
         a srl:Rule ;
-        sh:construct """
+        srl:text """
             RULE { ?r ex:area ?area }
             WHERE { ?r ex:width ?width . ?r ex:height ?height . SET (?area := ?width * ?height) }
         """ ;
     ] ;
     sh:hasRule [
         a srl:Rule ;
-        sh:construct """
+        srl:text """
             RULE { ?r ex:large true }
             WHERE { ?r ex:area ?area . FILTER (?area > 100) }
         """ ;
