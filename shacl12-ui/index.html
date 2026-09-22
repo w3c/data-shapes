@@ -1297,19 +1297,14 @@ ex:config a shui:Configuration ;
             example, prefer a Boolean Select widget when the shape requires a
             boolean value via a <code>sh:datatype</code> constraint.</li>
         </ul>
-
-        <p class="note">
-          An implementation can use an alternative algorithm to the one described in this section, as long as it results in the same <a href="#scoring-algorithm-widget-selection">widget selection</a>.
-          For example, the widget selection might require only the first widget, or an implementation might use an index, such as a lookup by datatype, to find candidate widget scores.
-        </p>
       </section>
 
       <section id="select-function">
         <h3>Select Function</h3>
 
         <p>
-          The <strong>Select</strong> function determines which widgets can be used for a given combination of a focus node and a property shape,
-          ordered by preference.
+          The <strong>Select</strong> function determines which widget can be used for a given combination of a focus node and a property shape,
+          ordered by score. Implementers can use this to get the default widget for a <a>Property UI Component</a>.
         </p>
 
         <p>
@@ -1326,69 +1321,59 @@ ex:config a shui:Configuration ;
 
         <p>Output:</p>
         <ul>
-          <li>A list of records, ordered by descending <strong>Score</strong>, each with the following members:
-            <ul>
-              <li><strong>Widget IRI</strong> — The IRI of the widget.</li>
-              <li><strong>Widget Score IRI</strong> — Optional. The IRI of the <code>shui:WidgetScore</code> instance.</li>
-              <li><strong>Score</strong> — Optional. The <code>shui:score</code> of the <code>shui:WidgetScore</code> instance.</li>
-            </ul>
-          </li>
+          <li>A <strong>Widget IRI</strong> — The IRI of the widget.</li>
         </ul>
 
         <p>Steps:</p>
         <ol>
           <li>If the <strong>Shape node</strong> has a <strong>Widget IRI</strong> defined via <strong>Widget predicate:</strong>
             <ol>
-              <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>AM</code> with a matching <code>shui:widget</code> value.</li>
-              <li>If there is no <strong>Accept Matcher</strong> defined for the widget, return a list holding a single record whose
-                <strong>Widget IRI</strong> is the <strong>Widget IRI</strong>.</li>
-              <li>Call the <strong>matcher</strong> function with the following inputs:
+              <li>Call the <a href="#scoring-algorithm-accept-function"><strong>accept</strong> function</a> with the following inputs:
                 <ul>
                   <li><strong>Focus node</strong> — The focus node or undefined if there are no focus nodes.</li>
                   <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
                   <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
                   <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-                  <li><strong>Matcher node</strong> — The <strong>Accept Matcher</strong> <code>AM</code>.</li>
+                  <li><strong>Widget node</strong> — The <strong>Widget IRI</strong>.</li>
                   <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
                 </ul>
               </li>
-              <li>If the return value is <code>true</code>, return a list holding a single record whose
-                <strong>Widget IRI</strong> is the <strong>Widget IRI</strong>.</li>
+              <li>If the return value is <code>true</code>, return the <strong>Widget IRI</strong>.</li>
               <li>If the return value is <code>false</code>, continue with the next step. When a widget is not accepted it falls through to scoring.</li>
             </ol>
           </li>
-          <li>Call the <strong>score</strong> function with the following inputs and store the return value in an list <code>matches</code>:
+
+          <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong> that have a value for the
+            <strong>Widget predicate</strong>, sorted by <code>shui:score</code> in descending order and then lexicographically
+            by the Unicode codepoint values of the widget IRI.</li>
+          <li>For each instance S of type shui:WidgetScore          
             <ul>
-              <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
-              <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
-              <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
-              <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-              <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
-              <li><strong>Widget predicate</strong> — The predicate used to specify the widget.</li>
-            </ul>
-          </li>
-          <li>Initialize an empty list <code>accepted</code>.</li>
-          <li>
-            For each record <code>SR</code> in array <code>matches</code>
-            <ol>
-              <li>Get the <strong>Widget IRI</strong> from <code>SR</code> as <code>WI</code>.</li>
-              <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>AM</code> with a matching <code>shui:widget</code> value.</li>
-              <li>If there is no <strong>Accept Matcher</strong> defined for the widget, append <code>SR</code> to <code>accepted</code> and continue with the next iteration.</li>
-              <li>Call the <strong>matcher</strong> function with the following inputs:
+              <li>Call the <code>matcher</code> function with the following:
+              <ul>
+                <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
+                <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
+                <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
+                <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
+                <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
+                <li><strong>Widget predicate</strong> — The predicate used to specify the widget.</li>
+              </ul>
+              </li>
+
+              <li>If the return value is <code>false</code>, continue with the next iteration.</li>
+              <li>Call the <a href="#scoring-algorithm-accept-function"><strong>accept</strong> function</a> with the following inputs:
                 <ul>
-                  <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
+                  <li><strong>Focus node</strong> — The focus node or undefined if there are no focus nodes.</li>
                   <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
                   <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
                   <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-                  <li><strong>Matcher node</strong> — The <strong>Accept Matcher</strong> <code>AM</code>.</li>
+                  <li><strong>Widget node</strong> — The value of the <strong>Widget predicate</strong> of <code>S</code>.</li>
                   <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
                 </ul>
               </li>
-              <li>If the return value is <code>true</code>, append <code>SR</code> to <code>accepted</code>.</li>
               <li>If the return value is <code>false</code>, continue with the next iteration.</li>
-            </ol>
+              <li>If the return value is <code>true</code>, return the value of the <strong>Widget predicate</strong> of <code>S</code>.</li>
+            </ul>
           </li>
-          <li>Return <code>accepted</code>.</li>
         </ol>
 
         <section id="select-function-processing">
@@ -1404,6 +1389,64 @@ ex:config a shui:Configuration ;
         </section>
       </section>
 
+
+      <section id="scoring-algorithm-score-function">
+        <h3>Score Function</h3>
+          <p>
+            The score function used to find an ordered list of matching widgets. Implementers can use this to get a list of applicable widgets for a <a href="#property-ui-component">Property UI Component</a>.
+          </p>
+          <p>
+            Inputs:
+          </p>
+        <ul>
+          <li><strong>Focus node</strong> — The node to validate.</li>
+          <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
+          <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
+          <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+          <li><strong>Widget predicate</strong> — The predicate used to specify the widget, typically <code>shui:editor</code> or <code>shui:viewer</code>.</li>
+        </ul>
+        <p>Output:</p>
+        <ul>
+          <li>A list of records, ordered by descending <strong>Score</strong>, each with the following members:
+            <ul>
+              <li><strong>Widget IRI</strong> — The IRI of the widget.</li>
+              <li><strong>Widget Score IRI</strong> — The IRI of the <code>shui:WidgetScore</code> instance.</li>
+              <li><strong>Score</strong> — The <code>shui:score</code> of the <code>shui:WidgetScore</code> instance.</li>
+            </ul>
+          </li>
+        </ul>
+        <p>Steps:</p>
+        <ol>
+          <li>Initialize an empty list <code>results</code>.</li>
+          <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong> that have a value for the
+            <strong>Widget predicate</strong>, sorted by <code>shui:score</code> in descending order and then lexicographically
+            by the Unicode codepoint values of the widget IRI.</li>
+          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>
+            <ol>
+              <li>Call the matcher function with the following:
+                <ul>
+                  <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+                  <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
+                  <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+                  <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+                  <li><code>S</code> as <strong>matcher node</strong>.</li>
+                  <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
+                </ul>
+              </li>
+              <li>
+                If the matcher function returns <code>true</code>, append a record to <code>results</code> with the following members:
+                <ul>
+                  <li><strong>Widget IRI</strong> — The value of the <strong>Widget predicate</strong> of <code>S</code>.</li>
+                  <li><strong>Widget Score IRI</strong> — The IRI of <code>S</code>.</li>
+                  <li><strong>Score</strong> — The <code>shui:score</code> of <code>S</code>.</li>
+                </ul>
+              </li>
+            </ol>
+          </li>
+          <li>Return <code>results</code>.</li>
+        </ol>
+      </section>
 
       <section id="scoring-algorithm-validation-function">
         <h3>Validation Function</h3>
@@ -1490,64 +1533,6 @@ ex:config a shui:Configuration ;
           </li>
             <li>If the function returns <code>false</code>, return <code>false</code>.</li>
             <li>Otherwise, return <code>true</code>.</li>
-        </ol>
-      </section>
-
-      <section id="scoring-algorithm-score-function">
-        <h3>Score Function</h3>
-          <p>
-            The score function used to find an ordered list of matching widgets.
-          </p>
-          <p>
-            Inputs:
-          </p>
-        <ul>
-          <li><strong>Focus node</strong> — The node to validate.</li>
-          <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
-          <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
-          <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
-          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
-          <li><strong>Widget predicate</strong> — The predicate used to specify the widget, typically <code>shui:editor</code> or <code>shui:viewer</code>.</li>
-        </ul>
-        <p>Output:</p>
-        <ul>
-          <li>A list of records, ordered by descending <strong>Score</strong>, each with the following members:
-            <ul>
-              <li><strong>Widget IRI</strong> — The IRI of the widget.</li>
-              <li><strong>Widget Score IRI</strong> — The IRI of the <code>shui:WidgetScore</code> instance.</li>
-              <li><strong>Score</strong> — The <code>shui:score</code> of the <code>shui:WidgetScore</code> instance.</li>
-            </ul>
-          </li>
-        </ul>
-        <p>Steps:</p>
-        <ol>
-          <li>Initialize an empty list <code>results</code>.</li>
-          <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong> that have a value for the
-            <strong>Widget predicate</strong>, sorted by <code>shui:score</code> in descending order and then lexicographically
-            by the Unicode codepoint values of the widget IRI.</li>
-          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>
-            <ol>
-              <li>Call the matcher function with the following:
-                <ul>
-                  <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
-                  <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
-                  <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
-                  <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
-                  <li><code>S</code> as <strong>matcher node</strong>.</li>
-                  <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
-                </ul>
-              </li>
-              <li>
-                If the matcher function returns <code>true</code>, append a record to <code>results</code> with the following members:
-                <ul>
-                  <li><strong>Widget IRI</strong> — The value of the <strong>Widget predicate</strong> of <code>S</code>.</li>
-                  <li><strong>Widget Score IRI</strong> — The IRI of <code>S</code>.</li>
-                  <li><strong>Score</strong> — The <code>shui:score</code> of <code>S</code>.</li>
-                </ul>
-              </li>
-            </ol>
-          </li>
-          <li>Return <code>results</code>.</li>
         </ol>
       </section>
 
