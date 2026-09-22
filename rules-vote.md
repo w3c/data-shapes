@@ -200,7 +200,9 @@ It would allow users to use the syntactic sugar of SRL.
 And it would be a mechanism to enforce certain contracts as an engine that goes not fully recognize
 the srl:Rule type would need to throw a failure.
 
-A downside is that this cannot directly be executed with a vanilla SHACL engine.
+A downside is that the individual rules cannot directly be executed with a vanilla SHACL engine
+(with the CONSTRUCT syntax all that is missing is running/verifying the stratification,
+and that can be done once, as a pre-processor or via sh:ruleProcessor each time).
 Another downside is that people have to know the different syntax.
 Switching between the syntaxes may be unclear, e.g. if someone edits a rule that uses a SPARQL-Full
 feature then she also needs to switch from RULE to CONSTRUCT etc.
