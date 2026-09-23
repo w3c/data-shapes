@@ -1,0 +1,91 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# A run-once rule creates a fresh blank node (the head of a chain) exactly
+# once per focus node. A second, non-run-once rule then repeatedly extends
+# that chain, one link per iteration, until a fixpoint is reached. Since
+# sh:runOnce true guarantees the head-creating rule fires only once per
+# focus node (not once per iteration), the chain must have exactly one
+# root and grow to a single, deterministic length. If the run-once rule
+# were instead re-evaluated on every iteration, its BNODE() call would
+# mint a new, distinct root on each pass, so the graph would never reach
+# a fixpoint and multiple disconnected chains would appear.
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:ContainerShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Container ;
+	sh:rule ex:CreateHeadRule, ex:ExtendChainRule .
+
+ex:CreateHeadRule
+	a sh:SPARQLRule ;
+	rdfs:comment "Run-once rule that creates the (single) head node of the chain." ;
+	sh:runOnce true ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:head ?head .
+			?head ex:value 0 .
+		}
+		WHERE {
+			BIND (BNODE() AS ?head) .
+		}
+		""" .
+
+ex:ExtendChainRule
+	a sh:SPARQLRule ;
+	rdfs:comment "Non-run-once rule that extends the chain by one link per iteration, consuming the blank node created by the run-once rule." ;
+	sh:construct """
+		CONSTRUCT {
+			?last ex:next ?next .
+			?next ex:value ?nextValue .
+		}
+		WHERE {
+			$this ex:head/ex:next* ?last .
+			?last ex:value ?value .
+			FILTER (?value < 3) .
+			FILTER NOT EXISTS { ?last ex:next ?any } .
+			BIND (BNODE() AS ?next) .
+			BIND (?value + 1 AS ?nextValue) .
+		}
+		""" .
+
+ex:ExampleItem
+	a ex:Container .
+
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <run-once-blank-node-feed>
+    ) .
+
+<run-once-blank-node-feed>
+  rdf:type sht:Infer ;
+  rdfs:label "Test that a run-once rule creating blank nodes feeds a non-run-once rule across later iterations, executing exactly once per focus node" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result (
+    ( ex:ExampleItem ex:head _:head )
+    ( _:head ex:value 0 )
+    ( _:head ex:next _:n1 )
+    ( _:n1 ex:value 1 )
+    ( _:n1 ex:next _:n2 )
+    ( _:n2 ex:value 2 )
+    ( _:n2 ex:next _:n3 )
+    ( _:n3 ex:value 3 )
+  ) ;
+  mf:status sht:approved .
