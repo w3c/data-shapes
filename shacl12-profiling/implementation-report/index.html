@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>SHACL 1.2 Profiling Implementation Report</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport">
+	<meta name="color-scheme" content="light dark">
+	<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
+	<script class='remove'>
+		var respecConfig = {
+			specStatus: "DNOTE",
+			shortName: "SHACL12ProfilingImplRpt",
+			edDraftURI: "https://w3c.github.io/data-shapes/shacl12-profiling/implementation-report/",
+			editors: [
+				{
+					name: "Nicholas Car",
+					company: "KurrawongAI",
+					companyURL: "https://kurrawong.ai",
+					mailto: "nick@kurrawong.ai",
+					orcid: "0000-0002-8742-7730",
+					w3cid: 70131
+				},
+				{
+					name: "Yousouf Taghzouti",
+					company: "Inria",
+					companyURL: "https://www.inria.fr/",
+					mailto: "yousouf.taghzouti@inria.fr",
+					orcid: "0000-0003-4509-9537",
+					w3cid: 143054
+				}
+			],
+			group: "wg/data-shapes",
+			github: "w3c/data-shapes"
+		};
+	</script>
+	<link rel="stylesheet" href="style.css" />
+	<link rel="stylesheet" href="../style.css" />
+</head>
+
+<body class="h-entry" id="respecDocument">
+	<section id='abstract'>
+		<p>
+			This document describes implementations of SHACL 1.2 Profiling's features [[shacl12-profiling]].
+		</p>
+	</section>
+
+	<section id='sotd'></section>
+
+	<section id="conventions">
+		<h3>Document Conventions</h3>
+		<p>
+			Within this specification, the following namespace prefix definitions are used:
+		</p>
+		<table class="term-table">
+			<tr>
+				<th>Prefix</th>
+				<th>Namespace</th>
+			</tr>
+			<tr>
+				<td><code>dcterms:</code></td>
+				<td><code>http://purl.org/dc/terms/</code></td>
+			</tr>
+			<tr>
+				<td><code>ex:</code></td>
+				<td><code>http://example.com/ns#</code></td>
+			</tr>
+			<tr>
+				<td><code>owl:</code></td>
+				<td><code>http://www.w3.org/2002/07/owl#</code></td>
+			</tr>
+			<tr>
+				<td><code>prof:</code></td>
+				<td><code>http://www.w3.org/ns/dx/prof/</code></td>
+			</tr>
+			<tr>
+				<td><code>rdfs:</code></td>
+				<td><code>http://www.w3.org/2000/01/rdf-schema#</code></td>
+			</tr>
+			<tr>
+				<td><code>role:</code></td>
+				<td><code>http://www.w3.org/ns/dx/prof/role/</code></td>
+			</tr>
+			<tr>
+				<td><code>sh:</code></td>
+				<td><code>http://www.w3.org/ns/shacl#</code></td>
+			</tr>
+			<tr>
+				<td><code>shpr:</code></td>
+				<td><code>http://www.w3.org/ns/shpr#</code></td>
+			</tr>
+		</table>
+	</section>
+
+	<section id="conformance"></section>
+
+	<section id="features">
+		<h3>Features List</h3>
+		<p>
+			This section lists the implementable features of [[[shacl12-profiling]]].
+		</p>
+		<table id="tbl-features" class="lined">
+			<tr>
+				<th>ID</th>
+				<th>Name</th>
+			</tr>
+			<tr>
+				<th colspan="2">[[[shacl12-profiling#packaging]]]</th>
+			</tr>
+			<tr>
+				<td>2.3</td>
+				<td>[[[shacl12-profiling#rec-shapesgraph]]]</td>
+			</tr>
+			<tr>
+				<td>2.4</td>
+				<td>[[[shacl12-profiling#rec-defined]]]</td>
+			</tr>
+			<tr>
+				<td>2.5</td>
+				<td>[[[shacl12-profiling#rec-member]]]</td>
+			</tr>
+			<tr>
+				<td>2.6</td>
+				<td>[[[shacl12-profiling#rec-imports]]]</td>
+			</tr>
+			<tr>
+				<td>2.7</td>
+				<td>[[[shacl12-profiling#persisting-validation]]]</td>
+			</tr>
+			<tr>
+				<th colspan="2">[[[shacl12-profiling#profiling-of-shacl]]]</th>
+			</tr>
+			<tr>
+				<td>3.1</td>
+				<td>[[[shacl12-profiling#defining-profiles]]]</td>
+			</tr>
+			<tr>
+				<td>3.4</td>
+				<td>[[[shacl12-profiling#creating-profiles]]]</td>
+			</tr>
+			<tr>
+				<th colspan="2">[[[shacl12-profiling#profiling-with-shacl]]]</th>
+			</tr>
+			<tr>
+				<td>4.2.1</td>
+				<td>[[[shacl12-profiling#characterization]]]</td>
+			</tr>
+			<tr>
+				<td>4.2.2</td>
+				<td>[[[shacl12-profiling#reasoning]]]</td>
+			</tr>
+			<tr>
+				<td>4.2.3</td>
+				<td>[[[shacl12-profiling#hierarchies]]]</td>
+			</tr>
+			<tr>
+				<td>4.2.4</td>
+				<td>[[[shacl12-profiling#null-profiles]]]</td>
+			</tr>
+			<tr>
+				<th colspan="2">[[[shacl12-profiling#vocabulary]]]</th>
+			</tr>
+			<tr>
+				<td>5.1</td>
+				<td>[[[shacl12-profiling#cls-shapesgraph]]]</td>
+			</tr>
+			<tr>
+				<td>5.1.1</td>
+				<td>[[[shacl12-profiling#prop-imports]]]</td>
+			</tr>
+			<tr>
+				<td>5.1.2</td>
+				<td>[[[shacl12-profiling#prop-member]]]</td>
+			</tr>
+			<tr>
+				<td>5.2</td>
+				<td>[[[shacl12-profiling#cls-datagraph]]]</td>
+			</tr>
+			<tr>
+				<td>5.2.1</td>
+				<td>[[[shacl12-profiling#cls-conformstochapesgraph]]]</td>
+			</tr>
+			<tr>
+				<td>5.3</td>
+				<td>[[[shacl12-profiling#cls-validationreport]]]</td>
+			</tr>
+			<tr>
+				<td>5.3.1</td>
+				<td>[[[shacl12-profiling#prop-conforms]]]</td>
+			</tr>
+			<tr>
+				<td>5.4</td>
+				<td>[[[shacl12-profiling#cls-validationagent]]]</td>
+			</tr>
+			<tr>
+				<td>5.5</td>
+				<td>[[[shacl12-profiling#cls-validationactivity]]]</td>
+			</tr>
+			<tr>
+				<td>5.5.1</td>
+				<td>[[[shacl12-profiling#prop-useddatagraph]]]</td>
+			</tr>
+			<tr>
+				<td>5.5.2</td>
+				<td>[[[shacl12-profiling#prop-usedshapesgraph]]]</td>
+			</tr>
+			<tr>
+				<td>5.5.3</td>
+				<td>[[[shacl12-profiling#prop-generated]]]</td>
+			</tr>
+			<tr>
+				<td>5.5.4</td>
+				<td>[[[shacl12-profiling#prop-wasassotiatedwith]]]</td>
+			</tr>
+			<tr>
+				<td>5.6</td>
+				<td>[[[shacl12-profiling#cls-shape]]]</td>
+			</tr>
+			<tr>
+				<td>5.6.1</td>
+				<td>[[[shacl12-profiling#prop-isdefinedby]]]</td>
+			</tr>
+			<tr>
+				<td>5.7</td>
+				<td>[[[shacl12-profiling#rule-conformsttoshapesgraph]]]</td>
+			</tr>
+			<tr>
+				<td>5.8</td>
+				<td>[[[shacl12-profiling#rule-conformstospecification]]]</td>
+			</tr>
+			<tr>
+				<th colspan="2">[[[shacl12-profiling#profiles]]]</th>
+			</tr>
+			<tr>
+				<td>A.1</td>
+				<td>[[[shacl12-profiling#specification-profiles]]]</td>
+			</tr>
+			<tr>
+				<td>A.2</td>
+				<td>[[[shacl12-profiling#union-profile]]]</td>
+			</tr>
+			<tr>
+				<td>A.3</td>
+				<td>[[[shacl12-profiling#ui-profile]]]</td>
+			</tr>
+			<tr>
+				<td>A.4</td>
+				<td>[[[shacl12-profiling#cl1-profile]]]</td>
+			</tr>
+			<tr>
+				<td>A.5</td>
+				<td>[[[shacl12-profiling#10-profile]]]</td>
+			</tr>
+			<tr>
+				<td>A.6</td>
+				<td>[[[shacl12-profiling#pp-profile]]]</td>
+			</tr>
+			<tr>
+				<td>A.7</td>
+				<td>[[[shacl12-profiling#owl-consistent-profile]]]</td>
+			</tr>
+			<tr>
+				<th colspan="2">[[[shacl12-profiling#null-profile-examples]]]</th>
+			</tr>
+			<tr>
+				<td>B.1</td>
+				<td>[[[shacl12-profiling#null-profile-of-pos]]]</td>
+			</tr>
+			<tr>
+				<td>B.2</td>
+				<td>[[[shacl12-profiling#null-profile-of-prof]]]</td>
+			</tr>
+		</table>
+	</section>
+
+	<section id="implementations">
+		<h3>Implementations</h3>
+		<p>
+			This section lists implementors of [[[shacl12-profiling]]].'s features listed in [[[#features]]].
+		</p>
+		<section id="vocpub">
+			<h4>VocPub Profile of SKOS (VocPub)</h4>
+			<dl>
+				<dt>Who</dt>
+				<dd><a href="https://www.linked.data.gov.au">Australian Government Linked Data Working Group</a></dd>
+				<dt>Homepage</dt>
+				<dd>
+					<a href="https://linked.data.gov.au/def/vocpub/validator">https://linked.data.gov.au/def/vocpub/validator</a>
+				</dd>
+				<dt>Report date</dt>
+				<dd>2026-09-24</dd>
+				<dt>Description</dt>
+				<dd>
+					<p>
+						The Australian Government Linked Data Working Group is a working group / community of practice in Australia
+						that promotes the use of Linked Data.
+					</p>
+					<p>
+						The Working Group maintains a few Semantic Web assets for Australian government and wider community the
+						<a href="https://linked.data.gov.au/def/vocpub">VocPub Profile of SKOS</a> which is profile of
+						[[[skos-reference]]] created according to the [[[dx-prof-1.0]]] contains several resources that have been
+						created using [[[shacl12-profiling]]] features.
+					</p>
+					<p>
+						The primary reason for VocPub's adoption of [[[shacl12-profiling]]] features is that there are three
+						<a data-cite="shacl12-core#shapes-graph">shapes graphs</a> within the profile's resources - a main one and
+						two extensions that build on it. By using features of [[[shacl12-profiling#packaging]]], the dependent
+						validators can import and reuse <a data-cite="shacl12-core#shapes">shape</a> definitions in the main one
+						and then extend on them, rather than having to reiterate them.
+					</p>
+					<p>
+						A secondary reason for the adoption of SHACL 1.2 Profiling elements is that VocPub contains simple shapes
+						for basic catalogue-style metadata for Concept Schemes, such as name, description, created data and so on
+						which, when described using these elements, can be reused by other validators looking to test for the same
+						elements, perhaps on difference classes of focus node. For example, the similar
+						<a href="https://linked.data.gov.au/def/ontpub">OntPub Validator</a> targets simple metadata for OWL
+						ontologies and it reuses lots of VocPub property shapes to do so.
+					</p>
+				</dd>
+			</dl>
+		</section>
+		<section id="kaisb">
+			<h4>KAI Semantic Background (KAISB)</h4>
+			<dl>
+				<dt>Who</dt>
+				<dd><a href="https://kurrawong.ai">KurrawongAI</a></dd>
+				<dt>Homepage</dt>
+				<dd>
+					<a href="https://github.com/kurrawong/semantic-background">https://github.com/kurrawong/semantic-background</a>
+				</dd>
+				<dt>Report date</dt>
+				<dd>2026-09-15</dd>
+				<dt>Description</dt>
+				<dd>
+					<p>
+						The <em>Semantic Background</em> is a Knowledge Graph of reference Semantic Web resources used
+						by
+						KurrawongAI to supplement domain Knowledge Graphs and non-semantic information.
+					</p>
+					<p>
+						The <em>Semantic Background</em> contains ontologies, vocabularies and validators, many of which
+						are
+						organized using classes and properties defined by [[[dx-prof-1.0]]].
+					</p>
+					<p>
+						Some of the validators are <code>sh:ShapesGraph</code> instances that contain SHACL Elements
+						packaged
+						according to [[[shacl12-profiling#packaging]]].
+					</p>
+					<p>
+						Also implemented is a profile of the [[[shacl12-profiling#union-profile]]] which just contains
+						additional
+						annotation properties for SHACL Elements and several null profiles of W3C ontologies.
+					</p>
+				</dd>
+			</dl>
+		</section>
+		<section id="otr">
+			<h4>Other (OTR)</h4>
+			<dl>
+				<dt>Who</dt>
+				<dd></dd>
+				<dt>Homepage</dt>
+				<dd><a href="https://other">https://other</a></dd>
+				<dt>Report date</dt>
+				<dd>2026-09-15</dd>
+				<dt>Description</dt>
+				<dd></dd>
+			</dl>
+		</section>
+	</section>
+
+	<section id="implementation-details">
+		<h3>Implementation Details</h3>
+		<p>
+			This section tabulates the implementation of individual features, from [[[#features]]] by implementations in
+			[[[#implementations]]].
+		</p>
+		<table id="tbl-implementation-details" class="lined">
+			<tr>
+				<th>Feature ID</th>
+				<th>Implementation</th>
+				<th>Evidence</th>
+			</tr>
+			<tr>
+				<th colspan="3">[[[shacl12-profiling#packaging]]]</th>
+			</tr>
+			<tr>
+				<td>2.3</td>
+				<td><a href="#vocpub">VocPub</a></td>
+				<td><a href="https://linked.data.gov.au/def/vocpub/validator">VocPub main validator</a>: Line 1165</td>
+			</tr>
+			<tr>
+				<td>2.4</td>
+				<td><a href="#vocpub">VocPub</a></td>
+				<td><a href="https://linked.data.gov.au/def/vocpub/validator">VocPub main validator</a>: Line 18</td>
+			</tr>
+			<tr>
+				<td>2.5</td>
+				<td><a href="#vocpub">VocPub</a></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>2.6</td>
+				<td><a href="#vocpub">VocPub</a></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>2.7</td>
+				<td><a href="#vocpub">VocPub</a></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th colspan="3">[[[shacl12-profiling#profiling-of-shacl]]]</th>
+			</tr>
+			<tr>
+				<td>3.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>3.4</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th colspan="3">[[[shacl12-profiling#profiling-with-shacl]]]</th>
+			</tr>
+			<tr>
+				<td>4.2.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>4.2.2</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>4.2.3</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>4.2.4</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th colspan="3">[[[shacl12-profiling#vocabulary]]]</th>
+			</tr>
+			<tr>
+				<td>5.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.1.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.1.2</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.2</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.2.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.3</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.3.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.4</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.5</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.5.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.5.2</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.5.3</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.5.4</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.6</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.6.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.7</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>5.8</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th colspan="3">[[[shacl12-profiling#profiles]]]</th>
+			</tr>
+			<tr>
+				<td>A.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>A.2</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>A.3</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>A.4</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>A.5</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>A.6</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>A.7</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<th colspan="3">[[[shacl12-profiling#null-profile-examples]]]</th>
+			</tr>
+			<tr>
+				<td>B.1</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td>B.2</td>
+				<td></td>
+				<td></td>
+			</tr>
+		</table>
+	</section>
+</body>
+
+</html>
