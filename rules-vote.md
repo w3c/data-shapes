@@ -249,6 +249,11 @@ It would not solve the integration problem, i.e. there would still only be two u
 Note that formal objections to such a charter change are possible, as well as other objections to the document.
 So this path does not guarantee the outcome.
 
+### Proposal 4c: 4a + discussion NOTE on automated conversion of rule sets.
+
+This would only cover the state of the documents at the point of publication, and so not restricting any future development.
+
+The NOTE would be neutral as to the values of each approach.
 
 ## Related Personal Statements (Optional)
 
