@@ -853,6 +853,10 @@
             It has a <dfn>negation element body</dfn>
             comprised of a sequence of [=triple pattern elements=] and
             [=filter elements=].
+            A [=negation element=] has <a href="#negation.evaldata">a flag</a>,
+            <code>.evaldata</code>
+            to indicate which graph to use for matching 
+            the [=negation element body=].
           </dd>
 
           <dt><dfn data-lt="assignment element|assignment">Assignment element</dfn></dt>
@@ -903,9 +907,12 @@
 
           <dt><dfn>Rule</dfn></dt>
           <dd>
-            A [=rule=] contains a [=rule head=] (often just "head") and
-            a [=rule body=] (often just "body").
-            A [=rule=] can be given a URI to help identify it.
+            A [=rule=] contains a [=rule head=] (often just "head"),
+            a [=rule body=] (often just "body"), 
+            and <a href="#rule.evaldata">a flag</a>, <code>.evaldata</code>
+            to indicate which
+            graph to use for matching [=triple patterns=] in the body.
+            A rule can be given a URI or blank node to help identify it.
           </dd>
 
           <dt><dfn>Run-once rule</dfn></dt>
@@ -1043,8 +1050,8 @@
               <td>The [=rule elements=] of the [=rule=].</td>
             </tr>
             <tr>
-              <td><code>rule.basedata</code></td>
-              <td>A boolean flag; if <var>true</var>, the [=rule body=] is matched
+              <td><code id="rule.evaldata">rule.evaldata</code></td>
+              <td>A boolean flag; if <var>false</var>, the [=rule body=] is matched
                 against the [=base graph=].
               </td>
               </tr>
@@ -1072,8 +1079,8 @@
               </td>
             </tr>
             <tr>
-              <td><code>negation.basedata</code></td>
-              <td>A boolean flag; if <var>true</var>, the `negation.inner` is matched
+              <td><code id="negation.evaldata">negation.evaldata</code></td>
+              <td>A boolean flag; if <var>false</var>, the `negation.inner` is matched
                 against the [=base graph=]. </td>
             </tr>
           </tbody>
@@ -1223,7 +1230,10 @@
           while the rule `R2` might be run again to generate further triples
           which can then cause `R1` to be reevaluated with the new triples from `R2`.
         </p>
-
+        <p>
+          A rule with `.evaldata` set to `false` only matches using the 
+          [=base graph=] and the rule has no dependencies.
+        </p>
         <p>
           In this first example, the first rule has an open dependency
           on the second rule.
@@ -1280,8 +1290,10 @@
           <dt><dfn data-lt="rule dependency|depends on">Rule dependency</dfn></dt>
           <dd>
             <p>
-              Rule `R1` [=depends on=] `R2` if any [=triple pattern=] in the body of `R1`,
-              whether as a [=triple pattern element=] or inside a [=negation element=],
+              Rule `R1` [=depends on=] `R2` if 
+              `R1.evaldata` is `true` and any [=triple pattern=] in the body of `R1`,
+              whether as a [=triple pattern element=] or inside a 
+              [=negation element=] `neg` where `neg.evaldata` is `true`,
               <a href="#dfn-triple-pattern-dependency">depends on</a>
               a [=triple template=] in the head of `R2`.
             </p>
@@ -1293,7 +1305,8 @@
               if either of the following conditions hold:
             </p>
             <ul>
-              <li>A [=triple pattern=] occurring inside a [=negation element=] of `R1`
+              <li>A [=triple pattern=] occurring inside a [=negation element=] of
+                `R1` where the [=negation element=] flag `.evaldata` is `true`
                 matches a [=triple template=] in the [=rule head=] of `R2`.
               </li>
               <li>Rule `R1` [=depends on=] rule `R2`
@@ -1412,24 +1425,29 @@ define buildDependencyGraph(ruleSet):
     let edgeLabelMap be a map from pair (rule, rule) to label
 
     foreach rule R1 in ruleSet.rules:
-        # Classify each triple pattern TP in the rule as requiring "open" or "closed"
-        # depending on whether it is in a negation element or not.
         let bodyDependencies = {}
-        foreach rule element RBE in R1.body:
-            if RBE is a negation element:
-                foreach triple pattern TP in RBE.inner:
-                    let item be a pair (TP, "closed")
+
+        if R1.evaldata then:
+            # Classify each triple pattern TP in the rule as requiring "open" or "closed"
+            # depending on whether it is in a negation element or not.
+            foreach rule element RBE in R1.body:
+                if RBE is a negation element:
+                    if RBE.evaldata then:
+                        foreach triple pattern TP in RBE.inner:
+                            let item be a pair (TP, "closed")
+                            add item to bodyDependencies
+                        endfor
+                    endif
+                else if RBE is a triple pattern element of triple pattern TP:
+                    let item be a pair (TP, "open")
                     add item to bodyDependencies
-                endfor
-            else if RBE is a triple pattern element of triple pattern TP:
-                let item be a pair (TP, "open")
-                add item to bodyDependencies
-            else if RBE is a filter element:
-                # Do nothing
-            else if RBE is an assignment element:
-                # Do nothing
-            endif
-        endfor
+                else if RBE is a filter element:
+                    # Do nothing
+                else if RBE is an assignment element:
+                    # Do nothing
+                endif
+            endfor
+        endif
 
         foreach pair (triple pattern TP, depLabel) in bodyDependencies:
             if R1.body has an assignment element:
@@ -2043,7 +2061,7 @@ define evalRuleElements(B, SEQ, G, GD):
             SEQ1 = {}
             foreach solution <var>μ</var> in SEQ:
                 S = sequence{ <var>μ</var> }
-                if ! N.basedata:
+                if N.evaldata:
                     NEG = evalRuleElements(N.inner, S, G, GD)
                 else:
                     NEG = evalRuleElements(N.inner, S, GD, GD)
@@ -2088,7 +2106,7 @@ define evalRule(R, G, GD):
     # Solution sequence of one solution that does not map any variables.
     let SEQ0: Solution sequence = { <var>μ</var><sub>0</sub> }
 
-    if ! R.basedata:
+    if R.evaldata:
         let SEQ = evalRuleElements(B, SEQ0, G, GD)
     else:
         let SEQ = evalRuleElements(B, SEQ0, GD, GD)
