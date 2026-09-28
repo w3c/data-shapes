@@ -1260,9 +1260,9 @@ _:id sh:sourceRule ex:SymmetricPropertyRule .</pre>
 				A <a>rules engine</a> that encounters <a>rules</a> or <a>rule sets</a> with a value for <code>sh:ruleProcessor</code>
 				that they are unable to handle MUST report a <a>failure</a>.
 			</p>
-			<p class="issue" data-number="1202">
-				This would be a good place to cross-reference the ongoing SPARQL-RL work, if this integrates naturally with SHACL Inference Rules.
-				For example we could add an example with <code>sh:ruleProcessor "SRL 1.2"</code>.
+			<p>
+				<a href="#srl-mapping"></a> shows how the SHACL vocabulary can be used to represent [[[sparql12-rl]]]
+				rule sets and defines specific values for <code>sh:ruleProcessor</code> for that purpose.
 			</p>
 		</section>
 
@@ -1689,10 +1689,9 @@ ex:M1
 				The SHACL vocabulary can be used to represent SRL rule sets assuming the following restrictions are applied:
 			</p>
 			<ul>
-				<li>Only use <a>global rules</a>, not <a>shape rules</a></li>
 				<li>Only use <a>SPARQL rules</a>, no other <a>rule types</a></li>
 				<li>Only use SPARQL rules that can be <a data-cite="sparql12-rl#translateConstruct">translated to SRL</a> without a failure</li>
-				<li>Only use SPARQL rules that do not produce <a>temporary triples</a></li>
+				<li>Do not use complex targets: <code>sh:targetWhere</code> or <code>sh:targetNode</code> with a blank node</li>
 				<li>Do not use <a href="#condition">`sh:condition`</a></li>
 				<li>Do not use <a href="#order">`sh:order`</a></li>
 				<li>Do not set the <a href="#layer">`sh:layer`</a> (will be produced by the <a data-cite="sparql12-rl#stratification-algorithm">stratification algorithm</a>)</li>
@@ -1727,83 +1726,188 @@ ex:M1
 			<p>
 				The following example illustrates the SHACL RDF syntax for selected SRL syntax elements.
 			</p>
-			<aside class="example" id="RectangleShape-example-sparql" title="A SPARQL-RL rule set expressed in the SHACL vocabulary">
+			<aside class="example" id="SRL-global-ruleset-example" title="A SPARQL-RL rule set expressed in the SHACL vocabulary">
 				<div class="shapes-graph">
 					<div class="turtle">
-ex:SRLExampleRuleSet
+:SRLExampleRuleSet
 	a sh:RuleSet ;
 	sh:ruleProcessor "SRL" ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#desc-basic">Basic SRL example</a>
-		a sh:SPARQLRule ;
-		sh:construct """
-			CONSTRUCT { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
-			""" ;
-	] ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#desc-filtering">Filtering SRL example</a>
-		a sh:SPARQLRule ;
-		sh:construct """
-			CONSTRUCT { ?x :status :criticallyExposed }
-			WHERE {
-    			?x :exposedTo ?v .
-    			?v :severity ?s .
-    			FILTER(?s >= 9.0)
+	sh:hasRule :BasicRule ;
+	sh:hasRule :FilterRule ;
+	sh:hasRule :NotRule ;
+	sh:hasRule :SetRule ;
+	sh:hasRule :DataRule ;
+	sh:hasRule :NotDataRule ;
+	sh:hasRule :WhereDataRule .
+
+:BasicRule  # See <a data-cite="sparql12-rl#desc-basic">Basic SRL example</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+		""" .
+
+:FilterRule  # See <a data-cite="sparql12-rl#desc-filtering">Filtering SRL example</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { ?x :status :criticallyExposed }
+		WHERE {
+			?x :exposedTo ?v .
+			?v :severity ?s .
+			FILTER(?s >= 9.0)
+		}
+		""" .
+
+:NotRule  # See <a data-cite="sparql12-rl#desc-negation">Negation SRL example (NOT)</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { ?x :status :safeToDeploy }
+		WHERE {
+			?x rdf:type :Component .
+			FILTER NOT EXISTS { ?x :status :criticallyExposed }
+		}
+		""" .
+
+:SetRule  # See <a data-cite="sparql12-rl#desc-creating-rdf-terms">Assignment SRL example (SET)</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { ?v :riskScore ?r }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			BIND (?s * ?p AS ?r)
+			# Note that such BINDs must often be accompanied by a
+			# FILTER bound(?r) to suppress unbound variables.
+		}
+		""" .
+
+:DataRule  # See <a data-cite="sparql12-rl#data-blocks">Data Blocks SRL example (DATA)</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT {
+			:appV2 rdf:type :Component ;
+				:version "2.0.0" ;
+				:status :criticallyExposed .
+		}
+		WHERE {
+		}
+		""" .
+
+:NotDataRule  # See <a data-cite="sparql12-rl#ground-data">Ground Data SRL example (NOT DATA)</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { ?x :distanceKilometers ?kilometers }
+		WHERE {
+			?x :distanceMiles ?miles . 
+			FILTER NOT EXISTS {
+				GRAPH &lt;urn:graph:base&gt; { ?x :distanceKilometers ?km }
+			} .
+			BIND (xsd:integer(?miles *  1.60934) AS ?kilometers)
+		}
+		""" .
+
+:WhereDataRule  # See <a data-cite="sparql12-rl#ground-data">Ground Data SRL example (WHERE DATA)</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { ?x :distanceKilometers ?kilometers }
+		WHERE {
+			GRAPH &lt;urn:graph:base&gt; {
+				?x :distanceMiles ?originalMiles .
+				FILTER NOT EXISTS { ?x :distanceKilometers ?km } 
+				BIND (xsd:integer(?originalMiles *  1.60934) AS ?kilometers)
 			}
-			""" ;
-	] ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#desc-negation">Negation SRL example (NOT)</a>
-		a sh:SPARQLRule ;
-		sh:construct """
-			CONSTRUCT { ?x :status :safeToDeploy }
-			WHERE {
-    			?x rdf:type :Component .
-    			FILTER NOT EXISTS { ?x :status :criticallyExposed }
-			}
-			""" ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#desc-creating-rdf-terms">Assignment SRL example (SET)</a>
-		a sh:SPARQLRule ;
-		sh:construct """
-			CONSTRUCT { ?v :riskScore ?r }
-			WHERE {
-    			?v :severity ?s .
-    			?v :exploitLikelihood ?p .
-    			BIND (?s * ?p AS ?r)
-				# Note that such BINDs must often be accompanied by a
-				# FILTER bound(?r) to suppress unbound variables.
-			}
-			""" ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#data-blocks">Data Blocks SRL example (DATA)</a>
-			CONSTRUCT {
-    			:appV2 rdf:type :Component ;
-           			:version "2.0.0" ;
-           			:status :criticallyExposed .
-			}
-			WHERE {
-			}
-			""" ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#ground-data">Ground Data SRL example (NOT DATA)</a>
-			CONSTRUCT { ?x :distanceKilometers ?kilometers }
-			WHERE {
-				?x :distanceMiles ?miles . 
-				FILTER NOT EXISTS {
-					GRAPH &lt;urn:graph:base&gt; { ?x :distanceKilometers ?km }
-				} .
-				BIND (xsd:integer(?miles *  1.60934) AS ?kilometers)
-			}
-			""" ;
-	sh:hasRule [  # See <a data-cite="sparql12-rl#ground-data">Ground Data SRL example (WHERE DATA)</a>
-			CONSTRUCT { ?x :distanceKilometers ?kilometers }
-			WHERE {
-				GRAPH &lt;urn:graph:base&gt; {
-					?x :distanceMiles ?originalMiles .
-					FILTER NOT EXISTS { ?x :distanceKilometers ?km } 
-					BIND (xsd:integer(?originalMiles *  1.60934) AS ?kilometers)
-				}
-			}
-			""" ;
-	.
+		}
+		""" .
 					</div>
 				</div>
 			</aside>
+			<p>
+				The example above only used <a>global rules</a>.
+				However, in some cases, it is arguably more natural to attach rule to shapes.
+				In the following variation, one of the rules is designed as a <a>shape rule</a> instead
+				of a <a>global rule</a>.
+			</p>
+			<aside class="example" id="SRL-shape-ruleset-example" title="A variation where one rule is attached to a shape">
+				<div class="shapes-graph">
+					<div class="turtle">
+:ComponentShape
+	a sh:NodeShape ;
+	sh:targetClass :Component ;
+	sh:rule :NotRule ;
+	...
+
+:NotRule  # See <a data-cite="sparql12-rl#desc-negation">Negation SRL example (NOT)</a>
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT { $this :status :safeToDeploy }
+		WHERE {
+			# Not needed anymore, handled by sh:targetClass: ?x rdf:type :Component .
+			FILTER NOT EXISTS { $this :status :criticallyExposed }
+		}
+		""" .
+					</div>
+				</div>
+			</aside>
+			<p>
+				In this case, a SHACL processor can modify the SPARQL CONSTRUCT query before it
+				is sent to the SRL <code>translateConstruct</code> function:
+			</p>
+			<pre class="example text" title="Injecting a target binding clause into SPARQL">
+# Original query
+CONSTRUCT { $this :status :safeToDeploy }
+WHERE {
+	FILTER NOT EXISTS { $this :status :criticallyExposed }
+}
+
+# After inserting a target binding clause:
+CONSTRUCT { $thid :status :safeToDeploy }
+WHERE {
+	$this rdf:type :Component .
+	FILTER NOT EXISTS { $this :status :criticallyExposed }
+}
+
+			</pre>
+			<p>
+				The following table shows the translation of the supported <a data-cite="shacl12-core#targets">SHACL target types</a>
+				to SPARQL that can be processed by SPARQL-RL engines:
+			</p>
+			<table class="term-table" id="srl-target-translation">
+				<tr>
+					<th>Target Example</th>
+					<th>SPARQL Translation</th>
+				</tr>
+				<tr>
+					<td>`:Shape sh:targetNode :Instance`</td>
+					<td>`BIND (:Instance AS $this)`</td>
+				</tr>
+				<tr>
+					<td>`:Shape sh:targetClass :Component`</td>
+					<td>`$this a :Component`</td>
+				</tr>
+				<tr>
+					<td>`:Component a rdfs:Class, sh:NodeShape`</td>
+					<td>`$this a :Component`</td>
+				</tr>
+				<tr>
+					<td>`:Shape sh:targetSubjectsOf :predicate`</td>
+					<td>`$this :predicate ?any`</td>
+				</tr>
+				<tr>
+					<td>`:Shape sh:targetObjectsOf :predicate`</td>
+					<td>`?any :predicate $this`</td>
+				</tr>
+			</table>
+			<p>
+				In cases where the <a>rules graph</a> contains subclasses of a target class,
+				the translation may produce multiple CONSTRUCT queries (one for each subclass) or
+				a `FILTER (?type IN ...)` clause.
+			</p>
+			<p class="note">
+				At the time of writing, the SPARQL CONSTRUCT syntax supported by SHACL rules includes several
+				other elements that are not supported by a direct SPARQL-RL equivalent.
+				For example, UNION blocks and queries using OPTIONAL can often be translated into multiple
+				separate CONSTRUCT queries for the different variations.
+				The details of these translations are left to future work.
+			</p>
 			<p>
 				Note that SHACL rules that rely on the SRL processor may be mixed with rules that rely on SHACL features
 				that sit outside of the SRL profile.
