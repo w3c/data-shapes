@@ -1,0 +1,72 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# The data graph has no ex:fullName values, so ex:PersonShape's sh:minCount 1
+# constraint on ex:fullName would fail under plain (non-rules) validation.
+# Declaring sh:entailment sh:RulesEntailment on this shapes graph requires a
+# conformant engine to execute ex:FullNameRule (which derives ex:fullName
+# from ex:firstName and ex:lastName) before validating, so the derived
+# triple lets ex:Alice conform. This checks that the SHACL rules
+# entailment regime actually feeds into core validation results, not
+# merely that rules execute in isolation.
+
+<>
+  sh:entailment sh:RulesEntailment ;
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:PersonShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Person ;
+	sh:rule ex:FullNameRule ;
+	sh:property [
+		sh:path ex:fullName ;
+		sh:minCount 1 ;
+	] .
+
+ex:FullNameRule
+	a sh:SPARQLRule ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:fullName ?fullName .
+		}
+		WHERE {
+			$this ex:firstName ?first .
+			$this ex:lastName ?last .
+			BIND (CONCAT(?first, " ", ?last) AS ?fullName) .
+		}
+		""" .
+
+ex:Alice
+	a ex:Person ;
+	ex:firstName "Alice" ;
+	ex:lastName "Smith" .
+
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <rules-entailment-validation>
+    ) .
+
+<rules-entailment-validation>
+  rdf:type sht:Validate ;
+  rdfs:label "Test that the sh:RulesEntailment regime derives triples before validation, changing the validation result" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "true"^^xsd:boolean ;
+    ] ;
+  mf:status sht:approved .
