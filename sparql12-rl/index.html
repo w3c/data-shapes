@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+each of <!DOCTYPE html>
 <html lang="en-US">
   <head>
     <meta charset="utf-8">
@@ -812,9 +812,9 @@
 
           <dt><dfn>Triple pattern</dfn></dt>
           <dd>
-            A [=triple pattern=] is a 3-tuple where each element is either a
-            [=variable=] or an [=RDF term=]
-            (which might be a triple term with variables).
+            A [=triple pattern=] is a 3-tuple where each element is
+            a [=variable=], an [=RDF term=], or a pattern for a
+            [=triple term=] with [=variables=].
             The second element of the tuple must be an [=IRI=] or a [=variable=].
             [=Triple patterns=] appear in the [=body=] of a [=rule=]
             and are used to match [=RDF triples=].
@@ -822,12 +822,19 @@
 
           <dt><dfn>Triple template</dfn></dt>
           <dd>
-            A [=triple template=] is a 3-tuple where each element is either
-            a [=variable=] or an [=RDF term=] (which might be a
-            [=triple term=] with variables).
-            The second element of the tuple must be an [=IRI=] or a [=variable=].
-            [=Triple templates=] appear in the [=head=] of a [=rule=] and
-            are used to generate [=RDF triples=].
+            <p>
+              A [=triple template=] is a 3-tuple where each element is
+              a [=variable=], an [=RDF term=], or a template for a
+              [=triple term=] with [=variables=].
+              The second element of the tuple must be an [=IRI=] or a [=variable=].
+              [=Triple templates=] appear in the [=head=] of a [=rule=] and
+              are used to generate [=RDF triples=].
+            </p>
+            <p class="note">
+              A pattern or template for a [=triple term=] in which no
+              [=variable=] occurs is a [=triple term=], and therefore also
+              an [=RDF term=].
+            </p>
           </dd>
 
           <dt><dfn>Filter element</dfn></dt>
@@ -914,10 +921,15 @@
 
           <dt><dfn>Run-once rule</dfn></dt>
           <dd>
-            A [=run-once rule=] is a rule that is run exactly once at a
-            particular point in the evaluation of a rule set.
-            Such rules involve assignment or create blank nodes
-            from evaluation of the [=rule head=].
+            <p>
+              A [=run-once rule=] is a rule that is run exactly once at a
+              particular point in the evaluation of a rule set.
+              A [=rule=] is a [=run-once rule=] if any of the following hold:
+            </p>
+            <ul>
+              <li>the [=rule body=] has an [=assignment element=];</li>
+              <li>a [=triple template=] of the [=rule head=] has a [=blank node=].</li>
+            </ul>
           </dd>
 
           <dt><dfn>General rule</dfn></dt>
@@ -1307,9 +1319,7 @@
                 matches a [=triple template=] in the [=rule head=] of `R2`.
               </li>
               <li>Rule `R1` [=depends on=] rule `R2`
-                and `R1` is a [=run-once rule=]; that is,
-                rule `R1` has an [=assignment element=] or
-                the [=rule head=] of `R1` has a blank node.
+                and `R1` is a [=run-once rule=].
               </li>
             </ul>
           </dd>
@@ -1445,10 +1455,7 @@ define buildDependencyGraph(ruleSet):
         endif
 
         foreach pair (triple pattern TP, depLabel) in bodyDependencies:
-            if R1.body has an assignment element:
-              set depLabel to "closed"
-            endif
-            if R1.head has a triple template with a blank node:
+            if R1 is a run-once rule:
               set depLabel to "closed"
             endif
             # Find dependencies for this triple pattern element or negation element.
@@ -1491,9 +1498,9 @@ enddefine
         </p>
         <p>
           [=Stratification=] imposes constraints on dependencies between [=rules=]
-          to ensure that [=negation elements=], [=assignment elements=], and
-          blank nodes created in a [=rule head=] depend only on results computed
-          using earlier (lower) [=strata=] and the [=base graph=].
+          to ensure that [=negation elements=] and [=run-once rules=] depend only
+          on results computed using earlier (lower) [=strata=] and the
+          [=base graph=].
           This guarantees a single, well-defined, and finite
           outcome from the evaluation of a [=rule set=] over a given [=base graph=].
         </p>
@@ -1516,10 +1523,11 @@ enddefine
             <p>
               A [=stratification layer=] `SL` is a pair of disjoint sets of
               rules (`SL.once`, `SL.general`).
-              `SL.once` contains [=run-once rules=], which are
+              `SL.once` contains [=run-once rules=] which are
               rules that use [=assignment elements=] or produce
-              blank nodes in the [=rule head=];  these rules are each evaluated exactly
-              once at the start of evaluation of the [=stratification layer=].
+              blank nodes in the [=rule head=].
+              These rules are each evaluated
+              exactly once at the start of evaluation of the [=stratification layer=].
               `SL.general` contains the remaining rules, which are evaluated
               repeatedly until no new triples are inferred.
             </p>
@@ -1553,11 +1561,11 @@ enddefine
               </li>
             </ul>
           </dd>
-          <p class="note">
-            A [=rule set=] can have more than one [=stratification=].
-            An implementation can use any [=stratification=] of the [=rule set=].
-          </p>
         </dl>
+        <p class="note">
+          A [=rule set=] can have more than one [=stratification=].
+          An implementation can use any [=stratification=] of the [=rule set=].
+        </p>
 
         <section id="stratification-condition">
           <h4>Stratification Condition</h4>
@@ -1767,13 +1775,12 @@ enddefine
         <li>
           The syntax of `NOT` limits the inner body to triple
           patterns and filters, and does not allow nested patterns.
-          `NOT` executes as a filter at the point in the rule body 
-          where it is written, unlike SPARQL `FILTER NOT EXISTS`. 
+          `NOT` executes as a filter at the point in the rule body
+          where it is written, unlike SPARQL `FILTER NOT EXISTS`.
         </li>
         <li>
-          Property path syntax only covers paths with `/` and `^`. 
-          These that can be expanded into triple
-          patterns.
+          Property path syntax only covers paths with `/` and `^`.
+          These can be expanded into triple patterns.
           It does not allow the arbitrary length operators `*` and `+`.
           Arbitrary length paths can be expressed in SPARQL-RL
           with recursion as a more general approach.
@@ -2004,7 +2011,7 @@ merge(S1, S2) = { <var>μ</var> |
         <p>
           An expression, whether used in a [=filter element=] or
           an [=assignment element=], is evaluated with
-          respect to a [=solution mapping=}. The solution mapping provides the 
+          respect to a [=solution mapping=]. The solution mapping provides the
           RDF term values for each variable in the expression.
           The well-formedness requirements of <a href="#wellformed" class="sectionRef"></a>
           ensure that all variables in the expression
@@ -2482,7 +2489,7 @@ the result is GI
             are final. Each stratum is then partitioned into
             [=run-once rules=] and [=general rules=]. `R5` has a blank
             node in its head, so it is a [=run-once rule=]; no other rule
-            has an [=assignment element=] or a blank node in its head.
+            of the rule set is a [=run-once rule=].
             The stratification is:
           </p>
           <ul>
