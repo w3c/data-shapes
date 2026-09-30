@@ -1,0 +1,202 @@
+@prefix mf:      <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sht:     <http://www.w3.org/ns/shacl-test#> .
+
+<>
+	a mf:Manifest ;
+    mf:entries (
+        :basic-01
+		:filter-01
+		:filter-02
+		:not-01
+		:set-01
+		:set-02
+		:set-03
+		:set-04
+		:notData-01
+		:whereData-01
+	) .
+
+:basic-01
+	a sht:TranslateConstructTest ;
+	rdfs:label "Basic CONSTRUCT query" ;
+	mf:action """
+		CONSTRUCT { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+		""" ;
+	mf:result """
+		RULE { ?x :dependsOn ?y } WHERE { ?x :callsService ?y }
+		""" .
+
+:filter-01
+	a sht:TranslateConstructTest ;
+	rdfs:label "CONSTRUCT query with a FILTER" ;
+	mf:action """
+		CONSTRUCT { ?x :status :criticallyExposed }
+		WHERE {
+			?x :exposedTo ?v .
+			?v :severity ?s .
+			FILTER(?s >= 9.0)
+		}
+		""" ;
+	mf:result """
+		RULE { ?x :status :criticallyExposed }
+		WHERE {
+			?x :exposedTo ?v .
+			?v :severity ?s .
+			FILTER(?s >= 9.0)
+		}
+		""" .
+
+:filter-02
+	a sht:TranslateConstructTest ;
+	rdfs:label "CONSTRUCT query with a FILTER using unsupported bound call" ;
+	rdfs:comment "Fails because bound is only allowed on variables produced by a BIND" ;
+	mf:action """
+		CONSTRUCT { ?v :status :criticallyExposed }
+		WHERE {
+			?v :severity ?s .
+			FILTER bound(?other) .
+		}
+		""" ;
+	mf:result sht:Failure .
+
+:not-01
+	a sht:TranslateConstructTest ;
+	rdfs:label "FILTER NOT EXISTS -> NOT" ;
+	mf:action """
+		CONSTRUCT { ?x :status :safeToDeploy }
+		WHERE {
+			?x rdf:type :Component .
+			FILTER NOT EXISTS { ?x :status :criticallyExposed }
+		}
+		""" ;
+	mf:result """
+		RULE { ?x :status :safeToDeploy }
+		WHERE {
+			?x rdf:type :Component .
+			NOT { ?x :status :criticallyExposed }
+		}
+		""" .
+
+:set-01
+	a sht:TranslateConstructTest ;
+	rdfs:label "BIND -> SET (without FILTER bound)" ;
+	mf:action """
+		CONSTRUCT { ?v :riskScore ?r }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			BIND (?s * ?p AS ?r)
+		}
+		""" ;
+	mf:result """
+		RULE { ?v :riskScore ?r }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			SET (?r := ?s * ?p)
+		}
+		""" .
+
+:set-02
+	a sht:TranslateConstructTest ;
+	rdfs:label "BIND -> SET (with FILTER bound)" ;
+	mf:action """
+		CONSTRUCT { ?v :riskScore ?r }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			BIND (?s * ?p AS ?r) .
+			FILTER bound(?r)
+		}
+		""" ;
+	mf:result """
+		RULE { ?v :riskScore ?r }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			SET (?r := ?s * ?p)
+		}
+		""" .
+
+:set-03
+	a sht:TranslateConstructTest ;
+	rdfs:label "BIND -> SET (missing required FILTER bound)" ;
+	mf:action """
+		CONSTRUCT { ?v :relatesTo ?other }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			BIND (?s * ?p AS ?r) .  # This may produce unbound ?r
+			?other :p ?r .   # This may also match when ?r is unbound
+			# Therefore a FILTER bound(?r) is needed
+		}
+		""" ;
+	mf:result sht:Failure .
+
+:set-04
+	a sht:TranslateConstructTest ;
+	rdfs:label "BIND -> SET (including required FILTER bound)" ;
+	mf:action """
+		CONSTRUCT { ?v :relatesTo ?other }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			BIND (?s * ?p AS ?r) .  # This may produce unbound ?r
+			FILTER bound(?r) .
+			?other :p ?r .   # This may also match when ?r is unbound
+		}
+		""" ;
+	mf:result """
+		RULE { ?v :relatesTo ?other }
+		WHERE {
+			?v :severity ?s .
+			?v :exploitLikelihood ?p .
+			SET (?r := ?s * ?p) .
+			?other :p ?r .
+		}
+		""" .
+
+:notData-01
+	a sht:TranslateConstructTest ;
+	rdfs:label "GRAPH -> NOT DATA" ;
+	mf:action """
+		CONSTRUCT { ?x :distanceKilometers ?kilometers }
+		WHERE {
+			?x :distanceMiles ?miles . 
+			FILTER NOT EXISTS {
+				GRAPH <urn:graph:base> { ?x :distanceKilometers ?km }
+			} .
+			BIND (xsd:integer(?miles *  1.60934) AS ?kilometers)
+		}
+		""" ;
+	mf:result """
+		RULE { ?x :distanceKilometers ?kilometers }
+		WHERE {
+			?x :distanceMiles ?miles . 
+			NOT DATA { ?x :distanceKilometers ?km } .
+			SET (?kilometers := xsd:integer(?miles *  1.60934))
+		}
+		""" .
+
+:whereData-01
+	a sht:TranslateConstructTest ;
+	rdfs:label "GRAPH -> WHERE DATA" ;
+	mf:action """
+		CONSTRUCT { ?x :distanceKilometers ?kilometers }
+		WHERE {
+			GRAPH <urn:graph:base> {
+				?x :distanceMiles ?originalMiles .
+				FILTER NOT EXISTS { ?x :distanceKilometers ?km } 
+				BIND (xsd:integer(?originalMiles *  1.60934) AS ?kilometers)
+			}
+		}
+		""" ;
+	mf:result """
+		RULE { ?x :distanceKilometers ?kilometers }
+		WHERE DATA {
+			?x :distanceMiles ?originalMiles .
+			NOT { ?x :distanceKilometers ?km } 
+			SET (?kilometers := xsd:integer(?originalMiles *  1.60934))
+		}
+		""" .
