@@ -288,6 +288,10 @@
             <a href="https://www.w3.org/TR/shacl/#dfn-datatype">datatype</a>
           </dfn>
           ,
+          <dfn data-lt="deactivate">
+            <a href="https://www.w3.org/TR/shacl/#dfn-deactivated">deactivated</a>
+          </dfn>
+          ,
           <dfn>
             <a href="https://www.w3.org/TR/shacl/#dfn-failure">failure</a>
           </dfn>
@@ -1186,29 +1190,115 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
         <p>
           A <dfn>SHACL Renderer</dfn>
           is software that processes SHACL
-            <a>shapes</a> and data and dynamically generates a user-interface using one
-            or more <a>node UI components</a>. Implementations may add supplementary UI elements, such as a submit
-            button to save changes, controls to toggle between edit and view modes, selectors for <a>focus node</a> and
-            <a>node shape</a>, or visualizations of <a>validation report</a> messages.
+            <a>shapes</a> and data and dynamically generates a user-interface using one or more <a>node UI
+            components</a>. Implementations MAY add supplementary UI elements, such as a submit button to save changes,
+            controls to toggle between edit and view modes, or visualizations of <a>validation report</a> messages.
 
-            They may also provide:
+            They MAY also provide:
             <ul>
               <li>State management for editing, viewing, and tracking data changes</li>
               <li>Widget management, including widget selection strategies</li>
-              <li>Logic for determining the initial focus node (target) and the best suited node shape</li>
               <li>An interface to interact with the data layer</li>
             </ul>
 
-            A SHACL Renderer operates on a <a>data graph</a> and a <a>shapes graph</a>, and may also take a
-            <a>focus node</a> and a <a>node shape</a>. When all four inputs are provided, the renderer
-            operates in <strong>manual mode</strong>. When the focus node or node shape is not provided,
-            the renderer may operate in <strong>automatic mode</strong>, in which case the application determines
-            appropriate values for the missing inputs.
+            A SHACL Renderer operates on a <a>data graph</a>, a <a>shapes graph</a>, a <a>focus node</a>, and a <a>node
+            shape</a>.
+        </p>
+      </section>
+
+      <section id="render-manager">
+        <h3>SHACL Render Manager</h3>
+
+        <p>
+          A <dfn>SHACL Render Manager</dfn> is a component that manages <a>SHACL Renderer</a> instances.
         </p>
 
-        <p class="ednote">TODO: review SHACL Renderer definition, particularly the manual and automatic mode, now that we have the scoring system defined.</p>
+        <p>
+          It uses <a>Focus Node and Node Shape Resolution</a> to determine which (<a>focus node</a>,
+          <a>node shape</a>) pairs to render.
+        </p>
 
-        <div class="issue" data-number="609"></div>
+        <p>
+          It MAY contain additional logic or UI components for filtering the list of pairs, or for navigating and
+          switching between the <a>focus nodes</a> and <a>node shapes</a> being rendered, for example letting the
+          user move from one resolved <a>focus node</a> to another, or switch the <a>node shape</a> for a selected
+          <a>focus node</a>. It MAY further allow switching between view and edit modes.
+        </p>
+
+        <p>
+          It SHOULD allow the user to reach every pair in the output, rather than exposing only a subset.
+        </p>
+
+        <aside class="example" title="Several pairs: an alerts dashboard">
+          <p>
+            A monitoring dashboard has a <a>data graph</a> of alerts and a <a>shapes graph</a> containing an alert
+            <a>node shape</a>, and is given the <a>node shape</a> but no <a>focus node</a>. Resolution returns one
+            (<a>focus node</a>, <a>node shape</a>) pair for every alert that the alert <a>node shape</a> targets.
+          </p>
+        </aside>
+
+        <aside class="example" title="Reducing pairs with a page-rank-style selection">
+          <p>
+            A SHACL Render Manager resolves a large number of (<a>focus node</a>, <a>node shape</a>) pairs — too
+            many to reasonably list one by one. Instead of exposing every pair directly, it runs a page-rank-style
+            algorithm over the resolved <a>focus nodes</a> to identify a small set of best-fitting root nodes as
+            starting points for navigation. The root node selection also takes into account that every node in the
+            graph must be reachable by traversing the graph from one of the selected root nodes.
+          </p>
+        </aside>
+
+        <section id="focus-node-and-node-shape-resolution">
+          <h4>Focus Node and Node Shape Resolution</h4>
+
+          <p>
+            <dfn>Focus Node and Node Shape Resolution</dfn>
+            determines, from the available inputs, all possible (<a>focus node</a>, <a>node shape</a>) pairs. Its
+            <a>focus node</a> and <a>node shape</a> inputs may be missing. It resolves them into pairs in which both
+            members are always present.
+          </p>
+
+          <p>Inputs:</p>
+          <ul>
+            <li><strong>Data graph</strong> — The <a>data graph</a>.</li>
+            <li><strong>Shapes graph</strong> — The <a>shapes graph</a>.</li>
+            <li><strong>Focus node</strong> — An optional <a>focus node</a>.</li>
+            <li><strong>Node shape</strong> — An optional <a>node shape</a>.</li>
+          </ul>
+
+          <p>Output:</p>
+          <ul>
+            <li>
+              A list of (<a>focus node</a>, <a>node shape</a>) pairs, which may be empty. Every pair in the output
+              is fully determined. Neither member of any pair is missing.
+            </li>
+          </ul>
+
+          <p>Steps:</p>
+          <ol>
+            <li>
+              If both the <strong>focus node</strong> and the <strong>node shape</strong> are present, return a list
+              containing the single pair (<strong>focus node</strong>, <strong>node shape</strong>).
+            </li>
+            <li>
+              If the <strong>node shape</strong> is present and the <strong>focus node</strong> is missing, compute the
+              <a>targets</a> of the <strong>node shape</strong>, and return one pair per produced
+              <strong>focus node</strong>, each pairing that focus node with the <strong>node shape</strong>.
+            </li>
+            <li>
+              If the <strong>focus node</strong> is present and the <strong>node shape</strong> is missing, select
+              all <strong>node shapes</strong> that are not <a>deactivated</a>, compute the <a>targets</a> of each,
+              and return one pair per <strong>node shape</strong> whose <a>targets</a> include the
+              <strong>focus node</strong>, pairing that <strong>node shape</strong> with the
+              <strong>focus node</strong>.
+            </li>
+            <li>
+              If both the <strong>focus node</strong> and the <strong>node shape</strong> are missing, select all
+              <strong>node shapes</strong> that are not <a>deactivated</a>, compute the <a>targets</a> of each, and
+              return one pair per produced <strong>focus node</strong>, pairing each <strong>focus node</strong>
+              with the <strong>node shape</strong> that produced it.
+            </li>
+          </ol>
+        </section>
       </section>
 
       <section id="node-ui-component">
