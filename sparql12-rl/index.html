@@ -737,7 +737,7 @@
         <p>
           During evaluation, triples inferred based on one rule are
           available for matching in other rules.
-          Rule set evaluation proceeds until 
+          Rule set evaluation proceeds until
           no further triples can be inferred
           from the inputs of the [=rule set=] and the [=base graph=].
         </p>
@@ -771,9 +771,11 @@
         </ol>
         <p>
           Once a [=rule set=] has been prepared, evaluation proceeds
-          by taking each layer from the stratification, in order,
+          by taking each [=layer=] from the stratification, in order,
           evaluating the rules in that layer to completion,
           and then moving on to the next layer.
+          When triples are inferred by execution of a rule, they are immediately
+          available to other rules as those rules are executed.
         </p>
       </section>
 
@@ -876,10 +878,15 @@
             and an <a>expression</a>, called the <dfn>assignment expression</dfn>.
           </dd>
 
-          <!-- Postponed
-          <dt><dfn>aggregation element</dfn></dt>
+          <!-- aggregation
+          <dt><dfn>Aggregation element</dfn></dt>
           <dd>
-            An [=aggregation element=] is a [=rule element=] that ..@@.. .
+            An [=aggregation element=] is a [=rule element=]
+            with <dfn data-lt="group keys">aggregation keys</dfn>
+            and <dfn>aggregation assignments</dfn>
+            with <dfn>aggregation variables</dfn>
+            and <dfn>aggregation functions</dfn>.
+            An [=aggregation element=] has an <dfn>aggregation pattern</dfn>.
           </dd>
           -->
 
@@ -887,8 +894,12 @@
           <dd>A [=rule element=] is any one of
             [=triple pattern element=],
             [=filter element=],
-            [=negation element=], or
-            [=assignment element=].
+            [=negation element=],
+            <!-- aggregation
+            [=assignment element=], or
+            [=aggregation element=].
+              -->
+            or [=assignment element=].
           </dd>
 
           <dt><dfn data-lt="rule head|head">Rule head</dfn></dt>
@@ -903,6 +914,10 @@
             a [=triple pattern element=],
             a [=filter element=],
             a [=negation element=],
+            <!-- aggregation
+            an [=assignment element=], or
+            an [=aggregation element=].
+            -->
             or an [=assignment element=].
           </dd>
 
@@ -1115,64 +1130,82 @@
           or [=assignment expression=]
           has a value at the point of evaluation;
           and that each
-          assignment in a rule introduces a new variable,
-          one that has not been used earlier in the rule body.
+          [=assignment variable=]
+          <!-- aggregation
+          and [=aggregation variable=]
+          -->
+          in a rule is new and has not been used earlier in the rule body.
         </p>
         <p>
-          Define <em>well-formedness</em> for a sequence of [=rule elements=]
-          given an initial set of variables.
+          Let <var>elt<sub>i</sub></var> be the i-th element of a sequence of
+          [=rule elements=], and let <var>N</var> be the length of the sequence.
         </p>
         <p>
-          Let <var>elt<sub>i</sub></var> be the i-th element of a sequence of [=rule elements=].
+          Let <var>V<sub>0</sub></var> be the initial variables of the sequence.
         </p>
         <p>
-          Let <var>vars<sub>i</sub></var> be the set of variables defined by
-          <var>elt<sub>i</sub></var> as follows:
+          Let <var>V<sub>i</sub></var>, for <var>i</var>
+          from <var>1</var> to <var>N</var>
+          be the set of variables <dfn>in-scope</dfn> after element
+          <var>elt<sub>i</sub></var>.
+        </p>
+        <p>
+          Let <var>V<sub>all</sub></var> be the value of
+          <var>V<sub>N</sub></var>.
+        </p>
+        <p>
+          Define <var>V<sub>i</sub></var> inductively:
         </p>
         <div class="list-indent">
           <ul class="list-no-bullet">
             <li>
-              If <var>elt<sub>i</sub></var> is a [=triple pattern element=] then
+              If <var>elt<sub>i</sub></var> is a [=triple pattern element=]
+              and <var>X</var> is the set of variables that occur in the
+              [=triple pattern element=]
+              then
               <ul class="list-inner">
                 <li>
-                  <var>vars<sub>i</sub></var> is the set of [=variables=]
-                  that occur in the [=triple pattern element=].
+                  <var>V<sub>i</sub></var> is the set <var>X</var> &cup; <var>V<sub>i-1</sub></var>.
                 </li>
               </ul>
             </li>
             <li>
-              If <var>elt<sub>i</sub></var> is an [=assignment element=] then
+              If <var>elt<sub>i</sub></var> is an [=assignment element=]
+              with [=assignment variable=] <var>avar</var> then
               <ul class="list-inner">
                 <li>
-                  <var>vars<sub>i</sub></var> is the set of the [=assignment variable=].
+                  <var>V<sub>i</sub></var> is the set
+                  `{` <var>avar</var> `}` &cup; <var>V<sub>i-1</sub></var>.
                 </li>
               </ul>
             </li>
+            <!-- aggregation
+            <li>
+               If <var>elt<sub>i</sub></var> is an [=aggregation element=]
+               with set <var>aggGroupKeys</var> being the set of variables occurring in the
+               [=aggregation keys=]
+               and set <var>aggVar</var> being the set of [=aggregation variables=]
+               then
+                <ul class="list-inner">
+                <li>
+                  <var>V<sub>i</sub></var> is the set <var>aggGroupKeys</var> &cup; <var>aggVar</var>.
+                  <p class="note">An aggregation replaces the set of variables [=in-scope=].</p>
+                </li>
+              </ul>
+            </li>
+            -->
             <li>
               Otherwise,
               <ul class="list-inner">
                 <li>
-                  <var>vars<sub>i</sub></var> is the empty set.
+                  <var>V<sub>i</sub></var> is equal to the set <var>V<sub>i-1</sub></var>.
                 </li>
               </ul>
             </li>
           </ul>
         </div>
         <p>
-          Let <var>V<sub>0</sub></var> be the initial variables of the sequence.
-        </p>
-        <p>
-          Let <var>V<sub>i</sub></var>
-          be the union of
-          <var>V<sub>0</sub></var> and all <var>vars<sub>j</sub></var>,
-          for <var>j</var> from 1 to <var>i</var>.
-        </p>
-        <p>
-          Let <var>V<sub>all</sub></var> be the value of <var>V<sub>N</sub></var>,
-          where <var>N</var> is the length of the sequence.
-        </p>
-        <p>
-          A sequence of [=rule elements=], 
+          A sequence of [=rule elements=]
           is a <dfn>well-formed sequence</dfn>,
           given a set of variables <var>V<sub>0</sub></var>,
           if the following conditions are met for each <var>i</var>,
@@ -1206,11 +1239,20 @@
                   the sequence of [=rule elements=] in the
                   [=negation element body=] is a [=well-formed sequence=],
                   setting <var>V<sub>0</sub></var> to the
-                  value of <var>V<sub>i-1</sub></var>
-                  of the [=rule element=].
+                  value of <var>V<sub>i-1</sub></var>.
                 </li>
               </ul>
             </li>
+            <!-- aggregation
+            <li>
+              If <var>elt<sub>i</sub></var> is an [=aggregation element=] then
+               <ul class="list-inner">
+                <li>
+                  none of the [=aggregation variables=] occur in the set of variables <var>V<sub>i-1</sub></var>.
+                </li>
+               </ul>
+            </li>
+            -->
           </ul>
         </div>
         <p>
@@ -1533,7 +1575,7 @@ enddefine
               `SL.once` is exactly the [=run-once rules=] of the layer;
               these rules are each evaluated
               exactly once at the start of evaluation of the [=stratification layer=].
-              `SL.general` is the set of remaining rules of the layer, 
+              `SL.general` is the set of remaining rules of the layer,
               which are evaluated repeatedly until no new triples are inferred.
             </p>
           </dd>
@@ -1833,7 +1875,7 @@ Output: an RDF graph GI of inferred triples
 </pre>
       </div>
       <p>
-        The inferred triples do not include triples present in the
+        The inferred triples do not include triples present in
         the [=base graph=].
       </p>
 
@@ -2735,7 +2777,7 @@ the result is GI
           White space
           (production <a href="#rWS"><code>WS</code></a>) is used
           to separate two terminals that would otherwise be incorrectly
-          recognized as one terminal. 
+          recognized as one terminal.
           Rule names in capitals below indicate where white space is
           significant; these form a possible choice of terminals for constructing a
           SPARQL-RL parser.
