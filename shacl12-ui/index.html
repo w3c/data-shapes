@@ -446,9 +446,9 @@
         <div class="def">
           <div class="term-def-header">Language Resolution</div>
           <div>
-            <dfn>Language Resolution</dfn> is the process of determining and ordering the
-            values associated with a given subject-predicate pair, prioritizing the preferred or most relevant language
-            value for display.
+            <dfn>Language Resolution</dfn> is the process of selecting, from the values provided by an ordered list of
+            label sources, the value in the preferred or most relevant language for display. The language preference
+            takes precedence over the order of the label sources.
           </div>
         </div>
         <div class="def">
@@ -2186,83 +2186,198 @@ ex:part-b
 
       <p>
         UI literals — such as labels, descriptions, and other human-readable strings required for
-        rendering a user interface — are selected based on language tags. This section defines how
-        an application determines which language to use when multiple language-tagged literals are
-        available for a given property.
+        rendering a user interface — are often available in several variants: in different languages, without
+        a language tag, or from different graphs and properties. This section defines how an application
+        chooses which literal to display. <a href="#lang-resolution">Language resolution</a> defines the
+        choice between candidate literals; <a href="#label-resolution">label resolution</a> defines where the
+        candidates come from for property labels and value node labels.
       </p>
 
       <section id="lang-resolution">
         <h3>Language Resolution</h3>
 
         <p>
-          When selecting a UI literal, the preferred language is determined according to the following order of
-          priority. Each option itself provides an ordered list of languages where earlier entries are preferred over
-          later ones:
+          <a>Language resolution</a> selects one literal for display out of a set of candidate literals.
+          The candidates come from one or more <a>label sources</a>; the choice between them is driven by the
+          <a>language preference list</a>. Both terms are defined below, followed by the selection algorithm.
         </p>
 
-        <ol>
-          <li>
-            The values of <code>sh:languageIn</code>, when present in the applicable <a>shapes graph</a> context. This
-            specification extends the semantics of <code>sh:languageIn</code> giving the order of language tags in the
-            list a meaning. Implementations MUST prefer literals according to the order of the
-            <code>sh:languageIn</code> values.
-          </li>
-          <li>
-            A list of languages selected in the application. How this language preference list is configured or
-            expressed is up to the implementation. Possible approaches include but are not limited to:
-            <ul>
-              <li>A UI feature that allows the user to select a preferred display language or languages priorities.</li>
-              <li>A <a>global configuration</a> using the property <code>shui:languagePreference</code>.</li>
-            </ul>
-          </li>
-          <li>
-            The list of preferred languages declared in the user's browser, as expressed through the
-            <code>Accept-Language</code> HTTP header or the <code>navigator.languages</code> Web API. These SHOULD be
-            used as the default values when no application-level language preference has been configured.
-          </li>
-        </ol>
+        <section id="lang-preference-list">
+          <h4>Language Preference List</h4>
 
-        <p>
-          Language tags are matched according to the basic filtering scheme defined in [[RFC4647]] section 3.3.1.
-          In particular, a language tag such as <code>en-US</code> SHOULD be considered a match for a preferred
-          language of <code>en</code>.
-        </p>
+          <p>
+            The <dfn>language preference list</dfn> is an ordered list of language tags in which earlier entries
+            are preferred over later ones. An application has a single language preference list, determined as
+            follows:
+          </p>
 
-        <p>
-          If no literal matching the preferred language is available, implementations MAY fall back to a literal in
-          another available language (or without a declared language) or apply the <a>label resolution</a>
-          fallback strategy as defined for the relevant context.
-        </p>
+          <ol>
+            <li>
+              If a list of languages has been configured in the application, that list is used. How the list is
+              configured is up to the implementation. Possible approaches include but are not limited to:
+              <ul>
+                <li>A UI feature that allows the user to select one or more preferred display languages, in order of priority.</li>
+                <li>A <a>global configuration</a> using the property <code>shui:languagePreference</code>.</li>
+              </ul>
+            </li>
+            <li>
+              Otherwise, the list of preferred languages declared in the user's browser SHOULD be used, as
+              expressed through the <code>Accept-Language</code> HTTP header or the
+              <code>navigator.languages</code> Web API.
+            </li>
+          </ol>
 
-        <aside class="example" title="Language selection based on sh:languageIn">
-          <div class="shapes-graph">
-            <div class="turtle">
+          <p>
+            A literal <em>matches</em> an entry of the language preference list according to the basic filtering
+            scheme defined in [[RFC4647]] section 3.3.1. In particular, a literal with language tag
+            <code>en-US</code> SHOULD be considered a match for the entry <code>en</code>. A literal without a
+            language tag matches the empty entry (<code>""</code>).
+          </p>
+        </section>
+
+        <section id="label-sources">
+          <h4>Label Sources</h4>
+
+          <p>
+            A <dfn>label source</dfn> is the combination of a subject, a graph and a label property. The values of
+            a label source are the objects of all triples in that graph with that subject and that label property.
+          </p>
+
+          <p>
+            Candidate literals are usually collected from more than one label source: from both the
+            <a>shapes graph</a> and the <a>data graph</a>, and for each of the label properties determined by
+            <a>label property resolution</a>. <a>Label resolution</a> therefore hands language resolution an
+            <em>ordered</em> list of label sources, in which earlier label sources are preferred over later ones.
+          </p>
+        </section>
+
+        <section id="lang-selection">
+          <h4>Selecting a Literal</h4>
+
+          <p>
+            The <a>language preference list</a> and the order of the <a>label sources</a> are both orders of
+            preference, so the algorithm has to decide which one wins when they disagree. To keep the user
+            interface in one language as much as possible, language wins: a literal in a more preferred language is
+            selected even if it comes from a less preferred label source.
+          </p>
+
+          <p>
+            Given an ordered list of label sources, language resolution applies the following steps in order,
+            stopping at the first step that selects a literal:
+          </p>
+
+          <ol>
+            <li>
+              For each entry of the language preference list, in order:
+              <ol>
+                <li>
+                  For each label source, in order: if the label source has one or more values that match the
+                  entry, select the first of them according to the <a>tie-breaking order</a>.
+                </li>
+              </ol>
+            </li>
+            <li>
+              Otherwise, for each label source, in order: if the label source has one or more values without a
+              language tag, implementations MAY select one of them. Which one is selected is
+              implementation-specific.
+            </li>
+            <li>
+              Otherwise, for each label source, in order: if the label source has one or more values with a
+              language tag, select the first of them according to the <a>tie-breaking order</a>.
+            </li>
+          </ol>
+
+          <p>
+            Step 2 only applies when the language preference list has no empty entry; otherwise literals without a
+            language tag are already handled in step 1, at the position of that entry.
+          </p>
+
+          <p>
+            The <dfn>tie-breaking order</dfn> ranks the language-tagged values of a single label source. A value
+            comes before another value if:
+          </p>
+          <ol>
+            <li>
+              its language tag has fewer subtags. In step 1 this means that a value whose tag exactly equals the
+              entry comes before a value whose tag merely extends it: for the entry <code>en</code>,
+              <code>"color"@en</code> comes before <code>"color"@en-US</code>;
+            </li>
+            <li>
+              otherwise, its language tag comes first in Unicode code point order after conversion to lower case:
+              <code>"colour"@en-GB</code> comes before <code>"color"@en-US</code>;
+            </li>
+            <li>
+              otherwise, its lexical form comes first in Unicode code point order:
+              <code>"A'dam"@nl</code> comes before <code>"Amsterdam"@nl</code>.
+            </li>
+          </ol>
+
+          <p>
+            With this order, language resolution is deterministic whenever all values of the label sources are
+            language-tagged literals (<code>rdf:langString</code>): the same input always selects the same
+            literal. Only the choice between several literals without a language tag (step 2) is left to the
+            implementation.
+          </p>
+
+          <aside class="example" title="Language takes precedence over the label property">
+            <div class="shapes-graph">
+              <div class="turtle">
+ex:config a shui:Configuration ;
+    shui:languagePreference ("nl" "en") ;
+    shui:labelPreference (skos:prefLabel rdfs:label) .
+              </div>
+            </div>
+
+            <div class="data-graph">
+              <div class="turtle">
+ex:amsterdam
+    skos:prefLabel "Amsterdam, capital of the Netherlands"@en ;
+    rdfs:label "Amsterdam"@nl .
+              </div>
+            </div>
+
+            <p>
+              The label sources are, in order, <code>skos:prefLabel</code> and <code>rdfs:label</code> of
+              <code>ex:amsterdam</code> in the data graph. The selected label is <code>"Amsterdam"@nl</code>:
+              the first entry of the language preference list is <code>nl</code>, and the first label source with
+              a Dutch value is <code>rdfs:label</code>. The English <code>skos:prefLabel</code> would only be
+              selected if no label source had a Dutch value.
+            </p>
+          </aside>
+
+          <aside class="example" title="Language takes precedence over the graph">
+            <div class="shapes-graph">
+              <div class="turtle">
+ex:config a shui:Configuration ;
+    shui:languagePreference ("en" "de") ;
+    shui:labelPreference (sh:name rdfs:label) .
+
 ex:PersonShape
     a sh:NodeShape ;
     sh:property [
-        sh:path foaf:name ;
-        sh:name "Name"@en ;
-        sh:name "Nom"@fr ;
-        sh:languageIn ( "fr" "en" ) ;
+        sh:path foaf:givenName ;
+        sh:name "Vorname"@de ;
     ] .
+              </div>
             </div>
-          </div>
 
-          <div class="data-graph">
-            <div class="turtle">
-ex:alice a ex:Person ;
-    foaf:name "Alice"@en ;
-    foaf:name "Alice"@fr .
+            <div class="data-graph">
+              <div class="turtle">
+foaf:givenName rdfs:label "given name"@en .
+              </div>
             </div>
-          </div>
 
-          <p>
-            In this example, <code>sh:languageIn</code> declares French (<code>fr</code>) and English (<code>en</code>)
-            as accepted languages, in that order. A SHACL Renderer would prefer the French label <code>"Nom"@fr</code>
-            for the field label and <code>"Alice"@fr</code> for the value, unless the application has been configured to
-            use a different language.
-          </p>
-        </aside>
+            <p>
+              For the property label of <code>foaf:givenName</code>, the first label source is the property shape
+              in the shapes graph, followed by the predicate <code>foaf:givenName</code> in the data graph (see
+              <a href="#label-resolution-property-labels">Property Labels</a>). The selected label is
+              <code>"given name"@en</code>: English is the preferred language, and although the property shape is
+              the more preferred label source, it has no English value. With a language preference list of
+              <code>("de" "en")</code> the selected label would be <code>"Vorname"@de</code>.
+            </p>
+          </aside>
+        </section>
+
       </section>
 
       <section id="label-resolution">
@@ -2308,22 +2423,15 @@ ex:alice a ex:Person ;
           </p>
           <ol>
             <li>
-              If the <a>property shape</a> has one or more values for the configured <a>property path</a> for
-              properties determined by <a>label property resolution</a>, select the best
-              matching value using <a>language resolution</a>. 
-              If a match is found, use that literal as the label.
-            </li>
-            <li>
-              If <var>P</var> is a predicate IRI and the <a>data graph</a>
-              contains one or more triples with properties determined by <a>label property resolution</a> and with subject <var>P</var>, select
-              the best matching value using <a>language resolution</a>. 
-              If a match is found, use that literal as the label.
-            </li>
-            <li>
-              If <var>P</var> is a predicate IRI and the <a>shapes graph</a>
-              contains one or more triples with properties determined by <a>label property resolution</a> and with subject <var>P</var>, select
-              the best matching value using <a>language resolution</a>. 
-              If a match is found, use that literal as the label.
+              Let <var>L</var> be the ordered list of label properties determined by
+              <a>label property resolution</a>. Apply <a>language resolution</a> to the following
+              <a>label sources</a>, in this order:
+              <ol>
+                <li>the <a>property shape</a> in the <a>shapes graph</a>, with each label property in <var>L</var>;</li>
+                <li>if <var>P</var> is a predicate IRI: <var>P</var> in the <a>data graph</a>, with each label property in <var>L</var>;</li>
+                <li>if <var>P</var> is a predicate IRI: <var>P</var> in the <a>shapes graph</a>, with each label property in <var>L</var>.</li>
+              </ol>
+              If language resolution selects a literal, use it as the label.
             </li>
             <li>
               If <var>P</var> is a predicate IRI, use the <a>local name resolution</a> of <var>P</var> as the label.
@@ -2347,24 +2455,19 @@ ex:alice a ex:Person ;
               If <var>V</var> is a literal, use its lexical form as the label.
             </li>
             <li>
-              If the applicable <a>node shape</a> for <var>V</var> contains a <a>property shape</a>
-              whose <code>sh:path</code> is annotated with
-              <code>shui:propertyRole shui:LabelRole</code>, retrieve the values of that path from
-              the <a>data graph</a> for subject <var>V</var>. Select the best matching value using
-              <a>language resolution</a>. 
-              If a match is found, use that literal as the label.
-            </li>
-            <li>
-              If the <a>data graph</a> contains one or more values for the configured property path for
-              the value node determined by <a>label property resolution</a> for <var>V</var>,
-              select the best matching value using <a>language resolution</a>. 
-              If a match is found, use that literal as the label.
-            </li>
-            <li>
-              If the <a>shapes graph</a> contains one or more values for the configured property path for
-              the value node  determined by <a>label property resolution</a> for <var>V</var>,
-              select the best matching value using <a>language resolution</a>. 
-              If a match is found, use that literal as the label.
+              Let <var>L</var> be the ordered list of label properties determined by
+              <a>label property resolution</a>. Apply <a>language resolution</a> to the following
+              <a>label sources</a>, in this order:
+              <ol>
+                <li>
+                  <var>V</var> in the <a>data graph</a>, with the <code>sh:path</code> of each
+                  <a>property shape</a> in the applicable <a>node shape</a> for <var>V</var> that is
+                  annotated with <code>shui:propertyRole shui:LabelRole</code>;
+                </li>
+                <li><var>V</var> in the <a>data graph</a>, with each label property in <var>L</var>;</li>
+                <li><var>V</var> in the <a>shapes graph</a>, with each label property in <var>L</var>.</li>
+              </ol>
+              If language resolution selects a literal, use it as the label.
             </li>
             <li>
               If <var>V</var> is an IRI, use the
