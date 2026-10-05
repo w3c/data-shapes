@@ -254,6 +254,30 @@ So this path does not guarantee the outcome.
 This would only cover the state of the documents at the point of publication, and so not restricting any future development.
 
 The NOTE would be neutral as to the values of each approach.
+### Proposal 5 : 50/50
+
+#1291
+
+The principle for this proposal is that each document provides material beneficial for its [users](https://www.w3.org/TR/w3c-vision/#user-first), and its implementations.
+
+Future versions of each document can update their translation based on their new features.
+
+#### Translation from SPARQL to SRL
+Provided in SHACL Inference Rules.
+
+Maps some SPARQL CONSTRUCT combinations to SRL.
+
+SHACL Inference Rules is responsible for producing syntactically valid SPARQL-RL and should produce well-formed rules.
+
+SHACL Inference Rules framework already requires a SPARQL parser, and query analysis, for SHACL SPARQL rules.
+
+#### Translation from SRL to SPARQL
+Provided in SPARQL-RL.
+
+Safe translation from SRL to a SPARQL WHERE clause and CONSTRUCT query, DATA blocks included.
+
+The SPARQL output is valid SPARQL queries.
+There would be an algorithm, which is the style of the SPARQL-RL document.
 
 ## Related Personal Statements (Optional)
 
