@@ -2233,6 +2233,9 @@ ex:CompanyShape
 					For example, a <a>shapes graph</a> MAY also play the role of a <a>data graph</a>
 					when the shapes themselves will be validated.
 				</p>
+				<p>
+					A <a>data graph</a> MAY declare some of its <a>nodes</a> as <a>incomplete</a>, see <a href="#incomplete-data"></a>.
+				</p>
 				<p><em>The remainder of this section is non-normative.</em></p>
 				<p>
 					A data graph is one of the inputs to the SHACL processor for <a>validation</a>.
@@ -2745,6 +2748,246 @@ ex:CompanyShape
 					</ol>
 				</section>
 			</section>
+
+			<section id="incomplete-data">
+				<h3>Incomplete Data</h3>
+				<p>
+					A <a>data graph</a> may intentionally contain only part of the information about some of its <a>nodes</a>,
+					for example when it links to "external" resources that are outside of the domain of interest,
+					or to nodes whose remaining <a>triples</a> have not yet been entered but are expected to be entered later.
+					SHACL defines two properties that can be used in the <a>data graph</a> to declare such nodes as incomplete:
+				</p>
+				<ul>
+					<li>
+						<code>sh:incomplete</code> states whether the <a>subject</a> is incomplete (<code>true</code>) or complete (<code>false</code>).
+						<span data-syntax-rule="incomplete-datatype">The <a>values</a> of <code>sh:incomplete</code> are <a>literals</a> with datatype <code>xsd:boolean</code>.</span>
+					</li>
+					<li>
+						<code>sh:incompleteURIStart</code> declares that all <a>IRIs</a> that start with the lexical form of its value are incomplete, unless stated otherwise.
+						<span data-syntax-rule="incompleteURIStart-datatype">The <a>values</a> of <code>sh:incompleteURIStart</code> are <a>literals</a> with datatype <code>xsd:anyURI</code>.</span>
+						The <a>subject</a> of these <a>triples</a> is not relevant but is often the <a>IRI</a> of the <a>data graph</a> itself.
+					</li>
+				</ul>
+				<p>
+					A <a>node</a> <code>n</code> is <dfn data-lt="incomplete node|incomplete nodes">incomplete</dfn> if the <a>data graph</a> does not contain the
+					<a>triple</a> <code>n sh:incomplete false</code> and at least one of the following conditions is met:
+				</p>
+				<ol>
+					<li>The <a>data graph</a> contains the <a>triple</a> <code>n sh:incomplete true</code>.</li>
+					<li>
+						<code>n</code> is an <a>IRI</a> that starts with the lexical form of any <a>value</a> of <code>sh:incompleteURIStart</code> in the <a>data graph</a>.
+					</li>
+				</ol>
+				<p>
+					In particular, a <a>node</a> that has both <code>true</code> and <code>false</code> as <a>values</a> of <code>sh:incomplete</code> is not <a>incomplete</a>.
+				</p>
+				<p>
+					<a>Literals</a> are never <a>incomplete</a>.
+				</p>
+				<p>
+					SHACL processors MAY, but are not required to, support incomplete data.
+					A SHACL processor that does not support incomplete data MUST produce a <a>failure</a> if <code>sh:incomplete</code>
+					or <code>sh:incompleteURIStart</code> is used as a <a>predicate</a> in any <a>triple</a> of the <a>data graph</a>.
+				</p>
+				<p>
+					SHACL processors that support incomplete data MUST apply the following changes to the <a>validators</a>
+					of the listed <a>constraint components</a>.
+					These changes suppress validation results that might disappear once the missing <a>triples</a> of an
+					<a>incomplete</a> node are known.
+					Furthermore, at <a>property shapes</a>, <a>incomplete</a> <a>value nodes</a> are not validated against the shapes
+					of <code>sh:not</code>, <code>sh:and</code>, <code>sh:or</code>, <code>sh:xone</code>, <code>sh:node</code> and <code>sh:property</code>,
+					so that for example links to external resources are not validated against nested shapes.
+					At <a>node shapes</a>, where the <a>value node</a> is the <a>focus node</a> itself, <a>incomplete</a> nodes are still validated
+					against these shapes, and the changes above apply to them as <a>focus nodes</a>.
+					The validators of all other constraint components remain unchanged.
+				</p>
+				<table class="term-table">
+					<thead>
+						<tr>
+							<th>Constraint Component</th>
+							<th>Change to the Validator</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><a href="#ClassConstraintComponent"><code>sh:class</code></a></td>
+							<td>No <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a>.</td>
+						</tr>
+						<tr>
+							<td><a href="#MinCountConstraintComponent"><code>sh:minCount</code></a></td>
+							<td>No <a>validation result</a> is produced if the <a>focus node</a> is <a>incomplete</a>.</td>
+						</tr>
+						<tr>
+							<td><a href="#MemberShapeConstraintComponent"><code>sh:memberShape</code></a></td>
+							<td><a>Members</a> that are <a>incomplete</a> are treated as conforming to <code>$memberShape</code>.</td>
+						</tr>
+						<tr>
+							<td><a href="#EqualsConstraintComponent"><code>sh:equals</code></a></td>
+							<td>No <a>validation results</a> are produced if the <a>focus node</a> is <a>incomplete</a>.</td>
+						</tr>
+						<tr>
+							<td><a href="#SubsetOfConstraintComponent"><code>sh:subsetOf</code></a></td>
+							<td>No <a>validation results</a> are produced if the <a>focus node</a> is <a>incomplete</a>.</td>
+						</tr>
+						<tr>
+							<td><a href="#NotConstraintComponent"><code>sh:not</code></a></td>
+							<td>
+								For <a>property shapes</a>, no <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a>, which are not checked for conformance.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#AndConstraintComponent"><code>sh:and</code></a></td>
+							<td>
+								For <a>property shapes</a>, no <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a>, which are not checked for conformance.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#OrConstraintComponent"><code>sh:or</code></a></td>
+							<td>
+								For <a>property shapes</a>, no <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a>, which are not checked for conformance.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#XoneConstraintComponent"><code>sh:xone</code></a></td>
+							<td>
+								For <a>property shapes</a>, no <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a>, which are not checked for conformance.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#NodeConstraintComponent"><code>sh:node</code></a></td>
+							<td>
+								For <a>property shapes</a>, no <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a>, which are not checked for conformance.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#PropertyConstraintComponent"><code>sh:property</code></a></td>
+							<td>
+								For <a>property shapes</a>, <a>value nodes</a> that are <a>incomplete</a> are not validated against <code>$property</code>.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#SomeValueConstraintComponent"><code>sh:someValue</code></a></td>
+							<td>
+								No <a>validation result</a> is produced if the <a>focus node</a> is <a>incomplete</a>.
+								<a>Value nodes</a> that are <a>incomplete</a> are treated as conforming to <code>$someValue</code>,
+								so that a single incomplete value node is sufficient to satisfy the constraint.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#QualifiedValueShapeConstraintComponent"><code>sh:qualifiedMinCount</code></a></td>
+							<td>
+								No <a>validation result</a> is produced if the <a>focus node</a> is <a>incomplete</a>.
+								<a>Value nodes</a> that are <a>incomplete</a> are counted towards <code>$qualifiedMinCount</code> even if they do not conform.
+								<code>sh:qualifiedMaxCount</code> remains unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#ReifierShapeConstraintComponent"><code>sh:reificationRequired</code></a></td>
+							<td>No <a>validation results</a> are produced for missing <a>reifiers</a> if the <a>focus node</a> is <a>incomplete</a>.</td>
+						</tr>
+						<tr>
+							<td><a href="#HasValueConstraintComponent"><code>sh:hasValue</code></a></td>
+							<td>
+								For <a>property shapes</a>, no <a>validation result</a> is produced if the <a>focus node</a> is <a>incomplete</a>.
+								<a>Node shapes</a> remain unchanged.
+							</td>
+						</tr>
+						<tr>
+							<td><a href="#RootClassConstraintComponent"><code>sh:rootClass</code></a></td>
+							<td>No <a>validation result</a> is produced for <a>value nodes</a> that are <a>incomplete</a> <a>IRIs</a>.</td>
+						</tr>
+					</tbody>
+				</table>
+				<p><em>The remainder of this section is non-normative.</em></p>
+				<p>
+					In the following example, <code>ex:Bob</code> is declared as <a>incomplete</a> using <code>sh:incomplete</code>,
+					because his email address has not been entered yet.
+					A processor that supports incomplete data therefore only reports a <code>sh:minCount</code> violation for <code>ex:Carla</code>.
+				</p>
+				<aside class="example" title="Example of the use of sh:incomplete">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:email ;
+        sh:minCount 1 ;
+    ] .
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:Alice
+    a ex:Person ;
+    ex:email "alice@example.org" .
+
+ex:Bob
+    a ex:Person ;
+    sh:incomplete true .
+
+<span class="focus-node-error">ex:Carla</span>
+    a ex:Person .
+						</div>
+					</div>
+				</aside>
+				<p>
+					In the following example, the <a>data graph</a> links to companies that are described in another graph.
+					It uses <code>sh:incompleteURIStart</code> to declare all <a>IRIs</a> of these companies as <a>incomplete</a>,
+					so that the missing <code>rdf:type</code> <a>triples</a> are not reported as <code>sh:class</code> violations.
+					<code>ex:Bob</code> is still reported, because his employer has been declared as complete using <code>sh:incomplete false</code>.
+					<code>ex:Carla</code> conforms regardless of incompleteness, because her employer is stated to be an <code>ex:Company</code>.
+				</p>
+				<aside class="example" title="Example of the use of sh:incompleteURIStart">
+					<div class="shapes-graph">
+						<div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:worksFor ;
+        sh:class ex:Company ;
+    ] .
+						</div>
+					</div>
+					<div class="data-graph">
+						<div class="turtle">
+ex:MyDataGraph
+    a sh:DataGraph ;
+    sh:incompleteURIStart "http://example.org/companies/"^^xsd:anyURI .
+
+ex:Alice
+    a ex:Person ;
+    ex:worksFor &lt;http://example.org/companies/ACME&gt; .
+
+<span class="focus-node-error">ex:Bob</span>
+    a ex:Person ;
+    ex:worksFor &lt;http://example.org/companies/Globex&gt; .
+
+&lt;http://example.org/companies/Globex&gt;
+    sh:incomplete false .
+
+ex:Carla
+    a ex:Person ;
+    ex:worksFor &lt;http://example.org/companies/Initech&gt; .
+
+&lt;http://example.org/companies/Initech&gt;
+    a ex:Company .
+						</div>
+					</div>
+				</aside>
+				<p class="note">
+					A SHACL processor that does not support incomplete data reports a failure so that data graphs
+					that rely on incomplete nodes are not reported as non-conforming, or as conforming, based on semantics
+					that differ from the intention of the data graph author.
+				</p>
+			</section>
 		</section>
 
 		<section id="core-components">
@@ -2838,7 +3081,8 @@ ex:CompanyShape
 							exactly the members of the list.<br><br>
 							For each <a>value node</a>
 							that is either a <a>literal</a>, or a non-literal that is not a <a>SHACL instance</a> of any of the <code>classes</code> in the <a>data graph</a>,
-							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
+							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -3140,7 +3384,8 @@ ex:Alice ex:knows <span class="focus-node-error">"Bob"</span> .
 						<div class="def-text-body" data-validator="MinCount">
 							Let <code>$minCount</code> be a <a>parameter value</a> for <code>sh:minCount</code>.
 							If the number of <a>value nodes</a> is less than <code>$minCount</code>,
-							there is a <a>validation result</a>.
+							there is a <a>validation result</a>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -3864,7 +4109,8 @@ ex:Alice
 						<div class="def-text-body" data-validator="MemberShape">
 							Let <code>$memberShape</code> be a <a>parameter value</a> for <code>sh:memberShape</code>.
 							Each <a>value node</a> <code>v</code> must be a <a href="#syntax-rule-SHACL-list">SHACL list</a> - if <code>v</code> is not a SHACL list there is a <a>validation result</a>.
-							If any member <code>m</code> of the <a href="#syntax-rule-SHACL-list">SHACL list</a> <code>v</code> does not <a>conform</a> to <code>$memberShape</code>, there is a <a>validation result</a>.
+							If any member <code>m</code> of the <a href="#syntax-rule-SHACL-list">SHACL list</a> <code>v</code> does not <a>conform</a> to <code>$memberShape</code>, there is a <a>validation result</a>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4165,7 +4411,8 @@ ex:person1 a ex:Person ;
 							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
 							For each <a>node</a> in <code>$otherNodes</code>
 							that is not one of the <a>value nodes</a>,
-							there is a <a>validation result</a> with the <a>value</a> as <code>sh:value</code>.
+							there is a <a>validation result</a> with the <a>value</a> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4349,7 +4596,8 @@ ex:USA
 							be the <a>SHACL property path</a> represented by <code>$subsetOf</code> in the <a>shapes graph</a>.
 							Let <code>$otherNodes</code> be the set of <a>nodes</a> that can be reached from the <a>focus node</a> via <code>$path</code>.
 							For each <a>value node</a> that does not exist in <code>$otherNodes</code>,
-							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
+							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4534,7 +4782,8 @@ ex:LessThanExampleShape-startDate
 							A <a>failure</a> MUST be reported if the <a>conformance checking</a> of <code>v</code> against
 							the shape <code>$not</code> produces a <a>failure</a>.
 							Otherwise, if <code>v</code> <a>conforms</a> to the shape <code>$not</code>,
-							there is <a>validation result</a> with <code>v</code> as <code>sh:value</code>.
+							there is <a>validation result</a> with <code>v</code> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4599,7 +4848,8 @@ ex:NotExampleShape
 							For each <a>value node</a> <code>v</code>:
 							A <a>failure</a> MUST be produced if the <a>conformance checking</a> of <code>v</code> against any of the <a>members</a> of <code>$and</code> produces a <a>failure</a>.
 							Otherwise, if <code>v</code> does not <a>conform</a> to each <a>member</a> of <code>$and</code>,
-							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.
+							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4689,7 +4939,8 @@ ex:ValidInstance
 							For each <a>value node</a> <code>v</code>:
 							A <a>failure</a> MUST be produced if the <a>conformance checking</a> of <code>v</code> against any of the <a>members</a> produces a <a>failure</a>.
 							Otherwise, if <code>v</code> <a>conforms</a> to none of the <a>members</a> of <code>$or</code>
-							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.
+							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4821,7 +5072,8 @@ ex:shapeRoot a sh:NodeShape;
 							where <code>v</code> <a>conforms</a> to the shape.
 							A <a>failure</a> MUST be produced if the <a>conformance checking</a> of <code>v</code> against any of the <a>members</a> produces a <a>failure</a>.
 							Otherwise, if <code>N</code> is not exactly <code>1</code>,
-							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.
+							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -4920,7 +5172,8 @@ ex:Carla a ex:Person ;
 							For each <a>value node</a> <code>v</code>:
 							A <a>failure</a> MUST be produced if the <a>conformance checking</a> of <code>v</code> against <code>$node</code> produces a <a>failure</a>.
 							Otherwise, if <code>v</code> does not <a>conform</a> to <code>$node</code>,
-							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.
+							there is a <a>validation result</a> with <code>v</code> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -5072,7 +5325,8 @@ ex:USZipCode
 							Let <code>$property</code> be a <a>value</a> of <code>sh:property</code>.
 							For each <a>value node</a> <code>v</code>:
 							A <a>failure</a> MUST be produced if the validation of <code>v</code> as <a>focus node</a> against the property shape <code>$property</code> produces a <a>failure</a>.
-							Otherwise, the validation results are the results of <a>validating</a> <code>v</code> as <a>focus node</a> against the property shape <code>$property</code>.
+							Otherwise, the validation results are the results of <a>validating</a> <code>v</code> as <a>focus node</a> against the property shape <code>$property</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -5125,7 +5379,8 @@ ex:USZipCode
 							A <a>failure</a> MUST be produced if the <a>conformance checking</a> of any <a>value node</a> against
 							<code>$someValue</code> produces a <a>failure</a>, unless at least one of the <a>value nodes</a> conforms to <code>$someValue</code>.
 							Otherwise, if none of the <a>value nodes</a> <a>conforms</a> to <code>$someValue</code>,
-							there is a <a>validation result</a>.
+							there is a <a>validation result</a>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -5243,7 +5498,8 @@ ex:DuckFarmerShape-tendsAnimal
 							i.e. the shape that <code>v</code> is validated against and which has <code>$qualifiedValueShape</code> as its value for <code>sh:qualifiedValueShape</code>.
 							A <a>failure</a> MUST be produced if any of the said conformance checks produces a <a>failure</a>.
 							Otherwise, there is a <a>validation result</a> if <code>C</code> is less than <code>$qualifiedMinCount</code>.
-							The <a>constraint component</a> for <code>sh:qualifiedMinCount</code> is <code>sh:QualifiedMinCountConstraintComponent</code>.
+							The <a>constraint component</a> for <code>sh:qualifiedMinCount</code> is <code>sh:QualifiedMinCountConstraintComponent</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 
@@ -5386,7 +5642,8 @@ ex:HandShape
 					<div class="def def-text">
 						<div class="def-header">TEXTUAL DEFINITION of sh:reificationRequired</div>
 						<div class="def-text-body" data-validator="ReificationRequired">
-							If <code>$reificationRequired</code> is set to <code>true</code> and there is no reified statement for the <a>triple term</a> <code>t</code> in the <a>data graph</a>, there is a validation result with <code>t</code> as <code>sh:value</code>.
+							If <code>$reificationRequired</code> is set to <code>true</code> and there is no reified statement for the <a>triple term</a> <code>t</code> in the <a>data graph</a>, there is a validation result with <code>t</code> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 
@@ -5615,7 +5872,8 @@ ex:Alice
 						<div class="def-text-body" data-validator="HasValue">
 							Let <code>$hasValue</code> be a <a>parameter value</a> for <code>sh:hasValue</code>.
 							If the RDF term <code>$hasValue</code> is not among the <a>value nodes</a>,
-							there is a <a>validation result</a>.
+							there is a <a>validation result</a>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -5752,7 +6010,8 @@ ex:RainbowPony ex:color ex:Pink .
 							that is either not an <a>IRI</a>, or an <a>IRI</a> for which there exists no <code>class</code> in <code>classes</code>
 							such that the <a>data graph</a> entails
 							<code>valueNode rdfs:subClassOf* class</code>,
-							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.
+							there is a <a>validation result</a> with the <a>value node</a> as <code>sh:value</code>.<br><br>
+							Processors that support incomplete data apply the changes listed in <a href="#incomplete-data"></a>.
 						</div>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -6527,6 +6786,7 @@ ex:NameGroup
 				<li>Added the new constraint component <a href="#SubsetOfConstraintComponent"><code>sh:subsetOf</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/786">Issue 786</a></li>
 				<li>Added the graph types <code>sh:DataGraph</code> and <code>sh:ShapesGraph</code>; see <a href="https://github.com/w3c/data-shapes/issues/169">Issue 169</a></li>
 				<li>Added the new constraint component <a href="#UniqueValuesForConstraintComponent"><code>sh:uniqueValuesFor</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/661">Issue 661</a></li>
+				<li>Added optional support for <a href="#incomplete-data">incomplete data</a> using <code>sh:incomplete</code> and <code>sh:incompleteURIStart</code></li>
 				<li>Added support for <a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a> in <a href="#shapes-graph">shapes graph</a> imports, and expanded the definition of <a>well-formed</a> shapes graphs to include import closure constraints from [[owl2-syntax]]; see <a href="https://github.com/w3c/data-shapes/issues/830">Issue 830</a></li>
 			</ul>
 		</section>

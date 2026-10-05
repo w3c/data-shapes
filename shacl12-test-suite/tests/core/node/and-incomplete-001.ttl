@@ -1,0 +1,76 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Unlike at property shapes, incomplete focus nodes of node shapes are still validated, so the
+# nested shapes are checked and their violations are reported.
+<http://example.com/external/Someone>
+  ex:age "old" ;
+.
+ex:AgeShape
+  rdf:type sh:NodeShape ;
+  sh:property [
+      sh:path ex:age ;
+      sh:datatype xsd:integer ;
+    ] ;
+.
+ex:DataGraphInfo
+  sh:incompleteURIStart "http://example.com/external/"^^xsd:anyURI ;
+.
+ex:FlaggedPerson
+  ex:age "old" ;
+  sh:incomplete true ;
+.
+ex:PersonShape
+  rdf:type sh:NodeShape ;
+  sh:and (
+      ex:AgeShape
+    ) ;
+  sh:targetNode <http://example.com/external/Someone> ;
+  sh:targetNode ex:FlaggedPerson ;
+  sh:targetNode ex:ValidPerson ;
+.
+ex:ValidPerson
+  ex:age 42 ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <and-incomplete-001>
+    ) ;
+.
+<and-incomplete-001>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:and at node shape with incomplete focus nodes 001" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode <http://example.com/external/Someone> ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:AndConstraintComponent ;
+          sh:sourceShape ex:PersonShape ;
+          sh:value <http://example.com/external/Someone> ;
+        ] ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:FlaggedPerson ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:AndConstraintComponent ;
+          sh:sourceShape ex:PersonShape ;
+          sh:value ex:FlaggedPerson ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.

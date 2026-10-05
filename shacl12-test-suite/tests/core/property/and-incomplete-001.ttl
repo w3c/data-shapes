@@ -1,0 +1,94 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Like sh:node: values that are incomplete, e.g. links to "external" resources outside of the
+# domain of interest, are not checked for conformance and therefore not reported.
+<http://example.com/external/MarkedComplete>
+  ex:age "old" ;
+  sh:incomplete false ;
+.
+<http://example.com/external/Someone>
+  ex:age "old" ;
+.
+ex:FlaggedPerson
+  ex:age "old" ;
+  sh:incomplete true ;
+.
+ex:InvalidPerson
+  ex:age "old" ;
+.
+ex:ValidPerson
+  ex:age 42 ;
+.
+ex:AgeShape
+  rdf:type sh:NodeShape ;
+  sh:property [
+      sh:path ex:age ;
+      sh:datatype xsd:integer ;
+    ] ;
+.
+ex:DataGraphInfo
+  sh:incompleteURIStart "http://example.com/external/"^^xsd:anyURI ;
+.
+ex:Issue
+  ex:assignedTo <http://example.com/external/MarkedComplete> ;
+  ex:assignedTo <http://example.com/external/Someone> ;
+  ex:assignedTo ex:FlaggedPerson ;
+  ex:assignedTo ex:InvalidPerson ;
+  ex:assignedTo ex:ValidPerson ;
+.
+ex:IssueShape
+  rdf:type sh:NodeShape ;
+  sh:property ex:IssueShape-assignedTo ;
+  sh:targetNode ex:Issue ;
+.
+ex:IssueShape-assignedTo
+  sh:path ex:assignedTo ;
+  sh:and (
+      ex:AgeShape
+    ) ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <and-incomplete-001>
+    ) ;
+.
+<and-incomplete-001>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:and at property shape with incomplete value nodes 001" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:Issue ;
+          sh:resultPath ex:assignedTo ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:AndConstraintComponent ;
+          sh:sourceShape ex:IssueShape-assignedTo ;
+          sh:value <http://example.com/external/MarkedComplete> ;
+        ] ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:Issue ;
+          sh:resultPath ex:assignedTo ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:AndConstraintComponent ;
+          sh:sourceShape ex:IssueShape-assignedTo ;
+          sh:value ex:InvalidPerson ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.

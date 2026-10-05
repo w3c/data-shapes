@@ -1,0 +1,134 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Like sh:node: incomplete list members, e.g. "external" resources outside of the domain of
+# interest, are not validated against the member shape.
+<http://example.com/external/MarkedComplete>
+  ex:age "old" ;
+  sh:incomplete false ;
+.
+<http://example.com/external/Someone>
+  ex:age "old" ;
+.
+ex:AgeShape
+  rdf:type sh:NodeShape ;
+  sh:property ex:AgeShape-age ;
+.
+ex:AgeShape-age
+  sh:path ex:age ;
+  sh:datatype xsd:integer ;
+.
+ex:DataGraphInfo
+  sh:incompleteURIStart "http://example.com/external/"^^xsd:anyURI ;
+.
+ex:FlaggedMember
+  ex:age "old" ;
+  sh:incomplete true ;
+.
+ex:InvalidMember
+  ex:age "old" ;
+.
+ex:OnlyIncompleteMembers
+  ex:testProperty (
+      ex:FlaggedMember
+      <http://example.com/external/Someone>
+    ) ;
+.
+ex:SomeInvalidMembers
+  ex:testProperty _:l1 ;
+.
+ex:CompleteExternalMember
+  ex:testProperty _:l2 ;
+.
+ex:TestShape
+  rdf:type sh:NodeShape ;
+  sh:property ex:TestShape-testProperty ;
+  sh:targetNode ex:CompleteExternalMember ;
+  sh:targetNode ex:OnlyIncompleteMembers ;
+  sh:targetNode ex:SomeInvalidMembers ;
+  sh:targetNode ex:ValidMembers ;
+.
+ex:TestShape-testProperty
+  sh:path ex:testProperty ;
+  sh:memberShape ex:AgeShape ;
+.
+ex:ValidMember
+  ex:age 42 ;
+.
+ex:ValidMembers
+  ex:testProperty (
+      ex:ValidMember
+    ) ;
+.
+_:l1
+  rdf:first ex:InvalidMember ;
+  rdf:rest (
+      ex:FlaggedMember
+    ) ;
+.
+_:l2
+  rdf:first <http://example.com/external/MarkedComplete> ;
+  rdf:rest rdf:nil ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <memberShape-incomplete-001>
+    ) ;
+.
+<memberShape-incomplete-001>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:memberShape at property shape with incomplete list members 001" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:SomeInvalidMembers ;
+          sh:resultPath ex:testProperty ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MemberShapeConstraintComponent ;
+          sh:sourceShape ex:TestShape-testProperty ;
+          sh:value _:l1 ;
+          sh:detail [
+            rdf:type sh:ValidationResult ;
+            sh:focusNode ex:InvalidMember ;
+            sh:resultPath ex:age ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+            sh:sourceShape ex:AgeShape-age ;
+            sh:value "old" ;
+          ] ;
+        ] ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:CompleteExternalMember ;
+          sh:resultPath ex:testProperty ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:MemberShapeConstraintComponent ;
+          sh:sourceShape ex:TestShape-testProperty ;
+          sh:value _:l2 ;
+          sh:detail [
+            rdf:type sh:ValidationResult ;
+            sh:focusNode <http://example.com/external/MarkedComplete> ;
+            sh:resultPath ex:age ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+            sh:sourceShape ex:AgeShape-age ;
+            sh:value "old" ;
+          ] ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
