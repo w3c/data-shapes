@@ -8,10 +8,14 @@ It is not a comprehensive list of changes to the specification.
 This file is temporary while the specification is in-development — it is not
 intended for publication.
 
+## 2026-10-01
+Rule templates that involve triple terms which have a variable can lead to unsafe rules.
+See example https://github.com/w3c/data-shapes/issues/1293
+
 ## 2026-08-19
 Move from "SHACL 1.2 Rules" to "SPARQL 12 RL" / SPARQL-RL.
 Move tests to `shacl12-test-suite/tests/sparql-rl/`
-Chnage test namespace to `PREFIX srlt: <http://www.w3.org/ns/sparql-rl-tests#>`
+Change test namespace to `PREFIX srlt: <http://www.w3.org/ns/sparql-rl-tests#>`
 Change root test manifest to `manifest-sparql-rl.ttl`
 
 ## 2026-08-12
