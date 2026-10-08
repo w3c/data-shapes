@@ -1,11 +1,8 @@
-<!-- SPDX-FileCopyrightText: 2026 Blackcat Informatics Inc. <paudley@blackcatinformatics.ca> -->
-<!-- SPDX-License-Identifier: CC-BY-4.0 -->
-
 # Prebinding and result identity proposals
 
 These 55 proposed validation cases exercise the [18 September 2026 SHACL 1.2 Core/SPARQL Working Draft](https://www.w3.org/TR/2026/WD-shacl12-sparql-20260918/). Every case is proposed, and adoption remains the Working Group decision. Expectations were derived from the specification and input graph, independently reviewed before engine observations, and retained verbatim. A conforming and violating control and IRI and blank focus controls distinguish correct validation from a missing result.
 
-Each case has a relative `manifest.ttl` and `shapes.ttl`. The manifest is also the data document and contains the independently specified complete expected report, retaining its source blank identities. `sht:dataGraph <>` selects that document. IRI record anchors establish which blank focus each expected result denotes; do not replace one global source/report blank correspondence with separate per-result renaming. Both documents retain their original copyright and license notices.
+Each case has a relative `manifest.ttl` and `shapes.ttl`. The manifest is also the data document and contains the independently specified complete expected report, retaining its source blank identities. `sht:dataGraph <>` selects that document. IRI record anchors establish which blank focus each expected result denotes; do not replace one global source/report blank correspondence with separate per-result renaming. Both documents are contributed under the W3C Software and Document License and carry no separate copyright or license notice.
 
 The ten pattern families cover empty-left and anchored OPTIONAL, nested OPTIONAL, NOT EXISTS and nested NOT EXISTS, EXISTS absence, UNION absence, paths, projected and aggregate subqueries. Additional cases cover ASK and SELECT validators with parameters, a prebound predicate position, failure/message result variables, and a sequence/inverse complex result path. The admission cases reflect this suite's exact revision. The 2017 suite prohibits local VALUES, hidden-prebound subqueries, prebound VALUES/AS, MINUS and SERVICE. The dated 1.2 suite permits local VALUES and an unprojected prebound subquery variable, still forbids prebound VALUES/AS and MINUS, and separately includes an RDF 1.2 triple-term focus.
 
