@@ -36,24 +36,6 @@
 				});
 			}
 
-			function prepareValidators() {
-				document.querySelectorAll("[data-validator]").forEach(element => {
-					let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
-					let tr = document.createElement("tr");
-					tr.classList.add("validator-tr");
-					let td = document.createElement("td");
-					tr.appendChild(td);
-					let a = document.createElement("a");
-					a.classList.add("validator-id-a");
-					a.href = `#validator-${validatorId}`;
-					a.textContent = `sh:${validatorId}`;
-					td.appendChild(a);
-					td.innerHTML += ": " + element.innerHTML;
-					document.getElementById("validators-table").appendChild(tr);
-					element.id = "validator-" + validatorId;
-				});
-			}
-
 			document.addEventListener("DOMContentLoaded", () => {
 				// Replace code div blocks in shapes, data, and results graph with tabs
 				for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
@@ -102,7 +84,7 @@
 				github: "w3c/data-shapes",
 				edDraftURI: "https://w3c.github.io/data-shapes/shacl12-sparql/",
 				specStatus: "ED",
-				preProcess : [ prepareSyntaxRules, prepareValidators ],
+				preProcess : [ prepareSyntaxRules ],
 				shortName:  "shacl12-sparql",
 				subjectPrefix: "[shacl12-sparql]",
 				editors: [
@@ -150,15 +132,7 @@
 				lint: {
 					"no-unused-dfns": false,  // This should be removed near the end of the process
   				},
-				wgPublicList: "public-shacl",
-				localBiblio: {
-					"shacl12-inference-rules": {
-						title: "SHACL 1.2 Inference Rules",
-						href: "https://w3c.github.io/data-shapes/shacl12-inference-rules/",
-						status: "ED",
-						publisher: "W3C"
-					}
-				}
+				wgPublicList: "public-shacl"
 			};
 		</script>
 		<link rel="stylesheet" href="style.css"/>
@@ -247,7 +221,8 @@
 						<dfn data-cite="shacl12-core#dfn-node-expression" data-lt="node expression|node expressions">node expression</dfn>,
 						<dfn data-cite="shacl12-core#dfn-node-expression-function" data-lt="node expression function|node expression functions">node expression function</dfn>,
 						<dfn data-cite="shacl12-core#dfn-function-name" data-lt="node expression function name">function name</dfn>,
-						<dfn data-cite="shacl12-core#dfn-output-nodes" data-lt="output nodes">output nodes</dfn>,
+						<dfn data-cite="shacl12-core#dfn-output-nodes" data-lt="output nodes|output node">output nodes</dfn>,
+						<dfn data-cite="shacl12-core#dfn-evaluation-failure" data-lt="evaluation failure|evaluation failures">evaluation failure</dfn>,
 						<dfn data-cite="shacl12-core#dfn-focus-graph" data-lt="focus graph">focus graph</dfn>,
 						<dfn data-cite="shacl12-core#dfn-conform" data-lt="conform|conforms">conform</dfn>,
 						<dfn data-cite="shacl12-core#dfn-failure" data-lt="failure|failures">failure</dfn>,
@@ -312,6 +287,14 @@
 						<td><code>ex:</code></td>
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
+					<tr>
+						<td><code>shnex:</code></td>
+						<td><code>http://www.w3.org/ns/shacl-node-expr#</code></td>
+					</tr>
+					<tr>
+						<td><code>sparql:</code></td>
+						<td><code>http://www.w3.org/ns/sparql#</code></td>
+					</tr>
 				</table>
 
 				<p>
@@ -324,7 +307,9 @@
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
     "sh": "http://www.w3.org/ns/shacl#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
-    "ex": "http://example.com/ns#"
+    "ex": "http://example.com/ns#",
+    "shnex": "http://www.w3.org/ns/shacl-node-expr#",
+    "sparql": "http://www.w3.org/ns/sparql#"
   }
 }</pre>
 				<p>
@@ -389,7 +374,7 @@
 				</p>
 
 				<p>
-					SPARQL variables using the <code>$</code> marker represent external <a>bindings</a> that are <a>pre-bound</a> or, in the case of <code>$PATH</code>, <a>substituted</a> in the SPARQL query before execution (as explained in <a href="#constraint-components-validation"></a>).
+					SPARQL variables using the <code>$</code> marker represent external <a>bindings</a> that are <a>pre-bound</a> or, in the case of <code>$PATH</code>, <a>substituted</a> in the SPARQL query before execution (as explained in <a href="#sparql-constraints-validation"></a>).
 				</p>
 
 				<p>
@@ -406,11 +391,14 @@
 				</p>
 				<ul>
 					<li><strong>SHACL-SPARQL validation processors</strong> as processors that support SHACL validation using
-						<a href="#sparql-constraints"></a> and <a href="#sparql-constraint-components"></a></li>
+						<a href="#sparql-constraints"></a> and <a href="#sparql-constraint-components"></a>
+						(identified as <code>SPARQLValidation</code> in the test suite).
+						Such processors MAY additionally support <a href="#sparql-constraints-annotations"></a>;
+						processors that do MUST follow the rules of that section.</li>
 					<li><strong>SPARQL node expression processors</strong> as processors that can evaluate
-						<a href="#sparql-node-expressions"></a></li>
-					<li><strong>SPARQL custom functions processors</strong> as processors that can evaluate
-						<a href="#sparql-functions"></a></li>
+						<a href="#sparql-node-expressions"></a> (<code>SPARQLNodeExpr</code> in the test suite)</li>
+					<li><strong>SPARQL custom function processors</strong> as processors that can evaluate
+						<a href="#sparql-functions"></a> (<code>SPARQLCustomFunctions</code> in the test suite)</li>
 				</ul>
 				<p>
 					Also see the discussion of well-formedness in the <a data-cite="shacl12-core#conformance">Conformance section of SHACL Core</a>.
@@ -431,7 +419,7 @@
 				A <a>shapes graph</a> may include declarations of namespace prefixes so that these prefixes can be used to abbreviate the SPARQL queries derived from the same shapes graph.
 				The syntax of such prefix declarations is illustrated by the following example.
 			</p>
-			<aside class="example" id="prefixes-example">
+			<aside class="example" id="prefixes-example" title="Prefix declarations in a shapes graph">
 				<div class="shapes-graph">
 					<div class="turtle">
 ex:
@@ -497,18 +485,22 @@ ex:
 			</p>
 			<p class="syntax">
 				<span data-syntax-rule="prefixes-nodeKind">The values of <code>sh:prefixes</code> are either <a>IRIs</a> or <a>blank nodes</a>.</span>
-				<span data-syntax-rule="prefixes-duplicates">A SHACL processor collects a set of prefix mappings as the union of all
-				individual prefix mappings that are <a>values</a> of the <a>SPARQL property path</a> <code>sh:prefixes/(^owl:versionIRI?/owl:imports)*/sh:declare</code>
-				of the <a>SPARQL-based constraint</a> or <a>validator</a>.
-				The <code>^owl:versionIRI?</code> element supports graphs that are imported by
+				A SHACL processor collects a set of prefix mappings as the union of all
+				individual prefix mappings that are <a>values</a> of the <a>SPARQL property path</a>
+				<code>sh:prefixes/(^owl:versionIRI)?/(owl:imports/(^owl:versionIRI)?)*/sh:declare</code>
+				of the <a>SPARQL-based constraint</a>, <a>validator</a> or <a href="#sparql-node-expressions">SPARQL-based node expression</a>.
+				The <code>(^owl:versionIRI)?</code> elements support graphs that are referenced by their
 				<a data-cite="owl2-syntax/#Ontology_IRI_and_Version_IRI"><code>owl:versionIRI</code></a>,
-				navigating from the version IRI to the shapes graph IRI before following further <code>owl:imports</code>.
-				If such a collection of prefix declarations contains multiple different namespaces for the same <a>value</a> of <code>sh:prefix</code>,
+				either directly as a value of <code>sh:prefixes</code> or via <code>owl:imports</code>:
+				they navigate from the version IRI to the shapes graph IRI before the prefix declarations are collected
+				and further <code>owl:imports</code> are followed.
+				<span data-syntax-rule="prefixes-duplicates">If such a collection of prefix declarations contains multiple different namespaces for the same <a>value</a> of <code>sh:prefix</code>,
 				then the <a>shapes graph</a> is <a>ill-formed</a>.</span>
 				(Note that SHACL processors MAY ignore prefix declarations that are never reached).
 			</p>
 			<p id="no-prefixes">
-				If a SPARQL query has no <a>value</a> for <code>sh:prefixes</code> then the system will use those <a>prefix declarations</a>
+				If a <a>SPARQL-based constraint</a>, <a>validator</a> or <a href="#sparql-node-expressions">SPARQL-based node expression</a>
+				has no <a>value</a> for <code>sh:prefixes</code> then the SHACL processor uses those <a>prefix declarations</a>
 				from the <a>shapes graph</a> that are <a>values</a> of <code>sh:declare</code> at a <a>SHACL instance</a> of
 				<code>owl:Ontology</code>, <code>sh:DataGraph</code>, <code>sh:ShapesGraph</code>,
 				or <code>sh:RulesGraph</code> (which is a subclass of <code>sh:ShapesGraph</code>).
@@ -703,7 +695,7 @@ ex:ValidCountry a ex:Country ;
 				<p>
 					The following example illustrates a similar scenario as above, but with a <a>property shape</a>.
 				</p>
-				<aside class="example" id="example-sparql-constraint-in-property-shape">
+				<aside class="example" id="example-sparql-constraint-in-property-shape" title="A SPARQL-based constraint in a property shape">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:LanguageExamplePropertyShape
@@ -781,7 +773,8 @@ ex:
 					and these are <a>literals</a> with <a>datatype</a> <code>xsd:string</code>, <code>rdf:dirLangString</code>, <code>rdf:langString</code>, or <code>rdf:HTML</code>.
 					There should neither be more than one value for <code>sh:message</code> with the same language tag, nor multiple values with datatype <code>xsd:string</code>.</span>
 					<span data-syntax-rule="SPARQLConstraint-deactivated-maxCount"><a>SPARQL-based constraints</a> may have at most one value for the property <code>sh:deactivated</code></span>
-					and this value is either <code>true</code> or <code>false</code>.
+					and this value is a <a>node expression</a> that must have either <code>true</code> or <code>false</code> as its (only) <a>output node</a>,
+					as for <a data-cite="shacl12-core#deactivated">shapes</a>.
 					<span data-syntax-rule="SPARQLConstraint-severity"><a>SPARQL-based constraints</a> may have at most one value for the property <code>sh:severity</code>
 					and this value is an <a>IRI</a>.</span>
 				</p>
@@ -793,6 +786,10 @@ ex:
 					and <a>SELECT-based validators</a> is in the
 					<a>predicate</a> position of a <a data-cite="sparql12-query/#QSynTriples">triple pattern</a>.</span>
 					A query that uses the variable <code>PATH</code> in any other position is <a>ill-formed</a>.
+				</p>
+				<p>
+					The variable <code>PATH</code> is only <a>substituted</a> for <a>property shapes</a>.
+					In the SPARQL queries of <a>node shapes</a> it remains an unbound variable.
 				</p>
 			</section>
 			<section id="sparql-constraints-validation">
@@ -806,8 +803,9 @@ ex:
 					<div class="def-header">TEXTUAL DEFINITION</div>
 					<div class="def-text-body">
 						Let <code>$sparql</code> be a <a>value</a> of <code>sh:sparql</code>.
-						There are no <a>validation results</a> if the <a>SPARQL-based constraint</a> has <code>true</code>
-						as a <a>value</a> for the property <code>sh:deactivated</code>.
+						If <code>$sparql</code> has a <a>value</a> <code>expr</code> for the property <code>sh:deactivated</code> and
+						<code>evalExpr(expr, <a>data graph</a>, <a>focus node</a>, {})</code> produces <code>true</code> as its only <a>output node</a>,
+						then the constraint is deactivated and there are no <a>validation results</a>.
 						Otherwise, execute the SPARQL query specified by the <a>SPARQL-based constraint</a> <code>$sparql</code>
 						<a>pre-binding</a> the variable <code>this</code> as described in <a href="#sparql-constraints-prebound"></a>.
 						If the <a>shape</a> is a <a>property shape</a>, then prior to execution
@@ -900,6 +898,11 @@ ex:
 							</td>
 						</tr>
 					</table>
+					<p>
+						The variable <code>failure</code> is reserved and is not mapped to a result property:
+						as defined <a href="#sparql-constraints-validation-rule">above</a>, a <a>solution</a> that has <code>true</code>
+						as the <a>binding</a> for <code>failure</code> produces a <a>failure</a> instead of a <a>validation result</a>.
+					</p>
 				</section>
 			</section>
 		</section>
@@ -951,7 +954,7 @@ ex:hasPattern
 		{
 			"@id": "ex:hasPattern",
 			"@type": "sh:SPARQLAskValidator",
-			"sh:ask": "\n\t\tASK { \n\t\t\tFILTER (!isBlank($value) && \n\t\t\t\tIF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern)))\n\t\t}",
+			"sh:ask": "\n\t\tASK {\n\t\t\tFILTER (!isBlank($value) &&\n\t\t\t\tIF(bound($flags), regex(str($value), $pattern, $flags), regex(str($value), $pattern)))\n\t\t}",
 			"sh:message": "Value does not match pattern {$pattern}"
 		},
 		{
@@ -998,18 +1001,15 @@ ex:CaseInsensitiveSearch
 						</div>
 						<div class="jsonld">
 							<pre class="jsonld">{
-  "@graph": [
-    {
-      "@id": "ex:CaseInsensitiveSearch",
-      "@type": "sh:NodeShape",
-      "sh:property": {
-        "@type": "sh:PropertyShape",
-        "sh:path": { "@id": "ex:code" },
-        "sh:pattern": "^[A-Z]{3}[0-9]{2}$",
-        "sh:flags": "i"
-      }
-    }
-  ]
+	"@id": "ex:CaseInsensitiveSearch",
+	"@type": "sh:NodeShape",
+	"sh:property": {
+		"sh:flags": "i",
+		"sh:path": {
+			"@id": "ex:code"
+		},
+		"sh:pattern": "^[A-Z]{3}[0-9]{2}$"
+	}
 }</pre>
 						</div>
 					</div>
@@ -1054,7 +1054,7 @@ ex:CaseInsensitiveSearch
 					</p>
 					<p class="syntax">
 						<span data-syntax-rule="parameter-name-VARNAME">Every <a>parameter name</a> is a valid <a data-cite="sparql12-query/#rVARNAME">SPARQL VARNAME</a>.</span>
-						<span data-syntax-rule="parameter-name-not-in"><a>Parameter names</a> must not be one of the following: <code>this</code>, <code>path</code>, <code>PATH</code>, <code>value</code>.</span>
+						<span data-syntax-rule="parameter-name-not-in"><a>Parameter names</a> must not be one of the following: <code>this</code>, <code>path</code>, <code>PATH</code>, <code>value</code>, <code>message</code>, <code>failure</code>.</span>
 						<span data-syntax-rule="parameter-name-unique">A constraint component where two or more <a>parameter declarations</a> use the same <a>parameter names</a> is <a>ill-formed</a>.</span>
 					</p>
 					<p class="syntax">
@@ -1076,7 +1076,8 @@ ex:CaseInsensitiveSearch
 					<h4>Label Templates (sh:labelTemplate)</h4>
 					<p class="syntax">
 						The property <code>sh:labelTemplate</code> can be used at any <a>constraint component</a> to suggest how <a>constraints</a> could be rendered to humans.
-						<span data-syntax-rule="labelTemplate-datatype">The values of <code>sh:labelTemplate</code> are strings (possibly with language tag)</span> and
+						<span data-syntax-rule="labelTemplate-datatype">The values of <code>sh:labelTemplate</code> are <a>literals</a> with <a>datatype</a>
+						<code>xsd:string</code>, <code>rdf:langString</code> or <code>rdf:dirLangString</code></span> and
 						are called <dfn data-lt="label template">label templates</dfn>.
 					</p>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -1086,7 +1087,7 @@ ex:CaseInsensitiveSearch
 						where <code>varName</code> is the name of the <a>parameter name</a>.
 						At display time, these <code>{?varName}</code> and <code>{$varName}</code> blocks should be replaced with the actual parameter values.
 						There may be multiple label templates for the same subject, but they should not have the same language tags
-						and there should not be more than one template with datatype `xsd:string`.
+						and there should not be more than one template with datatype <code>xsd:string</code>.
 					</p>
 				</section>
 
@@ -1116,8 +1117,9 @@ ex:CaseInsensitiveSearch
 							<span data-syntax-rule="nodeValidator-class">The values of <code>sh:nodeValidator</code> must be <a>SELECT-based validators</a>.</span>
 							<span data-syntax-rule="propertyValidator-class">The values of <code>sh:propertyValidator</code> must be <a>SELECT-based validators</a>.</span>
 							<span data-syntax-rule="SPARQLSelectValidator-select-count"><a>SELECT-based validators</a> have exactly one <a>value</a> for the property <code>sh:select</code>.</span>
-							The value of <code>sh:select</code> is a valid SPARQL 1.2 SELECT query using the aforementioned <a href="#sparql-prefixes">prefix handling rules</a>.
-							The SPARQL query derived from the value of <code>sh:select</code> <a data-cite="sparql12-query/#selectproject">projects</a> the variable <code>this</code> in its SELECT clause.
+							<span data-syntax-rule="SPARQLSelectValidator-select-datatype">The value of <code>sh:select</code> is a <a>literal</a> of datatype <code>xsd:string</code>.</span>
+							<span data-syntax-rule="SPARQLSelectValidator-select-query-valid">Using the <a href="#sparql-prefixes">prefix handling rules</a>, the value of <code>sh:select</code> is a valid SPARQL 1.2 SELECT query.</span>
+							<span data-syntax-rule="SPARQLSelectValidator-select-query-this">The SPARQL query derived from the value of <code>sh:select</code> <a data-cite="sparql12-query/#selectproject">projects</a> the variable <code>this</code> in its SELECT clause.</span>
 						</p>
 						<p><em>The remainder of this section is non-normative.</em></p>
 						<p>
@@ -1189,7 +1191,7 @@ ex:LanguageConstraintComponentUsingSELECT
 							Once a constraint component has been declared (in a <a>shapes graph</a>), its parameters can be used as illustrated in the following example. Any property shape 
 							that includes <code>ex:lang</code> is interpreted as using <code>ex:LanguageConstraintComponentUsingSELECT</code> (binding <code>$lang</code> to that value).
 						</p>
-						<aside class="example" title="Shape declaration using ex:LanguageConstraintComponent">
+						<aside class="example" title="Shape declaration using ex:LanguageConstraintComponentUsingSELECT">
 							<div class="shapes-graph">
 								<div class="turtle">
 ex:LanguageExampleShape
@@ -1379,7 +1381,8 @@ ex:hasLang
 				<a href="#sparql-constraint-components">constraint components</a>.
 			</p>
 			<p>
-				Implementations that support this feature make it possible to inject <dfn>annotation properties</dfn>
+				Support for this feature is OPTIONAL for SHACL-SPARQL validation processors, see <a href="#conformance"></a>.
+				Processors that support it make it possible to inject <dfn>annotation properties</dfn>
 				into the <a>validation result</a> nodes created for each <a>solution</a> produced by the <code>SELECT</code> queries of a
 				SPARQL-based <a>constraint</a> or <a>constraint component</a>.
 				Any such annotation property needs to be declared via a <a>value</a> of <code>sh:resultAnnotation</code> at
@@ -1458,6 +1461,24 @@ ex:AnnotationExample
 			""" ;
 	] .
 					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@id": "ex:AnnotationExample",
+	"@type": "sh:NodeShape",
+	"sh:sparql": {
+		"sh:resultAnnotation": {
+			"sh:annotationProperty": {
+				"@id": "ex:time"
+			},
+			"sh:annotationVarName": "time"
+		},
+		"sh:select": "\n\t\t\tSELECT $this ?message ?time\n\t\t\tWHERE {\n\t\t\t\tBIND (CONCAT(\"The \", \"message.\") AS ?message) .\n\t\t\t\tBIND (NOW() AS ?time) .\n\t\t\t}\n\t\t\t"
+	},
+	"sh:targetNode": {
+		"@id": "ex:ExampleResource"
+	}
+}</pre>
+					</div>
 				</div>
 				<div class="results-graph">
 					<div class="turtle">
@@ -1475,6 +1496,38 @@ ex:AnnotationExample
 	]
 ] .
 					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@type": "sh:ValidationReport",
+	"sh:conforms": {
+		"@type": "xsd:boolean",
+		"@value": "false"
+	},
+	"sh:result": {
+		"@type": "sh:ValidationResult",
+		"ex:time": {
+			"@type": "xsd:dateTime",
+			"@value": "2015-03-27T10:58:00"
+		},
+		"sh:focusNode": {
+			"@id": "ex:ExampleResource"
+		},
+		"sh:resultMessage": "The message.",
+		"sh:resultSeverity": {
+			"@id": "sh:Violation"
+		},
+		"sh:sourceConstraint": {
+			"@id": "_:b1"
+		},
+		"sh:sourceConstraintComponent": {
+			"@id": "sh:SPARQLConstraintComponent"
+		},
+		"sh:sourceShape": {
+			"@id": "ex:AnnotationExample"
+		}
+	}
+}</pre>
+					</div>
 				</div>
 			</aside>
 		</section>
@@ -1484,11 +1537,17 @@ ex:AnnotationExample
 			<p>
 				This section introduces <a>node expression functions</a> based on SPARQL.
 			</p>
+			<p class="note">
+				The node expression functions in this section embed complete SPARQL queries or SPARQL expressions.
+				Node expression functions for individual SPARQL functions such as <code>sparql:concat</code>,
+				which are evaluated without a SPARQL query, are defined in
+				<a data-cite="shacl12-node-expr#sparql-functions">SHACL 1.2 Node Expressions</a>.
+			</p>
 
 			<section id="SelectExpression">
 				<h3>Select Expressions</h3>
 				<p>
-					A <a>node expression</a> that has a <a>value</a> for <code>sh:select</code> is called a <dfn>select expression</dfn> with the <a>function name</a>
+					A <a>node expression</a> that has a <a>value</a> for the <a data-cite="shacl12-node-expr#NamedParameterFunctions">key parameter</a> <code>sh:select</code> is called a <dfn>select expression</dfn> with the <a>function name</a>
 					<code>sh:SelectExpression</code>.
 				</p>
 				<p class="syntax">
@@ -1509,7 +1568,8 @@ ex:AnnotationExample
 						The value of each scope variable is <a>pre-bound</a> as a SPARQL variable with the same name and value.
 						If the name of a variable in scope is not a string literal, use <code>"arg" + str(name)</code>.
 						For example, if the variable name is <code>"0"^^xsd:integer</code>, use <code>arg0</code>.
-						A <a>failure</a> is produced when one of the scope variables is called <code>this</code>.
+						A <a>failure</a> is produced when one of the scope variables is called <code>this</code>
+						or when a variable name derived in this way is not a valid <a data-cite="sparql12-query/#rVARNAME">SPARQL VARNAME</a>.
 						<br/>
 						<br/>
 						<code>evalExpr(expr, focusGraph, focusNode, scope) -> resultNodes</code>
@@ -1528,7 +1588,7 @@ ex:Person-fullName
 	sh:name "full name" ;
 	sh:path ex:fullName ;
 	sh:values <b>[
-		sh:prefixes &lt;http://example.com/ns&gt; ;
+		sh:prefixes ex: ;
 		sh:select """
 			SELECT ?fullName
 			WHERE {
@@ -1540,7 +1600,7 @@ ex:Person-fullName
 	]</b> ;
 	sh:datatype xsd:string .
 
-&lt;http://example.com/ns&gt;
+ex:
 	a owl:Ontology ;
 	sh:declare [
 		sh:prefix "ex" ;
@@ -1562,13 +1622,13 @@ ex:Person-fullName
 			},
 			"sh:values": {
 				"sh:prefixes": {
-					"@id": "http://example.com/ns"
+					"@id": "http://example.com/ns#"
 				},
 				"sh:select": "\n\t\t\tSELECT ?fullName\n\t\t\tWHERE {\n\t\t\t\t$this ex:firstName ?firstName .\n\t\t\t\t$this ex:lastName ?lastName .\n\t\t\t\tBIND (CONCAT(?firstName, \" \", ?lastName) AS ?fullName) .\n\t\t\t}\n\t\t"
 			}
 		},
 		{
-			"@id": "http://example.com/ns",
+			"@id": "http://example.com/ns#",
 			"@type": "owl:Ontology",
 			"sh:declare": {
 				"sh:namespace": {
@@ -1671,7 +1731,7 @@ ex:Bernd
 			<section id="SPARQLExprExpression">
 				<h3>SPARQL Expr Expressions</h3>
 				<p>
-					A <a>node expression</a> that has a <a>value</a> for <code>sh:sparqlExpr</code> is called a <dfn>SPARQL expr expression</dfn> with the <a>function name</a>
+					A <a>node expression</a> that has a <a>value</a> for the <a data-cite="shacl12-node-expr#NamedParameterFunctions">key parameter</a> <code>sh:sparqlExpr</code> is called a <dfn>SPARQL expr expression</dfn> with the <a>function name</a>
 					<code>sh:SPARQLExprExpression</code>.
 				</p>
 				<p class="syntax">
@@ -1696,7 +1756,8 @@ ex:Bernd
 						The value of each scope variable is <a>pre-bound</a> as a SPARQL variable with the same name and value.
 						If the name of a variable in scope is not a string literal, use <code>"arg" + str(name)</code>.
 						For example, if the variable name is <code>"0"^^xsd:integer</code>, use <code>arg0</code>.
-						A <a>failure</a> is produced when one of the scope variables is called <code>this</code>.
+						A <a>failure</a> is produced when one of the scope variables is called <code>this</code>
+						or when a variable name derived in this way is not a valid <a data-cite="sparql12-query/#rVARNAME">SPARQL VARNAME</a>.
 						<br/>
 						<br/>
 						<code>evalExpr(expr, focusGraph, focusNode, scope) -> resultNodes</code>
@@ -1782,7 +1843,7 @@ ex:Resource-uriLength
 		<section id="sparql-functions">
 			<h2>Declaring SPARQL Functions based on Node Expressions</h2>
 			<p>
-				<a data-cite="shacl12-node-expr"></a> defines <a data-cite="shacl12-node-expr#custom-list-parameter-functions">Custom List Parameter Functions</a>
+				<a data-cite="shacl12-node-expr"></a> defines <a data-cite="shacl12-node-expr#custom-node-expressions">Custom List Parameter Functions</a>
 				as a mechanism to declare new node expression functions.
 				These can be evaluated as part of other SHACL node expressions, but may also be useful to other engines
 				that support function-like execution.
@@ -1793,10 +1854,8 @@ ex:Resource-uriLength
 				This section introduces a declarative mechanism allowing SPARQL processors to make SHACL list parameter functions
 				available as SPARQL functions using that extension point.
 			</p>
-			<section>
+			<section id="sparql-functions-example-node-expressions">
 				<h3>Example SPARQL Function using general Node Expressions</h3>
-				<p>
-				</p>
 				<aside class="example" title="An example custom function using shnex: node expressions">
 					<p>
 						This function takes a class as its (only) parameter and returns the number of instances of that class.
@@ -1822,6 +1881,40 @@ ex:instanceCount
 		sh:nodeKind sh:IRI ;
 	] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:instanceCount",
+	"@type": "sh:ListParameterExpressionFunction",
+	"rdfs:label": {
+		"@language": "en",
+		"@value": "instance count"
+	},
+	"rdfs:subClassOf": {
+		"@id": "sh:ListParameterExpression"
+	},
+	"sh:bodyExpression": {
+		"shnex:count": {
+			"shnex:instancesOf": {
+				"shnex:arg": {
+					"@type": "xsd:integer",
+					"@value": "0"
+				}
+			}
+		}
+	},
+	"sh:parameter": {
+		"@type": "sh:Parameter",
+		"sh:description": "The class to count the instances of.",
+		"sh:name": "class",
+		"sh:nodeKind": {
+			"@id": "sh:IRI"
+		},
+		"sh:path": {
+			"@id": "shnex:arg0"
+		}
+	}
+}</pre>
+						</div>
 					</div>
 					<p>
 						A SPARQL engine that supports SPARQL functions based on node expressions is able
@@ -1836,7 +1929,7 @@ WHERE {
 					</pre>
 				</aside>
 			</section>
-			<section>
+			<section id="sparql-functions-example-sparql">
 				<h3>Example SPARQL Functions using SPARQL-based Node Expressions</h3>
 				<p>
 					The following custom list parameter functions use "nested" SPARQL queries at evaluation time.
@@ -1844,7 +1937,9 @@ WHERE {
 				<aside class="example" title="An example custom function using sh:sparqlExpr">
 					<p>
 						This function takes two parameters and uses a <a>SPARQL expr expression</a> as its body expression.
-						In that SPARQL expression, the variables `$arg0` and `$arg1` are used to access the list parameter values.
+						In that SPARQL expression, the variables <code>$arg0</code> and <code>$arg1</code> are used to access the list parameter values.
+						It is a variation of the <code>ex:spacedConcat</code> example of [[shacl12-node-expr]], which uses the
+						<code>sparql:concat</code> node expression function instead of a SPARQL expression.
 					</p>
 					<div class="shapes-graph">
 						<div class="turtle">
@@ -1870,6 +1965,46 @@ ex:spacedConcat
 		sh:datatype xsd:string ;
 	] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:spacedConcat",
+	"@type": "sh:ListParameterExpressionFunction",
+	"rdfs:label": {
+		"@language": "en",
+		"@value": "spaced concat"
+	},
+	"rdfs:subClassOf": {
+		"@id": "sh:ListParameterExpression"
+	},
+	"sh:bodyExpression": {
+		"sh:sparqlExpr": "CONCAT($arg0, ' ', $arg1)"
+	},
+	"sh:parameter": [
+		{
+			"@type": "sh:Parameter",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:description": "The first string to concatenate.",
+			"sh:name": "first string",
+			"sh:path": {
+				"@id": "shnex:arg0"
+			}
+		},
+		{
+			"@type": "sh:Parameter",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:description": "The second string to concatenate.",
+			"sh:name": "second string",
+			"sh:path": {
+				"@id": "shnex:arg1"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 					<p>
 						A SPARQL engine that supports SPARQL functions based on node expressions is able
@@ -1890,8 +2025,8 @@ WHERE {
 				</p>
 				<aside class="example" title="An example custom function using sh:select">
 					<p>
-						This function takes two parameters and uses a <a>SPARQL expr expression</a> as its body expression.
-						In that SPARQL expression, the variables `$arg0` and `$arg1` are used to access the list parameter values.
+						This function takes two parameters, the second of which is optional, and uses a <a>select expression</a> as its body expression.
+						In that SPARQL query, the variables <code>$arg0</code> and <code>$arg1</code> are used to access the list parameter values.
 					</p>
 					<div class="shapes-graph">
 						<div class="turtle">
@@ -1929,13 +2064,59 @@ ex:langLabelCount
 		sh:optional true ;
 	] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:langLabelCount",
+	"@type": "sh:ListParameterExpressionFunction",
+	"rdfs:label": {
+		"@language": "en",
+		"@value": "lang label count"
+	},
+	"rdfs:subClassOf": {
+		"@id": "sh:ListParameterExpression"
+	},
+	"sh:bodyExpression": {
+		"sh:select": "\n\t\t\tPREFIX ex: &lt;http://example.com/ns#&gt;\n\t\t\tPREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n\t\t\tSELECT (COUNT(?label) AS ?result)\n\t\t\tWHERE {\n\t\t\t\t?predicate rdfs:subPropertyOf* rdfs:label .\n\t\t\t\t$arg0 ?predicate ?label .\n\t\t\t\tBIND (COALESCE($arg1, 'en') AS ?matchLang) .\n\t\t\t\tFILTER langMatches(lang(?label), ?matchLang) .\n\t\t\t}\n\t\t"
+	},
+	"sh:parameter": [
+		{
+			"@type": "sh:Parameter",
+			"sh:description": "The subject node to get the label count of.",
+			"sh:name": "subject",
+			"sh:nodeKind": {
+				"@id": "sh:IRI"
+			},
+			"sh:path": {
+				"@id": "shnex:arg0"
+			}
+		},
+		{
+			"@type": "sh:Parameter",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:defaultValue": "en",
+			"sh:description": "The language to filter, defaulting to 'en'.",
+			"sh:name": "match language",
+			"sh:optional": {
+				"@type": "xsd:boolean",
+				"@value": "true"
+			},
+			"sh:path": {
+				"@id": "shnex:arg1"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 					<p>
 						This function accepts an optional parameter for the match language, as declared using the
 						<code>sh:optional true</code> triple.
 						However, note that the SHACL constraints from the <code>sh:parameter</code> declarations are
 						not automatically enforced, nor will the declared <code>sh:defaultValue</code> be used at runtime.
-						These mainly serve documentation purposes.
+						Apart from <code>sh:optional</code>, which determines how errors in the arguments are handled
+						(see <a href="#sparql-functions-evaluation"></a>), these declarations serve documentation purposes.
 					</p>
 					<div class="data-graph">
 						<div class="turtle">
@@ -1950,17 +2131,38 @@ ex:Cougar
 #   ex:langLabelCount(ex:Cougar, 'de') = 1
 #   ex:langLabelCount(?unbound, 'en') = SPARQL error
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:Cougar",
+	"rdfs:label": [
+		{
+			"@language": "en",
+			"@value": "Cougar"
+		},
+		{
+			"@language": "en-US",
+			"@value": "Mountain Lion"
+		},
+		{
+			"@language": "de",
+			"@value": "Puma"
+		}
+	]
+}</pre>
+						</div>
 					</div>
 				</aside>
 			</section>
-			<section>
+			<section id="sparql-functions-evaluation">
 				<h3>Evaluation of Custom SPARQL Functions</h3>
 				<p>
 					This document does not define exact constraints on how and when such custom SPARQL functions are added.
 					The recommendation is that SPARQL engines SHOULD register a function for any <a>SHACL instance</a> of
 					<code>sh:ListParameterExpressionFunction</code> from any provided <a>shapes graph</a>.
-					If a function with the same <a>IRI</a> is already registered, SHACL engines MUST ignore the
-					attempt to redefine it unless the function was previously added as a custom SPARQL function.
+					If a function with the same <a>IRI</a> is already registered as a built-in or other non-custom function,
+					SPARQL engines MUST ignore the attempt to redefine it.
+					If the registered function is itself a custom SPARQL function, for example from a previously provided <a>shapes graph</a>,
+					the new declaration replaces it.
 					A SPARQL engine MUST NOT modify the registered SPARQL functions while it is executing any SPARQL query.
 				</p>
 				<div class="def" id="SPARQLFunctions-evaluation">
@@ -1977,16 +2179,18 @@ ex:Cougar
 						the result of the SPARQL function call is also an error,
 						unless the corresponding <code>sh:parameter</code> for the argument has <code>sh:optional true</code>.
 						In that case, the argument will be unbound in the scope.
+						Note that <a>blank nodes</a> cannot be passed as arguments: they are not constant node expressions,
+						so an argument that evaluates to a blank node leads to an <a>evaluation failure</a> and thus an error.
 					</p>
 					<p>
-						Let <code>rs</code> be the <a data-cite="shacl12-node-expr#dfn-output-nodes">output nodes</a>
+						Let <code>rs</code> be the <a>output nodes</a>
 						of <code>evalExpr(function, focusGraph, f, scope)</code> where <code>focusGraph</code> is the
 						currently active query graph from the SPARQL context, and <code>scope</code> is the map of evaluated
 						arguments from <code>nodesList</code> with the index of the argument as the variable name (map key).
 					</p>
 					<p>
 						If the list of output nodes <code>rs</code> has exactly one member, then return that node.
-						Otherwise, or if the evaluation produces an <a data-cite="shacl12-node-expr#dfn-evaluation-failure">evaluation failure</a>,
+						Otherwise, or if the evaluation produces an <a>evaluation failure</a>,
 						the result of the SPARQL function call is an error.
 					</p>
 				</div>
@@ -2007,7 +2211,7 @@ ex:Cougar
 			<p>
 				Some features of SHACL-SPARQL rely on the concept of <a>pre-binding of variables</a> as defined in this section.
 			</p>
-			<p class="issue atrisk" data-number="999">
+			<p class="issue atrisk">
 				This feature is "at risk" and may be changed (not removed)
 				to align with currently ongoing work in the RDF and SPARQL 1.2 work in this area.
 				Originally discussed as <a href="https://github.com/w3c/data-shapes/issues/647">Issue 647</a>.
@@ -2015,12 +2219,14 @@ ex:Cougar
 			<div class="syntax" data-syntax-rule="pre-binding-limitations">
 				<p>
 					The definition of pre-binding used by SHACL requires the following restrictions on SPARQL queries.
-					SHACL-SPARQL processors MUST report a <a>failure</a> when it is operating on a <a>shapes graph</a>
-					that contains SHACL-SPARQL queries (via <code>sh:ask</code>, <code>sh:construct</code> and <code>sh:select</code>)
+					SHACL-SPARQL processors MUST report a <a>failure</a> when operating on a <a>shapes graph</a>
+					that contains SHACL-SPARQL queries (via <code>sh:ask</code>, <code>sh:construct</code>, <code>sh:select</code> and <code>sh:sparqlExpr</code>)
 					that are executed with pre-bound variables and violate any of these "MUST" restrictions.
 					Note that the term <em>potentially pre-bound variables</em> includes the variables <code>this</code>,
 					<code>value</code> (for ASK queries),
-					and any variables that represent the <a>parameters</a> of the <a>constraint component</a> that uses the query.
+					any variables that represent the <a>parameters</a> of the <a>constraint component</a> that uses the query,
+					and the variables that represent the scope variables of <a href="#sparql-node-expressions">SPARQL-based node expressions</a>
+					(such as <code>arg0</code>).
 					<!-- This is so that the checking can be performed once, not required each time. -->
 				</p>
 				<ul>
@@ -2030,8 +2236,8 @@ ex:Cougar
 				</ul>
 				<p>
 					Furthermore, SPARQL queries SHOULD not contain a federated query (<code>SERVICE</code>).
-					Implementations that do not permit `SERVICE` MUST report a <a>failure</a> as mentioned above.
-					However, it is acknowledged that some SPARQL implementations use the `SERVICE` keyword as a syntax for
+					Implementations that do not permit <code>SERVICE</code> MUST report a <a>failure</a> as mentioned above.
+					However, it is acknowledged that some SPARQL implementations use the <code>SERVICE</code> keyword as a syntax for
 					specific (typically local) operations and therefore the keyword is not generally disallowed.
 				</p>
 			</div>
@@ -2054,8 +2260,15 @@ ex:Cougar
 						<a data-cite="sparql12-query/#sparqlTranslateGraphPatterns"><code>Graph(Var, pattern)</code></a>
 						in <code>X</code> with <code>join(Y, Table(μ))</code>.
 					</p>
+					<p class="note">
+						An empty group graph pattern such as <code>WHERE {}</code> is
+						<a data-cite="sparql12-query/#sparqlTranslateGraphPatterns">translated</a> into the empty Basic Graph Pattern,
+						which <code>Replace</code> turns into <code>Table(μ)</code>.
+						The pre-bound variables are therefore also available to the <code>SELECT</code> clause of such queries,
+						for example in the query derived from a <a>SPARQL expr expression</a>.
+					</p>
+					</div>
 				</div>
-			</div>
 
 			<div class="def def-text">
 				<div class="def-header">DEFINITION: <dfn data-lt="pre-binding|pre-bind|pre-bound|pre-bound variables|pre-binds">Pre-binding of variables</dfn></div>
@@ -2094,7 +2307,13 @@ ex:Cougar
 				While these may help some implementers, SPARQL is not required for the implementation of the SHACL Core language.
 			</p>
 			<p>
-				SPARQL variables using the <code>$</code> marker represent external <a>bindings</a> that are <a>pre-bound</a> or, in the case of <code>$PATH</code>, <a>substituted</a> in the SPARQL query before execution (as explained in <a href="#constraint-components-validation"></a>).
+				The definitions for <code>sh:targetClass</code> and <code>sh:class</code> look up <code>rdfs:subClassOf</code> triples
+				in the <a>data graph</a> only. If the processor parameter
+				<a data-cite="shacl12-core#subClassOfInShapesGraph"><code>subClassOfInShapesGraph</code></a> is set,
+				the <code>rdfs:subClassOf</code> triples of the <a>shapes graph</a> also need to be taken into account.
+			</p>
+			<p>
+				SPARQL variables using the <code>$</code> marker represent external <a>bindings</a> that are <a>pre-bound</a> or, in the case of <code>$PATH</code>, <a>substituted</a> in the SPARQL query before execution (as explained in <a href="#sparql-constraints-validation"></a>).
 			</p>
 			<section id="sparql-definition-targetClass">
 				<h3>sh:targetClass</h3>
@@ -2314,8 +2533,14 @@ WHERE {
 		</section>
 
 		<section class="appendix informative" id="changes-12">
-			<h2>Changes between the original SHACL specifications and SHACL 1.2 SPARQL</h2>
+			<h2>Changes between the original SHACL specifications and SHACL 1.2 SPARQL-Related Features</h2>
 			<ul>
+				<li>SPARQL-based targets (<code>sh:target</code> with <code>sh:SPARQLTarget</code> and <code>sh:SPARQLTargetType</code>) are no longer defined;
+					their use cases are covered by <a>node expressions</a> at <code>sh:targetNode</code>, see <a href="#SelectExpression"></a></li>
+				<li>SPARQL functions declared with <code>sh:SPARQLFunction</code> (from SHACL Advanced Features) have been replaced by
+					<a href="#sparql-functions"></a></li>
+				<li>SPARQL-based inference rules (<code>sh:SPARQLRule</code>) are now defined in [[shacl12-inference-rules]]</li>
+				<li>Messages (<code>sh:message</code>) may also use the datatypes <code>rdf:HTML</code> and <code>rdf:dirLangString</code></li>
 				<li>Added the <a>node expression function</a> <a href="#SelectExpression"><code>sh:SelectExpression</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/288">Issue 288</a></li>
 				<li>Added support for <a>annotation properties</a>, see <a href="https://github.com/w3c/data-shapes/issues/327">Issue 327</a></li>
 				<li>Added the <a>node expression function</a> <a href="#SPARQLExprExpression"><code>sh:SPARQLExprExpression</code></a>, see <a href="https://github.com/w3c/data-shapes/issues/315">Issue 315</a></li>
