@@ -9,7 +9,7 @@ The content from the data-shapes-test-suite folder remains unaffected, for SHACL
 
 ## Implementation Reports
 
-Submitted implementations so far: [Implementation reports](reports.html)
+Submitted implementations so far: [Implementation reports](https://w3c.github.io/data-shapes/shacl12-test-suite/reports.html)
 
 ## Conformance Criteria
 
