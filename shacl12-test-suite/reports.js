@@ -191,34 +191,50 @@ async function listReportFilesFromDirectoryListing() {
 }
 
 
+// Derives the GitHub repository location of the reports folder from the page URL, for GitHub Pages
+// (https://owner.github.io/repo/path/reports.html, from the Pages branch) and raw.githack.com
+// (https://raw.githack.com/owner/repo/branch/path/reports.html), or returns null for other hosts
+function githubLocationOfPage() {
+	const segments = location.pathname.split('/').filter(s => s)
+	if (!location.pathname.endsWith('/')) {
+		segments.pop() // reports.html
+	}
+	if (location.hostname.endsWith('.github.io') && segments.length >= 1) {
+		const [repo, ...path] = segments
+		return { owner: location.hostname.split('.')[0], repo, ref: null, path: [...path, 'reports'].join('/') }
+	}
+	if (/^(raw|rawcdn)\.githack\.com$/.test(location.hostname) && segments.length >= 3) {
+		const [owner, repo, ref, ...path] = segments
+		return { owner, repo, ref, path: [...path, 'reports'].join('/') }
+	}
+	return null
+}
+
+
 // Lists the .ttl files of the reports folder: from the ?reports= parameter, from the web server's listing of
-// the folder (e.g. when served locally), or else from the GitHub contents API, as GitHub Pages has no listings.
-// On GitHub Pages, the repository and folder are derived from the page URL, otherwise the folder of the
-// W3C repository is listed, and the files of that name are loaded from the local folder.
+// the folder (e.g. when served locally), or else from the GitHub contents API, as GitHub Pages and
+// raw.githack.com have no listings. On these hosts, the repository, branch and folder are derived from the
+// page URL, otherwise the folder of the W3C repository is listed, and the files of that name are loaded
+// from the local folder.
 async function listReportFiles() {
 	const param = new URLSearchParams(location.search).get('reports')
 	if (param) {
 		return param.split(',').map(s => s.trim()).filter(s => s).map(s => new URL(s, REPORTS_BASE).href)
 	}
 
-	const listed = await listReportFilesFromDirectoryListing()
-	if (listed) {
-		return listed
+	const github = githubLocationOfPage()
+	if (!github) {
+		const listed = await listReportFilesFromDirectoryListing()
+		if (listed) {
+			return listed
+		}
 	}
 
-	let owner = 'w3c', repo = 'data-shapes', path = 'shacl12-test-suite/reports'
-	if (location.hostname.endsWith('.github.io')) {
-		const segments = location.pathname.split('/').filter(s => s)
-		if (!location.pathname.endsWith('/')) {
-			segments.pop() // reports.html
-		}
-		owner = location.hostname.split('.')[0]
-		repo = segments.shift()
-		path = [...segments, 'reports'].join('/')
-	}
-	const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`)
+	const { owner, repo, ref, path } = github || { owner: 'w3c', repo: 'data-shapes', ref: null, path: 'shacl12-test-suite/reports' }
+	const query = ref ? `?ref=${encodeURIComponent(ref)}` : ''
+	const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}${query}`)
 	if (!response.ok) {
-		throw new Error(`GitHub API: HTTP ${response.status} for ${owner}/${repo}/${path} - use ?reports=a.ttl,b.ttl instead`)
+		throw new Error(`GitHub API: HTTP ${response.status} for ${owner}/${repo}/${path}${ref ? ` (branch ${ref})` : ''} - use ?reports=a.ttl,b.ttl instead`)
 	}
 	const files = await response.json()
 	return files
