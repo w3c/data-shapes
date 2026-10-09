@@ -16,7 +16,7 @@
 			try {
 				// Load N3 library dynamically (lightweight Turtle parsing)
 				const script = document.createElement('script');
-				script.src = 'https://unpkg.com/n3/browser/n3.min.js';
+				script.src = 'https://cdn.jsdelivr.net/npm/n3@2.13.11/browser/n3.min.js';
 				document.head.appendChild(script);
 	
 				// Wait for N3 to load without blocking initial DOM rendering
@@ -25,8 +25,12 @@
 				});
 	
 				const { Parser, Store } = N3;
-				// Use local TTL file relative to site root
-				const RAW_TTL = "../shacl12-vocabularies/shnex-sparql.ttl";
+				// The vocabulary file next to this document on GitHub Pages; a published copy of this document
+				// (e.g. on w3.org) has no such neighbor and falls back to the copy on GitHub Pages
+				const TTL_URLS = [
+					"../shacl12-vocabularies/shnex-sparql.ttl",
+					"https://w3c.github.io/data-shapes/shacl12-vocabularies/shnex-sparql.ttl"
+				];
 	
 				// Common predicate IRIs
 				const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -39,10 +43,15 @@
 				const DC_DESCRIPTION = "http://purl.org/dc/terms/description";
 				const OWL_SEEALSO = "http://www.w3.org/2002/07/owl#seeAlso";
 	
-				// Fetch and parse the local TTL
-				const res = await fetch(RAW_TTL);
-				if (!res.ok) throw new Error("Failed to fetch TTL: " + res.status);
-				const ttl = await res.text();
+				// Fetch and parse the TTL from the first location that works
+				let ttl = null;
+				for (const url of TTL_URLS) {
+					try {
+						const res = await fetch(url);
+						if (res.ok) { ttl = await res.text(); break; }
+					} catch (e) { /* try the next location */ }
+				}
+				if (ttl === null) throw new Error("Failed to fetch " + TTL_URLS.join(" or "));
 	
 				const parser = new Parser({ format: "text/turtle" });
 				const quads = parser.parse(ttl);
@@ -80,16 +89,8 @@
 					let examples = valuesFor(s, SHNEX_EXAMPLE);
 					const example = examples.length ? examples[0] : localName(s);
 
-					// category from shnex:category if present, otherwise derive from rdf:type
-					let category = valuesFor(s, SHNEX_CATEGORY)[0];
-					if (!category) {
-						// inspect rdf:types for fallback token
-						const types = store.getQuads(s, RDF_TYPE, null, null).map(q => q.object.id);
-						if (types.includes(SPARQL_AGGREGATE)) category = "aggregate";
-						else if (types.includes(SPARQL_FUNCTION)) category = "other";
-						else if (types.includes(SPARQL_FUNCTIONALFORM)) category = "other";
-						else category = "other";
-					}
+					// category from shnex-sparql:category if present
+					const category = valuesFor(s, SHNEX_CATEGORY)[0] || "other";
 	
 					entries.push({
 						uri: s,
@@ -207,76 +208,6 @@
 			}
 		}
 
-		// Parse function sections from TTL file comments
-		function parseFunctionSections(ttl) {
-			const sections = [];
-			const lines = ttl.split('\n');
-
-			for (let i = 0; i < lines.length; i++) {
-				const line = lines[i].trim();
-				if (line.startsWith('## ') || line.startsWith('# Section:') || line.startsWith('# Aggregate functions')) {
-					let sectionName = line.replace(/^##\s*/, '').replace(/^#\s*Section:\s*/, '').replace(/^#\s*/, '').trim();
-					sections.push({
-						name: sectionName,
-						startLine: i
-					});
-				}
-			}
-
-			// Set end lines for each section
-			for (let i = 0; i < sections.length - 1; i++) {
-				sections[i].endLine = sections[i + 1].startLine - 1;
-			}
-			if (sections.length > 0) {
-				sections[sections.length - 1].endLine = lines.length - 1;
-			}
-
-			return sections;
-		}
-
-		// Group functions by their section in the TTL file
-		function groupFunctionsBySection(functions, functionSections, ttl) {
-			const lines = ttl.split('\n');
-			const groups = {};
-
-			// Initialize groups
-			functionSections.forEach(section => {
-				groups[section.name] = [];
-			});
-			groups['Other'] = []; // For functions not in any section
-
-			for (const func of functions) {
-				const functionName = localName(func.uri);
-				let assignedToSection = false;
-
-				// Find which section this function belongs to
-				for (const section of functionSections) {
-					for (let i = section.startLine; i <= section.endLine; i++) {
-						if (lines[i] && lines[i].includes(`sparql:${functionName}`)) {
-							groups[section.name].push(func);
-							assignedToSection = true;
-							break;
-						}
-					}
-					if (assignedToSection) break;
-				}
-
-				// If not found in any section, add to 'Other'
-				if (!assignedToSection) {
-					groups['Other'].push(func);
-				}
-			}
-
-			// Remove empty groups
-			Object.keys(groups).forEach(key => {
-				if (groups[key].length === 0) {
-					delete groups[key];
-				}
-			});
-
-			return groups;
-		}
-
 		function localName(uri) {
 			const str = String(uri);
 			const idxHash = str.lastIndexOf('#');
@@ -294,8 +225,7 @@
 				.replace(/'/g, "&#39;");
 		}
 
-		// Run the function when the page loads
-		//document.addEventListener('DOMContentLoaded', generateSparqlFunctionSections);
+		
 
 
 		function prepareSyntaxRules() {
@@ -324,24 +254,6 @@
 
 				document.getElementById("syntax-rules-table").appendChild(tr);
 				element.setAttribute("id", "syntax-rule-" + ruleId);
-			});
-		}
-
-		function prepareValidators() {
-			document.querySelectorAll("[data-validator]").forEach(element => {
-				let validatorId = element.getAttribute("data-validator") + "ConstraintComponent";
-				let tr = document.createElement("tr");
-				tr.classList.add("validator-tr");
-				let td = document.createElement("td");
-				tr.appendChild(td);
-				let a = document.createElement("a");
-				a.classList.add("validator-id-a");
-				a.href = `#validator-${validatorId}`;
-				a.textContent = `sh:${validatorId}`;
-				td.appendChild(a);
-				td.innerHTML += ": " + element.innerHTML;
-				document.getElementById("validators-table").appendChild(tr);
-				element.id = "validator-" + validatorId;
 			});
 		}
 
@@ -398,9 +310,10 @@
 			// group:          "data-shapes",
 			group: "wg/data-shapes",
 			github: "w3c/data-shapes",
-			//preProcess:     [  ],
+			preProcess: [ prepareSyntaxRules ],
 			edDraftURI: "https://w3c.github.io/data-shapes/shacl12-node-expr/",
 			shortName: "shacl12-node-expr",
+			testSuiteURI: "https://github.com/w3c/data-shapes/tree/gh-pages/shacl12-test-suite",
 			copyrightStart: "2025",
 			//xref: ["RDF12-CONCEPTS", "SHACL-CORE"],
 			xref: ["RDF12-CONCEPTS"],
@@ -410,11 +323,11 @@
 
 			editors: [
 				{
-          name:       "Robert David",
-          company:    "GraphWise",
-          companyURL: "https://graphwise.ai",
-          orcid:      "0000-0002-3244-5341",
-          w3cid:      97894
+					name:       "Robert David",
+					company:    "GraphWise",
+					companyURL: "https://graphwise.ai",
+					orcid:      "0000-0002-3244-5341",
+					w3cid:      97894
 				},
 				{
 					name:       "Holger Knublauch",
@@ -424,11 +337,11 @@
 					w3cid:      46500
 				},
 				{
-          name: "Simon Steyskal",
-          company: "Siemens AG",
-          companyURL: "https://siemens.com",
-          orcid: "0000-0002-5183-2486",
-          w3cid: 73545
+					name: "Simon Steyskal",
+					company: "Siemens AG",
+					companyURL: "https://siemens.com",
+					orcid: "0000-0002-5183-2486",
+					w3cid: 73545
 				}
 			]
 		};
@@ -455,7 +368,7 @@
 			</p>
 		</section>
 
-    	<section id="sotd" class="updateable-rec"></section>
+    	<section id="sotd"></section>
 
 		<section id="specifications" class="introductory" data-include="../shacl12-common/specifications.html"></section>
 
@@ -466,7 +379,7 @@
 				This section introduces the key terminology and document conventions.
 			</p>
 
-			<section id="terminolgy">
+			<section id="terminology">
 				<h3>Terminology</h3>
 				<div class="def" id="rdf-terminology">
 					<div class="term-def-header">Basic RDF Terminology</div>
@@ -479,7 +392,8 @@
 						<dfn data-cite="rdf12-concepts#dfn-blank-node" data-lt="blank node|blank nodes">blank node</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-node" data-lt="node|nodes">node</dfn> of an RDF graph,
 						<dfn data-cite="rdf12-concepts#dfn-datatype" data-lt="datatype|datatypes">datatype</dfn>,
-						<dfn data-cite="rdf12-concepts#dfn-rdf-term" data-lt="term|terms">RDF term</dfn>, and
+						<dfn data-cite="rdf12-concepts#dfn-rdf-term" data-lt="term|terms">RDF term</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-triple-term" data-lt="triple term|triple terms">triple term</dfn>, and
 						<dfn data-cite="rdf12-concepts#dfn-rdf-term-equality" data-lt="term equality">term equality</dfn>, and
 						<dfn data-cite="rdf12-concepts#dfn-subject" data-lt="subject|subjects">subject</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-predicate" data-lt="predicate|predicates">predicate</dfn>, and
@@ -526,6 +440,7 @@
 						<dfn data-cite="shacl12-core#dfn-shacl-list">SHACL list</dfn>,
 						<dfn data-cite="shacl12-core#dfn-members">members</dfn>,
 						<dfn data-cite="shacl12-core#dfn-well-formed">well-formed</dfn>,
+						<dfn data-cite="shacl12-core#dfn-ill-formed">ill-formed</dfn>,
 						<dfn data-cite="shacl12-core#dfn-deep-copy">deep copy</dfn>,
 						as defined in the SHACL 1.2 Core specification [[!shacl12-core]].
 					</div>
@@ -576,7 +491,47 @@
 						<td><code>ex:</code></td>
 						<td><code>http://example.com/ns#</code></td>
 					</tr>
+					<tr>
+						<td><code>owl:</code></td>
+						<td><code>http://www.w3.org/2002/07/owl#</code></td>
+					</tr>
+					<tr>
+						<td><code>qb:</code></td>
+						<td><code>http://purl.org/linked-data/cube#</code></td>
+					</tr>
+					<tr>
+						<td><code>sdmx-dimension:</code></td>
+						<td><code>http://purl.org/linked-data/sdmx/2009/dimension#</code></td>
+					</tr>
+					<tr>
+						<td><code>eg:</code></td>
+						<td><code>http://example.org/ns#</code></td>
+					</tr>
+					<tr>
+						<td><code>eg-measure:</code></td>
+						<td><code>http://example.org/measure#</code></td>
+					</tr>
 				</table>
+				<p>
+					Within this document, the following JSON-LD context is used:
+				</p>
+				<pre class="jsonld">{
+  "@context": {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "shnex": "http://www.w3.org/ns/shacl-node-expr#",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "sparql": "http://www.w3.org/ns/sparql#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ex": "http://example.com/ns#",
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "qb": "http://purl.org/linked-data/cube#",
+    "sdmx-dimension": "http://purl.org/linked-data/sdmx/2009/dimension#",
+    "eg": "http://example.org/ns#",
+    "eg-measure": "http://example.org/measure#"
+  }
+}</pre>
 
 				<p class="syntax">Grey boxes such as this include syntax rules that apply to the shapes graph.</p>
 
@@ -599,7 +554,9 @@
 				<ul>
 					<li>
 						<strong>SHACL Node Expressions processors</strong> as processors that support the evaluation
-						of the SHACL Node Expression functions from this document
+						of the SHACL Node Expression functions from this document.
+						Support for <a href="#dynamic-shacl"></a> is OPTIONAL for these processors;
+						processors that support it MUST follow the rules of that section.
 					</li>
 				</ul>
 				<p>
@@ -641,6 +598,29 @@ ex:EstonianCompanyShape
 		]
 	]</b> .
 					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@id": "ex:EstonianCompanyShape",
+	"@type": "sh:NodeShape",
+	"sh:targetNode": {
+		"shnex:filterShape": {
+			"sh:property": {
+				"sh:hasValue": {
+					"@id": "ex:Estonia"
+				},
+				"sh:path": {
+					"@id": "ex:headQuarterCountry"
+				}
+			}
+		},
+		"shnex:nodes": {
+			"shnex:instancesOf": {
+				"@id": "ex:Company"
+			}
+		}
+	}
+}</pre>
+					</div>
 				</div>
 			</aside>
 		
@@ -662,7 +642,7 @@ ex:EstonianCompanyShape
 				>
 			</div>
 			<p>
-				The scenario above can also be expressed using SPARQL <dfn data-cite="shacl12-sparql#SelectExpression">select expressions</dfn>.
+				The scenario above can also be expressed using SPARQL <a data-cite="shacl12-sparql#SelectExpression">select expressions</a>.
 				For performance reasons, for example, specific implementations of SHACL node expressions might
 				internally convert node expressions such as the <code>shnex:filterShape</code> above to SPARQL.
 			</p>
@@ -681,6 +661,15 @@ ex:EstonianCompanyShape
 			}
 		"""
 	]</b> .
+					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@id": "ex:EstonianCompanyShape",
+	"@type": "sh:NodeShape",
+	"sh:targetNode": {
+		"sh:select": "\n\t\t\tSELECT ?company\n\t\t\tWHERE {\n\t\t\t\t?company rdf:type/rdfs:subClassOf* ex:Company .\n\t\t\t\t?company ex:headQuarterCountry ex:Estonia .\n\t\t\t}\n\t\t"
+	}
+}</pre>
 					</div>
 				</div>
 			</aside>
@@ -717,6 +706,55 @@ ex:Company-employeeCount
 		]
 	]</b> .
 					</div>
+					<div class="jsonld">
+						<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Company",
+			"@type": "sh:ShapeClass",
+			"sh:property": [
+				{
+					"@id": "ex:Company-employee"
+				},
+				{
+					"@id": "ex:Company-employeeCount"
+				}
+			]
+		},
+		{
+			"@id": "ex:Company-employee",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Person"
+			},
+			"sh:description": "The company's employee(s).",
+			"sh:name": "employees",
+			"sh:path": {
+				"@id": "ex:employee"
+			}
+		},
+		{
+			"@id": "ex:Company-employeeCount",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:integer"
+			},
+			"sh:description": "The number of employees, automatically computed.",
+			"sh:name": "employee count",
+			"sh:path": {
+				"@id": "ex:employeeCount"
+			},
+			"sh:values": {
+				"shnex:count": {
+					"shnex:pathValues": {
+						"@id": "ex:employee"
+					}
+				}
+			}
+		}
+	]
+}</pre>
+					</div>
 				</div>
 			</aside>
 			
@@ -750,7 +788,7 @@ ex:Company-employeeCount
 			<p>
 				The term <a>node expression function</a> refers to the <em>kind</em> or <em>type</em>
 				of a <a>node expression</a>.
-				For example, <code>sh:FilterShapeExpression</code> is a <a>node expression function</a>,
+				For example, <code>shnex:FilterShapeExpression</code> is a <a>node expression function</a>,
 				while a specific instance of this function in the <a>graph</a> is the <a>node expression</a> itself.
 			</p>
 			<p>
@@ -768,6 +806,13 @@ ex:Company-employeeCount
 					and is represented by a <a>blank node</a> that is the subject of a single triple with a SHACL list as its object.
 				</li>
 			</ul>
+			<p>
+				The <a>function name</a> of a <a>named parameter function</a> is an <a>IRI</a> such as <code>shnex:FilterShapeExpression</code>
+				(or, for a <a>custom named parameter function</a>, the IRI of its declaration),
+				while the <a>function name</a> of a <a>list parameter function</a> is its <a>list parameter property</a>,
+				such as <code>sparql:concat</code> or <code>shnex:conformsToShape</code>.
+			</p>
+
 
 			<section id="ConstantNodeExpression">
 				<h3>Constant Node Expressions</h3>
@@ -848,8 +893,9 @@ ex:Company-employeeCount
 						that is represented by a <a>blank node</a> that is the <a>subject</a> of at least
 						one <a>triple</a> where the <a>predicate</a> can be used to uniquely identify the function,
 						which is known as the <dfn>key parameter</dfn>.
+					</p>
 					<p>
-					  The evaluation of a <a>named parameter function</a> can produce any of the following:
+						The evaluation of a <a>named parameter function</a> can produce any of the following:
 					</p>
 					<ul>
 					  <li>zero <a>output nodes</a>,
@@ -863,7 +909,7 @@ ex:Company-employeeCount
 						For example, the <a>named parameter function</a>
 						<a href="#FilterShapeExpression"><code>shnex:FilterShapeExpression</code></a>
 						has <code>shnex:filterShape</code> as its <a>key parameter</a>.
-						In this document, key parameters are marked in <b>bold face</b>.
+						In the property tables of this document, the <a>key parameter</a> is always listed in the first row.
 					</p>
 					<p>
 						Expressions based on <a>named parameter functions</a> often
@@ -908,8 +954,13 @@ ex:Company-employeeCount
 						</li>
 					</ol>
 					<p>
-						The <a>predicate</a> of this <a>triple</a> is called the <dfn>list parameter property</dfn>.
-					</p>
+							These rules are applied in order, so an <a>object</a> that is a <a>SHACL list</a> is always interpreted as the list of arguments.
+							To pass a single argument that is itself a <a>list expression</a>, it needs to be wrapped into a list with one member,
+							e.g. <code>[ ex:f ( ( 1 2 ) ) ]</code>.
+						</p>
+						<p>
+							The <a>predicate</a> of this <a>triple</a> is called the <dfn>list parameter property</dfn>.
+						</p>
 					<p>
 						The <a>evaluation</a> of a <a>list parameter function</a> can produce any of the following:
 					</p>
@@ -919,11 +970,10 @@ ex:Company-employeeCount
 						<li>an <a>evaluation failure</a>, i.e., an (unexpected) error during the evaluation</li>
 					</ul>
 					<p>
-						Furthermore, each argument of a <a>list parameter function</a> must evaluate to an individual, single <a>node</a>,
-						not to a list of nodes.
-						If an argument is a <a>node expression</a>, then this <a>node expression</a> must evaluate to
-						a maximum of one <a>output node</a>.
-						An <a>evaluation failure</a> must be produced if there is more than one <a>output node</a>.
+						Furthermore, each argument of a <a>list parameter function</a> must evaluate to at most one <a>node</a>,
+						not to a list of multiple nodes.
+						An <a>evaluation failure</a> must be produced if an argument produces more than one <a>output node</a>.
+						An argument that produces zero <a>output nodes</a> is called <dfn data-lt="unbound argument|unbound">unbound</dfn>.
 						This is different from <a>named parameter functions</a>, where arguments may produce lists of multiple nodes.
 					</p>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -964,6 +1014,47 @@ ex:Person-displayName
 		)
 	]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:Person-displayName",
+	"@type": "sh:PropertyShape",
+	"sh:datatype": {
+		"@id": "xsd:string"
+	},
+	"sh:name": "display name",
+	"sh:path": {
+		"@id": "ex:displayName"
+	},
+	"sh:values": {
+		"ex:coalesce": {
+			"@list": [
+				{
+					"shnex:pathValues": {
+						"@id": "ex:fullName"
+					}
+				},
+				{
+					"sparql:concat": {
+						"@list": [
+							{
+								"shnex:pathValues": {
+									"@id": "ex:firstName"
+								}
+							},
+							" ",
+							{
+								"shnex:pathValues": {
+									"@id": "ex:lastName"
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	}
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -978,6 +1069,9 @@ ex:Person-displayName
 					<code>shnex:if</code>, <code>shnex:then</code> and <code>shnex:else</code>.
 					In general, if any such nested expressions produce a <a>failure</a> then the surrounding
 					expression also produces the same <a>failure</a>.
+					<a href="#sparql-functions">SHACL SPARQL function expressions</a> are an exception:
+					a <a>failure</a> of one of their arguments is treated as a SPARQL error, which some functions
+					such as <code>sparql:coalesce</code> handle without failing.
 				</p>
 				<p><em>The remainder of this section is non-normative.</em></p>
 				<p>
@@ -992,7 +1086,7 @@ ex:Person-displayName
 			<section id="the-shapes-graph">
 				<h2>The Shapes Graph</h2>
 				<p>
-					Some node expression functions — such as <a href="#FilterShapeExpression"></a> and <a href="#conformsToShape"></a> —
+					Some node expression functions — such as <a href="#FilterShapeExpression"></a> and <a href="#ConformsToShapeExpression"></a> —
 					perform SHACL <a>validation</a> to determine whether a <a>node</a> <a>conforms</a> to a <a>shape</a>.
 					The <a>shapes graph</a> used for this <a>validation</a> is not explicitly stated for each function.
 					Instead, it is derived from the context:
@@ -1010,6 +1104,10 @@ ex:Person-displayName
 						In the absence of such a parameter, the <a>focus graph</a> is used as the <a>shapes graph</a>.
 					</li>
 				</ol>
+				<p>
+					If the <a>validation</a> performed by such a function produces a <a>failure</a>,
+					the node expression produces an <a>evaluation failure</a>.
+				</p>
 			</section>
 
 		</section>
@@ -1026,8 +1124,14 @@ ex:Person-displayName
 				Such blank nodes are only <a>well-formed</a> when they are not the <a>subject</a> of any other
 				triples, and when none of these properties is used more than once.
 				The tables may also list SHACL constraints with which the property values are required to conform.
-				In the tables, mandatory properties are rendered in <b>bold face</b>.
-			</p>
+				In the tables, mandatory properties are rendered in <b>bold face</b>, and the <a>key parameter</a> of the function is listed in the first row.
+				</p>
+				<p>
+					Several node expression functions take their input nodes from the property <code>shnex:nodes</code>.
+					This property is mandatory for the <a href="#library-list-operators"></a>, which transform the
+					<a>output nodes</a> of another node expression, and optional for the <a href="#library-advanced-sequence"></a>,
+					where it defaults to the <a>focus node</a>.
+				</p>
 
 			<section id="library-basic">
 				<h2>Basic Node Expressions</h2>
@@ -1059,7 +1163,9 @@ ex:Person-displayName
 						<span data-syntax-rule="VarExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>var expression</dfn> with the <a>function name</a> <code>shnex:VarExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1080,8 +1186,6 @@ ex:Person-displayName
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="VarExpression-evaluation">
 						<div class="def-header">EVALUATION OF VAR EXPRESSIONS</div>
 						<p>
@@ -1111,7 +1215,30 @@ ex:Person
 ex:Person-loves
 	a sh:PropertyShape ;
 	sh:path ex:loves ;
-	sh:defaultValue <b>[ shnex:var "focusNode" ] .</b>
+	sh:defaultValue <b>[ shnex:var "focusNode" ]</b> .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Person",
+			"@type": "sh:ShapeClass",
+			"sh:property": {
+				"@id": "ex:Person-loves"
+			}
+		},
+		{
+			"@id": "ex:Person-loves",
+			"@type": "sh:PropertyShape",
+			"sh:defaultValue": {
+				"shnex:var": "focusNode"
+			},
+			"sh:path": {
+				"@id": "ex:loves"
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -1124,7 +1251,9 @@ ex:Person-loves
 						<span data-syntax-rule="ListExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>list expression</dfn> with the <a>function name</a> <code>shnex:ListExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1136,7 +1265,7 @@ ex:Person-loves
 									<tr>
 										<td><b><code>rdf:first</code></b></td>
 										<td>
-											MUST be a <a>literal</a> or an <a>IRI</a>.
+											MUST be a <a>constant node expression</a>, i.e. a <a>literal</a>, an <a>IRI</a> or a <a>triple term</a>.
 										</td>
 										<td>
 											The first member of the list.
@@ -1146,7 +1275,7 @@ ex:Person-loves
 										<td><b><code>rdf:rest</code></b></td>
 										<td>
 											Must be a <a>well-formed</a> <a>SHACL list</a>, where each <a>member</a>
-											is either a <a>literal</a> or an <a>IRI</a>.
+											is a <a>constant node expression</a>.
 										</td>
 										<td>
 											The rest of the list, e.g., <code>rdf:nil</code>.
@@ -1154,8 +1283,6 @@ ex:Person-loves
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="ListExpression-evaluation">
 						<div class="def-header">EVALUATION OF LIST EXPRESSIONS</div>
 						<p>
@@ -1166,7 +1293,7 @@ ex:Person-loves
 					<p><em>The remainder of this section is non-normative.</em></p>
 					<p>
 						Note that <code>rdf:nil</code> itself is not a <a>list expression</a> because it will be interpreted
-						as a <a>IRI expression</a>.
+						as an <a>IRI expression</a>.
 						As a result, all <a>well-formed</a> list expressions have at least one <a>member</a>.
 					</p>
 					<p id="ListExpressionExample">
@@ -1196,6 +1323,49 @@ ex:ClassShape-superClassesExceptRoots
 		shnex:remove <b>( owl:Thing rdfs:Resource )</b> ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:ClassShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:ClassShape-superClassesExceptRoots"
+			},
+			"sh:targetClass": {
+				"@id": "rdfs:Class"
+			}
+		},
+		{
+			"@id": "ex:ClassShape-superClassesExceptRoots",
+			"@type": "sh:PropertyShape",
+			"sh:description": "The superclasses of this, except for owl:Thing and rdfs:Resource.",
+			"sh:path": {
+				"@id": "ex:superClassesExceptRoots"
+			},
+			"sh:values": {
+				"shnex:nodes": {
+					"shnex:pathValues": {
+						"sh:zeroOrMorePath": {
+							"@id": "rdfs:subClassOf"
+						}
+					}
+				},
+				"shnex:remove": {
+					"@list": [
+						{
+							"@id": "owl:Thing"
+						},
+						{
+							"@id": "rdfs:Resource"
+						}
+					]
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -1206,7 +1376,9 @@ ex:ClassShape-superClassesExceptRoots
 						<span data-syntax-rule="PathValuesExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>path values expression</dfn> with the <a>function name</a> <code>shnex:PathValuesExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1236,20 +1408,20 @@ ex:ClassShape-superClassesExceptRoots
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="PathValuesExpression-evaluation">
 						<div class="def-header">EVALUATION OF PATH VALUES EXPRESSIONS</div>
 						<p>
 							Let <code>$pathValues</code> be the <a>value</a> of <code>shnex:pathValues</code>,
 							and <code>$focusNode</code> be the <a>value</a> of <code>shnex:focusNode</code> in a <a>path values expression</a>.
-							If <code>shnex:focusNode</code> is not given, <code>$focusNode</code> is the list consisting of exactly the <a>focus node</a>
-							from the evaluation context.<br /><br />
-							Let <code>N</code> be the nodes produced by <code>evalExpr($focusNode, focusGraph, focusNode, scope)</code>.
+							If <code>shnex:focusNode</code> is given, let <code>N</code> be the <a>output nodes</a> of
+							<code>evalExpr($focusNode, focusGraph, focusNode, scope)</code>;
+							otherwise let <code>N</code> be the list consisting of exactly the <a>focus node</a> from the evaluation context.<br /><br />
 							If <code>N</code> has 0 members, then the <a>output nodes</a> are the empty list.
 							If <code>N</code> has more than 1 member, an <a>evaluation failure</a> is reported.
-							Otherwise, the <a>output nodes</a> of the <a>path values expression</a> are the list of <a>value nodes</a> of the <code>path</code>
-							for the (only) member of <code>N</code>.
+							Otherwise, the <a>output nodes</a> of the <a>path values expression</a> are the <a>value nodes</a> of the
+							<a>SHACL property path</a> <code>$pathValues</code> for the (only) member of <code>N</code>,
+							in an implementation-dependent order.
+							Use <a href="#OrderByExpression"><code>shnex:orderBy</code></a> where a deterministic order is required.
 						</p>
 					</div>
 					
@@ -1296,6 +1468,42 @@ skos:ConceptScheme-topConceptCount
 		]</b> ;
 	] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "skos:ConceptScheme",
+			"@type": "sh:ShapeClass",
+			"sh:property": {
+				"@id": "skos:ConceptScheme-topConceptCount"
+			}
+		},
+		{
+			"@id": "skos:ConceptScheme-topConceptCount",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:integer"
+			},
+			"sh:description": "The number of top concepts in this scheme.",
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "top concept count",
+			"sh:path": {
+				"@id": "ex:topConceptCount"
+			},
+			"sh:values": {
+				"shnex:count": {
+					"shnex:pathValues": {
+						"@id": "skos:hasTopConcept"
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 					<p>
@@ -1316,6 +1524,22 @@ ex:DirectInstancesOfConceptShape
         shnex:focusNode skos:Concept ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:DirectInstancesOfConceptShape",
+	"@type": "sh:NodeShape",
+	"sh:targetNode": {
+		"shnex:focusNode": {
+			"@id": "skos:Concept"
+		},
+		"shnex:pathValues": {
+			"sh:inversePath": {
+				"@id": "rdf:type"
+			}
+		}
+	}
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -1326,7 +1550,9 @@ ex:DirectInstancesOfConceptShape
 						<span data-syntax-rule="ExistsExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called an <dfn>exists expression</dfn> with the <a>function name</a> <code>shnex:ExistsExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1347,8 +1573,6 @@ ex:DirectInstancesOfConceptShape
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="ExistsExpression-evaluation">
 						<div class="def-header">EVALUATION OF EXISTS EXPRESSIONS</div>
 						<p>
@@ -1370,7 +1594,9 @@ ex:DirectInstancesOfConceptShape
 						<span data-syntax-rule="IfExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called an <dfn>if expression</dfn> with the <a>function name</a> <code>shnex:IfExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1411,8 +1637,6 @@ ex:DirectInstancesOfConceptShape
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="IfExpression-evaluation">
 						<div class="def-header">EVALUATION OF IF EXPRESSIONS</div>
 						<p>
@@ -1458,6 +1682,41 @@ ex:City-fillColor
         shnex:else "red" ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:City",
+			"@type": "sh:ShapeClass",
+			"sh:property": {
+				"@id": "ex:City-fillColor"
+			}
+		},
+		{
+			"@id": "ex:City-fillColor",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:name": "fill color",
+			"sh:path": {
+				"@id": "ex:fillColor"
+			},
+			"sh:values": {
+				"shnex:else": "red",
+				"shnex:if": {
+					"shnex:exists": {
+						"shnex:pathValues": {
+							"@id": "ex:capitalOf"
+						}
+					}
+				},
+				"shnex:then": "blue"
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -1473,7 +1732,9 @@ ex:City-fillColor
 						<span data-syntax-rule="DistinctExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>distinct expression</dfn> with the <a>function name</a> <code>shnex:DistinctExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1493,8 +1754,6 @@ ex:City-fillColor
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="DistinctExpression-evaluation">
 						<div class="def-header">EVALUATION OF DISTINCT EXPRESSIONS</div>
 						<p>
@@ -1538,6 +1797,52 @@ ex:ClassShape-superClassesIncludingRoot
         ]</b> ;
     ] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:ClassShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:ClassShape-superClassesIncludingRoot"
+			},
+			"sh:targetClass": {
+				"@id": "rdfs:Class"
+			}
+		},
+		{
+			"@id": "ex:ClassShape-superClassesIncludingRoot",
+			"@type": "sh:PropertyShape",
+			"sh:description": "The superclasses of this, always including rdfs:Resource.",
+			"sh:path": {
+				"@id": "ex:superClassesIncludingRoot"
+			},
+			"sh:values": {
+				"shnex:distinct": {
+					"shnex:concat": {
+						"@list": [
+							{
+								"shnex:pathValues": {
+									"sh:zeroOrMorePath": {
+										"@id": "rdfs:subClassOf"
+									}
+								}
+							},
+							{
+								"@list": [
+									{
+										"@id": "rdfs:Resource"
+									}
+								]
+							}
+						]
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 			
@@ -1549,7 +1854,9 @@ ex:ClassShape-superClassesIncludingRoot
 						<span data-syntax-rule="IntersectionExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called an <dfn>intersection expression</dfn> with the <a>function name</a> <code>shnex:IntersectionExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1569,8 +1876,6 @@ ex:ClassShape-superClassesIncludingRoot
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="IntersectionExpression-evaluation">
 						<div class="def-header">EVALUATION OF INTERSECTION EXPRESSIONS</div>
 						<p>
@@ -1599,6 +1904,28 @@ ex:DualCitizenShape
             [ shnex:instancesOf ex:German ]
         )
     ]</b> .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:DualCitizenShape",
+	"@type": "sh:NodeShape",
+	"sh:targetNode": {
+		"shnex:intersection": {
+			"@list": [
+				{
+					"shnex:instancesOf": {
+						"@id": "ex:Australian"
+					}
+				},
+				{
+					"shnex:instancesOf": {
+						"@id": "ex:German"
+					}
+				}
+			]
+		}
+	}
+}</pre>
 							</div>
 						</div>
 						<div class="evaluation">
@@ -1636,7 +1963,9 @@ ex:DualCitizenShape
 						<span data-syntax-rule="ConcatExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>concat expression</dfn>, with the <a>function name</a> <code>shnex:ConcatExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1656,8 +1985,6 @@ ex:DualCitizenShape
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="ConcatExpression-evaluation">
 						<div class="def-header">EVALUATION OF CONCAT EXPRESSIONS</div>
 						<p>
@@ -1699,6 +2026,49 @@ ex:PersonShape-allRelatives
 		)
 	]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:PersonShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:PersonShape-allRelatives"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Person"
+			}
+		},
+		{
+			"@id": "ex:PersonShape-allRelatives",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Person"
+			},
+			"sh:name": "all relatives",
+			"sh:path": {
+				"@id": "ex:allRelatives"
+			},
+			"sh:values": {
+				"shnex:concat": {
+					"@list": [
+						{
+							"shnex:pathValues": {
+								"@id": "ex:parent"
+							}
+						},
+						{
+							"shnex:pathValues": {
+								"@id": "ex:sibling"
+							}
+						}
+					]
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 
     					<div class="evaluation">
@@ -1736,7 +2106,9 @@ ex:PersonShape-allRelatives
 						<span data-syntax-rule="RemoveExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>remove expression</dfn>, with the <a>function name</a> <code>shnex:RemoveExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1765,8 +2137,6 @@ ex:PersonShape-allRelatives
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="RemoveExpression-evaluation">
 						<div class="def-header">EVALUATION OF REMOVE EXPRESSIONS</div>
 						<p>
@@ -1805,6 +2175,45 @@ ex:PublisherShape-availableAuthors
 		shnex:remove [ shnex:pathValues ex:authorOnLeave ] ;  
 	]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:PublisherShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:PublisherShape-availableAuthors"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Publisher"
+			}
+		},
+		{
+			"@id": "ex:PublisherShape-availableAuthors",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Person"
+			},
+			"sh:description": "Authors who are currently available (not on leave).",
+			"sh:path": {
+				"@id": "ex:availableAuthors"
+			},
+			"sh:values": {
+				"shnex:nodes": {
+					"shnex:pathValues": {
+						"@id": "ex:author"
+					}
+				},
+				"shnex:remove": {
+					"shnex:pathValues": {
+						"@id": "ex:authorOnLeave"
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="evaluation">
 							<p>
@@ -1841,7 +2250,9 @@ ex:PublisherShape-availableAuthors
 						<span data-syntax-rule="FilterShapeExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>filter shape expression</dfn> with the <a>function name</a> <code>shnex:FilterShapeExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1870,8 +2281,6 @@ ex:PublisherShape-availableAuthors
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="FilterShapeExpression-evaluation">
 						<div class="def-header">EVALUATION OF FILTER SHAPE EXPRESSIONS</div>
 						<p>
@@ -1912,6 +2321,44 @@ ex:Person-maleChildren
         ] ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Person",
+			"@type": "sh:ShapeClass",
+			"sh:property": {
+				"@id": "ex:Person-maleChildren"
+			}
+		},
+		{
+			"@id": "ex:Person-maleChildren",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Person"
+			},
+			"sh:path": {
+				"@id": "ex:maleChildren"
+			},
+			"sh:values": {
+				"shnex:filterShape": {
+					"sh:property": {
+						"sh:hasValue": "male",
+						"sh:path": {
+							"@id": "ex:gender"
+						}
+					}
+				},
+				"shnex:nodes": {
+					"shnex:pathValues": {
+						"@id": "ex:child"
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -1922,7 +2369,9 @@ ex:Person-maleChildren
 						<span data-syntax-rule="LimitExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>limit expression</dfn> with the <a>function name</a> <code>shnex:LimitExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -1952,8 +2401,6 @@ ex:Person-maleChildren
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="LimitExpression-evaluation">
 						<div class="def-header">EVALUATION OF LIMIT EXPRESSIONS</div>
 						<p>
@@ -1998,6 +2445,50 @@ ex:PersonShape-oldestTwoChildren
         shnex:limit 2 ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:PersonShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:PersonShape-oldestTwoChildren"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Person"
+			}
+		},
+		{
+			"@id": "ex:PersonShape-oldestTwoChildren",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Person"
+			},
+			"sh:path": {
+				"@id": "ex:oldestTwoChildren"
+			},
+			"sh:values": {
+				"shnex:limit": {
+					"@type": "xsd:integer",
+					"@value": "2"
+				},
+				"shnex:nodes": {
+					"shnex:nodes": {
+						"shnex:pathValues": {
+							"@id": "ex:child"
+						}
+					},
+					"shnex:orderBy": {
+						"shnex:pathValues": {
+							"@id": "ex:dateOfBirth"
+						}
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -2008,7 +2499,9 @@ ex:PersonShape-oldestTwoChildren
 						<span data-syntax-rule="OffsetExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called an <dfn>offset expression</dfn> with the <a>function name</a> <code>shnex:OffsetExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2038,8 +2531,6 @@ ex:PersonShape-oldestTwoChildren
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="OffsetExpression-evaluation">
 						<div class="def-header">EVALUATION OF OFFSET EXPRESSIONS</div>
 						<p>
@@ -2085,6 +2576,50 @@ ex:PersonShape-remainingChildren
         shnex:offset 1 ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:PersonShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:PersonShape-remainingChildren"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Person"
+			}
+		},
+		{
+			"@id": "ex:PersonShape-remainingChildren",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Person"
+			},
+			"sh:path": {
+				"@id": "ex:remainingChildren"
+			},
+			"sh:values": {
+				"shnex:nodes": {
+					"shnex:nodes": {
+						"shnex:pathValues": {
+							"@id": "ex:child"
+						}
+					},
+					"shnex:orderBy": {
+						"shnex:pathValues": {
+							"@id": "ex:dateOfBirth"
+						}
+					}
+				},
+				"shnex:offset": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -2095,7 +2630,9 @@ ex:PersonShape-remainingChildren
 						<span data-syntax-rule="OrderByExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called an <dfn>order by expression</dfn> with the <a>function name</a> <code>shnex:OrderByExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2104,24 +2641,24 @@ ex:PersonShape-remainingChildren
 									</tr>
 								</thead>
 								<tbody>
-									<tr>
-										<td><b><code>shnex:nodes</code></b></td>
-										<td>
-											A <a>well-formed</a> <a>node expression</a>.
-										</td>
-										<td>
-											The input nodes.
-										</td>
-									</tr>
-									<tr>
-										<td><b><code>shnex:orderBy</code></b></td>
-										<td>
-											A <a>well-formed</a> <a>node expression</a>.
-										</td>
-										<td>
-											The node expression that is applied to each input node.
-										</td>
-									</tr>
+										<tr>
+											<td><b><code>shnex:orderBy</code></b></td>
+											<td>
+												A <a>well-formed</a> <a>node expression</a>.
+											</td>
+											<td>
+												The node expression that is applied to each input node.
+											</td>
+										</tr>
+										<tr>
+											<td><b><code>shnex:nodes</code></b></td>
+											<td>
+												A <a>well-formed</a> <a>node expression</a>.
+											</td>
+											<td>
+												The input nodes.
+											</td>
+										</tr>
 									<tr>
 										<td><code>shnex:desc</code></td>
 										<td>
@@ -2133,8 +2670,6 @@ ex:PersonShape-remainingChildren
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="OrderByExpression-evaluation">
 						<div class="def-header">EVALUATION OF ORDER BY EXPRESSIONS</div>
 						<p>
@@ -2145,7 +2680,7 @@ ex:PersonShape-remainingChildren
 							Let <code>c(n)</code> be the first output node of <code>evalExpr(orderBy, focusGraph, n, scope)</code>
 							for each <code>n</code> in <code>N</code>.
 							The <a>output nodes</a> of the <a>order by expression</a> are the <a>nodes</a> in <code>N</code>
-							sorted by <code>c(n)</code> using the same logic as <dfn data-cite="sparql12-query#modOrderBy">SPARQL ORDER BY</dfn>.
+							sorted by <code>c(n)</code> using the same logic as <a data-cite="sparql12-query#modOrderBy">SPARQL ORDER BY</a>.
 							Nodes where <code>c(n)</code> is unbound are considered smaller than those that have any value.
 							If <code>desc</code> is <code>true</code> then the <a>output nodes</a> are returned in the reverse order.
 						</p>
@@ -2168,7 +2703,9 @@ ex:PersonShape-remainingChildren
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>flat map expression</dfn>,
 							with the <a>function name</a> <code>shnex:FlatMapExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2197,18 +2734,15 @@ ex:PersonShape-remainingChildren
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="FlatMapExpression-evaluation">
 						<div class="def-header">EVALUATION OF FLAT MAP EXPRESSIONS</div>
 						<p>
 							Let <code>flatMap</code> be the <a>value</a> of <code>shnex:flatMap</code>
 							and <code>nodes</code> be the <a>value</a> of <code>shnex:nodes</code> in a <a>flat map expression</a>.
-							If <code>shnex:nodes</code> is not specified, let <code>nodes</code> be the focus node.
 						</p>
 						<p>
-							Let <code>N</code> be the <a>output nodes</a> of 
-							<code>evalExpr(nodes, focusGraph, focusNode, scope)</code>.
+							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(nodes, focusGraph, focusNode, scope)</code>
+							if <code>shnex:nodes</code> is specified, or the list consisting of exactly the <a>focus node</a> otherwise.
 						</p>
 						<p>
 							For each node <code>n</code> in <code>N</code>, let <code>M<sub>n</sub></code> be the <a>output nodes</a> of 
@@ -2263,6 +2797,42 @@ ex:CompanyShape-allSkills
         ] ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:CompanyShape-allSkills"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Company"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape-allSkills",
+			"@type": "sh:PropertyShape",
+			"sh:name": "all skills",
+			"sh:path": {
+				"@id": "ex:allSkills"
+			},
+			"sh:values": {
+				"shnex:flatMap": {
+					"shnex:pathValues": {
+						"@id": "ex:skill"
+					}
+				},
+				"shnex:nodes": {
+					"shnex:pathValues": {
+						"@id": "ex:employee"
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<div class="data-graph">
 							<div class="turtle">
@@ -2283,6 +2853,69 @@ ex:Employee2
 ex:Employee3
     ex:skill "Java"@en ;
     ex:skill "DevOps"@en .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:CompanyA",
+			"ex:employee": [
+				{
+					"@id": "ex:Employee1"
+				},
+				{
+					"@id": "ex:Employee2"
+				},
+				{
+					"@id": "ex:Employee3"
+				}
+			]
+		},
+		{
+			"@id": "ex:Employee1",
+			"ex:skill": [
+				{
+					"@language": "en",
+					"@value": "Java"
+				},
+				{
+					"@language": "en",
+					"@value": "Python"
+				},
+				{
+					"@language": "en",
+					"@value": "SQL"
+				}
+			]
+		},
+		{
+			"@id": "ex:Employee2",
+			"ex:skill": [
+				{
+					"@language": "en",
+					"@value": "Python"
+				},
+				{
+					"@language": "en",
+					"@value": "JavaScript"
+				}
+			]
+		},
+		{
+			"@id": "ex:Employee3",
+			"ex:skill": [
+				{
+					"@language": "en",
+					"@value": "Java"
+				},
+				{
+					"@language": "en",
+					"@value": "DevOps"
+				}
+			]
+		}
+	]
+}</pre>
 							</div>
 						</div>
 						<div class="evaluation">
@@ -2333,7 +2966,9 @@ ex:Employee3
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>find first expression</dfn>,
 							with the <a>function name</a> <code>shnex:FindFirstExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2362,15 +2997,13 @@ ex:Employee3
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="FindFirstExpression-evaluation">
 						<div class="def-header">EVALUATION OF FIND FIRST EXPRESSIONS</div>
 						<p>
 							Let <code>shape</code> be the <a>value</a> of <code>shnex:findFirst</code>
 							and <code>nodes</code> be the <a>value</a> of <code>shnex:nodes</code> in a <a>find first expression</a>.
-							If <code>shnex:nodes</code> is not specified, let <code>nodes</code> be the focus node.
-							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(nodes, focusGraph, focusNode, scope)</code>.
+							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(nodes, focusGraph, focusNode, scope)</code>
+							if <code>shnex:nodes</code> is specified, or the list consisting of exactly the <a>focus node</a> otherwise.
 							The <a>output nodes</a> of the <a>find first expression</a> contain exactly the first node <code>n</code> 
 							in <code>N</code> that <a>conforms</a> to the <a>shape</a> <code>shape</code>, 
 							or an empty sequence if no such node exists.
@@ -2414,6 +3047,63 @@ ex:SeniorEmployeeShape
         sh:minInclusive 5 ;
     ] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:CompanyShape-seniorEmployee"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Company"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape-seniorEmployee",
+			"@type": "sh:PropertyShape",
+			"sh:class": {
+				"@id": "ex:Employee"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "senior employee",
+			"sh:path": {
+				"@id": "ex:seniorEmployee"
+			},
+			"sh:values": {
+				"shnex:findFirst": {
+					"@id": "ex:SeniorEmployeeShape"
+				},
+				"shnex:nodes": {
+					"shnex:pathValues": {
+						"@id": "ex:employee"
+					}
+				}
+			}
+		},
+		{
+			"@id": "ex:SeniorEmployeeShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"sh:datatype": {
+					"@id": "xsd:integer"
+				},
+				"sh:minInclusive": {
+					"@type": "xsd:integer",
+					"@value": "5"
+				},
+				"sh:path": {
+					"@id": "ex:yearsOfService"
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -2425,7 +3115,9 @@ ex:SeniorEmployeeShape
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>match all expression</dfn>,
 							with the <a>function name</a> <code>shnex:MatchAllExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2454,15 +3146,13 @@ ex:SeniorEmployeeShape
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="MatchAllExpression-evaluation">
 						<div class="def-header">EVALUATION OF MATCH ALL EXPRESSIONS</div>
 						<p>
 							Let <code>shape</code> be the <a>value</a> of <code>shnex:matchAll</code>
 							and <code>nodes</code> be the <a>value</a> of <code>shnex:nodes</code> in the <a>match all expression</a>.
-							If <code>shnex:nodes</code> is not specified, let <code>nodes</code> be the focus node.
-							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(nodes, focusGraph, focusNode, scope)</code>.
+							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(nodes, focusGraph, focusNode, scope)</code>
+							if <code>shnex:nodes</code> is specified, or the list consisting of exactly the <a>focus node</a> otherwise.
 							The <a>output nodes</a> of the <a>match all expression</a> are <code>( true )</code> if
 							every node <code>n</code> in <code>N</code> <a>conforms</a> to the <a>shape</a> <code>shape</code>;
 							otherwise the output nodes are <code>( false )</code>.
@@ -2492,7 +3182,7 @@ ex:CompanyShape-allEmployeesActive
     sh:datatype xsd:boolean ;
     sh:maxCount 1 ;
     sh:name "all employees active" ;
-    sh:values <b> [
+    sh:values <b>[
 		shnex:nodes [
 			shnex:pathValues ex:employee ;
 		] ;
@@ -2505,6 +3195,60 @@ ex:ActiveEmployeeShape
         sh:path ex:isActive ;
         sh:hasValue true ;
     ] .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:ActiveEmployeeShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"sh:hasValue": {
+					"@type": "xsd:boolean",
+					"@value": "true"
+				},
+				"sh:path": {
+					"@id": "ex:isActive"
+				}
+			}
+		},
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:CompanyShape-allEmployeesActive"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Company"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape-allEmployeesActive",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:boolean"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "all employees active",
+			"sh:path": {
+				"@id": "ex:allEmployeesActive"
+			},
+			"sh:values": {
+				"shnex:matchAll": {
+					"@id": "ex:ActiveEmployeeShape"
+				},
+				"shnex:nodes": {
+					"shnex:pathValues": {
+						"@id": "ex:employee"
+					}
+				}
+			}
+		}
+	]
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -2521,7 +3265,9 @@ ex:ActiveEmployeeShape
 						<span data-syntax-rule="CountExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>count expression</dfn> with the <a>function name</a> <code>shnex:CountExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2541,8 +3287,6 @@ ex:ActiveEmployeeShape
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="CountExpression-evaluation">
 						<div class="def-header">EVALUATION OF COUNT EXPRESSIONS</div>
 						<p>
@@ -2578,6 +3322,45 @@ skos:ConceptScheme-topConceptCount
         ] ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "skos:ConceptScheme",
+			"@type": [
+				"rdfs:Class",
+				"sh:NodeShape"
+			],
+			"sh:property": {
+				"@id": "skos:ConceptScheme-topConceptCount"
+			}
+		},
+		{
+			"@id": "skos:ConceptScheme-topConceptCount",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:integer"
+			},
+			"sh:description": "The number of top concepts in this scheme.",
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "top concept count",
+			"sh:path": {
+				"@id": "ex:topConceptCount"
+			},
+			"sh:values": {
+				"shnex:count": {
+					"shnex:pathValues": {
+						"@id": "skos:hasTopConcept"
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -2588,7 +3371,9 @@ skos:ConceptScheme-topConceptCount
 						<span data-syntax-rule="MinExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>min expression</dfn> with the <a>function name</a> <code>shnex:MinExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2608,8 +3393,6 @@ skos:ConceptScheme-topConceptCount
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="MinExpression-evaluation">
 						<div class="def-header">EVALUATION OF MIN EXPRESSIONS</div>
 						<p>
@@ -2617,7 +3400,7 @@ skos:ConceptScheme-topConceptCount
 							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(min, focusGraph, focusNode, scope)</code>.
 							The <a>output nodes</a> of the <a>min expression</a> is the list consisting of at most one <a>node</a>
 							that is computed as the minimum value from <code>N</code>,
-							see <dfn data-cite="sparql12-query#aggMin">SPARQL MIN</dfn>.
+							see <a data-cite="sparql12-query#aggMin">SPARQL MIN</a>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -2648,6 +3431,51 @@ ex:CompanyShape-minStartDate
         ] ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:CompanyShape-minStartDate"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Company"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape-minStartDate",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:date"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "min start date",
+			"sh:path": {
+				"@id": "ex:minStartDate"
+			},
+			"sh:values": {
+				"shnex:min": {
+					"shnex:pathValues": {
+						"@list": [
+							{
+								"@id": "ex:employee"
+							},
+							{
+								"@id": "ex:startDate"
+							}
+						]
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 					</aside>
 				</section>
@@ -2658,7 +3486,9 @@ ex:CompanyShape-minStartDate
 						<span data-syntax-rule="MaxExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>max expression</dfn> with the <a>function name</a> <code>shnex:MaxExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2678,8 +3508,6 @@ ex:CompanyShape-minStartDate
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="MaxExpression-evaluation">
 						<div class="def-header">EVALUATION OF MAX EXPRESSIONS</div>
 						<p>
@@ -2687,7 +3515,7 @@ ex:CompanyShape-minStartDate
 							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(max, focusGraph, focusNode, scope)</code>.
 							The <a>output nodes</a> of the <a>max expression</a> is the list consisting of at most one <a>node</a>
 							that is computed as the maximum value from <code>N</code>,
-							see <dfn data-cite="sparql12-query#aggMax">SPARQL MAX</dfn>.
+							see <a data-cite="sparql12-query#aggMax">SPARQL MAX</a>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -2703,7 +3531,9 @@ ex:CompanyShape-minStartDate
 						<span data-syntax-rule="SumExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>sum expression</dfn> with the <a>function name</a> <code>shnex:SumExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2723,8 +3553,6 @@ ex:CompanyShape-minStartDate
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="SumExpression-evaluation">
 						<div class="def-header">EVALUATION OF SUM EXPRESSIONS</div>
 						<p>
@@ -2732,7 +3560,7 @@ ex:CompanyShape-minStartDate
 							Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(sum, focusGraph, focusNode, scope)</code>.
 							The <a>output nodes</a> of the <a>sum expression</a> is the list consisting of exactly one <a>node</a>
 							that is computed as the sum of all <a>nodes</a> from <code>N</code>,
-							see <dfn data-cite="sparql12-query#aggSum">SPARQL SUM</dfn>.
+							see <a data-cite="sparql12-query#aggSum">SPARQL SUM</a>.
 						</p>
 					</div>
 					<p><em>The remainder of this section is non-normative.</em></p>
@@ -2742,7 +3570,7 @@ ex:CompanyShape-minStartDate
 						The problem is that when a <a>path values expression</a> is used as input to a <a>sum expression</a>,
 						the path values expression will have eliminated duplicates before they can be processed by the <code>shnex:sum</code>.
 						As a result, only the distinct values will be added up.
-						To work around this, one option is to use <dfn data-cite="shacl12-sparql#sparql-node-expressions">SPARQL-based node expressions</dfn>.
+						To work around this, one option is to use <a data-cite="shacl12-sparql#sparql-node-expressions">SPARQL-based node expressions</a>.
 						Another alternative is illustrated in the following example.
 					</p>
 					<aside class="example" title="Using shnex:sum to compute the sum of the revenues of all departments">
@@ -2770,9 +3598,54 @@ ex:CompanyShape-totalRevenue
         ] ;
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:CompanyShape-totalRevenue"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Company"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape-totalRevenue",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:decimal"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "total revenue",
+			"sh:path": {
+				"@id": "ex:totalRevenue"
+			},
+			"sh:values": {
+				"shnex:sum": {
+					"shnex:flatMap": {
+						"shnex:pathValues": {
+							"@id": "ex:revenue"
+						}
+					},
+					"shnex:nodes": {
+						"shnex:pathValues": {
+							"@id": "ex:department"
+						}
+					}
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<p>
-							For the following data graph, the sum will be `42.0`.
+							For the following data graph, the sum will be <code>42.0</code>.
 						</p>
 						<div class="data-graph">
 							<div class="turtle">
@@ -2788,10 +3661,36 @@ ex:MyCompany
         ex:revenue 2.1 ;
     ] .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MyCompany",
+	"@type": "ex:Company",
+	"ex:department": [
+		{
+			"ex:revenue": {
+				"@type": "xsd:decimal",
+				"@value": "2.1"
+			}
+		},
+		{
+			"ex:revenue": {
+				"@type": "xsd:decimal",
+				"@value": "37.8"
+			}
+		},
+		{
+			"ex:revenue": {
+				"@type": "xsd:decimal",
+				"@value": "2.1"
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<p>
-							In this example, the system will first fetch all values of `ex:department` for the current company.
-							Then, for each of these departments, it will get the values for `ex:revenue` via a <a>flat map expression</a>
+							In this example, the system will first fetch all values of <code>ex:department</code> for the current company.
+							Then, for each of these departments, it will get the values for <code>ex:revenue</code> via a <a>flat map expression</a>
 							and finally return the sum of those numbers.
 						</p>
 					</aside>
@@ -2810,7 +3709,9 @@ ex:MyCompany
 						<span data-syntax-rule="InstancesOfExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called an <dfn>instancesOf expression</dfn> with the <a>function name</a> <code>shnex:InstancesOfExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2830,8 +3731,6 @@ ex:MyCompany
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="InstanceOfExpression-evaluation">
 						<div class="def-header">EVALUATION OF INSTANCESOF EXPRESSIONS</div>
 						<p>
@@ -2865,7 +3764,9 @@ ex:MyCompany
 						<span data-syntax-rule="NodesMatchingExpression-syntax">
 							A <a>blank node</a> that is the <a>subject</a> of the following properties
 							is called a <dfn>nodes matching expression</dfn> with the <a>function name</a> <code>shnex:NodesMatchingExpression</code>:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Property</th>
@@ -2885,8 +3786,6 @@ ex:MyCompany
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="def" id="NodesMatchingExpression-evaluation">
 						<div class="def-header">EVALUATION OF NODES MATCHING EXPRESSIONS</div>
 						<p>
@@ -2904,7 +3803,7 @@ ex:MyCompany
 						The following example illustrates the use of <code>shnex:nodesMatching</code> to compute all instances of
 						<code>ex:Company</code> that have at least 100 employees.
 					</p>
-					<aside class="example" id="nodes-matching-example">
+					<aside class="example" id="nodes-matching-example" title="Using shnex:nodesMatching to target all large companies">
 						<div class="shapes-graph">
 							<div class="turtle">
 ex:LargeCompanyShape
@@ -2919,6 +3818,28 @@ ex:LargeCompanyShape
         ]
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:LargeCompanyShape",
+	"@type": "sh:NodeShape",
+	"sh:targetNode": {
+		"shnex:nodesMatching": {
+			"sh:class": {
+				"@id": "ex:Company"
+			},
+			"sh:property": {
+				"sh:minCount": {
+					"@type": "xsd:integer",
+					"@value": "100"
+				},
+				"sh:path": {
+					"@id": "ex:employee"
+				}
+			}
+		}
+	}
+}</pre>
+							</div>
 						</div>
 					</aside>
 					<p>
@@ -2928,7 +3849,7 @@ ex:LargeCompanyShape
 					</p>
 				</section>
 
-				<section id="conformsToShape">
+				<section id="ConformsToShapeExpression">
 					<h3>ConformsToShape Expressions</h3>
 					<p class="syntax">
 						<span data-syntax-rule="ConformsToShapeExpression-syntax">
@@ -2936,7 +3857,9 @@ ex:LargeCompanyShape
 							as its <a>value</a> for <code>shnex:conformsToShape</code>
 							is called a <dfn>conformsToShape expression</dfn> with the <a>function name</a> <code>shnex:conformsToShape</code>.
 							The two members are as follows:
-							<table class="term-table">
+						</span>
+					</p>
+					<table class="term-table">
 								<thead>
 									<tr>
 										<th>Argument</th>
@@ -2965,8 +3888,6 @@ ex:LargeCompanyShape
 									</tr>
 								</tbody>
 							</table>
-						</span>
-					</p>
 					<div class="note">
 						Note that <code>shnex:conformsToShape</code> is a <a>list parameter function</a> which means that
 						it returns at most one output node and
@@ -3016,6 +3937,62 @@ ex:CompanyShape-hasDirector
         shnex:conformsToShape ( [ shnex:var "focusNode" ] ex:HasDirectorShape )
     ]</b> .
 							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:CompanyShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:CompanyShape-hasDirector"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Company"
+			}
+		},
+		{
+			"@id": "ex:CompanyShape-hasDirector",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:boolean"
+			},
+			"sh:maxCount": {
+				"@type": "xsd:integer",
+				"@value": "1"
+			},
+			"sh:name": "has director",
+			"sh:path": {
+				"@id": "ex:hasDirector"
+			},
+			"sh:values": {
+				"shnex:conformsToShape": {
+					"@list": [
+						{
+							"shnex:var": "focusNode"
+						},
+						{
+							"@id": "ex:HasDirectorShape"
+						}
+					]
+				}
+			}
+		},
+		{
+			"@id": "ex:HasDirectorShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"sh:minCount": {
+					"@type": "xsd:integer",
+					"@value": "1"
+				},
+				"sh:path": {
+					"@id": "ex:director"
+				}
+			}
+		}
+	]
+}</pre>
+							</div>
 						</div>
 						<p>
 							For the following data graph, the value of <code>ex:hasDirector</code> is <code>false</code>
@@ -3025,6 +4002,12 @@ ex:CompanyShape-hasDirector
 							<div class="turtle">
 ex:MyCompany
     a ex:Company .
+							</div>
+							<div class="jsonld">
+								<pre class="jsonld">{
+	"@id": "ex:MyCompany",
+	"@type": "ex:Company"
+}</pre>
 							</div>
 						</div>
 					</aside>
@@ -3040,19 +4023,25 @@ ex:MyCompany
 			</p>
 			<p class="syntax">
 				<span data-syntax-rule="sparql-syntax">
-					A <a>blank node</a> that uses a SPARQL function URI <code>sparql:&lt;NAME&gt;</code>
-					as its predicate with an <code>rdf:List</code> of arguments as its object
-					is called a <dfn>SHACL SPARQL function expression</dfn> with the corresponding SPARQL <a>function name</a>.
+					A <a>blank node</a> that is the <a>subject</a> of a single <a>triple</a> whose <a>predicate</a> is one of the
+					SPARQL function IRIs <code>sparql:&lt;NAME&gt;</code> declared in the SHACL node expression SPARQL vocabulary
+					(listed in the table below) and whose <a>object</a> follows the syntax rules of <a>list parameter functions</a>
+					is called a <dfn>SHACL SPARQL function expression</dfn> with the <a>function name</a> <code>sparql:&lt;NAME&gt;</code>.
 				</span>
 			</p>
 			<div class="def" id="sparql-function-evaluation">
 				<div class="def-header">EVALUATION OF SPARQL FUNCTION EXPRESSIONS</div>
 				<p>
-					The evaluation follows the SPARQL semantics for the corresponding SPARQL function.
-					Each item in the <code>rdf:List</code> is evaluated as a <a>node expression</a> to produce argument values,
-					which are then passed to the SPARQL function implementation.
-					If the SPARQL function produces a single result value, it is wrapped as a singleton list containing that output node.
-					If the SPARQL function produces no result or an error, the expression produces an empty list or an <a>evaluation failure</a>, respectively.
+					Each argument is evaluated as a <a>node expression</a>.
+					An argument that produces exactly one <a>output node</a> has that node as its value.
+					An <a>unbound argument</a> (zero output nodes) is an unbound value in the sense of SPARQL,
+					and an argument whose evaluation produces an <a>evaluation failure</a> is treated as a SPARQL error.
+					The function is then evaluated with these argument values following the SPARQL semantics of the corresponding SPARQL function,
+					including its handling of unbound values and errors:
+					for example, <code>sparql:bound</code> returns <code>false</code> for an unbound argument,
+					and <code>sparql:coalesce</code> and <code>sparql:if</code> skip arguments that are unbound or in error.
+					If the function produces a value, the <a>output nodes</a> are the list consisting of exactly that node.
+					If the function produces an error, the expression produces an <a>evaluation failure</a>.
 				</p>
 			</div>
 			<div id="sparql-functions-container"></div>
@@ -3067,7 +4056,7 @@ ex:MyCompany
 				hard-code changes to an engine.
 			</p>
 
-			<section>
+			<section id="custom-named-parameter-functions">
 				<h3>Custom Named Parameter Functions</h3>
 				<p class="syntax">
 					<span data-syntax-rule="CustomNamedParameterFunction-syntax">
@@ -3122,7 +4111,7 @@ ex:MyCompany
 					and then calculates the sum of all input nodes and divides it by the number of nodes,
 					returning the average value of these nodes.
 				</p>
-				<aside class="example" id="custom-named-function-example">
+				<aside class="example" id="custom-named-function-example" title="Declaring a custom named parameter function that computes averages">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:AverageExpression
@@ -3146,12 +4135,66 @@ ex:AverageExpression-average
     sh:keyParameter true ;
 .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:AverageExpression",
+			"@type": "sh:NamedParameterExpressionFunction",
+			"rdfs:comment": "Computes the average of the nodes provided by ex:average.",
+			"rdfs:label": {
+				"@language": "en",
+				"@value": "Average expression"
+			},
+			"rdfs:subClassOf": {
+				"@id": "sh:NamedParameterExpression"
+			},
+			"sh:bodyExpression": {
+				"sparql:divide": {
+					"@list": [
+						{
+							"shnex:sum": {
+								"shnex:arg": {
+									"@id": "ex:average"
+								}
+							}
+						},
+						{
+							"shnex:count": {
+								"shnex:arg": {
+									"@id": "ex:average"
+								}
+							}
+						}
+					]
+				}
+			},
+			"sh:parameter": {
+				"@id": "ex:AverageExpression-average"
+			}
+		},
+		{
+			"@id": "ex:AverageExpression-average",
+			"@type": "sh:Parameter",
+			"sh:description": "The nodes of which the average shall be computed.",
+			"sh:keyParameter": {
+				"@type": "xsd:boolean",
+				"@value": "true"
+			},
+			"sh:name": "average",
+			"sh:path": {
+				"@id": "ex:average"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 				</aside>
 				<p>
-					This new node expression function can the be used as follows:
+					This new node expression function can then be used as follows:
 				</p>
-				<aside class="example">
+				<aside class="example" title="Using the custom ex:average expression">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:CompanyShape-averageIncome
@@ -3164,11 +4207,37 @@ ex:CompanyShape-averageIncome
         ]</b>
     ] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:CompanyShape-averageIncome",
+	"@type": "sh:PropertyShape",
+	"sh:datatype": {
+		"@id": "xsd:decimal"
+	},
+	"sh:path": {
+		"@id": "ex:averageIncome"
+	},
+	"sh:values": {
+		"ex:average": {
+			"shnex:pathValues": {
+				"@list": [
+					{
+						"@id": "ex:employee"
+					},
+					{
+						"@id": "ex:income"
+					}
+				]
+			}
+		}
+	}
+}</pre>
+						</div>
 					</div>
 				</aside>
 			</section>
 
-			<section>
+			<section id="custom-list-parameter-functions">
 				<h3>Custom List Parameter Functions</h3>
 				<p class="syntax">
 					<span data-syntax-rule="CustomListParameterFunction-syntax">
@@ -3221,7 +4290,7 @@ ex:CompanyShape-averageIncome
 					The following example defines a new <a>node expression function</a> <code>ex:spacedConcat</code>
 					that takes two nodes as input and returns a string concatenating the two nodes with a space in between.
 				</p>
-				<aside class="example" id="custom-list-function-example">
+				<aside class="example" id="custom-list-function-example" title="Declaring the custom list parameter function ex:spacedConcat">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:spacedConcat
@@ -3250,12 +4319,68 @@ ex:spacedConcat
 		sh:datatype xsd:string ;
 	] .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:spacedConcat",
+	"@type": "sh:ListParameterExpressionFunction",
+	"rdfs:label": {
+		"@language": "en",
+		"@value": "Spaced concat expression"
+	},
+	"rdfs:subClassOf": {
+		"@id": "sh:ListParameterExpression"
+	},
+	"sh:bodyExpression": {
+		"sparql:concat": {
+			"@list": [
+				{
+					"shnex:arg": {
+						"@type": "xsd:integer",
+						"@value": "0"
+					}
+				},
+				" ",
+				{
+					"shnex:arg": {
+						"@type": "xsd:integer",
+						"@value": "1"
+					}
+				}
+			]
+		}
+	},
+	"sh:parameter": [
+		{
+			"@type": "sh:Parameter",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:description": "The first string to concatenate.",
+			"sh:name": "first string",
+			"sh:path": {
+				"@id": "shnex:arg0"
+			}
+		},
+		{
+			"@type": "sh:Parameter",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:description": "The second string to concatenate.",
+			"sh:name": "second string",
+			"sh:path": {
+				"@id": "shnex:arg1"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 				</aside>
 				<p>
-					This new node expression function can the be used as follows:
+					This new node expression function can then be used as follows:
 				</p>
-				<aside class="example">
+				<aside class="example" title="Using the custom ex:spacedConcat function">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:Person-fullName
@@ -3268,6 +4393,34 @@ ex:Person-fullName
             [ shnex:pathValues ex:lastName ]
         )</b>
     ] .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@id": "ex:Person-fullName",
+	"@type": "sh:PropertyShape",
+	"sh:datatype": {
+		"@id": "xsd:string"
+	},
+	"sh:path": {
+		"@id": "ex:fullName"
+	},
+	"sh:values": {
+		"ex:spacedConcat": {
+			"@list": [
+				{
+					"shnex:pathValues": {
+						"@id": "ex:firstName"
+					}
+				},
+				{
+					"shnex:pathValues": {
+						"@id": "ex:lastName"
+					}
+				}
+			]
+		}
+	}
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -3286,7 +4439,9 @@ ex:Person-fullName
 					<span data-syntax-rule="ArgExpression-syntax">
 						A <a>blank node</a> that is the <a>subject</a> of the following properties
 						is called an <dfn>arg expression</dfn> with the <a>function name</a> <code>shnex:ArgExpression</code>:
-						<table class="term-table">
+					</span>
+				</p>
+				<table class="term-table">
 							<thead>
 								<tr>
 									<th>Property</th>
@@ -3311,13 +4466,11 @@ ex:Person-fullName
 								</tr>
 							</tbody>
 						</table>
-					</span>
-				</p>
 				<div class="def" id="ArgExpression-evaluation">
 					<div class="def-header">EVALUATION OF ARG EXPRESSIONS</div>
 					<p>
 						Let <code>arg</code> be the <a>value</a> of <code>shnex:arg</code> in the <a>arg expression</a>.
-						The <a>output nodes</a> of the <a>var expression</a> are computed as follows, in order:
+						The <a>output nodes</a> of the <a>arg expression</a> are computed as follows, in order:
 					</p>
 					<ol>
 						<li>
@@ -3333,6 +4486,11 @@ ex:Person-fullName
 					The difference is that <code>shnex:arg</code> interprets the values as node expressions, while
 					<code>shnex:var</code> treats the values as individual nodes.
 					As a result, a custom node expression can evaluate nested node expressions that are passed in as arguments.
+				</p>
+				<p>
+					Note that the argument is evaluated with an empty scope: a node expression passed as an argument
+					cannot reference the variables of the scope in which the custom node expression is used,
+					such as the variable <code>value</code> of <a>expression constraints</a>.
 				</p>
 				<p>
 					Examples of <code>shnex:arg</code> can be found in
@@ -3354,8 +4512,8 @@ ex:Person-fullName
 					<dfn data-lt="expression constraint">expression constraints</dfn>.
 					Expression constraints can be used in any <a>shape</a> to declare the condition that the
 					<a>node expression</a> specified via <code>sh:expression</code> has <code>true</code> as its only output node.
-					The evaluation of these node expressions is repeated for all <a>value nodes</a> of the <a>shape</a>
-					as the <a>focus node</a>.
+					The node expression is evaluated once for each <a>value node</a> of the <a>shape</a>, with the
+					<a>focus node</a> of the shape as the focus node and the value node bound to the scope variable <code>value</code>.
 				</p>
 				<p>
 					<span class="component-class">Constraint Component IRI</span>: <code>sh:ExpressionConstraintComponent</code>
@@ -3385,7 +4543,7 @@ ex:Person-fullName
 					<div class="def-text-body" data-validator="Expression">
 						Let <code>$expr</code> be a <a>value</a> of <code>sh:expression</code>.
 						For each <a>value node</a> <code>v</code>
-						where <code>evalExpr(expr, <a>data graph</a>, focusNode, {value: v})</code>
+						where <code>evalExpr($expr, <a>data graph</a>, focusNode, {"value": v})</code>
 						does not return the list consisting of exactly <code>true</code> as its <a>output nodes</a>,
 						there is a <a>validation result</a> that has <code>v</code> as its <code>sh:value</code>
 						and a <a>deep copy</a> of <code>$expr</code> in the results graph as its <code>sh:sourceConstraint</code>.
@@ -3401,7 +4559,7 @@ ex:Person-fullName
 					the constraint that the values of <code>ex:ibanNumber</code> must start with the same two (upper-case) letters as
 					the values of the path <code>ex:country/ex:code</code>.
 				</p>
-				<aside class="example">
+				<aside class="example" title="Using sh:expression to check that IBAN numbers start with the country code">
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:AccountShape
@@ -3419,14 +4577,65 @@ ex:AccountShape-ibanNumber
             [ shnex:var "value" ]
             [
                 sparql:ucase (
-                    [
-                        shnex:pathValues ( ex:country ex:code )
-                        shnex:nodes [ shnex:var "focusNode" ]
-                    ]
+                    [ shnex:pathValues ( ex:country ex:code ) ]
                 )
             ]
         )
     ]</b> .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:AccountShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:AccountShape-ibanNumber"
+			},
+			"sh:targetClass": {
+				"@id": "ex:Account"
+			}
+		},
+		{
+			"@id": "ex:AccountShape-ibanNumber",
+			"@type": "sh:PropertyShape",
+			"sh:datatype": {
+				"@id": "xsd:string"
+			},
+			"sh:expression": {
+				"sparql:strstarts": {
+					"@list": [
+						{
+							"shnex:var": "value"
+						},
+						{
+							"sparql:ucase": {
+								"@list": [
+									{
+										"shnex:pathValues": {
+											"@list": [
+												{
+													"@id": "ex:country"
+												},
+												{
+													"@id": "ex:code"
+												}
+											]
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			"sh:message": "IBAN numbers must start with the country code, in upper-case letters.",
+			"sh:path": {
+				"@id": "ex:ibanNumber"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 					<div class="data-graph">
@@ -3448,6 +4657,38 @@ ex:Estonia
 ex:Germany
     a ex:Country ;
     ex:code "de" .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Estonia",
+			"@type": "ex:Country",
+			"ex:code": "ee"
+		},
+		{
+			"@id": "ex:Germany",
+			"@type": "ex:Country",
+			"ex:code": "de"
+		},
+		{
+			"@id": "ex:InvalidGermanAccount",
+			"@type": "ex:Account",
+			"ex:country": {
+				"@id": "ex:Estonia"
+			},
+			"ex:ibanNumber": "DE987654..."
+		},
+		{
+			"@id": "ex:ValidGermanAccount",
+			"@type": "ex:Account",
+			"ex:country": {
+				"@id": "ex:Germany"
+			},
+			"ex:ibanNumber": "DE123456..."
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -3488,8 +4729,8 @@ ex:Germany
 					<div class="def-text-body" data-validator="NodeByExpression">
 						Let <code>$expr</code> be a <a>value</a> of <code>sh:nodeByExpression</code>.
 						For each <a>value node</a> <code>v</code>: perform a <a>conformance check</a> of
-						<code>v</code> against each <a>output node</a> of <code>evalExpr(expr,
-						<a>data graph</a>, v, {})</code> <code>s</code>. A <a>failure</a>
+						<code>v</code> against each <a>output node</a> <code>s</code> of <code>evalExpr($expr,
+						<a>data graph</a>, v, {})</code>. A <a>failure</a>
 						MUST be produced if the <a>conformance check</a> of <code>v</code> against
 						<code>s</code> produces a <a>failure</a>. Otherwise, if <code>v</code> does
 						not <a>conform</a> to <code>s</code>, there is a <a>validation result</a>
@@ -3503,8 +4744,10 @@ ex:Germany
 					a referenced <a>node expression</a> is used to dynamically compute the set of <a>node shapes</a> to which each <a>value node</a> must conform.
 				</p>
 				
-					There are three key differences between <code>sh:nodeByExpression</code> and <dfn data-cite="shacl12-core#NodeConstraintComponent"><code>sh:node</code></dfn>:
-					<ol>
+					<p>
+					There are three key differences between <code>sh:nodeByExpression</code> and <a data-cite="shacl12-core#NodeConstraintComponent"><code>sh:node</code></a>:
+				</p>
+				<ol>
 						<li>
 							<code>sh:nodeByExpression</code> references a <a>node expression</a> instead of a fixed <a>node shape</a> as <code>sh:node</code> does.
 						</li>
@@ -3513,7 +4756,7 @@ ex:Germany
 							as a <a>blank node</a> would be interpreted as a <a>node expression</a>.
 						</li>
 						<li>
-							<a>Results</a> generated by <code>sh:nodeByExpression</code> additionally include a value for `sh:sourceConstraint`.
+							<a>Results</a> generated by <code>sh:nodeByExpression</code> additionally include a value for <code>sh:sourceConstraint</code>.
 						</li>
 					</ol>
 				
@@ -3529,7 +4772,7 @@ ex:Germany
 					To validate that every <code>qb:Observation</code> instance conforms to the appropriate shape, <code>sh:nodeByExpression</code> with a <a>path values expression</a>
 					is used to locate the shape at the property path <code>qb:dataSet/qb:structure/eg:hasShape</code> from each <code>qb:Observation</code> instance.
 				</p>
-				<aside class="example">
+				<aside class="example" title="Using sh:nodeByExpression to validate observations against the shape of their data structure definition">
 					<div class="shapes-graph">
 						<div class="turtle">
 eg:dsd1-shape
@@ -3705,7 +4948,7 @@ eg:obs1a
 			"rdfs:comment": {
 				"@language": "en",
 				"@value": "shipments by time (multiple measures approach)"
-			}
+			},
 			"eg:hasShape": {
 				"@id": "eg:dsd1-shape"
 			},
@@ -3755,11 +4998,11 @@ eg:obs1a
 			"sdmx-dimension:refTime": {
 				"@type": "xsd:dateTime",
 				"@value": "2010-07-31T12:00:00"
-			}
+			},
 			"eg-measure:weight": {
 				"@type": "xsd:decimal",
 				"@value": "1.4"
-			},
+			}
 		}
 	]
 }</pre>
@@ -3884,13 +5127,15 @@ eg:obs1a
 		<section id="dynamic-shacl">
 			<h2>Dynamic SHACL</h2>
 			<p>
-				This section defines <dfn>Dynamic SHACL</dfn> as a dialect of SHACL that some implementations MAY support.
+				This section defines <dfn>Dynamic SHACL</dfn> as a dialect of SHACL.
+				Support for Dynamic SHACL is OPTIONAL, see <a href="#conformance"></a>.
 			</p>
 			<p>
 				In Dynamic SHACL any <a>parameter</a> of a <a>constraint</a> can be computed using a <a>node expression</a>,
-				excluding those that do <em>not</em> allow <a>blank nodes</a> (such as <code>sh:node</code>)
-				but including those that take <a>SHACL lists</a> as values (such as <code>sh:class</code>,
-				<code>sh:datatype</code>, and <code>sh:in</code>).
+				except for parameters whose values may be <a>blank nodes</a> (such as <code>sh:node</code>, <code>sh:property</code>
+				or <code>sh:qualifiedValueShape</code>), because such a value cannot be distinguished from a node expression.
+				Parameters that take <a>SHACL lists</a> as values (such as <code>sh:class</code>,
+				<code>sh:datatype</code>, and <code>sh:in</code>) are included.
 				During <a>validation</a>, such <a>node expressions</a> are evaluated in the <a>data graph</a>,
 				using the current <a>focus node</a>.
 				The resulting <a>nodes</a> will be used as <a>parameters</a> for the <a>constraint</a>.
@@ -3914,7 +5159,7 @@ ex:PresidentShape-age
     sh:path ex:age ;
     <b>sh:minInclusive [
         shnex:if [
-            sparql:eq (
+                        sparql:equals (
                 [ shnex:pathValues ex:country ]
                 ex:USA
             )
@@ -3922,6 +5167,53 @@ ex:PresidentShape-age
         shnex:then 35 ;
         shnex:else 18 ;
     ]</b> .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:PresidentShape",
+			"@type": "sh:NodeShape",
+			"sh:property": {
+				"@id": "ex:PresidentShape-age"
+			},
+			"sh:targetClass": {
+				"@id": "ex:President"
+			}
+		},
+		{
+			"@id": "ex:PresidentShape-age",
+			"@type": "sh:PropertyShape",
+			"sh:minInclusive": {
+				"shnex:else": {
+					"@type": "xsd:integer",
+					"@value": "18"
+				},
+				"shnex:if": {
+					"sparql:equals": {
+						"@list": [
+							{
+								"shnex:pathValues": {
+									"@id": "ex:country"
+								}
+							},
+							{
+								"@id": "ex:USA"
+							}
+						]
+					}
+				},
+				"shnex:then": {
+					"@type": "xsd:integer",
+					"@value": "35"
+				}
+			},
+			"sh:path": {
+				"@id": "ex:age"
+			}
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -3946,6 +5238,30 @@ ex:QueenslandAddress1
     ex:country ex:Australia ;
     ex:state "QLD" ;
 .
+						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:ArizonaAddress1",
+			"@type": "ex:Address",
+			"ex:country": {
+				"@id": "ex:USA"
+			},
+			"ex:state": "AZ",
+			"ex:street": "123 John Muir Ave"
+		},
+		{
+			"@id": "ex:QueenslandAddress1",
+			"@type": "ex:Address",
+			"ex:country": {
+				"@id": "ex:Australia"
+			},
+			"ex:state": "QLD",
+			"ex:street": "123 Bob Katter Cl"
+		}
+	]
+}</pre>
 						</div>
 					</div>
 				</aside>
@@ -3978,6 +5294,36 @@ ex:USA
                  "AR" ; # ...
 .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Australia",
+			"@type": "ex:Country",
+			"ex:stateCode": [
+				"ACT",
+				"NSW",
+				"NT",
+				"QLD",
+				"SA",
+				"TAS",
+				"VIC",
+				"WA"
+			]
+		},
+		{
+			"@id": "ex:USA",
+			"@type": "ex:Country",
+			"ex:stateCode": [
+				"AL",
+				"AK",
+				"AZ",
+				"AR"
+			]
+		}
+	]
+}</pre>
+						</div>
 					</div>
 				</aside>
 				<p>
@@ -3997,6 +5343,38 @@ ex:Address-state
         shnex:pathValues ( ex:country ex:stateCode )
     ]</b> .
 						</div>
+						<div class="jsonld">
+							<pre class="jsonld">{
+	"@graph": [
+		{
+			"@id": "ex:Address",
+			"@type": "sh:ShapeClass",
+			"sh:property": {
+				"@id": "ex:Address-state"
+			}
+		},
+		{
+			"@id": "ex:Address-state",
+			"@type": "sh:PropertyShape",
+			"sh:in": {
+				"shnex:pathValues": {
+					"@list": [
+						{
+							"@id": "ex:country"
+						},
+						{
+							"@id": "ex:stateCode"
+						}
+					]
+				}
+			},
+			"sh:path": {
+				"@id": "ex:state"
+			}
+		}
+	]
+}</pre>
+						</div>
 					</div>
 				</aside>
 				<p>
@@ -4006,6 +5384,22 @@ ex:Address-state
 					state codes that are linked to <code>ex:USA</code>.
 				</p>
 			</section>
+		</section>
+
+		<section id="syntax-rules" class="appendix">
+			<h2>Summary of Syntax Rules</h2>
+			<p>
+				This section enumerates all normative syntax rules of this document.
+				This section is automatically generated from other parts of this spec and hyperlinks are provided back
+				into the prose if the context of the rule in unclear.
+				Nodes that violate these rules in a <a>shapes graph</a> are <a>ill-formed</a>.
+			</p>
+			<table class="term-table" id="syntax-rules-table">
+				<tr>
+					<th>Syntax Rule Id</th>
+					<th>Syntax Rule Text</th>
+				</tr>
+			</table>
 		</section>
 
 		<section id="security">
