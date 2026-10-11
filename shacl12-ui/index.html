@@ -1347,27 +1347,15 @@ ex:config a shui:Configuration ;
           <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong> that have a value for the
             <strong>Widget predicate</strong>, sorted by <code>shui:score</code> in descending order and then lexicographically
             by the Unicode codepoint values of the widget IRI.</li>
-          <li>For each instance S of type shui:WidgetScore          
+          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>, in that order
             <ul>
-              <li>Call the <code>matcher</code> function with the following:
-              <ul>
-                <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
-                <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
-                <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
-                <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-                <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
-                <li><strong>Widget predicate</strong> — The predicate used to specify the widget.</li>
-              </ul>
-              </li>
-
-              <li>If the return value is <code>false</code>, continue with the next iteration.</li>
-              <li>Call the <a href="#scoring-algorithm-accept-function"><strong>accept</strong> function</a> with the following inputs:
+              <li>Call the <a href="#scoring-algorithm-applies-function"><strong>applies</strong> function</a> with the following inputs:
                 <ul>
-                  <li><strong>Focus node</strong> — The focus node or undefined if there are no focus nodes.</li>
+                  <li><strong>Focus node</strong> — The focus node or undefined if there is no focus node.</li>
                   <li><strong>Data graph</strong> — The data graph containing the focus node.</li>
                   <li><strong>Shape node</strong> — The shape node associated with the property shape.</li>
                   <li><strong>Shapes graph</strong> — The shapes graph containing the shape node.</li>
-                  <li><strong>Widget node</strong> — The value of the <strong>Widget predicate</strong> of <code>S</code>.</li>
+                  <li><strong>Widget score</strong> — <code>S</code>.</li>
                   <li><strong>Widget predicate</strong> — The <strong>Widget predicate</strong>.</li>
                   <li><strong>Scoring graph</strong> — The RDF graph containing <code>shui:WidgetScore</code> instances that define how widgets are scored.</li>
                 </ul>
@@ -1376,9 +1364,9 @@ ex:config a shui:Configuration ;
               <li>If the return value is <code>true</code>, return the value of the <strong>Widget predicate</strong> of <code>S</code>.</li>
             </ul>
           </li>
-          <li>No widget was found: either no <code>shui:WidgetScore</code> instances were collected, or every instance was
-            rejected by the <code>matcher</code> or <a href="#scoring-algorithm-accept-function"><strong>accept</strong> function</a>.
-            Return <code>undefined</code>.</li>
+          <li>No widget was found: either no <code>shui:WidgetScore</code> instances were collected, or the
+            <a href="#scoring-algorithm-applies-function"><strong>applies</strong> function</a> returned <code>false</code>
+            for every instance. Return <code>undefined</code>.</li>
         </ol>
 
         <section id="select-function-processing">
@@ -1433,31 +1421,20 @@ ex:config a shui:Configuration ;
           <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong> that have a value for the
             <strong>Widget predicate</strong>, sorted by <code>shui:score</code> in descending order and then lexicographically
             by the Unicode codepoint values of the widget IRI.</li>
-          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>
+          <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>, in that order
             <ol>
-              <li>Call the matcher function with the following:
+              <li>Call the <a href="#scoring-algorithm-applies-function">applies function</a> with the following:
                 <ul>
                   <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
                   <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
                   <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
                   <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
-                  <li><code>S</code> as <strong>matcher node</strong>.</li>
-                  <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
-                </ul>
-              </li>
-              <li>If the matcher function returns <code>false</code>, continue with the next iteration.</li>
-              <li>Call the <a href="#scoring-algorithm-accept-function">accept function</a> with the following:
-                <ul>
-                  <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
-                  <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
-                  <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
-                  <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
-                  <li>The value of the <strong>Widget predicate</strong> of <code>S</code> as <strong>widget node</strong>.</li>
+                  <li><code>S</code> as <strong>widget score</strong>.</li>
                   <li><strong>Widget predicate</strong> as <strong>widget predicate</strong>.</li>
                   <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
                 </ul>
               </li>
-              <li>If the accept function returns <code>false</code>, continue with the next iteration.</li>
+              <li>If the applies function returns <code>false</code>, continue with the next iteration.</li>
               <li>
                 Append a record to <code>results</code> with the following members:
                 <ul>
@@ -1469,6 +1446,58 @@ ex:config a shui:Configuration ;
             </ol>
           </li>
           <li>Return <code>results</code>.</li>
+        </ol>
+      </section>
+
+      <section id="scoring-algorithm-applies-function">
+        <h3>Applies Function</h3>
+          <p>
+            The applies function used by the <a href="#select-function">select function</a> and the
+            <a href="#scoring-algorithm-score-function">score function</a> to check whether a <code>shui:WidgetScore</code>
+            applies to a given focus node and shape node. A <code>shui:WidgetScore</code> applies when it matches and its
+            widget is accepted.
+          </p>
+          <p>
+            Inputs:
+          </p>
+        <ul>
+          <li><strong>Focus node</strong> — The node to validate, may also be <code>undefined</code>.</li>
+          <li><strong>Data graph</strong> — The RDF graph containing the focus node.</li>
+          <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
+          <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
+          <li><strong>Widget score</strong> — The <code>shui:WidgetScore</code> instance to check (an IRI or blank node).</li>
+          <li><strong>Widget predicate</strong> — The predicate used to specify the widget, typically <code>shui:editor</code> or <code>shui:viewer</code>.</li>
+          <li><strong>Scoring graph</strong> — The RDF graph containing the Widget Score definitions.</li>
+        </ul>
+        <p>Output:</p>
+        <ul>
+          <li>A boolean — <code>true</code> if the <strong>Widget score</strong> applies, <code>false</code> otherwise.</li>
+        </ul>
+        <p>Steps:</p>
+        <ol>
+          <li>Call the <a href="#scoring-algorithm-matcher-function">matcher function</a> with the following:
+            <ul>
+              <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+              <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
+              <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+              <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+              <li><strong>Widget score</strong> as <strong>matcher node</strong>.</li>
+              <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
+            </ul>
+          </li>
+          <li>If the matcher function returns <code>false</code>, return <code>false</code>.</li>
+          <li>Call the <a href="#scoring-algorithm-accept-function">accept function</a> with the following:
+            <ul>
+              <li><strong>Focus node</strong> as <strong>focus node</strong>.</li>
+              <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
+              <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
+              <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
+              <li>The value of the <strong>Widget predicate</strong> of <strong>widget score</strong> as <strong>widget node</strong>.</li>
+              <li><strong>Widget predicate</strong> as <strong>widget predicate</strong>.</li>
+              <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
+            </ul>
+          </li>
+          <li>Return the return value of the accept function.</li>
         </ol>
       </section>
 
@@ -1514,9 +1543,9 @@ ex:config a shui:Configuration ;
       <section id="scoring-algorithm-matcher-function">
         <h3>Matcher Function</h3>
           <p>
-            The matcher function used by the <a href="#scoring-algorithm-score-function">score function</a> and
-            the <a href="#scoring-algorithm-accept-function">accept function</a> to validate whether a widget score
-            applies to a given focus node and shape node.
+            The matcher function used by the <a href="#scoring-algorithm-applies-function">applies function</a> and
+            the <a href="#scoring-algorithm-accept-function">accept function</a> to validate whether a matcher node
+            matches a given focus node and shape node.
           </p>
           <p>
             Inputs:
