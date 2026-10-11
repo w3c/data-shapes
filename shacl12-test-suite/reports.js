@@ -82,13 +82,58 @@ async function limitedFetch(url) {
 	}
 }
 
+// The progress of the loading, shown in place of the results until they are rendered. The total number
+// of files is not known in advance, because the manifests of the test suite are discovered while loading,
+// so the bar shows the loaded files against the files found so far.
+const progress = {
+	phase: 'the test suite',
+	requested: 0,
+	loaded: 0,
+
+	setPhase(phase) {
+		this.phase = phase
+		this.requested = 0
+		this.loaded = 0
+		this.update()
+	},
+
+	fileRequested() {
+		this.requested++
+		this.update()
+	},
+
+	fileLoaded() {
+		this.loaded++
+		this.update()
+	},
+
+	update() {
+		const bar = document.getElementById('progress')
+		const status = document.getElementById('status')
+		if (!bar || !status) {
+			return
+		}
+		bar.max = Math.max(this.requested, 1)
+		bar.value = this.loaded
+		status.textContent = this.requested === 0
+			? `Loading ${this.phase}…`
+			: `Loading ${this.phase}: ${this.loaded} of ${this.requested} files`
+	},
+}
+
 async function loadTurtle(url) {
-	const response = await limitedFetch(url)
-	if (!response.ok) {
-		throw new Error(`${url}: HTTP ${response.status}`)
+	progress.fileRequested()
+	try {
+		const response = await limitedFetch(url)
+		if (!response.ok) {
+			throw new Error(`${url}: HTTP ${response.status}`)
+		}
+		const text = await response.text()
+		return new N3.Store(new N3.Parser({ baseIRI: url }).parse(text))
 	}
-	const text = await response.text()
-	return new N3.Store(new N3.Parser({ baseIRI: url }).parse(text))
+	finally {
+		progress.fileLoaded()
+	}
 }
 
 function objects(store, subject, predicate) {
@@ -396,10 +441,12 @@ async function main() {
 		return
 	}
 
+	progress.setPhase('the list of reports')
 	const files = await listReportFiles().catch(ex => {
 		showMessage(`Could not list the report files: ${ex.message}`, true)
 		return []
 	})
+	progress.setPhase('the reports')
 	const results = await Promise.allSettled(files.map(loadReport))
 	const implementations = []
 	results.forEach((result, index) => {
