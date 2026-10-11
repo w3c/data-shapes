@@ -586,18 +586,27 @@
 
       <section id="desc-aggregation">
         <h3>Grouping and Aggregation</h3>
-        <p class="ednote">
-          @@ Grouping and aggregation overview
-        </p>
+        <div class="issue" data-number="840">
+          <p>
+            Provide GROUP BY and [=aggregation functions=].
+            This covers at least 
+            `COUNT`, `COUNT DISTINCT`, `MIN`, `MAX`, and `SUM`.
+          </p>
+        </div>
         <p>
           Rules with an [=aggregation element=] are [=run-once rules=].
           Such rules are run after all the rules that could produce data that they
           depend on, and before any rules that depend on the data they produce.
-          An aggregate is calculated once, over the complete collection of
-          triples that can contribute to it.
+          An [=aggregation element=] consumes the complete collection of
+          [=solution sequences=] of preceeding [=rule elements=] 
+          in the [=rule body=], collects them into groups based on 
+          [=group keys=], then evaluates 
+        </p>
+        <p>
+          The output is a [=solution sequence=] where each [solution mapping=]
+          contains the [=group key=] and the  [=aggregation assignments=].
         </p>
       </section>
-
 
       <section id="desc-import">
         <h3>Importing Rule Sets</h3>
@@ -2154,6 +2163,57 @@ define evalFunction(F, μ):
 enddefine
 </pre>
         </div>
+        <div class="algorithm">
+          <pre class="nohighlight">
+define evalAggregate(AGGF, SEQ)
+@@
+    # AGGF is an aggregration function, which has an argument of a variable
+    # and a solution sequence. It returns a RDF term value.
+
+    # Noting that DISTINCT is only permitted for COUNT
+    # Special case COUNT(*).
+endefine
+</pre>
+        </div>
+
+        <table class="simple">
+          <caption>Aggregation functions</caption>
+          <thead>
+            <tr>
+               <th style="text-align: center">Agregation Function</th>
+               <th style="text-align: center">SPARQL equivalent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>COUNT</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggSum">SPARQL COUNT</a>
+                with <em>distinct</em> set `false`</td>
+            </tr>
+            <tr>
+              <td><code>COUNT DISTINCT</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggSum">COUNT</a> 
+                with <em>distinct</em> set `true`</td>
+            <tr>
+              <td><code>MIN</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggMin">SPARQL MIN</a></td>
+            </tr>
+            <tr>
+              <td><code>MAX</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggMax">SPARQL MAX</a></td>
+            </tr>
+            <tr>
+              <td><code>SUM</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggSum">SPARQL SUM</a></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="ednote">
+          Any error in calculating an aggregate function causes an
+          evaluation error and this grouping is not added to the results.
+        </p>
+
       </section>
 
       <section id="eval-rule">
@@ -2259,7 +2319,9 @@ define evalRuleElements(B, SEQ, G, GD):
                     KGRP[<var>μ<sub>k</sub></var>] = solution sequence of one element <var>μ<sub>x</sub></var>
                 endif
             endfor
-            # For each group, create solution mapping and calculate the aggregate functions
+            # For each group, calculate the aggregate functions and
+            # and create a solution mapping with group keys and
+            # the result of the aggregation assignments.
             let SEQ1 be an empty solution sequence
             foreach key K of map KGRP:
                 let X be solution sequence of KGRP[K]
