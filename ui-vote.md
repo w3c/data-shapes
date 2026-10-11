@@ -84,9 +84,21 @@ Together, these two votes give the guarantees to those who need them, and keep v
 
 ### Why
 
-The specification has quality issues, and it's unrealistic that the task force can solve them in the remaining time.
-Some examples:
+The current state of the specification doesn't represent the consensus of the task force.
+Major changes were merged without the two-week review period the WG agreed on.
+This led to quality issues, and cleaning them up costs much more time than reviewing the changes would have.
+It also gives those who ignored the review rules the leverage to block changes.
 
+With the remaining time, it's unrealistic that the task force can resolve these issues.
+The following examples show their extent:
+
+- **Example: Ordering:**
+  The ordering part of the specification was added without PR review and has serious quality issues.
+  It was written with only a single use case in mind.
+  Supporting other use cases on top of it would be hard and would require complicated hacks with a negative performance impact.
+- **Example: Widget scoring:**
+  Changes to widget scoring were also added without PR review.
+  As with ordering, other use cases were ignored, and widget scoring would even block some of them.
 - **Example: Deterministic tie-breaking:**
   Adding "deterministic" to the tie-breaking algorithm has been discussed for months.
   Comments pointing out that the context in which the behavior must be deterministic isn't defined have been ignored.
@@ -94,11 +106,5 @@ Some examples:
 - **Example: Entry point of the renderer:**
   "SHACL UI Application" was proposed as the entry point.
   Comments about use cases with multiple renderers in a single application have been ignored.
-- **Example: Ordering:**
-  The ordering part of the specification was added without PR review and has serious quality issues.
-- **Example: Widget scoring:**
-  Changes to widget scoring were also added without PR review.
-  Cleaning them up takes much more time than reviewing them would have.
-  The same will apply to ordering, and it's unrealistic that the task force will manage this in time.
 
 A Note still documents the work done so far and lets implementations build on it, without claiming a level of quality and consensus the specification hasn't reached.
