@@ -27,7 +27,9 @@ const jsonldContext = {
     rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
     sh: 'http://www.w3.org/ns/shacl#',
     xsd: 'http://www.w3.org/2001/XMLSchema#',
-    ex: 'http://example.com/ns#'
+    ex: 'http://example.com/ns#',
+    shnex: 'http://www.w3.org/ns/shacl-node-expr#',
+    sparql: 'http://www.w3.org/ns/sparql#'
   }
 }
 
@@ -38,6 +40,8 @@ const turtlePrefixes = `
 @prefix sh: <http://www.w3.org/ns/shacl#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 @prefix ex: <http://example.com/ns#>.
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#>.
+@prefix sparql: <http://www.w3.org/ns/sparql#>.
 `
 
 function escape (str) {

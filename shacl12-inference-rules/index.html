@@ -109,7 +109,7 @@
 					{
 						name:       "Holger Knublauch",
 						company:    "TopQuadrant, Inc.",
-						companyURL: "http://topquadrant.com/",
+						companyURL: "https://www.topquadrant.com",
 						mailto:     "holger@knublauch.com",
 						w3cid:      46500
 					},
@@ -123,26 +123,26 @@
 					{
 						name:       "Scott Henninger",
 						company:    "JPMorgan Chase & Co.",
-						companyURL: "https://www.jpmorganchase.com/",
+						companyURL: "https://www.jpmorganchase.com",
 						mailto:     "scotthenninger@gmail.com",
 						w3cid:      80464
 					},
 					{
 						name:       "Livio Robaldo",
 						company:    "Swansea University",
-						companyURL: "https://www.swansea.ac.uk/",
+						companyURL: "https://www.swansea.ac.uk",
 						mailto:     "livio.robaldo@swansea.ac.uk",
 						w3cid:      157543
 					},
 					{
-						name:		"Simon Steyskal",
-						company:	"Siemens AG",
+						name:       "Simon Steyskal",
+						company:    "Siemens AG",
 						companyURL: "https://siemens.com",
-						//mailto: "simon.steyskal@siemens.com",
-						w3cid:		73545
+						orcid:      "0000-0002-5183-2486",
+						w3cid:      73545
 					}
 				],
-				testSuiteURI: "https://w3c.github.io/data-shapes/data-shapes-test-suite/",
+				testSuiteURI: "https://github.com/w3c/data-shapes/tree/gh-pages/shacl12-test-suite",
 
 				previousPublishDate: "2017-07-20",
 				previousMaturity: "REC",
@@ -211,6 +211,7 @@
 						<dfn data-cite="rdf12-concepts#dfn-rdf-node" data-lt="node|nodes">node</dfn> of an RDF graph,
 						<dfn data-cite="rdf12-concepts#dfn-datatype" data-lt="datatype|datatypes">datatype</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-reifier">reifier</dfn>,
+						<dfn data-cite="rdf12-concepts#dfn-triple-annotation">triple annotation</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-rdf-term" data-lt="term|terms">RDF term</dfn>, and
 						<dfn data-cite="rdf12-concepts#dfn-subject" data-lt="subject|subjects">subject</dfn>,
 						<dfn data-cite="rdf12-concepts#dfn-predicate" data-lt="predicate|predicates">predicate</dfn>, and
@@ -605,8 +606,8 @@ ex:RectangleRulesShape
 				<ul>
 					<li>
 						A <dfn>shape rule</dfn> is a <a>rule</a> that is the <a>object</a> of a <code>sh:rule</code> triple.
-						Shape rules are executed for all <a>target</a> nodes of the <a>shape</a> which is the <a>subject</a>
-						of the <code>sh:rule</code> triple.
+						When a <a>shape rule</a> is executed, its <a>focus nodes</a> are the <a>target</a> nodes of the <a>shape</a>
+						which is the <a>subject</a> of the <code>sh:rule</code> triple.
 					</li>
 					<li>
 						A <dfn data-lt="global">global rule</dfn> is a <a>rule</a> that is <em>not</em> linked to a <a>shape</a> by 
@@ -980,7 +981,9 @@ ex:SmallRectangle ex:isSmall true .
 				The input to a SHACL rules engine is a set of rules called a <dfn>rule set</dfn>.
 				A <a>rule set</a> is identified by an <a>IRI</a>.
 				The property <code>sh:hasRule</code> can be used to declare that a <a>rule set</a> has a given <a>rule</a> as a member.
-				The <dfn>default rule set</dfn> of a <a>graph</a> is the set of all <a>rules</a> in the graph.
+				A <a>rule set</a> may contain both <a>shape rules</a> and <a>global rules</a>.
+				The <dfn>default rule set</dfn> of a <a>graph</a> is the set of all <a>rules</a> in the graph,
+				regardless of whether they are also members of other <a>rule sets</a>.
 				Rule sets can use the property <code>sh:includesRuleSet</code> to (transitively) include other rule sets.
 			</p>
 			<p class="syntax">
@@ -1040,30 +1043,77 @@ ex:RuleSet2
 			</p>
 		</section>
 
-		<section id="RulesEntailment">
-			<h2>The sh:RulesEntailment Regime</h2>
+		<section id="rule-entailment-regimes">
+			<h2>Rule Entailment Regimes</h2>
 			<p>
-				SHACL defines the property <code>sh:entailment</code>
-				to link a <a>shapes graph</a> with <em>entailment regimes</em>.
-				The <a>IRI</a> <code>sh:RulesEntailment</code> represents the <dfn>SHACL rules entailment regime</dfn>.
-				In the following example, the shapes graph indicates to a SHACL validation engine that the SHACL rules
-				inside of the <a>shapes graph</a> need to be executed prior to starting the validation.
+				SHACL defines the property <code>sh:entailment</code> to link a <a>shapes graph</a> with <em>entailment regimes</em>.
+				This section defines two kinds of values of <code>sh:entailment</code> that instruct a SHACL validation engine
+				to execute <a>SHACL rules</a> prior to starting the validation:
+				the IRI <code>sh:RulesEntailment</code>, which executes all <a>rules</a> of the <a>shapes graph</a>,
+				and <a>rule sets</a>, which execute only the <a>rules</a> of the given <a>rule set</a>.
 			</p>
-			<aside class="example" title="Activating SHACL Inference Rules entailment">
-				<div class="shapes-graph">
-					<div class="turtle">
+			<p>
+				After these entailments have been executed, the <a>data graph</a> that gets validated by the SHACL validation engine
+				is the <a>evaluation graph</a>, i.e. the union of the <a>base graph</a> and the <a>inference graph</a>.
+				The original <a>data graph</a> from the validation becomes the <a>base graph</a> and is not modified.
+			</p>
+			<p>
+				Following the general policy for SHACL, validation engines that do <em>not</em> support a given entailment regime
+				MUST signal a <a>failure</a> if the <a>shapes graph</a> uses it as a <a>value</a> of <code>sh:entailment</code>.
+			</p>
+
+			<section id="RulesEntailment">
+				<h3>The sh:RulesEntailment Regime</h3>
+				<p>
+					The <a>IRI</a> <code>sh:RulesEntailment</code> represents the <dfn>SHACL rules entailment regime</dfn>.
+					In the following example, the shapes graph indicates to a SHACL validation engine that the SHACL rules
+					inside of the <a>shapes graph</a> need to be executed prior to starting the validation.
+				</p>
+				<aside class="example" title="Activating SHACL Inference Rules entailment">
+					<div class="shapes-graph">
+						<div class="turtle">
 &lt;http://example.org/my-shapes&gt;
 	a owl:Ontology ;
 	sh:entailment sh:RulesEntailment .
+						</div>
 					</div>
-				</div>
-			</aside>
-			<p>
-				Following the general policy for SHACL, validation engines that do <em>not</em> support the <a>SHACL rules entailment regime</a>
-				MUST signal a <a>failure</a> if this <a>triple</a> is present.
-				Validation engines that do support the <a>SHACL rules entailment regime</a> execute the rules following the
-				<a href="#rules-execution">rules execution instructions</a> prior to performing the actual validation. 
-			</p>
+				</aside>
+				<p>
+					Validation engines that do support the <a>SHACL rules entailment regime</a> execute the <a>default rule set</a>
+					of the <a>shapes graph</a> following the <a href="#rules-execution">rules execution instructions</a>
+					prior to performing the actual validation.
+				</p>
+			</section>
+
+			<section id="RuleSetEntailment">
+				<h3>Entailment using Rule Sets</h3>
+				<p>
+					Any <a>rule set</a> can be used as a <a>value</a> of <code>sh:entailment</code>,
+					i.e. any <a>IRI</a> that is a <a>SHACL instance</a> of <code>sh:RuleSet</code> in the <a>shapes graph</a>.
+					Validation engines that support this regime execute the given <a>rule set</a>
+					following the <a href="#rules-execution">rules execution instructions</a> prior to performing the actual validation.
+					Only the <a>rules</a> of that <a>rule set</a> are executed, including those of the <a>rule sets</a> that it includes
+					via <code>sh:includesRuleSet</code>.
+					Other <a>rules</a> in the <a>shapes graph</a> are ignored.
+				</p>
+				<p>
+					If the <a>shapes graph</a> has more than one such <a>value</a> for <code>sh:entailment</code>, or also has the value
+					<code>sh:RulesEntailment</code>, then the <a>rules</a> of all of them are executed together as a single <a>rule set</a>.
+				</p>
+				<p>
+					In the following example, which uses the rule sets from <a href="#example-ruleset"></a>,
+					only <code>ex:Rule2</code> is executed prior to validation, while <code>ex:Rule1</code> is ignored.
+				</p>
+				<aside class="example" title="Activating entailment using a rule set">
+					<div class="shapes-graph">
+						<div class="turtle">
+&lt;http://example.org/my-shapes&gt;
+	a owl:Ontology ;
+	sh:entailment ex:RuleSet2 .
+						</div>
+					</div>
+				</aside>
+			</section>
 		</section>
 
 		<section id="tempTriple">
@@ -1073,7 +1123,7 @@ ex:RuleSet2
 				of other rules but do not end up in the final inferences.
 				A <dfn>temporary triple</dfn> is an inferred <a>triple</a> for which the <a>inference graph</a> contains a
 				<a>reifier</a> with the <a>value</a> <code>sh:tempTriple true</code>.
-				<a>Temporary triples</a> and their <a>reifiers</a> are visible to executing rules.
+				<a>Temporary triples</a> and their <a>triple annotations</a> are visible to executing rules.
 				Rules can produce such triples as illustrated in the following example:
 			</p>
 			<aside class="example" title="An example rule that produces temporary triples" id="tempTriple-example">
@@ -1184,9 +1234,9 @@ ex:SetYoungestOffspringsRule
 							Execute one <a>iteration</a> over all <a>iterating rules</a> in the layer
 						while the iteration has produced newly inferred triples
 						Delete the <a>derived triples</a> (except those that were also inferred by rules)
-							and their <a>reifiers</a>
+							and their <a>triple annotations</a>
 
-					Delete the <a>temporary triples</a> and their <a>reifiers</a>
+					Delete the <a>temporary triples</a> and their <a>triple annotations</a>
 				</pre>
 			</div>
 			<p>
