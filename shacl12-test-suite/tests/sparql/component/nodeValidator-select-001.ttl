@@ -1,0 +1,68 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:MaxURILengthComponent
+  rdf:type sh:ConstraintComponent ;
+  sh:parameter [
+      sh:path ex:maxURILength ;
+      sh:datatype xsd:integer ;
+    ] ;
+  sh:nodeValidator [
+      rdf:type sh:SPARQLSelectValidator ;
+      sh:select """
+		SELECT $this
+		WHERE {
+			FILTER (STRLEN(STR($this)) > $maxURILength) .
+		}""" ;
+    ] ;
+  sh:validator [
+      rdf:type sh:SPARQLAskValidator ;
+      rdfs:comment "Would reject every value node, so it must not be used for node shapes" ;
+      sh:ask """
+		ASK {
+			FILTER (false) .
+		}""" ;
+    ] ;
+.
+ex:TestShape
+  rdf:type sh:NodeShape ;
+  ex:maxURILength 30 ;
+  sh:targetNode ex:Short ;
+  sh:targetNode ex:AVeryLongResourceNameIndeed ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <nodeValidator-select-001>
+    ) ;
+.
+<nodeValidator-select-001>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:nodeValidator 001, which takes precedence over sh:validator for node shapes" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:SPARQLValidation ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:AVeryLongResourceNameIndeed ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent ex:MaxURILengthComponent ;
+          sh:sourceShape ex:TestShape ;
+          sh:value ex:AVeryLongResourceNameIndeed ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
