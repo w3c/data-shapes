@@ -12,7 +12,7 @@
 [12]   Data                      ::= 'DATA' '{' DataTriplesBlock? '}'
 [13]   HeadTemplate              ::= '{' HeadTemplateBlock? '}'
 [14]   BodyPattern               ::= '{' BodyTriplesBlock? ( BodyNotTriples '.'? BodyTriplesBlock? )* '}'
-[15]   BodyNotTriples            ::= Filter | Negation | Assignment
+[15]   BodyNotTriples            ::= Filter | Negation | Assignment | GroupAggregate
 [16]   Filter                    ::= 'FILTER' Constraint
 [17]   Constraint                ::= BrackettedExpression | BuiltInCall | FunctionCall
 [18]   FunctionCall              ::= iri ArgList
@@ -113,12 +113,19 @@
                                    | '-' PrimaryExpression 
                                    | PrimaryExpression
 [112]  PrimaryExpression         ::= BrackettedExpression | BuiltInCall | iriOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var | ExprTripleTerm
-[113]  iriOrFunction             ::= iri ArgList?
-[114]  ExprTripleTerm            ::= '<<(' ExprTripleTermSubject Verb ExprTripleTermObject ')>>'
-[115]  ExprTripleTermSubject     ::= iri | RDFLiteral | NumericLiteral | BooleanLiteral | Var
-[116]  ExprTripleTermObject      ::= iri | RDFLiteral | NumericLiteral | BooleanLiteral | Var | ExprTripleTerm
-[117]  BrackettedExpression      ::= '(' Expression ')'
-[118]  BuiltInCall               ::= 'STR' '(' Expression ')' 
+[113]  GroupAggregate            ::= 'GROUP' ( 'BY' ListVars )? '{' GroupPattern '}' ( ANON | '[' AggregationAssignment+ ']' )
+[114]  GroupPattern              ::= BodyTriplesBlock? ( GroupPatternNotTriples '.'? BodyTriplesBlock? )*
+[115]  GroupPatternNotTriples    ::= Filter | Assignment
+[116]  ListVars                  ::= Var+
+[117]  AggregationAssignment     ::= Var ':=' AggregationFunction
+[118]  AggregationFunction       ::= ( 'COUNT' '(' <DISTINCT>? VarOrStar ')' | 'MIN' '(' Var ')' | 'MAX' '(' Var ')' | 'SUM' '(' Var ')' )
+[119]  VarOrStar                 ::= Var | '*'
+[120]  iriOrFunction             ::= iri ArgList?
+[121]  ExprTripleTerm            ::= '<<(' ExprTripleTermSubject Verb ExprTripleTermObject ')>>'
+[122]  ExprTripleTermSubject     ::= iri | RDFLiteral | NumericLiteral | BooleanLiteral | Var
+[123]  ExprTripleTermObject      ::= iri | RDFLiteral | NumericLiteral | BooleanLiteral | Var | ExprTripleTerm
+[124]  BrackettedExpression      ::= '(' Expression ')'
+[125]  BuiltInCall               ::= 'STR' '(' Expression ')' 
                                    | 'LANG' '(' Expression ')' 
                                    | 'LANGMATCHES' '(' Expression ',' Expression ')' 
                                    | 'LANGDIR' '(' Expression ')' 
@@ -174,32 +181,32 @@
 
 @terminals
 
-[119]  IRIREF                    ::= '<' ([^<>"{}|^`\]-[#x00-#x20] | UCHAR )* '>'
-[120]  PNAME_NS                  ::= PN_PREFIX? ':'
-[121]  PNAME_LN                  ::= PNAME_NS PN_LOCAL
-[122]  BLANK_NODE_LABEL          ::= '_:' ( PN_CHARS_U | [0-9] ) ((PN_CHARS|'.')* PN_CHARS)?
-[123]  VAR1                      ::= '?' VARNAME
-[124]  VAR2                      ::= '$' VARNAME
-[125]  LANG_DIR                  ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)* ('--' [a-zA-Z]+)?
-[126]  INTEGER                   ::= [0-9]+
-[127]  DECIMAL                   ::= [0-9]* '.' [0-9]+
-[128]  DOUBLE                    ::= ( ([0-9]+ ('.'[0-9]*)? ) | ( '.' ([0-9])+ ) ) [eE][+-]?[0-9]+
-[129]  INTEGER_POSITIVE          ::= '+' INTEGER
-[130]  DECIMAL_POSITIVE          ::= '+' DECIMAL
-[131]  DOUBLE_POSITIVE           ::= '+' DOUBLE
-[132]  INTEGER_NEGATIVE          ::= '-' INTEGER
-[133]  DECIMAL_NEGATIVE          ::= '-' DECIMAL
-[134]  DOUBLE_NEGATIVE           ::= '-' DOUBLE
-[135]  STRING_LITERAL1           ::= "'" ( ([^#x27#x5C#xA#xD]) | ECHAR | UCHAR )* "'"
-[136]  STRING_LITERAL2           ::= '"' ( ([^#x22#x5C#xA#xD]) | ECHAR | UCHAR )* '"'
-[137]  STRING_LITERAL_LONG1      ::= "'''" ( ( "'" | "''" )? ( [^'\] | ECHAR | UCHAR ) )* "'''"
-[138]  STRING_LITERAL_LONG2      ::= '"""' ( ( '"' | '""' )? ( [^"\] | ECHAR | UCHAR ) )* '"""'
-[139]  ECHAR                     ::= '\' [tbnrf\"']
-[140]  UCHAR                     ::= ('\u' HEX HEX HEX HEX) | ('\U' HEX HEX HEX HEX HEX HEX HEX HEX)
-[141]  NIL                       ::= '(' WS* ')'
-[142]  WS                        ::= #x20 | #x9 | #xD | #xA
-[143]  ANON                      ::= '['  WS* ']'
-[144]  PN_CHARS_BASE             ::= [A-Z] 
+[126]  IRIREF                    ::= '<' ([^<>"{}|^`\]-[#x00-#x20] | <UCHAR> )* '>'
+[127]  PNAME_NS                  ::= PN_PREFIX? ':'
+[128]  PNAME_LN                  ::= PNAME_NS PN_LOCAL
+[129]  BLANK_NODE_LABEL          ::= '_:' ( PN_CHARS_U | [0-9] ) ((PN_CHARS|'.')* PN_CHARS)?
+[130]  VAR1                      ::= '?' VARNAME
+[131]  VAR2                      ::= '$' VARNAME
+[132]  LANG_DIR                  ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)* ('--' [a-zA-Z]+)?
+[133]  INTEGER                   ::= [0-9]+
+[134]  DECIMAL                   ::= [0-9]* '.' [0-9]+
+[135]  DOUBLE                    ::= ( ([0-9]+ ('.'[0-9]*)? ) | ( '.' ([0-9])+ ) ) [eE][+-]?[0-9]+
+[136]  INTEGER_POSITIVE          ::= '+' INTEGER
+[137]  DECIMAL_POSITIVE          ::= '+' DECIMAL
+[138]  DOUBLE_POSITIVE           ::= '+' DOUBLE
+[139]  INTEGER_NEGATIVE          ::= '-' INTEGER
+[140]  DECIMAL_NEGATIVE          ::= '-' DECIMAL
+[141]  DOUBLE_NEGATIVE           ::= '-' DOUBLE
+[142]  STRING_LITERAL1           ::= "'" ( ([^#x27#x5C#xA#xD]) | ECHAR | UCHAR )* "'"
+[143]  STRING_LITERAL2           ::= '"' ( ([^#x22#x5C#xA#xD]) | ECHAR | UCHAR )* '"'
+[144]  STRING_LITERAL_LONG1      ::= "'''" ( ( "'" | "''" )? ( [^'\] | ECHAR | UCHAR ) )* "'''"
+[145]  STRING_LITERAL_LONG2      ::= '"""' ( ( '"' | '""' )? ( [^"\] | ECHAR | UCHAR ) )* '"""'
+[146]  ECHAR                     ::= '\' [tbnrf\"']
+[147]  UCHAR                     ::= ('\u' HEX HEX HEX HEX) | ('\U' HEX HEX HEX HEX HEX HEX HEX HEX)
+[148]  NIL                       ::= '(' WS* ')'
+[149]  WS                        ::= #x20 | #x9 | #xD | #xA
+[150]  ANON                      ::= '['  WS* ']'
+[151]  PN_CHARS_BASE             ::= [A-Z] 
                                    | [a-z] 
                                    | [#x00C0-#x00D6] 
                                    | [#x00D8-#x00F6] 
@@ -213,12 +220,12 @@
                                    | [#xF900-#xFDCF] 
                                    | [#xFDF0-#xFFFD] 
                                    | [#x10000-#xEFFFF]
-[145]  PN_CHARS_U                ::= PN_CHARS_BASE | '_'
-[146]  VARNAME                   ::= ( PN_CHARS_U  | [0-9] ) ( PN_CHARS_U | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
-[147]  PN_CHARS                  ::= PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
-[148]  PN_PREFIX                 ::= PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
-[149]  PN_LOCAL                  ::= (PN_CHARS_U | ':' | [0-9] | PLX ) ((PN_CHARS | '.' | ':' | PLX)* (PN_CHARS | ':' | PLX) )?
-[150]  PLX                       ::= PERCENT | PN_LOCAL_ESC
-[151]  PERCENT                   ::= '%' HEX HEX
-[152]  HEX                       ::= [0-9] | [A-F] | [a-f]
-[153]  PN_LOCAL_ESC              ::= '\' ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
+[152]  PN_CHARS_U                ::= PN_CHARS_BASE | '_'
+[153]  VARNAME                   ::= ( PN_CHARS_U  | [0-9] ) ( PN_CHARS_U | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
+[154]  PN_CHARS                  ::= PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
+[155]  PN_PREFIX                 ::= PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
+[156]  PN_LOCAL                  ::= (PN_CHARS_U | ':' | [0-9] | PLX ) ((PN_CHARS | '.' | ':' | PLX)* (PN_CHARS | ':' | PLX) )?
+[157]  PLX                       ::= PERCENT | PN_LOCAL_ESC
+[158]  PERCENT                   ::= '%' HEX HEX
+[159]  HEX                       ::= [0-9] | [A-F] | [a-f]
+[160]  PN_LOCAL_ESC              ::= '\' ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
