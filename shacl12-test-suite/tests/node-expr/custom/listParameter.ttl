@@ -1,0 +1,287 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sparql: <http://www.w3.org/ns/sparql#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Tests of custom list parameter functions (sh:ListParameterExpressionFunction) and shnex:arg.
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <listParameter-spacedConcat>
+      <listParameter-single-argument-list>
+      <listParameter-single-argument-shorthand>
+      <listParameter-expression-argument>
+      <listParameter-nested>
+      <listParameter-no-arguments>
+      <listParameter-second-argument>
+      <listParameter-missing-optional-argument>
+      <listParameter-undeclared-parameters>
+      <listParameter-arg-ignores-outer-scope>
+      <listParameter-failure-multi-valued-argument>
+      <listParameter-failure-body-multiple>
+    ) ;
+.
+
+# The example from the spec
+ex:spacedConcat
+  a sh:ListParameterExpressionFunction ;
+  rdfs:label "Spaced concat expression"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression [
+    sparql:concat (
+      [ shnex:arg 0 ]
+      " "
+      [ shnex:arg 1 ]
+    )
+  ] ;
+  sh:parameter [
+    a sh:Parameter ;
+    sh:path shnex:arg0 ;
+    sh:name "first string" ;
+    sh:description "The first string to concatenate." ;
+    sh:datatype xsd:string ;
+  ] ;
+  sh:parameter [
+    a sh:Parameter ;
+    sh:path shnex:arg1 ;
+    sh:name "second string" ;
+    sh:description "The second string to concatenate." ;
+    sh:datatype xsd:string ;
+  ] ;
+.
+
+# Multiplies its argument with 2
+ex:twice
+  a sh:ListParameterExpressionFunction ;
+  rdfs:label "twice"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression [
+    sparql:multiply (
+      [ shnex:arg 0 ]
+      2
+    )
+  ] ;
+  sh:parameter [
+    a sh:Parameter ;
+    sh:path shnex:arg0 ;
+    sh:name "number" ;
+    sh:description "The number that shall be doubled." ;
+  ] ;
+.
+
+# Returns its second (optional) argument
+ex:second
+  a sh:ListParameterExpressionFunction ;
+  rdfs:label "second"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression [
+    shnex:arg 1 ;
+  ] ;
+  sh:parameter [
+    a sh:Parameter ;
+    sh:path shnex:arg0 ;
+    sh:name "first" ;
+  ] ;
+  sh:parameter [
+    a sh:Parameter ;
+    sh:path shnex:arg1 ;
+    sh:name "second" ;
+    sh:optional true ;
+  ] ;
+.
+
+# Takes no arguments and always returns 42
+ex:answer
+  a sh:ListParameterExpressionFunction ;
+  rdfs:label "answer"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression 42 ;
+.
+
+# Returns its first argument, without documenting its parameters
+ex:echo
+  a sh:ListParameterExpressionFunction ;
+  rdfs:label "echo"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression [
+    shnex:arg 0 ;
+  ] ;
+.
+
+# Has a body that always produces two nodes, which is not permitted for list parameter functions
+ex:oneTwo
+  a sh:ListParameterExpressionFunction ;
+  rdfs:label "one two"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression ( 1 2 ) ;
+.
+
+ex:TestNode
+  ex:value 21 ;
+.
+
+<listParameter-spacedConcat>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of the custom list parameter function from the spec example" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#CustomListParameterFunctions> ;
+  mf:action [
+    sht:nodeExpr [
+      ex:spacedConcat ( "Hello" "World" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "Hello World" ) ;
+  mf:status sht:approved ;
+.
+<listParameter-single-argument-list>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression with a single argument given as a list" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:twice ( 21 ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 42 ) ;
+  mf:status sht:approved ;
+.
+<listParameter-single-argument-shorthand>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression with a single argument given without a list" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#ListParameterFunctions> ;
+  mf:action [
+    sht:nodeExpr [
+      ex:twice 21 ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 42 ) ;
+  mf:status sht:approved ;
+.
+<listParameter-expression-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression where the argument is a node expression evaluated against the focus node" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:twice (
+        [ shnex:pathValues ex:value ]
+      ) ;
+    ] ;
+    sht:focusNode ex:TestNode ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 42 ) ;
+  mf:status sht:approved ;
+.
+<listParameter-nested>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression nested in another one" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:twice (
+        [ ex:twice ( 10 ) ]
+      ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 40 ) ;
+  mf:status sht:approved ;
+.
+<listParameter-no-arguments>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression with an empty argument list" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:answer () ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 42 ) ;
+  mf:status sht:approved ;
+.
+<listParameter-second-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression accessing its second argument with shnex:arg 1" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:second ( "a" "b" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "b" ) ;
+  mf:status sht:approved ;
+.
+<listParameter-missing-optional-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression where the optional second argument is absent, so that shnex:arg 1 produces no nodes" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:second ( "a" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result () ;
+  mf:status sht:approved ;
+.
+<listParameter-undeclared-parameters>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter function that does not document its parameters with sh:parameter" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:echo ( "x" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "x" ) ;
+  mf:status sht:approved ;
+.
+<listParameter-arg-ignores-outer-scope>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that an argument of a custom list parameter expression is evaluated with an empty scope" ;
+  rdfs:comment "shnex:arg evaluates the argument expression with the empty scope, so the var expression does not see the variable that is bound in the outer scope." ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#ArgExpression> ;
+  mf:action [
+    sht:nodeExpr [
+      ex:echo (
+        [ shnex:var "text" ]
+      ) ;
+    ] ;
+    sht:scope-text "bound" ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result () ;
+  mf:status sht:approved ;
+.
+<listParameter-failure-multi-valued-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression where the argument produces two nodes, which is a failure" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:echo (
+        ( 1 2 )
+      ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<listParameter-failure-body-multiple>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom list parameter expression whose body produces two nodes, which is a failure" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:oneTwo () ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
