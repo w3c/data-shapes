@@ -197,6 +197,7 @@ async function collectTests(manifestURL, tests, visited) {
 			for (const entry of listItems(store, entries)) {
 				const key = testKey(entry.value)
 				const type = object(store, entry, RDF + 'type')
+				const status = object(store, entry, MF + 'status')
 				let requires = objects(store, entry, MF + 'requires').map(r => localName(r.value))
 				if (requires.length === 0) {
 					const folder = key.split('/')[0]
@@ -206,6 +207,7 @@ async function collectTests(manifestURL, tests, visited) {
 					key,
 					file: manifestURL,
 					type: type ? localName(type.value) : '',
+					status: status ? localName(status.value) : 'unspecified',
 					requires,
 				})
 			}
@@ -411,6 +413,7 @@ function render(tests, implementations) {
 			const row = el('tr', {},
 				el('td', { class: 'file' }, el('a', { href: test.file }, test.key)),
 				el('td', { class: 'type' }, test.type),
+				el('td', { class: 'status' }, test.status),
 				implementations.map(implementation => outcomeCell(implementation.outcomes.get(test.key))))
 			if (implementations.length > 0 && implementations.every(i => i.outcomes.get(test.key) === 'passed')) {
 				allPassedRows.push(row)
@@ -418,8 +421,8 @@ function render(tests, implementations) {
 			return row
 		})
 		content.append(el('div', { class: 'scroll' }, el('table', {},
-			el('tr', {}, el('th', {}, 'File'), el('th', {}, 'Type'), implementations.map(implementationHeader)),
-			el('tr', {}, el('td', { colspan: 2 }, `${groupTests.length} tests`), implementations.map(implementation => summaryCell(implementation, groupTests))),
+			el('tr', {}, el('th', {}, 'File'), el('th', {}, 'Type'), el('th', {}, 'Status'), implementations.map(implementationHeader)),
+			el('tr', {}, el('td', { colspan: 3 }, `${groupTests.length} tests`), implementations.map(implementation => summaryCell(implementation, groupTests))),
 			rows)))
 	}
 
