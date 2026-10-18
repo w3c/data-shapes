@@ -19,10 +19,13 @@
 				script.src = 'https://cdn.jsdelivr.net/npm/n3@2.13.11/browser/n3.min.js';
 				document.head.appendChild(script);
 	
-				// Wait for N3 to load without blocking initial DOM rendering
-				await new Promise((resolve) => {
+				// Wait for N3 to load, then drop the script element again: this runs while ReSpec processes the
+				// document (postProcess), and the published document must not reference the library
+				await new Promise((resolve, reject) => {
 					script.onload = resolve;
+					script.onerror = () => reject(new Error("Failed to load " + script.src));
 				});
+				script.remove();
 	
 				const { Parser, Store } = N3;
 				// The vocabulary file next to this document on GitHub Pages; a published copy of this document
@@ -185,18 +188,6 @@
 					tbody.appendChild(tr);
 				}
 	
-				// Wire up filtering
-				select.addEventListener('change', () => {
-					const val = select.value;
-					for (const row of tbody.querySelectorAll('tr')) {
-						if (val === 'All' || row.getAttribute('data-category') === val) {
-							row.style.display = '';
-						} else {
-							row.style.display = 'none';
-						}
-					}
-				});
-	
 				// Replace container content with new UI
 				container.innerHTML = "";
 				container.appendChild(filterDiv);
@@ -259,8 +250,6 @@
 
 		document.addEventListener("DOMContentLoaded", () => {
 
-			generateSparqlFunctionSections();
-
 			// Replace code div blocks in shapes, data, and results graph with tabs
 			for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
 				const tabs = document.createElement("aside");
@@ -291,16 +280,6 @@
 				tabs.prepend(selectors);
 			}
 
-			// Add example button selection logic
-			for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
-				button.onclick = () => {
-					const ex = button.closest(".ds-selector-tabs");
-					ex.querySelector("button.selected").classList.remove("selected");
-					ex.querySelector(".selected").classList.remove("selected");
-					button.classList.add('selected');
-					ex.querySelector("." + button.dataset.selects).classList.add("selected");
-				}
-			}
 		});
 
 		var respecConfig = {
@@ -311,6 +290,7 @@
 			group: "wg/data-shapes",
 			github: "w3c/data-shapes",
 			preProcess: [ prepareSyntaxRules ],
+			postProcess: [ generateSparqlFunctionSections ],
 			edDraftURI: "https://w3c.github.io/data-shapes/shacl12-node-expr/",
 			testSuiteURI: "https://github.com/w3c/data-shapes/tree/gh-pages/shacl12-test-suite",
 			shortName: "shacl12-node-expr",
@@ -348,6 +328,27 @@
 		};
 		</script>
     <link rel="stylesheet" href="style.css"/>
+		<script>
+		// This script is kept in the published document (no class="remove"): the example tabs and the
+		// generated SPARQL functions table need these handlers when the document is read, and handlers
+		// attached while ReSpec processes the document would not survive the export to static HTML.
+		document.addEventListener("click", (event) => {
+			const button = event.target.closest(".ds-selector-tabs .selectors button");
+			if (!button) return;
+			const tabs = button.closest(".ds-selector-tabs");
+			tabs.querySelector("button.selected")?.classList.remove("selected");
+			tabs.querySelector(".tab.selected")?.classList.remove("selected");
+			button.classList.add("selected");
+			tabs.querySelector("." + button.dataset.selects)?.classList.add("selected");
+		});
+		document.addEventListener("change", (event) => {
+			const select = event.target.closest("#sparql-category-filter");
+			if (!select) return;
+			for (const row of document.querySelectorAll("#sparql-functions-table tbody tr")) {
+				row.style.display = (select.value === "All" || row.getAttribute("data-category") === select.value) ? "" : "none";
+			}
+		});
+		</script>
 	</head>
 
 	<body>
@@ -4039,7 +4040,7 @@ ex:MyCompany
 				<p>
 					Each argument is evaluated as a <a>node expression</a>.
 					An argument that produces exactly one <a>output node</a> has that node as its value.
-					An <a>unbound argument</a> (zero output nodes) is an unbound value in the sense of SPARQL,
+					An <em>unbound argument</em> (zero output nodes) is an unbound value in the sense of SPARQL,
 					and an argument whose evaluation produces an <a>evaluation failure</a> is treated as a SPARQL error.
 					The function is then evaluated with these argument values following the SPARQL semantics of the corresponding SPARQL function,
 					including its handling of unbound values and errors:
