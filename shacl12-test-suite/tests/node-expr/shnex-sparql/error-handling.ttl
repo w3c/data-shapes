@@ -1,0 +1,127 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sparql: <http://www.w3.org/ns/sparql#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Tests of the error handling rules of SHACL SPARQL function expressions:
+# a SPARQL error produces an evaluation failure, an argument without output nodes is unbound,
+# and a failing argument is a SPARQL error that sparql:coalesce and sparql:if can skip.
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <error-type-error>
+      <error-division-by-zero>
+      <error-unbound-argument>
+      <error-failing-argument>
+      <coalesce-skips-failing-argument>
+      <coalesce-skips-erroring-function>
+      <if-skips-failing-then>
+      <if-skips-failing-else>
+    ) ;
+.
+<error-type-error>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that a SPARQL function error (abs of a string) produces an evaluation failure" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:abs ( "x" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<error-division-by-zero>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that a SPARQL function error (division by zero) produces an evaluation failure" ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:divide ( 1 0 ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<error-unbound-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that an argument without output nodes is an unbound value, which is an error for sparql:ucase and therefore a failure" ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:ucase ( [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<error-failing-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that a failing argument is a SPARQL error, which is an error for sparql:ucase and therefore a failure" ;
+  rdfs:comment "The instancesOf expression with a literal produces an evaluation failure." ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:ucase ( [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<coalesce-skips-failing-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce skips an argument whose evaluation produces a failure" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#failures> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( [ shnex:instancesOf 42 ] "fallback" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "fallback" ) ;
+  mf:status sht:approved ;
+.
+<coalesce-skips-erroring-function>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce skips a nested SPARQL function expression that produces an error" ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( [ sparql:abs ( "x" ) ] "fallback" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "fallback" ) ;
+  mf:status sht:approved ;
+.
+<if-skips-failing-then>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if does not evaluate the (failing) then branch when the condition is false" ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( false [ shnex:instancesOf 42 ] "no" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "no" ) ;
+  mf:status sht:approved ;
+.
+<if-skips-failing-else>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if does not evaluate the (failing) else branch when the condition is true" ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( true "yes" [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "yes" ) ;
+  mf:status sht:approved ;
+.
