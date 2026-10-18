@@ -920,12 +920,15 @@ ex:Company-employeeCount
 						<li>an <a>evaluation failure</a>, i.e., an (unexpected) error during the evaluation</li>
 					</ul>
 					<p>
-						Furthermore, each argument of a <a>list parameter function</a> must evaluate to an individual, single <a>node</a>,
-						not to a list of nodes.
-						If an argument is a <a>node expression</a>, then this <a>node expression</a> must evaluate to
-						a maximum of one <a>output node</a>.
-						An <a>evaluation failure</a> must be produced if there is more than one <a>output node</a>.
-						This is different from <a>named parameter functions</a>, where arguments may produce lists of multiple nodes.
+						Furthermore, the arguments of a <a>list parameter function</a> are evaluated before the function is applied.
+						Each argument is a <a>node expression</a> that is evaluated using
+						<code>evalExpr(argument, focusGraph, focusNode, scope)</code>,
+						i.e., with the <a>focus node</a> and the <code>scope</code> of the <a>node expression</a> that uses the function,
+						and must produce an individual, single <a>node</a>, not a list of nodes.
+						An <a>evaluation failure</a> must be produced if an argument produces more than one <a>output node</a>.
+						If an argument produces no <a>output node</a> then the argument is unbound when the function is applied.
+						This is different from <a>named parameter functions</a>, where arguments are passed on as
+						<a>node expressions</a> that may produce lists of multiple nodes.
 					</p>
 					<p><em>The remainder of this section is non-normative.</em></p>
 					<p>
@@ -3207,10 +3210,17 @@ ex:CompanyShape-averageIncome
 						in the <a>shapes graph</a>.
 						<br/><br/>
 						Let <code>argScope</code> be a map of (parameter index) <a>nodes</a> as keys and (argument) <a>nodes</a>
-						as values, so that each list argument of <code>expr</code> has the index of the argument as an
-						<code>xsd:integer</code> as key, starting with <code>0</code> for the first argument.
+						as values, computed as follows for each list argument <code>arg<sub>n</sub></code> of <code>expr</code>,
+						where the <code>xsd:integer</code> <code>n</code> is the index of the argument, starting with <code>0</code> for the first argument:
+						Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(arg<sub>n</sub>, focusGraph, focusNode, scope)</code>,
+						i.e., the argument is evaluated with the <code>scope</code> of <code>expr</code>, as for any <a>list parameter function</a>.
+						An <a>evaluation failure</a> is reported when <code>N</code> has more than one member.
+						If <code>N</code> has exactly one member then <code>argScope</code> maps <code>n</code> to that member,
+						otherwise <code>argScope</code> has no entry for <code>n</code>.
 						For example, if <code>expr</code> has arguments <code>( 38 4 )</code> then the
-						<code>argScope</code> is <code>{ 0 : 38, 1 : 4 }</code>.
+						<code>argScope</code> is <code>{ 0 : 38, 1 : 4 }</code>,
+						and if <code>expr</code> has arguments <code>( [ shnex:var "x" ] 4 )</code> and <code>scope</code> maps
+						<code>"x"</code> to <code>38</code> then the <code>argScope</code> is also <code>{ 0 : 38, 1 : 4 }</code>.
 						<br/><br/>
 						The <a>output nodes</a> of <code>expr</code> are computed using
 						<code>evalExpr(expr, focusGraph, focusNode, scope) -> evalExpr(body, focusGraph, focusNode, argScope)</code>
@@ -3318,7 +3328,7 @@ ex:Person-fullName
 					<div class="def-header">EVALUATION OF ARG EXPRESSIONS</div>
 					<p>
 						Let <code>arg</code> be the <a>value</a> of <code>shnex:arg</code> in the <a>arg expression</a>.
-						The <a>output nodes</a> of the <a>var expression</a> are computed as follows, in order:
+						The <a>output nodes</a> of the <a>arg expression</a> are computed as follows, in order:
 					</p>
 					<ol>
 						<li>
@@ -3334,6 +3344,12 @@ ex:Person-fullName
 					The difference is that <code>shnex:arg</code> interprets the values as node expressions, while
 					<code>shnex:var</code> treats the values as individual nodes.
 					As a result, a custom node expression can evaluate nested node expressions that are passed in as arguments.
+				</p>
+				<p>
+					For <a>custom named parameter expressions</a>, the values in the scope are the argument <a>node expressions</a>
+					as given in the expression, which are therefore evaluated with an empty scope when <code>shnex:arg</code> is used.
+					For <a>custom list parameter expressions</a>, the arguments have already been evaluated in the scope of the
+					calling expression, so the values in the scope are individual <a>nodes</a> that <code>shnex:arg</code> returns as constants.
 				</p>
 				<p>
 					Examples of <code>shnex:arg</code> can be found in
