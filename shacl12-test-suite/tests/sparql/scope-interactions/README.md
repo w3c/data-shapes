@@ -1,16 +1,16 @@
-# Prebinding and result identity proposals
+# Prebinding and result identity tests
 
-These 55 proposed cases target the [18 September 2026 SHACL 1.2 Working Draft](https://www.w3.org/TR/2026/WD-shacl12-sparql-20260918/) under `shacl-1.2-2026-09-18`.
-Expected results use the draft's values-insertion definition; the other suite is a separate specification profile.
-Every entry remains `sht:proposed`. Implementation observations neither define the expectations nor establish WG approval.
+These 55 cases target the [18 September 2026 SHACL 1.2 Working Draft](https://www.w3.org/TR/2026/WD-shacl12-sparql-20260918/) under `shacl-1.2-2026-09-18`.
+Expected results use the draft's values-insertion definition.
+Every entry has `mf:status sht:approved`, as requested in the [Working Group review](https://github.com/w3c/data-shapes/pull/1296#pullrequestreview-5580815916). Implementation observations do not define the expectations.
 
-Start with the [family review guide](../../../../data-shapes-test-suite/tests/sparql/scope-interactions/REVIEW.md): it derives one representative, explains the four controls per pattern, and lists separate acceptance decisions.
+Start with the [family review guide](REVIEW.md): it derives one representative, explains the four controls per pattern, and summarizes the distinct obligations.
 The per-case index below links directly to the manifest and validator.
 
 ## Files, identity and requirements
 
 Each case has `manifest.ttl` and `shapes.ttl`. The manifest is also its data graph (`sht:dataGraph <>`) and contains the complete expected report.
-A case identifier is relative to its own manifest, so the deployed REC and draft suites have distinct test IRIs. Do not reuse the old `example.org/community` identifiers in new reports.
+A case identifier is relative to its own manifest, so each deployed case has its own test IRI. Do not reuse the old `example.org/community` identifiers in new reports.
 Record anchors preserve shared blank focus/value identity. Nested syntax is used only where it does not split a shared node.
 The query-based cases declare `mf:requires sht:SPARQLValidation`; the standalone sequence/inverse-path case declares `sht:Core`.
 Both documents are contributed under the W3C Software and Document License and carry no separate copyright or license notice.
@@ -87,4 +87,4 @@ A standalone `FILTER(false)` reproducer is kept outside these manifests.
 
 Run the cases under profile `shacl-1.2-2026-09-18` and compare complete reports under the suite's normalization rules, with shared source blank nodes kept fixed as the review guide explains.
 Engine execution records observations, including disagreements and unsupported syntax. Record the engine version, artifact identity and how the engine was configured for the requested profile before comparing results.
-The [review guide](../../../../data-shapes-test-suite/tests/sparql/scope-interactions/REVIEW.md) contains the clause links, hand derivations, profile differences and family-level WG checklist.
+The [review guide](REVIEW.md) contains the clause links, hand derivations, admission decisions and family reference.
