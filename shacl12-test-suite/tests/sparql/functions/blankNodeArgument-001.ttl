@@ -1,0 +1,77 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:identity
+  rdf:type sh:ListParameterExpressionFunction ;
+  rdfs:label "identity"@en ;
+  rdfs:subClassOf sh:ListParameterExpression ;
+  sh:bodyExpression [
+      sh:sparqlExpr "$arg0" ;
+    ] ;
+  sh:parameter [
+      rdf:type sh:Parameter ;
+      sh:path shnex:arg0 ;
+      sh:name "argument" ;
+      sh:description "The node to return." ;
+    ] ;
+.
+ex:TestResource
+  ex:blankNodeProperty [
+      rdfs:label "A blank node" ;
+    ] ;
+  ex:iriProperty ex:IRI ;
+.
+ex:TestShape
+  rdf:type sh:NodeShape ;
+  sh:sparql ex:TestShape-sparql ;
+  sh:targetNode ex:TestResource ;
+.
+ex:TestShape-sparql
+  sh:select """
+		PREFIX ex: <http://example.com/ns#>
+		SELECT $this ?value
+		WHERE {
+			$this ex:blankNodeProperty ?blankNode .
+			$this ex:iriProperty ?iri .
+			BIND (ex:identity(?blankNode) AS ?fromBlankNode) .
+			BIND (ex:identity(?iri) AS ?fromIRI) .
+			BIND (CONCAT(str(bound(?fromBlankNode)), ' ', str(?fromIRI)) AS ?value) .
+		}""" ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <blankNodeArgument-001>
+    ) ;
+.
+<blankNodeArgument-001>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of a custom SPARQL function called with a blank node argument, which is an error" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:SPARQLCustomFunctions ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:TestResource ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraint ex:TestShape-sparql ;
+          sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+          sh:sourceShape ex:TestShape ;
+          sh:value "false http://example.com/ns#IRI" ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
