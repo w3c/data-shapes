@@ -2448,6 +2448,11 @@ ex:book1 a ex:Book ;
 
         Some of the UI meetings have discussed using node expressions, dynamic SHACL, and SPARQL with the SERVICE clause.
       </p>
+      <p>
+        Static enumerations based on <code>sh:in</code> are rendered by the <a href="#EnumSelectEditor">EnumSelectEditor</a>,
+        while dynamic lookups of class instances are rendered by the <a href="#AutoCompleteEditor">AutoCompleteEditor</a>.
+        Non-constraining suggestions can be provided with <a href="#suggested-values"><code>shui:suggestedValues</code></a>.
+      </p>
       <div class="issue" data-number="846"></div>
       <h4>Fetching values from named graphs</h4>
       <div class="issue" data-number="672"></div>
@@ -2828,6 +2833,79 @@ ex:BookShape
         <code>sh:class</code> or <code>sh:node</code>) as part of the same isolated run would evaluate it against
         the local data graph and likely report a spurious violation.
       </p>
+    </section>
+
+    <section id="suggested-values">
+      <h2>Suggested Values</h2>
+
+      <p>
+        This section defines <code>shui:suggestedValues</code>, an optional property of a <a>property shape</a>
+        that lets shape authors provide suggested values to be offered to the end user by a widget.
+        Suggested values help users fill in common or recommended values quickly, without restricting
+        the set of values that may be entered.
+      </p>
+
+      <h3>shui:suggestedValues</h3>
+
+      <p>
+        A well-formed value of <code>shui:suggestedValues</code> is a <a>SHACL list</a>, appearing directly on a
+        <a>property shape</a>, whose members are <a>IRIs</a> or <a>literals</a>. Each member represents one
+        suggested value. A <a>property shape</a> has at most one value for <code>shui:suggestedValues</code>.
+        SHACL Renderers SHOULD ignore ill-formed values of <code>shui:suggestedValues</code> and list members that
+        are neither <a>IRIs</a> nor <a>literals</a>.
+      </p>
+
+      <p>
+        Support for <code>shui:suggestedValues</code> is optional. When rendering a widget for a property whose
+        <a>property shape</a> has a value for <code>shui:suggestedValues</code>, a SHACL Renderer MAY offer the
+        members of the list to the end user as suggestions. A renderer that offers suggestions SHOULD present them
+        in the order of the list. A suggestion does not constrain the values that may be entered:
+        <code>shui:suggestedValues</code> has no effect on validation, and the end user remains free to enter
+        values that are not among the suggestions.
+      </p>
+
+      <p>
+        When displaying a suggested value that is an <a>IRI</a>, a SHACL Renderer SHOULD display a label determined
+        by <a href="#label-resolution">Label Resolution</a> rather than the IRI itself. When the suggested values
+        include language-tagged <a>literals</a>, a SHACL Renderer SHOULD use
+        <a href="#lang-resolution">Language Resolution</a> to determine which of them to offer, preferring the
+        suggestions that match the user's preferred languages.
+      </p>
+
+      <p>
+        Shape authors SHOULD choose suggested values that are a subset of the value nodes permitted by the other
+        constraints on the <a>property shape</a> (such as <code>sh:class</code>, <code>sh:datatype</code>, or
+        <code>sh:in</code>). A suggested value outside that set risks offering end users values that do not
+        conform to the <a>property shape</a>. Whether a SHACL Renderer offers a suggestion that would violate the
+        constraints of the <a>property shape</a>, for example because <code>sh:maxCount</code> has already been
+        reached, is left to the implementation.
+      </p>
+
+      <p>
+        Suggested values can be used with any widget that lets end users choose or enter values. For example, an
+        <a href="#AutoCompleteEditor">AutoCompleteEditor</a> could list the suggested values before the end user
+        has entered any search input, and a <a href="#TextFieldEditor">text field editor</a> could offer them as quick choices. These widgets
+        are only examples; this specification does not limit which widgets may use suggested values.
+      </p>
+
+      <aside class="example" title="Suggested values for an auto-complete editor">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:Person-nationality
+    a sh:PropertyShape ;
+    sh:path ex:nationality ;
+    sh:class ex:Country ;
+    sh:nodeKind sh:IRI ;
+    shui:editor shui:AutoCompleteEditor ;
+    <ins>shui:suggestedValues</ins> ( ex:Netherlands ex:Belgium ex:Germany ) .
+          </div>
+        </div>
+        <p>
+          A renderer that supports <code>shui:suggestedValues</code> could offer <code>ex:Netherlands</code>,
+          <code>ex:Belgium</code>, and <code>ex:Germany</code>, in that order, as quick choices for the nationality of a person,
+          while still allowing the end user to search for and select any other instance of <code>ex:Country</code>.
+        </p>
+      </aside>
     </section>
 
     <section id="builtin-widgets">
@@ -3495,57 +3573,6 @@ ex:ConceptTableShape-altLabel
     sh:order "2"^^xsd:decimal .</pre>
         </section>
       </section>
-    </section>
-
-    <section id="suggested-values">
-      <h2>Suggested Values</h2>
-
-      <p>
-        This section defines <code>shui:suggestedValues</code>, an optional property of a <a>property shape</a>
-        that lets shape authors provide suggested values to be offered to the end user by a widget.
-        Suggested values help users fill in common or recommended values quickly, without restricting
-        the set of values that may be entered.
-      </p>
-
-      <h3>shui:suggestedValues</h3>
-
-      <p>
-        The values of <code>shui:suggestedValues</code> are <a>IRIs</a> or <a>literals</a> appearing directly on a
-        <a>property shape</a>. A <a>property shape</a> MAY have any number of values for
-        <code>shui:suggestedValues</code>, each representing one suggested value.
-      </p>
-
-      <p>
-        Support for <code>shui:suggestedValues</code> is optional. When rendering a widget for a property whose
-        <a>property shape</a> has values for <code>shui:suggestedValues</code>, a SHACL Renderer MAY offer these
-        values to the end user as suggestions. A suggestion does not constrain the values that may be entered:
-        <code>shui:suggestedValues</code> has no effect on validation, and the end user remains free to enter
-        values that are not among the suggestions.
-      </p>
-
-      <p>
-        Suggested values can be used with any widget that lets end users choose or enter values. For example, an
-        <a href="#AutoCompleteEditor">AutoCompleteEditor</a> could list the suggested values before the end user
-        has entered any search input, and a text field editor could offer them as quick choices. These widgets
-        are only examples; this specification does not limit which widgets may use suggested values.
-      </p>
-
-      <aside class="example" title="Suggested values for an auto-complete editor">
-        <div class="shapes-graph">
-          <div class="turtle">
-ex:Person-nationality
-    a sh:PropertyShape ;
-    sh:path ex:nationality ;
-    sh:class ex:Country ;
-    <ins>shui:suggestedValues</ins> ex:Netherlands, ex:Belgium, ex:Germany .
-          </div>
-        </div>
-        <p>
-          A renderer that supports <code>shui:suggestedValues</code> could offer <code>ex:Netherlands</code>,
-          <code>ex:Belgium</code>, and <code>ex:Germany</code> as quick choices for the nationality of a person,
-          while still allowing the end user to search for and select any other instance of <code>ex:Country</code>.
-        </p>
-      </aside>
     </section>
 
     <section id="property-roles">
