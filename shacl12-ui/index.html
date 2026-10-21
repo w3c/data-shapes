@@ -2642,8 +2642,9 @@ ex:config
 
       <p>
         When an end user enters or changes search input for a property rendered with a widget that consumes
-        candidate value nodes, a SHACL Renderer that supports this extension MUST evaluate the query given by
-        <code>shui:searchQuery</code> to retrieve the candidate value nodes offered to the user.
+        candidate value nodes, a SHACL Renderer that supports <code>shui:searchQuery</code> MUST evaluate the query given by
+        <code>shui:searchQuery</code> to retrieve the candidate value nodes offered to the user, except where a
+        fallback to <code>sh:in</code> is permitted as described below.
       </p>
 
       <p>
@@ -2671,8 +2672,9 @@ ex:config
             <td><code>$language</code></td>
             <td>
               An <code>xsd:string</code> literal containing the BCP47 language tag identifying the user's current
-              language preference, as determined by <a href="#lang-resolution">the language resolution mechanism</a>. 
-              Only the first entry of the language preference list is considered.
+              language preference, as determined by <a href="#lang-resolution">the language resolution mechanism</a>.
+              Only the first entry of the language preference list is considered. If the language preference list is
+              empty, the value is the empty string <code>""</code>.
             </td>
           </tr>
         </tbody>
@@ -2744,13 +2746,20 @@ ex:TaskShape
         <code>sh:in</code>, possibly including a SPARQL <code>SERVICE</code> clause against an external endpoint, as
         described in <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>. Such a
         <a href="../shacl12-sparql/#SelectExpression">select expression</a> resolves the
-        full candidate set and cannot be parameterized with a user's live search input. When a <a>property shape</a> combines
-        <code>sh:in</code> with <code>shui:searchQuery</code>, a renderer that supports <code>shui:searchQuery</code>
-        evaluates it in place of the <code>sh:in</code>-derived query while the user is searching.
-        Vendor-specific full-text search extensions can be used inside shui:searchQuery. Implementations MAY consider
-        falling back to using the baseline query given by <code>sh:in</code>'s <code>sh:select</code> in case the search query fails.
-        A renderer that does not support <code>shui:searchQuery</code> but does support Dynamic SHACL MAY fall back to the
-        baseline query given by <code>sh:in</code>'s <code>sh:select</code> instead.
+        full candidate set and cannot be parameterized with a user's live search input. A
+        <code>shui:searchQuery</code>, by contrast, receives the search input and can use vendor-specific full-text
+        search extensions to match it.
+      </p>
+
+      <p>
+        When a <a>property shape</a> combines <code>sh:in</code> with <code>shui:searchQuery</code>, a SHACL Renderer
+        that supports <code>shui:searchQuery</code> evaluates <code>shui:searchQuery</code> instead of the
+        <code>sh:in</code> <a href="../shacl12-sparql/#SelectExpression">select expression</a> while the user is searching.
+        Before the user has entered any search input, the renderer MAY offer the candidates given by
+        <code>sh:in</code> instead of evaluating <code>shui:searchQuery</code> with an empty <code>$searchTerm</code>.
+        The renderer MAY also fall back to the <code>sh:in</code> select expression when evaluation of
+        <code>shui:searchQuery</code> fails. A renderer that does not support <code>shui:searchQuery</code> but does
+        support Dynamic SHACL uses the <code>sh:in</code> select expression as usual.
       </p>
 
       <aside class="example" title="Federated full-text search using shui:searchQuery">
@@ -2810,32 +2819,33 @@ ex:BookShape
       <p>
         A SHACL Renderer MAY validate the value nodes returned by <code>shui:searchQuery</code> against the
         constraints of the <a>property shape</a> before offering them to the end user, for example using one of the
-        approaches described below. A value node that this validation shows not to conform MUST NOT be offered
-        as a candidate. Value nodes that are not validated, either because the renderer does not perform this
-        validation or because the validation could not be carried out (for example, because a remote endpoint is
-        unavailable), are offered as returned by <code>shui:searchQuery</code>. A value node selected by the end user
+        approaches described below. Value nodes that pass validation are offered as candidates; value nodes that
+        fail it MUST NOT be offered. If no validation is performed, or it cannot be completed, all returned value
+        nodes are offered. A value node selected by the end user
         becomes a value of the property and is subject to the same validation as any other value, so any
         non-conformance is reported through the regular validation results.
       </p>
 
-      <h4>When SERVICE clause is used</h4>
-
       <p>
-        When both <code>shui:searchQuery</code> and <code>sh:in</code> / <code>sh:select</code> are present, the implementation can validate by
-        executing the <code>sh:select</code> query while adding a VALUES clause containing the value nodes returned by <code>shui:searchQuery</code>.
+        A <a>property shape</a> with <code>shui:searchQuery</code> is either federated or local:
       </p>
 
-      <p>When <code>shui:searchQuery</code> and <code>sh:class</code> are present,
-        the implementation can validate with a similar approach, by checking that the value nodes
-        returned by <code>shui:searchQuery</code> are instances of the class specified by <code>sh:class</code>.
-        A specific SPARQL query can be written including a VALUES clause containing the value nodes returned by <code>shui:searchQuery</code>.
-      </p>
-
-      <h4>When SERVICE clause is not used</h4>
-      <p>
-        When <code>shui:searchQuery</code> is used without a service clause normal validation can be performed
-        by checking the returned value nodes against the constraints of the property shape directly.
-      </p>
+      <ul>
+        <li>
+          <strong>Federated:</strong> <code>shui:searchQuery</code> uses a <code>SERVICE</code> clause. The
+          permitted value nodes MUST then be given by <code>sh:in</code> with a
+          <a href="../shacl12-sparql/#SelectExpression">select expression</a> (<code>sh:select</code>) that queries
+          the same endpoint, as in the federated example above. Constraints that depend on triples about the value
+          node, such as <code>sh:class</code>, will result in violations, because those triples, such as <code>rdf:type</code>,
+          are not in the local <a>data graph</a>. The renderer can validate the returned value nodes by executing the
+          <code>sh:select</code> query with an added <code>VALUES</code> clause containing them.
+        </li>
+        <li>
+          <strong>Local:</strong> <code>shui:searchQuery</code> does not use a <code>SERVICE</code> clause. Any
+          constraint can be used, and the renderer can validate the returned value nodes directly against the
+          constraints of the <a>property shape</a>.
+        </li>
+      </ul>
     </section>
 
     <section id="builtin-widgets">
