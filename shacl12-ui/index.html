@@ -2642,12 +2642,17 @@ ex:config
 
       <p>
         When an end user enters or changes search input for a property rendered with a widget that consumes
-        candidate value nodes, a SHACL Renderer that supports this extension MAY evaluate the query given by
+        candidate value nodes, a SHACL Renderer that supports this extension MUST evaluate the query given by
         <code>shui:searchQuery</code> to retrieve the candidate value nodes offered to the user.
       </p>
 
       <p>
-        The SHACL renderer MUST pre-bind the following variables:
+        Prior to evaluating <code>shui:searchQuery</code>, a SHACL Renderer MUST <dfn data-lt="substituted">substitute</dfn>
+        each occurrence of the following variables in the query string with a SPARQL
+        <a data-cite="sparql12-query/#QSynLiterals">string literal</a> holding the variable's value, escaped
+        according to the SPARQL grammar so that the value cannot alter the structure of the query.
+        Substitution, rather than <a>pre-binding</a>, is used so that the values also reach query patterns
+        that are evaluated elsewhere, such as inside a <code>SERVICE</code> clause.
       </p>
 
       <table class="term-table">
@@ -2666,14 +2671,15 @@ ex:config
             <td><code>$language</code></td>
             <td>
               An <code>xsd:string</code> literal containing the BCP47 language tag identifying the user's current
-              language preference.
+              language preference, as determined by <a href="#lang-resolution">the language resolution mechanism</a>. 
+              Only the first entry of the language preference list is considered.
             </td>
           </tr>
         </tbody>
       </table>
 
       <p>
-        Implementations MAY pre-bind additional implementation-specific variables.
+        Implementations MAY substitute additional implementation-specific variables in the same way. Queries MAY also provide additional projected bindings.
       </p>
 
       <p>
@@ -2711,10 +2717,13 @@ ex:TaskShape
         sh:class ex:Person ;
         <ins>shui:searchQuery</ins> """
             PREFIX ex: &lt;http://example.com/&gt;
+            PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
             PREFIX text: &lt;http://jena.apache.org/text#&gt;
-            SELECT ?value WHERE {
-                ?value text:query ($searchTerm $language) .
-                ?value a ex:Person .
+            SELECT DISTINCT ?value WHERE {
+                ?value text:query (rdfs:label $searchTerm) .
+                ?value a ex:Person ;
+                    rdfs:label ?label .
+                FILTER (langMatches(lang(?label), $language))
             }
         """ ;
     ] .
@@ -2722,9 +2731,10 @@ ex:TaskShape
         </div>
         <p>
           As the user types into the <a href="#AutoCompleteEditor">AutoCompleteEditor</a> rendered for
-          <code>ex:TaskShape</code>'s <code>Assignee</code> property, the renderer binds the typed text to
-          <code>$searchTerm</code> and the current language to <code>$language</code>, then evaluates
-          <code>shui:searchQuery</code> to query a local full-text index of <code>ex:Person</code> instances.
+          <code>ex:TaskShape</code>'s <code>Assignee</code> property, the renderer substitutes the typed text for
+          <code>$searchTerm</code> and the current language for <code>$language</code>, then evaluates
+          <code>shui:searchQuery</code> to query a local full-text index of <code>ex:Person</code> instances
+          by their <code>rdfs:label</code>, keeping only persons that have a label in the user's language.
         </p>
       </aside>
 
@@ -2732,13 +2742,14 @@ ex:TaskShape
         A <a>property shape</a>'s permissible value nodes can also be computed dynamically using a
         <a href="../shacl12-sparql/#SelectExpression">select expression</a> (<code>sh:select</code>) inside
         <code>sh:in</code>, possibly including a SPARQL <code>SERVICE</code> clause against an external endpoint, as
-        described in <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>. Such a 
+        described in <a href="../shacl12-node-expr/#dfn-dynamic-shacl">Dynamic SHACL</a>. Such a
         <a href="../shacl12-sparql/#SelectExpression">select expression</a> resolves the
-        full candidate set and cannot be parameterized with a user's live search input, making it impossible to use
-        vendor-specific full-text search extensions. When a <a>property shape</a> combines
+        full candidate set and cannot be parameterized with a user's live search input. When a <a>property shape</a> combines
         <code>sh:in</code> with <code>shui:searchQuery</code>, a renderer that supports <code>shui:searchQuery</code>
-        evaluates it in place of the <code>sh:in</code>-derived query while the user is searching. A renderer that
-        does not support <code>shui:searchQuery</code> but does support Dynamic SHACL MAY fall back to the
+        evaluates it in place of the <code>sh:in</code>-derived query while the user is searching.
+        Vendor-specific full-text search extensions can be used inside shui:searchQuery. Implementations MAY consider
+        falling back to using the baseline query given by <code>sh:in</code>'s <code>sh:select</code> in case the search query fails.
+        A renderer that does not support <code>shui:searchQuery</code> but does support Dynamic SHACL MAY fall back to the
         baseline query given by <code>sh:in</code>'s <code>sh:select</code> instead.
       </p>
 
@@ -2763,11 +2774,14 @@ ex:BookShape
         ] ;
         <ins>shui:searchQuery</ins> """
             PREFIX ex: &lt;http://example.com/&gt;
+            PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
             PREFIX text: &lt;http://jena.apache.org/text#&gt;
-            SELECT ?value WHERE {
+            SELECT DISTINCT ?value WHERE {
                 SERVICE &lt;http://example.com/sparql&gt; {
-                    ?value text:query ($searchTerm $language) .
-                    ?value a ex:Person .
+                    ?value text:query (rdfs:label $searchTerm) .
+                    ?value a ex:Person ;
+                        rdfs:label ?label .
+                    FILTER (langMatches(lang(?label), $language))
                 }
             }
         """ ;
@@ -2776,8 +2790,8 @@ ex:BookShape
         </div>
         <p>
           As the user types into the <a href="#AutoCompleteEditor">AutoCompleteEditor</a> rendered for
-          <code>ex:BookShape</code>'s <code>Author</code> property, the renderer binds the typed text to
-          <code>$searchTerm</code> and the current language to <code>$language</code>, then evaluates
+          <code>ex:BookShape</code>'s <code>Author</code> property, the renderer substitutes the typed text for
+          <code>$searchTerm</code> and the current language for <code>$language</code>, then evaluates
           <code>shui:searchQuery</code> to query the Apache Jena Text index via the <code>SERVICE</code> clause.
           If the renderer does not support <code>shui:searchQuery</code> but does support Dynamic SHACL,
           the baseline <code>sh:select</code> query is used instead, returning all instances of <code>ex:Person</code>.
@@ -2794,21 +2808,33 @@ ex:BookShape
       </p>
 
       <p>
-        Because a value node returned by <code>shui:searchQuery</code> is offered to the end user as though it
-        were drawn from <code>sh:in</code>, an implementation MAY validate those value nodes.
-
-        For example, this validation can be done by re-executing <code>sh:in</code>'s <a href="../shacl12-sparql/#SelectExpression">select expression</a>
-        bound to all the value nodes returned by <code>shui:searchQuery</code>, for instance by adding a SPARQL
-        <code>VALUES</code> clause that restricts the query's projected variable to those value nodes.
+        A SHACL Renderer MAY validate the value nodes returned by <code>shui:searchQuery</code> against the
+        constraints of the <a>property shape</a> before offering them to the end user, for example using one of the
+        approaches described below. A value node that this validation shows not to conform MUST NOT be offered
+        as a candidate. Value nodes that are not validated, either because the renderer does not perform this
+        validation or because the validation could not be carried out (for example, because a remote endpoint is
+        unavailable), are offered as returned by <code>shui:searchQuery</code>. A value node selected by the end user
+        becomes a value of the property and is subject to the same validation as any other value, so any
+        non-conformance is reported through the regular validation results.
       </p>
 
+      <h4>When SERVICE clause is used</h4>
+
       <p>
-        The results of that bound execution are then the candidate value nodes offered to the end user for
-        the widget; any value node returned by <code>shui:searchQuery</code> that is absent from those results
-        is not offered as a candidate. For a <a>property shape</a> such as <code>ex:BookShape</code>'s
-        <code>Author</code> property above, this re-executes the <code>sh:select</code> query's SPARQL
-        <code>SERVICE</code> clause with the value nodes returned by <code>shui:searchQuery</code>, without
-        evaluating any of the surrounding <a>property shape</a>'s other constraints.
+        When both <code>shui:searchQuery</code> and <code>sh:in</code> / <code>sh:select</code> are present, the implementation can validate by
+        executing the <code>sh:select</code> query while adding a VALUES clause containing the value nodes returned by <code>shui:searchQuery</code>.
+      </p>
+
+      <p>When <code>shui:searchQuery</code> and <code>sh:class</code> are present,
+        the implementation can validate with a similar approach, by checking that the value nodes
+        returned by <code>shui:searchQuery</code> are instances of the class specified by <code>sh:class</code>.
+        A specific SPARQL query can be written including a VALUES clause containing the value nodes returned by <code>shui:searchQuery</code>.
+      </p>
+
+      <h4>When SERVICE clause is not used</h4>
+      <p>
+        When <code>shui:searchQuery</code> is used without a service clause normal validation can be performed
+        by checking the returned value nodes against the constraints of the property shape directly.
       </p>
     </section>
 
