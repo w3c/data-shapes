@@ -8,6 +8,9 @@ It is not a comprehensive list of changes to the specification.
 This file is temporary while the specification is in-development — it is not
 intended for publication.
 
+== 2026-10-20
+Add `GROUP` and aggregation functions, `COUNT`, `MIN`, `MAX` and `SUM`.
+
 ## 2026-10-01
 Rule templates that involve triple terms which have a variable can lead to unsafe rules.
 See example https://github.com/w3c/data-shapes/issues/1293
