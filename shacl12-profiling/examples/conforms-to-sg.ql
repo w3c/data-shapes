@@ -1,0 +1,12 @@
+CONSTRUCT {
+  ?dg sh:conformsToShapesGraph ?sg
+}
+WHERE {
+  ?va
+    sh:usedDataGraph ?dg ;
+    sh:usedShapesGraph ?sg ;
+    prov:generated ?vr ;
+  .
+
+  ?vr sh:conforms true .
+}
