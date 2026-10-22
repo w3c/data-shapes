@@ -17,6 +17,8 @@
 # (compare ../shnex/failure-list-parameter-multiple-values, where sparql:abs cannot skip it).
 # A failing argument takes precedence over an argument without output nodes, whatever their order.
 # A selected unbound value (the chosen branch of sparql:if, all arguments of sparql:coalesce) is an error as in SPARQL.
+# sparql:logical-and and sparql:logical-or follow the SPARQL truth tables: an operand that is an error or unbound is
+# ignored if the other operand decides the result (false for AND, true for OR), and is an error otherwise.
 
 <>
   rdf:type mf:Manifest ;
@@ -39,6 +41,20 @@
       <if-unbound-else-selected>
       <if-skips-unbound-then>
       <coalesce-all-unbound>
+      <coalesce-ignores-later-failing-argument>
+      <coalesce-all-failing>
+      <if-failing-then-selected>
+      <if-failing-else-selected>
+      <logical-and-false-and-failing>
+      <logical-and-failing-and-false>
+      <logical-and-true-and-failing>
+      <logical-and-false-and-unbound>
+      <logical-and-true-and-unbound>
+      <logical-or-true-or-failing>
+      <logical-or-failing-or-true>
+      <logical-or-false-or-failing>
+      <logical-or-true-or-unbound>
+      <logical-or-false-or-unbound>
     ) ;
 .
 <error-type-error>
@@ -269,6 +285,188 @@
   mf:action [
     sht:nodeExpr [
       sparql:coalesce ( [ shnex:var "unbound" ] [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<coalesce-ignores-later-failing-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce returns its first bound argument although a later argument fails" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( "ok" [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "ok" ) ;
+  mf:status sht:approved ;
+.
+<coalesce-all-failing>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce fails when all of its arguments fail, as in SPARQL" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( [ shnex:instancesOf 42 ] [ sparql:abs ( "x" ) ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<if-failing-then-selected>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if fails when the selected then branch fails" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( true [ shnex:instancesOf 42 ] "no" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<if-failing-else-selected>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if fails when the selected else branch fails" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( false "yes" [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<logical-and-false-and-failing>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-and returns false for false and a failing argument, as in SPARQL" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-and ( false [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( false ) ;
+  mf:status sht:approved ;
+.
+<logical-and-failing-and-false>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-and returns false for a failing argument and false, whatever the order" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-and ( [ shnex:instancesOf 42 ] false ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( false ) ;
+  mf:status sht:approved ;
+.
+<logical-and-true-and-failing>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-and fails for true and a failing argument, as the failing argument decides the result" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-and ( true [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<logical-and-false-and-unbound>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-and returns false for false and an argument without output nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-and ( false [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( false ) ;
+  mf:status sht:approved ;
+.
+<logical-and-true-and-unbound>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-and fails for true and an argument without output nodes, as an unbound value is an error in SPARQL" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-and ( true [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<logical-or-true-or-failing>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-or returns true for true and a failing argument, as in SPARQL" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-or ( true [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( true ) ;
+  mf:status sht:approved ;
+.
+<logical-or-failing-or-true>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-or returns true for a failing argument and true, whatever the order" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-or ( [ shnex:instancesOf 42 ] true ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( true ) ;
+  mf:status sht:approved ;
+.
+<logical-or-false-or-failing>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-or fails for false and a failing argument, as the failing argument decides the result" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-or ( false [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<logical-or-true-or-unbound>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-or returns true for true and an argument without output nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-or ( true [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( true ) ;
+  mf:status sht:approved ;
+.
+<logical-or-false-or-unbound>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:logical-or fails for false and an argument without output nodes, as an unbound value is an error in SPARQL" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:logical-or ( false [ shnex:var "unbound" ] ) ;
     ] ;
   ] ;
   mf:requires sht:NodeExpr ;
