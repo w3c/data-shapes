@@ -19,10 +19,13 @@
 				script.src = 'https://cdn.jsdelivr.net/npm/n3@2.13.11/browser/n3.min.js';
 				document.head.appendChild(script);
 	
-				// Wait for N3 to load without blocking initial DOM rendering
-				await new Promise((resolve) => {
+				// Wait for N3 to load, then drop the script element again: this runs while ReSpec processes the
+				// document (postProcess), and the published document must not reference the library
+				await new Promise((resolve, reject) => {
 					script.onload = resolve;
+					script.onerror = () => reject(new Error("Failed to load " + script.src));
 				});
+				script.remove();
 	
 				const { Parser, Store } = N3;
 				// The vocabulary file next to this document on GitHub Pages; a published copy of this document
@@ -185,18 +188,6 @@
 					tbody.appendChild(tr);
 				}
 	
-				// Wire up filtering
-				select.addEventListener('change', () => {
-					const val = select.value;
-					for (const row of tbody.querySelectorAll('tr')) {
-						if (val === 'All' || row.getAttribute('data-category') === val) {
-							row.style.display = '';
-						} else {
-							row.style.display = 'none';
-						}
-					}
-				});
-	
 				// Replace container content with new UI
 				container.innerHTML = "";
 				container.appendChild(filterDiv);
@@ -259,8 +250,6 @@
 
 		document.addEventListener("DOMContentLoaded", () => {
 
-			generateSparqlFunctionSections();
-
 			// Replace code div blocks in shapes, data, and results graph with tabs
 			for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
 				const tabs = document.createElement("aside");
@@ -291,16 +280,6 @@
 				tabs.prepend(selectors);
 			}
 
-			// Add example button selection logic
-			for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
-				button.onclick = () => {
-					const ex = button.closest(".ds-selector-tabs");
-					ex.querySelector("button.selected").classList.remove("selected");
-					ex.querySelector(".selected").classList.remove("selected");
-					button.classList.add('selected');
-					ex.querySelector("." + button.dataset.selects).classList.add("selected");
-				}
-			}
 		});
 
 		var respecConfig = {
@@ -311,6 +290,7 @@
 			group: "wg/data-shapes",
 			github: "w3c/data-shapes",
 			preProcess: [ prepareSyntaxRules ],
+			postProcess: [ generateSparqlFunctionSections ],
 			edDraftURI: "https://w3c.github.io/data-shapes/shacl12-node-expr/",
 			testSuiteURI: "https://github.com/w3c/data-shapes/tree/gh-pages/shacl12-test-suite",
 			shortName: "shacl12-node-expr",
@@ -348,6 +328,27 @@
 		};
 		</script>
     <link rel="stylesheet" href="style.css"/>
+		<script>
+		// This script is kept in the published document (no class="remove"): the example tabs and the
+		// generated SPARQL functions table need these handlers when the document is read, and handlers
+		// attached while ReSpec processes the document would not survive the export to static HTML.
+		document.addEventListener("click", (event) => {
+			const button = event.target.closest(".ds-selector-tabs .selectors button");
+			if (!button) return;
+			const tabs = button.closest(".ds-selector-tabs");
+			tabs.querySelector("button.selected")?.classList.remove("selected");
+			tabs.querySelector(".tab.selected")?.classList.remove("selected");
+			button.classList.add("selected");
+			tabs.querySelector("." + button.dataset.selects)?.classList.add("selected");
+		});
+		document.addEventListener("change", (event) => {
+			const select = event.target.closest("#sparql-category-filter");
+			if (!select) return;
+			for (const row of document.querySelectorAll("#sparql-functions-table tbody tr")) {
+				row.style.display = (select.value === "All" || row.getAttribute("data-category") === select.value) ? "" : "none";
+			}
+		});
+		</script>
 	</head>
 
 	<body>
@@ -971,11 +972,23 @@ ex:Company-employeeCount
 						<li>an <a>evaluation failure</a>, i.e., an (unexpected) error during the evaluation</li>
 					</ul>
 					<p>
-						Furthermore, each argument of a <a>list parameter function</a> must evaluate to at most one <a>node</a>,
-						not to a list of multiple nodes.
-						An <a>evaluation failure</a> must be produced if an argument produces more than one <a>output node</a>.
-						An argument that produces zero <a>output nodes</a> is called <dfn data-lt="unbound argument|unbound">unbound</dfn>.
-						This is different from <a>named parameter functions</a>, where arguments may produce lists of multiple nodes.
+						Furthermore, the arguments of a <a>list parameter function</a> are evaluated before the function is applied.
+						Each argument is a <a>node expression</a> that is evaluated using
+						<code>evalExpr(argument, focusGraph, focusNode, scope)</code>,
+						i.e., with the <a>focus node</a> and the <code>scope</code> of the <a>node expression</a> that uses the function,
+						and must produce an individual, single <a>node</a>, not a list of nodes.
+						If an argument produces more than one <a>output node</a>, then the evaluation of that argument
+						produces an <a>evaluation failure</a>, which is handled like any other failing argument
+						(see <a href="#failure-handling"></a>).
+						If no argument produces an <a>evaluation failure</a> and an argument produces no <a>output node</a>,
+						then the function is not applied and the <a>output nodes</a>
+						of the expression are the empty list, unless the function is defined to handle unbound values
+						(such as <code>sparql:bound</code>, <code>sparql:coalesce</code> and <code>sparql:if</code>),
+						in which case the argument is unbound in the sense of SPARQL when the function is applied.
+						A failing argument thus takes precedence over an argument without <a>output nodes</a>,
+						whatever their order.
+						This is different from <a>named parameter functions</a>, where arguments are passed on as
+						<a>node expressions</a> that may produce lists of multiple nodes.
 					</p>
 					<p><em>The remainder of this section is non-normative.</em></p>
 					<p>
@@ -4035,12 +4048,27 @@ ex:MyCompany
 				<p>
 					Each argument is evaluated as a <a>node expression</a>.
 					An argument that produces exactly one <a>output node</a> has that node as its value.
-					An <a>unbound argument</a> (zero output nodes) is an unbound value in the sense of SPARQL,
-					and an argument whose evaluation produces an <a>evaluation failure</a> is treated as a SPARQL error.
+					An argument that produces more than one <a>output node</a>, or whose evaluation produces
+					an <a>evaluation failure</a>, is treated as a SPARQL error.
+					If no argument is a SPARQL error, an argument without <a>output nodes</a> makes the expression produce no <a>output nodes</a>,
+					except for the functions that handle unbound values (<code>sparql:bound</code>, <code>sparql:coalesce</code>,
+					<code>sparql:if</code>, <code>sparql:logical-and</code> and <code>sparql:logical-or</code>),
+					where such an argument is an <em>unbound argument</em>, i.e. an unbound value in the sense of SPARQL.
+					An error therefore takes precedence over an unbound argument:
+					<code>[ sparql:plus ( [ shnex:var "unbound" ] [ shnex:instancesOf 42 ] ) ]</code> produces
+					an <a>evaluation failure</a>, whatever the order of its arguments.
 					The function is then evaluated with these argument values following the SPARQL semantics of the corresponding SPARQL function,
 					including its handling of unbound values and errors:
 					for example, <code>sparql:bound</code> returns <code>false</code> for an unbound argument,
-					and <code>sparql:coalesce</code> and <code>sparql:if</code> skip arguments that are unbound or in error.
+					<code>sparql:coalesce</code> skips arguments that are unbound or in error,
+					and <code>sparql:if</code> ignores its unselected branch.
+					Therefore <code>[ sparql:coalesce ( ( 1 2 ) "ok" ) ]</code> produces <code>( "ok" )</code>
+					although its first argument produces two <a>output nodes</a>,
+					while <code>[ sparql:abs ( ( -1 -2 ) ) ]</code> produces an <a>evaluation failure</a>.
+					An unbound value that is selected is an error as in SPARQL, so that
+					<code>[ sparql:if ( true [ shnex:var "unbound" ] "no" ) ]</code> produces an <a>evaluation failure</a>,
+					as does <code>sparql:coalesce</code> when all of its arguments are unbound;
+					<a href="#IfExpression"><code>shnex:if</code></a> is the choice when an empty branch should yield no <a>output nodes</a>.
 					If the function produces a value, the <a>output nodes</a> are the list consisting of exactly that node.
 					If the function produces an error, the expression produces an <a>evaluation failure</a>.
 				</p>
@@ -4276,10 +4304,19 @@ ex:CompanyShape-averageIncome
 						in the <a>shapes graph</a>.
 						<br/><br/>
 						Let <code>argScope</code> be a map of (parameter index) <a>nodes</a> as keys and (argument) <a>nodes</a>
-						as values, so that each list argument of <code>expr</code> has the index of the argument as an
-						<code>xsd:integer</code> as key, starting with <code>0</code> for the first argument.
+						as values, computed as follows for each list argument <code>arg<sub>n</sub></code> of <code>expr</code>,
+						where the <code>xsd:integer</code> <code>n</code> is the index of the argument, starting with <code>0</code> for the first argument:
+						Let <code>N</code> be the <a>output nodes</a> of <code>evalExpr(arg<sub>n</sub>, focusGraph, focusNode, scope)</code>,
+						i.e., the argument is evaluated with the <code>scope</code> of <code>expr</code>, as for any <a>list parameter function</a>.
+						An <a>evaluation failure</a> is reported when <code>N</code> has more than one member.
+						If <code>N</code> is empty and no argument of <code>expr</code> produces an <a>evaluation failure</a>,
+						then the <a>output nodes</a> of <code>expr</code> are the empty list, as for any <a>list parameter function</a>;
+						a failing argument takes precedence, so all arguments are evaluated before the empty list is returned.
+						Otherwise <code>argScope</code> maps <code>n</code> to the only member of <code>N</code>.
 						For example, if <code>expr</code> has arguments <code>( 38 4 )</code> then the
-						<code>argScope</code> is <code>{ 0 : 38, 1 : 4 }</code>.
+						<code>argScope</code> is <code>{ 0 : 38, 1 : 4 }</code>,
+						and if <code>expr</code> has arguments <code>( [ shnex:var "x" ] 4 )</code> and <code>scope</code> maps
+						<code>"x"</code> to <code>38</code> then the <code>argScope</code> is also <code>{ 0 : 38, 1 : 4 }</code>.
 						<br/><br/>
 						The <a>output nodes</a> of <code>expr</code> are computed using
 						<code>evalExpr(expr, focusGraph, focusNode, scope) -> evalExpr(body, focusGraph, focusNode, argScope)</code>
@@ -4489,9 +4526,10 @@ ex:Person-fullName
 					As a result, a custom node expression can evaluate nested node expressions that are passed in as arguments.
 				</p>
 				<p>
-					Note that the argument is evaluated with an empty scope: a node expression passed as an argument
-					cannot reference the variables of the scope in which the custom node expression is used,
-					such as the variable <code>value</code> of <a>expression constraints</a>.
+					For <a>custom named parameter expressions</a>, the values in the scope are the argument <a>node expressions</a>
+					as given in the expression, which are therefore evaluated with an empty scope when <code>shnex:arg</code> is used.
+					For <a>custom list parameter expressions</a>, the arguments have already been evaluated in the scope of the
+					calling expression, so the values in the scope are individual <a>nodes</a> that <code>shnex:arg</code> returns as constants.
 				</p>
 				<p>
 					Examples of <code>shnex:arg</code> can be found in
