@@ -700,7 +700,7 @@ ex:SymmetricPropertyRule
 				</p>
 			</section>
 			<section id="rule-order">
-				<h3>Ordering of Rules (sh:order)</h3>
+				<h3>Ordering of Rules within a Layer (sh:order)</h3>
 				<p>
 					Rules may specify their relative <dfn>execution order</dfn> within the same <a>layer</a> as defined in this section.
 				</p>
@@ -712,12 +712,20 @@ ex:SymmetricPropertyRule
 				</p>
 				<p>
 					If unspecified and unless it has been computed by a <a href="#ruleProcessor">custom rule processor</a>, the default <a>execution order</a> is <code>0</code>.
-					When the <a>rules</a> are executed, within the same <a>layer</a>, <a>rules</a> with larger order values will be executed after those with smaller values.
+					In each <a>iteration</a> within a <a>layer</a>, <a>rules</a> are executed in ascending order of their <code>sh:order</code> values.
 					The inferred triples of one rule (or group of same-order rules) become immediately visible to the subsequent rule (or group of same-order rules) in the order.
-					Rules with the same order are executed concurrently and must not see each other's inferences before they have all completed.
+					<a>Rules</a> with the same order are executed concurrently: a <a>rule</a> does not see the triples
+					newly inferred by other <a>rules</a> with the same order during the current <a>iteration</a>.
 					The sets of triples individually inferred by these rules are merged into the inference graph.
 				</p>
 				<aside class="example" title="Rule order example">
+					<p class="note">
+						In this example, the uncle rule has a lower <code>sh:order</code> than the cousin rule, so the
+						<code>ex:uncle</code> triples it infers are already visible to the cousin rule within the same <a>iteration</a>.
+						As a result, all triples are inferred in the first iteration and the second iteration only confirms
+						that nothing new is produced. If both rules had the same order, <code>ex:cousin</code> triples could only be
+						inferred in the second iteration, and a third iteration would be needed.
+					</p>
 					<div class="shapes-graph">
 						<div class="turtle">
 ex:RuleOrderExampleShape
@@ -755,6 +763,13 @@ ex:RuleOrderExampleShape
 						</div>
 					</div>
 				</aside>
+				<p class="note">
+					The property <code>sh:order</code> may also be used on <a>shapes</a>
+					(see <a data-cite="shacl12-core#order">Non-Validation Shape Characteristics</a>).
+					However, such values have no effect on the <a>execution of a rule set</a>:
+					the order of a <a>shape rule</a> is determined only by the <code>sh:order</code> value of the rule itself,
+					not by that of the shape it is attached to.
+				</p>
 			</section>
 			<section id="run-once">
 				<h3>Run-once Rules (sh:runOnce)</h3>
@@ -1196,6 +1211,7 @@ ex:SetYoungestOffspringsRule
 				The new <a>triples</a> that are produced by a rules engine are called the <dfn data-lt="inferring|infer">inferred</dfn> triples.
 				The <dfn>inference graph</dfn> consists of these <a>inferred</a> triples.
 				The <dfn>evaluation graph</dfn> is the union of the <a>base graph</a> and the <a>inference graph</a>.
+				The <a>base graph</a> and the <a>shapes graph</a> are immutable.
 			</p>
 			<p>
 				An <dfn>execution</dfn> of a <a>rule</a> is the process that produces <a>inferred</a> triples from the <a>rule</a>
@@ -1240,6 +1256,9 @@ ex:SetYoungestOffspringsRule
 				</pre>
 			</div>
 			<p>
+				Note that in this algorithm, adding and deleting triples is only performed on the <a>inference graph</a>.
+			</p>
+			<p>
 				If any of the <a>rules</a> reports a <a>failure</a> during <a>execution</a>,
 				then the <a>execution of a rule set</a> also produces a <a>failure</a>.
 			</p>
@@ -1252,10 +1271,6 @@ ex:SetYoungestOffspringsRule
 				Rule engines MAY also report a failure after a pre-configured maximum iteration count has been exceeded or
 				a pre-configured maximum number of inferred triples has been produced.
 				This can help as a guard to avoid out-of-memory problems and infinite loops.
-			</p>
-			<p>
-				At no time are inferred triples visible to the <a>shapes graph</a>, i.e. it is impossible for rules
-				to modify the definitions of rules or shapes.
 			</p>
 		</section>
 
