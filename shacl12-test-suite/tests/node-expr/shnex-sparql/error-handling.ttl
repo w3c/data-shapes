@@ -13,6 +13,10 @@
 # a SPARQL error produces an evaluation failure, an argument without output nodes means no output nodes
 # (except for functions such as sparql:bound and sparql:coalesce that handle unbound values),
 # and a failing argument is a SPARQL error that sparql:coalesce and sparql:if can skip.
+# An argument that produces more than one output node is such a failing argument, so it is also a SPARQL error
+# (compare ../shnex/failure-list-parameter-multiple-values, where sparql:abs cannot skip it).
+# A failing argument takes precedence over an argument without output nodes, whatever their order.
+# A selected unbound value (the chosen branch of sparql:if, all arguments of sparql:coalesce) is an error as in SPARQL.
 
 <>
   rdf:type mf:Manifest ;
@@ -25,6 +29,16 @@
       <coalesce-skips-erroring-function>
       <if-skips-failing-then>
       <if-skips-failing-else>
+      <coalesce-skips-multi-valued-argument>
+      <coalesce-stops-before-multi-valued-argument>
+      <if-skips-multi-valued-else>
+      <error-precedes-unbound-argument-first>
+      <error-precedes-unbound-argument-second>
+      <coalesce-skips-unbound-and-failing-arguments>
+      <if-unbound-then-selected>
+      <if-unbound-else-selected>
+      <if-skips-unbound-then>
+      <coalesce-all-unbound>
     ) ;
 .
 <error-type-error>
@@ -125,5 +139,139 @@
   ] ;
   mf:requires sht:NodeExpr ;
   mf:result ( "yes" ) ;
+  mf:status sht:approved ;
+.
+<coalesce-skips-multi-valued-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce skips an argument that produces two nodes, which is a SPARQL error" ;
+  rdfs:comment "The same argument is a failure for sparql:abs, see failure-list-parameter-multiple-values." ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  rdfs:seeAlso <../shnex/failure-list-parameter-multiple-values> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( ( 1 2 ) "ok" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "ok" ) ;
+  mf:status sht:approved ;
+.
+<coalesce-stops-before-multi-valued-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce returns its first bound argument although a later argument produces two nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( "ok" ( 1 2 ) ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "ok" ) ;
+  mf:status sht:approved ;
+.
+<if-skips-multi-valued-else>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if returns the then branch although the else branch produces two nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( true "ok" ( 1 2 ) ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "ok" ) ;
+  mf:status sht:approved ;
+.
+<error-precedes-unbound-argument-first>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that a failing argument takes precedence over an earlier argument without output nodes" ;
+  rdfs:comment "Without the failing argument, the unbound argument would make the expression produce no output nodes." ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:plus ( [ shnex:var "unbound" ] [ shnex:instancesOf 42 ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<error-precedes-unbound-argument-second>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that a failing argument takes precedence over a later argument without output nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:plus ( [ shnex:instancesOf 42 ] [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<coalesce-skips-unbound-and-failing-arguments>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce skips both an argument without output nodes and a failing argument" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( [ shnex:var "unbound" ] [ shnex:instancesOf 42 ] "ok" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "ok" ) ;
+  mf:status sht:approved ;
+.
+<if-unbound-then-selected>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if fails when the selected then branch has no output nodes, as an unbound value is an error in SPARQL" ;
+  rdfs:comment "Use shnex:if when an empty branch should produce no output nodes instead." ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( true [ shnex:var "unbound" ] "no" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<if-unbound-else-selected>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if fails when the selected else branch has no output nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( false "yes" [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
+  mf:status sht:approved ;
+.
+<if-skips-unbound-then>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:if ignores an unselected then branch that has no output nodes" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:if ( false [ shnex:var "unbound" ] "no" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "no" ) ;
+  mf:status sht:approved ;
+.
+<coalesce-all-unbound>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that sparql:coalesce fails when all of its arguments have no output nodes, as in SPARQL" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#sparql-function-evaluation> ;
+  mf:action [
+    sht:nodeExpr [
+      sparql:coalesce ( [ shnex:var "unbound" ] [ shnex:var "unbound" ] ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result sht:Failure ;
   mf:status sht:approved ;
 .
