@@ -45,10 +45,10 @@ Example:
 
 The test harness evaluates the requested ordering and checks that the output
 matches `mf:result`: the same property shapes and groups, in the same order,
-with each property shape in the same group, and nothing missing, extra or
+with each property shape in the same group, and nothing missing, extra, or
 duplicated. Blank node labels and serialization order do not matter, so
-comparing both as RDF graphs, for example by graph isomorphism, is one way to
-check this.
+comparing output and `mf:result` as RDF graphs, for example by graph
+isomorphism, is one way to confirm that they match.
 
 All cases use distinct `sh:order` values, so they do not depend on default orders
 or tie-breaking.
