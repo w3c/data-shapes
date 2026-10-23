@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
+    <title>Translation of SPARQL-RL Text to SPARQL</title>
+    <script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
+    <script class="remove">
+      var respecConfig = {
+        specStatus: "unofficial",
+        shortName: "sparql12-rl-text-translation",
+        github: "w3c/data-shapes",
+        copyrightStart: "2025",
+
+        editors: [
+          {
+            name:       "Robert David",
+            company:    "GraphWise",
+            companyURL: "https://graphwise.ai",
+            orcid:      "0000-0002-3244-5341",
+            w3cid:      97894
+          },
+          {
+            name:       "David Habgood",
+            company:    "KurrawongAI",
+            companyURL: "https://kurrawong.ai",
+            mailto:     "david@kurrawong.ai",
+            orcid:      "0000-0002-3322-1868",
+            w3cid:      164266
+          },
+          {
+            name:       "Andy Seaborne",
+            company:    "Apache Software Foundation",
+            companyURL: "https://www.apache.org",
+            w3cid:      29909
+          },
+          {
+            name:       "Simon Steyskal",
+            company:    "Siemens AG",
+            companyURL: "https://siemens.com",
+            orcid:      "0000-0002-5183-2486",
+            w3cid:      73545
+          }
+        ],
+
+        xref: ["RDF12-CONCEPTS"],
+        lint: {
+          "no-unused-dfns": false
+        },
+      };
+    </script>
+
+    <!--
+        The <style> block below is copied from index.html, with one addition:
+        the ".ex-query" class, for a SPARQL query inside an <aside class="example">.
+        The same addition is carried by the companion document
+        ast-to-construct.html; index.html needs it once.
+    -->
+    <style>
+
+      .grammarTable {
+          font-size: 11px;
+      }
+
+      /* Grammar table */
+      div.grammarTable table {
+        border-style: solid ;
+        border-width: 1px ;
+        border-color: #AAA ;
+        border-spacing: 0px ;
+        border-collapse: collapse ; }
+
+      div.grammarTable table * {
+          border-left-width: 0px ;
+          border-right-width: 0px ;
+          border-color: #AAA ; }
+
+      div.grammarTable table * tr {
+          border-top-style: solid ;
+          border-top-width: 1px ;
+          border-top-color: #AAA ; }
+
+      table { border-collapse: collapse }
+      table td, table th { border: 1px solid #444; padding: 0.2em 0.3em; }
+      table.cp-definitions { border-collapse:collapse; background-color: #DDDDFF}
+      body.darkmode table.cp-definitions { background-color: black}
+
+      table.cp-definitions,
+      table.cp-definitions th,
+      table.cp-definitions td { border:1px solid black; padding:0.2em; }
+      table.cp-definitions td:nth-child(2) { text-align: center; }
+
+      .term2escape-yes { background-color: lightgreen; }
+      .darkmode .term2escape-yes { background-color: darkgreen; }
+
+      /* lists */
+      .list-indent     { margin-left: 5px; }
+      .list-no-bullet  { list-style: none; }
+      .list-inner      { list-style: disc; }
+
+      .algorithm {
+          background:        #fafafa;
+          border:            1px solid #c0c0c0 ;
+          border-left-width: .5em;
+          margin:            1em;
+
+          padding:           0;
+          padding-left:      0.5em;
+          padding-right:     0.5em;
+      }
+      .darkmode .algorithm {
+          background:        #2b2b2b ;
+          border-color:      #55595f ;
+      }
+
+      /* Block to go inside <aside> "example" */
+
+      .block {
+          color: #666666 ;
+          border: 1px solid #444444;
+          page-break-inside: avoid;
+          display: block;
+          margin: 1em;
+          padding: 1em;
+          padding-top: 0em;
+      }
+
+      .darkmode .block {
+          color:  #bbbbbb;
+          border: 1px solid #aaaaaa ;
+      }
+
+      .ex-data                { background: #aaccaa; }
+      .ex-data::before        { content: "Data"; }
+      .darkmode .ex-data      { background: #446644; }
+
+      .ex-rules               { background: #aacccc; }
+      .ex-rules::before       { content: "Rules"}
+      .darkmode .ex-rules     { background: #446688; }
+
+      .ex-inferred            { background: #aaccaa; }
+      .ex-inferred::before    { content: "Inferred"; }
+      .darkmode .ex-inferred  { background: #558855; }
+
+      /* New: a SPARQL query in an example. */
+      .ex-query               { background: #d8c8a8; }
+      .ex-query::before       { content: "SPARQL"; }
+      .darkmode .ex-query     { background: #6b5636; }
+
+    </style>
+
+  </head>
+
+  <body>
+    <section id="abstract">
+      <p>
+        This document contains draft text for an appendix
+        "Translation of SPARQL-RL Text to SPARQL" of
+        <a href="index.html">SPARQL 1.2 RL</a>.
+      </p>
+      <p>
+        It gives a second translation of a SPARQL-RL
+        <a href="index.html#dfn-rule">rule</a> into a SPARQL `CONSTRUCT`
+        query. The companion appendix
+        (<a href="ast-to-construct.html">Translation of SPARQL-RL to SPARQL</a>)
+        defines the translation on the abstract syntax; the translation here
+        starts from the concrete syntax of a `RULE`, as accepted by the
+        <a href="index.html#grammar">grammar</a>, and produces the text of a
+        query. The two produce the same query.
+      </p>
+    </section>
+
+    <section id="sotd">
+      <p>
+        This document is not a W3C publication. It is working material for the
+        <a href="https://www.w3.org/groups/wg/data-shapes/">W3C Data Shapes Working Group</a>,
+        addressing issue
+        <a href="https://github.com/w3c/data-shapes/issues/1303">#1303</a>.
+      </p>
+      <p>
+        The appendix below is written so that it can be placed in `index.html`
+        after the appendix carried by `ast-to-construct.html`. Three mechanical
+        edits are needed when it is merged:
+      </p>
+      <ul>
+        <li>
+          change each link of the form `index.html#`<i>name</i> to `#`<i>name</i>;
+          these are cross-document links here, and document-relative links in
+          the specification. As in the companion document, a term of SPARQL-RL
+          is written as such a link rather than as `[=`<i>term</i>`=]`; the
+          two forms are interchangeable once the appendix is in place. Terms
+          of RDF are written as `[=`<i>term</i>`=]` and resolve through
+          `xref`.
+        </li>
+        <li>
+          change each link of the form `ast-to-construct.html#`<i>name</i> to
+          `#`<i>name</i>; these point into the companion appendix, which the
+          text below assumes is merged first.
+        </li>
+        <li>
+          add the `.ex-query` style rule, given in the `&lt;style&gt;` element
+          of this document and of the companion document, to `index.html`
+          (once).
+        </li>
+      </ul>
+      <p>
+        The text assumes the grammar change making aggregation assignments
+        comma-separated
+        (`AggregationAssignments ::= ( AggregationAssignment ( ',' AggregationAssignment )* )?`),
+        which is in progress on another branch.
+      </p>
+    </section>
+
+    <!-- ==================================================================
+         The section below is a proposed appendix for index.html, to follow
+         the appendix "Translation of SPARQL-RL to SPARQL".
+         ================================================================== -->
+
+    <section id="translate-srl-text-sparql" class="appendix informative">
+      <h2>Translation of SPARQL-RL Text to SPARQL</h2>
+
+      <p>
+        The appendix
+        <a href="ast-to-construct.html#translate-srl-sparql">Translation of SPARQL-RL to SPARQL</a>
+        defines a translation of one
+        <a href="index.html#dfn-rule">rule</a> to one `CONSTRUCT` query on the
+        abstract syntax: it assumes a parser has reduced the rule to
+        <a href="index.html#dfn-triple-pattern">triple patterns</a> and
+        <a href="index.html#dfn-rule-element">rule elements</a>, and builds
+        the query structurally. This appendix gives the same translation one
+        level earlier: from the text of a `RULE`, as accepted by the
+        <a href="index.html#grammar">grammar</a>, to the text of a SPARQL 1.2
+        query. It is the form of the translation suited to a source-to-source
+        tool — a preprocessor that rewrites rule text into query text and has
+        no SPARQL machinery of its own.
+      </p>
+      <p>
+        The two translations produce the same query, executed over the same
+        dataset (<a href="#translate-text-agreement" class="sectionRef"></a>),
+        so everything established for the first — the scoping device, the
+        guard filters, the dataset convention, and correctness against
+        <code>evalRule</code> (<a href="index.html#eval-rule">Evaluation of a Rule</a>)
+        — carries over and is not restated here.
+      </p>
+
+      <section id="translate-text-transcription">
+        <h3>Transcription</h3>
+
+        <p>
+          The translation is a transcription, not a reconstruction. The
+          SPARQL-RL grammar is derived from the SPARQL 1.2 grammar, and
+          everything a rule says about triples and values — head templates,
+          body triple patterns with reifiers, annotations and triple terms,
+          property paths, filter expressions, literals, escapes — is written
+          in productions that are also SPARQL 1.2 productions, with the same
+          meaning. The default action is therefore to copy the source text
+          unchanged, and the algorithm consists of the places where that
+          default is wrong:
+        </p>
+
+        <table class="simple">
+          <caption>Rewrite points; all other text is copied</caption>
+          <thead>
+            <tr>
+              <th>Source form</th>
+              <th>Emitted text</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>`BASE` and `PREFIX` declarations in force</td>
+              <td>copied, in order</td>
+            </tr>
+            <tr>
+              <td>`RULE` <i>iri</i>? `{` <i>H</i> `} WHERE`</td>
+              <td>`CONSTRUCT {` <i>H</i> `} WHERE` — the <i>iri</i> survives
+                only as a comment</td>
+            </tr>
+            <tr>
+              <td>`WHERE DATA`</td>
+              <td>`WHERE`; the query's default graph becomes the
+                <a href="index.html#dfn-base-graph">base graph</a></td>
+            </tr>
+            <tr>
+              <td>a body triples block</td>
+              <td>copied — except each labeled [=blank node=] becomes a
+                variable
+                (<a href="#translate-text-copying" class="sectionRef"></a>)</td>
+            </tr>
+            <tr>
+              <td>`FILTER` <i>C</i></td>
+              <td>copied, in place</td>
+            </tr>
+            <tr>
+              <td>`NOT {` <i>P</i> `}`</td>
+              <td>`FILTER NOT EXISTS {` <i>P&prime;</i> `}`, then
+                <code>close</code></td>
+            </tr>
+            <tr>
+              <td>`NOT DATA {` <i>P</i> `}`</td>
+              <td>`FILTER NOT EXISTS { GRAPH` <var>baseRef</var> `{`
+                <i>P&prime;</i> `} }`, then <code>close</code></td>
+            </tr>
+            <tr>
+              <td>`SET ( ?v :=` <i>e</i> `)`</td>
+              <td>`BIND(` <i>e</i> `AS ?v ) FILTER( BOUND(?v) )`, then
+                <code>close</code></td>
+            </tr>
+            <tr>
+              <td>`GROUP BY` <i>keys</i> `{` <i>P</i> `} [` <i>assignments</i> `]`</td>
+              <td>a sub-`SELECT` with `GROUP BY`, guard filters, then
+                <code>close</code></td>
+            </tr>
+            <tr>
+              <td>the head template `{` <i>H</i> `}`</td>
+              <td>copied</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          <code>close</code> is the scoping device of the companion appendix
+          (<a href="ast-to-construct.html#translate-scope-positional">Positional Scope</a>),
+          here as a text operation: wrap everything emitted so far for the
+          current group in `{` ... `}`. The guard filters on a group element
+          and the `BOUND` test after a `BIND` are likewise those of the
+          companion appendix.
+        </p>
+      </section>
+
+      <section id="translate-text-setting">
+        <h3>Inputs, Output and Preconditions</h3>
+
+        <p>The inputs are:</p>
+        <ul>
+          <li>
+            <var>R</var>, the parse tree of one rule — production
+            <code>Rule ::= 'RULE' iri? HeadTemplate 'WHERE' 'DATA'? BodyPattern</code>;
+          </li>
+          <li>
+            <var>PRO</var>, the `BaseDecl` and `PrefixDecl` nodes in force at
+            <var>R</var>: those textually preceding it in the rule set, in
+            source order;
+          </li>
+          <li>
+            <var>baseRef</var>, an IRI chosen by the translation, written
+            `&lt;urn:srl:base-graph&gt;` in this appendix.
+          </li>
+        </ul>
+        <p>
+          The rule set parses, and <var>R</var> is a
+          <a href="index.html#dfn-well-formed-rule">well-formed rule</a>.
+          Working at the text level does not remove the
+          <a href="index.html#wellformed">well-formedness</a> check:
+          well-formedness is what allows a `FILTER` to stay where it is
+          written and makes the emitted `BIND` legal SPARQL. The check is
+          defined on structure the parse tree already carries.
+        </p>
+        <p>
+          The output is the text of a `CONSTRUCT` query, and a flag
+          <var>needsBase</var> saying whether the query mentions
+          <var>baseRef</var>. The dataset for executing the query is that of
+          the companion appendix
+          (<a href="ast-to-construct.html#translate-dataset">Inputs, Output and the Dataset</a>):
+          for an ordinary rule, the default graph is the
+          <a href="index.html#dfn-evaluation-graph">evaluation graph</a>, with
+          the named graph (<var>baseRef</var>, <var>GD</var>) when
+          <var>needsBase</var>; for a `WHERE DATA` rule, the default graph is
+          the base graph and there is no named graph.
+        </p>
+        <p>
+          The translation works on a parse tree rather than as a stream
+          editor because two of the rewrites reorder text:
+          `SET ( ?v := <i>e</i> )` moves the variable and the expression
+          around `AS`, and a `GROUP` element moves the aggregation
+          assignments from after the group pattern into a projection before
+          it, writing the keys twice. <code>close</code> wraps text already
+          emitted. The translator therefore buffers one rule. The tree walk
+          is shallow: the tree is used only down to the productions named in
+          <a href="#translate-text-algorithm" class="sectionRef"></a>, and
+          everything below them is handled as text.
+        </p>
+      </section>
+
+      <section id="translate-text-machinery">
+        <h3>Spans, Tokens and Fresh Names</h3>
+
+        <p>
+          The <em>span</em> of a parse tree node is the
+          source text from its first token to its last, including the
+          original white space between them. Comments are white space in both
+          languages and may ride along inside a span; a comment always ends
+          with a line break lying between the same two tokens, so a span
+          never ends in mid-comment. When the translator emits tokens of its
+          own next to a span, a single space is always a sufficient
+          separator.
+        </p>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define copy(node):
+    # The default action.
+    the result is span(node)
+enddefine
+
+define copyPattern(node):
+    # copy, for pattern text: blank node labels become variables.
+    the result is span(node) in which the text of each BLANK_NODE_LABEL
+        token "_:label" is replaced by bnodeVar(label)
+    # The replacement is by token: the characters "_:" inside an IRI or
+    # a string literal are not a BLANK_NODE_LABEL token, and are not
+    # touched.  ANON "[]", blank node property lists "[ ... ]" and
+    # collections "( ... )" are not rewritten.
+enddefine
+</pre>
+        </div>
+
+        <p>
+          Let <var>V</var> be the set of variable names occurring in
+          <var>R</var> — every `VAR1` and `VAR2` token, without its `?` or
+          `$` — extended as names are generated.
+        </p>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define freshVar():
+    let name be the next name of the form "_t0", "_t1", ... not in V
+    add name to V
+    the result is "?" + name
+enddefine
+
+define bnodeVar(label):
+    # Same label, same variable, across the whole rule body.
+    if BMAP[label] is not defined:
+        BMAP[label] = freshVar()
+    endif
+    the result is BMAP[label]
+enddefine
+</pre>
+        </div>
+
+        <p>
+          The variable name is generated by counter, not derived from the
+          label text: a blank node label (`BLANK_NODE_LABEL`) may contain
+          `-` and `.`, which a variable name (`VARNAME`) cannot.
+        </p>
+        <p>
+          <var>BMAP</var> is per rule and applies to the rule body only.
+          Blank nodes in the head template are copied unchanged: a
+          `CONSTRUCT` template blank node is instantiated fresh for each
+          solution, which is
+          <a href="index.html#dfn-replaceblanknodes">replaceBlankNodes</a>
+          applied per solution. A label that appears in both head and body is
+          thereby decoupled, matching evaluation, where body blank nodes are
+          variables
+          (<a href="index.html#dfn-bnodes-as-variables">treating blank nodes as variables</a>)
+          and head blank nodes are template blank nodes.
+        </p>
+      </section>
+
+      <section id="translate-text-algorithm">
+        <h3>Translation Algorithm</h3>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+# State per rule: V and BMAP (previous section), and
+let needsBase = false
+
+define trRuleText(R, PRO):
+    # R   : parse tree of 'RULE' iri? HeadTemplate 'WHERE' 'DATA'? BodyPattern
+    # PRO : BaseDecl and PrefixDecl nodes in force at R, in source order
+    let out = empty text
+
+    foreach declaration D in PRO:
+        append copy(D) and a line break to out
+    endfor
+
+    if R has an iri:
+        append "# RULE " copy(the iri) and a line break to out   # comment only
+    endif
+
+    if R has the DATA token:        # a WHERE DATA rule
+        let bg = none               # default graph will be GD;
+                                    # NOT and NOT DATA coincide, no GRAPH
+    else:
+        let bg = baseRef
+    endif
+
+    append "CONSTRUCT " copy(R.HeadTemplate) to out      # braces included
+    append " WHERE { " trPatternText(items of R.BodyPattern, bg) " }" to out
+
+    the result is (out, needsBase)
+enddefine
+</pre>
+        </div>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define trPatternText(ITEMS, bg):
+    # ITEMS: the children of a BodyPattern, a NegationPattern, or a
+    # GroupPattern, in source order -- triples blocks interleaved with
+    # Filter / Negation / Assignment / GroupAggregate nodes (the grammar
+    # limits which of these occur in which production).
+    # The optional "." token between items is not copied.
+    let out = empty text
+
+    foreach item X in ITEMS:
+
+        if X is a BodyTriplesBlock:
+            append copyPattern(X) to out
+        endif
+
+        if X is a Filter:                     # 'FILTER' Constraint
+            append copy(X) to out             # verbatim, in place
+        endif
+
+        if X is a Negation:                   # 'NOT' 'DATA'? '{' P '}'
+            let inner = trPatternText(items of X.NegationPattern, bg)
+                # the grammar allows only triples blocks and filters here
+            if X has the DATA token and bg is not none:
+                inner = "GRAPH " bg " { " inner " }"
+                needsBase = true
+            endif
+            append "FILTER NOT EXISTS { " inner " }" to out
+            out = "{ " out " }"                            # close
+        endif
+
+        if X is an Assignment:                # 'SET' '(' Var ':=' Expression ')'
+            append "BIND( " copy(X.Expression) " AS " copy(X.Var) " )" to out
+            append "FILTER( BOUND(" copy(X.Var) ") )" to out
+            out = "{ " out " }"                            # close
+        endif
+
+        if X is a GroupAggregate:
+            append trGroupText(X, bg) to out
+            out = "{ " out " }"                            # close
+        endif
+
+    endfor
+    the result is out
+enddefine
+</pre>
+        </div>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define trGroupText(X, bg):
+    # X: 'GROUP' ( 'BY' ListVars )? '{' GroupPattern '}'
+    #        ( ANON | '[' AggregationAssignments ']' )
+    # AggregationAssignments ::= ( AggregationAssignment ( ',' AggregationAssignment )* )?
+    # AggregationAssignment  ::= Var ':=' AggregationFunction
+
+    let keys = the Var tokens of ListVars, keeping the first occurrence
+               of each variable and dropping repeats
+        # ListVars is Var+, so a variable may be written twice;
+        # SPARQL does not allow a variable to be projected twice.
+
+    let inner = trPatternText(items of X.GroupPattern, bg)
+        # the grammar allows triples blocks, filters and assignments here
+
+    let PROJ be the empty text
+    let GUARDS be the empty text
+    foreach k in keys:
+        append copy(k) to PROJ
+    endfor
+    foreach aggregation assignment A in X, in source order:
+        append "( " copy(A.AggregationFunction) " AS " copy(A.Var) " )" to PROJ
+            # the aggregation function text -- COUNT(*), COUNT(DISTINCT ?x),
+            # MIN(?x), MAX(?x), SUM(?x) -- is SPARQL text already
+        if A.AggregationFunction is a MIN, MAX or SUM form:
+            # An error calculating an aggregate removes the group;
+            # COUNT cannot raise an error.
+            append "FILTER( BOUND(" copy(A.Var) ") )" to GUARDS
+        endif
+    endfor
+
+    if keys is empty:
+        # No solutions of the group pattern must mean no solutions;
+        # a SPARQL aggregate query without GROUP BY returns one row.
+        let n = freshVar()
+        append "( COUNT(*) AS " n " )" to PROJ
+        append "FILTER( " n " &gt; 0 )" to GUARDS
+        the result is "{ SELECT " PROJ " WHERE { " inner " } } " GUARDS
+
+    else if X has no aggregation assignments:        # ANON "[]", or "[ ]"
+        the result is "{ SELECT DISTINCT " PROJ " WHERE { " inner " } }"
+
+    else:
+        the result is "{ SELECT " PROJ " WHERE { " inner " } GROUP BY "
+                      each key of keys " } " GUARDS
+    endif
+enddefine
+</pre>
+        </div>
+      </section>
+
+      <section id="translate-text-copying">
+        <h3>Verbatim Copying</h3>
+
+        <p>
+          A verbatim copy is justified region by region: in each case the
+          SPARQL-RL productions are, by construction, a subset of the
+          SPARQL 1.2 productions with the same meaning, so the SPARQL parse
+          of the copied text yields the same patterns that the SPARQL-RL
+          parse yields.
+        </p>
+        <div class="list-indent">
+          <ul>
+            <li>
+              <em>Head templates</em> (`HeadTemplate` and below): the
+              SPARQL 1.2 construct template productions, without paths.
+              Variables, reified triple blocks, annotation blocks,
+              collections and templates for a [=triple term=] carry over;
+              blank nodes mean "fresh for each solution" in both languages.
+            </li>
+            <li>
+              <em>Body triples blocks</em> (`BodyTriplesBlock` and below):
+              the SPARQL 1.2 triples block productions — including `~`
+              reifiers, `{| |}` annotation blocks, `&lt;&lt;( )&gt;&gt;`
+              triple terms, `a`, collections and blank node property lists —
+              with the one exception below.
+            </li>
+            <li>
+              <em>Paths</em> (`VerbPath`, `Path`): SPARQL-RL allows only
+              `/`, `^`, `( )`, `a` and IRIs, all of which are SPARQL paths.
+              SPARQL's own translation of `/` and `^` expands them to the
+              same triple patterns with fresh variables that the SPARQL-RL
+              abstract syntax uses.
+            </li>
+            <li>
+              <em>Filters and expressions</em> (`Filter`, `Constraint`,
+              `Expression` and below): the SPARQL expression grammar minus
+              features — there is no `EXISTS`, `BOUND`, `COALESCE`, `RAND`
+              and no hash functions. Removals only, so every SPARQL-RL
+              expression is a SPARQL expression, including the SPARQL 1.2
+              additions such as `LANGDIR`, `hasLANG`, `STRLANGDIR` and
+              triple terms in expressions.
+            </li>
+            <li>
+              <em>Terminals</em>: IRIs, prefixed names, literals, language
+              tags, escapes, variables and comments are the SPARQL 1.2
+              terminals.
+            </li>
+          </ul>
+        </div>
+
+        <p>
+          The exception is the <em>labeled blank node in a rule body</em>.
+          In SPARQL-RL text, a label is a rule-wide name: it may be reused
+          across triples blocks, across a `SET`, and between the outer body
+          and a `NOT` body, and evaluation reads every occurrence as the same
+          variable. SPARQL does not allow a blank node label to be used in
+          two different basic graph patterns, and this translation
+          manufactures exactly such boundaries. Both of the following are
+          syntax errors in SPARQL:
+        </p>
+        <pre class="nohighlight">
+    { { _:b :p ?x } _:b :q ?z }                        # a close boundary
+    { _:b :p ?x FILTER NOT EXISTS { _:b :q ?z } }      # a negation
+</pre>
+        <p>
+          Replacing every `BLANK_NODE_LABEL` token with its variable makes
+          the text legal and gives each occurrence the rule-wide variable
+          reading that SPARQL-RL requires.
+        </p>
+        <p>
+          The anonymous forms stay. An `[]`, a `[` ... `]` property list, or
+          a `(` ... `)` collection is a single syntactic node, so it can
+          never straddle an inserted boundary — the boundaries fall only
+          between the items of a pattern — and within one basic graph
+          pattern SPARQL already treats its blank node as a fresh,
+          unprojected variable, which is the SPARQL-RL reading.
+        </p>
+      </section>
+
+      <section id="translate-text-agreement">
+        <h3>Agreement with the Abstract-Syntax Translation</h3>
+
+        <p>
+          For a <a href="index.html#dfn-well-formed-rule">well-formed rule</a>
+          <var>R</var>, parsing the text produced
+          here yields the query that the
+          <a href="ast-to-construct.html#translate-algorithm">abstract-syntax translation</a>
+          produces from the parse of <var>R</var> — up to the names of
+          translator-introduced variables, and up to when syntactic sugar is
+          expanded. Correctness against <code>evalRule</code> then follows
+          from the
+          <a href="ast-to-construct.html#translate-correctness">companion appendix</a>,
+          and nothing semantic needs to be re-established. The claim holds
+          clause by clause:
+        </p>
+        <div class="list-indent">
+          <ul>
+            <li>
+              each <em>copy</em> clause copies a region whose SPARQL parse
+              produces the same triple patterns, templates, paths or
+              expression that the SPARQL-RL parse produces — the same
+              productions, the same expansions of collections, property
+              lists, reifiers and annotations, and the same expansion of
+              `/` and `^` paths;
+            </li>
+            <li>
+              <code>copyPattern</code> performs, at the token level,
+              <a href="index.html#dfn-bnodes-as-variables">treating blank nodes as variables</a>,
+              restricted to labels, with the previous section justifying
+              leaving the anonymous forms to SPARQL;
+            </li>
+            <li>
+              each <em>rewrite</em> clause emits text whose parse is the
+              corresponding output form of the companion appendix: the
+              `FILTER NOT EXISTS` with its optional `GRAPH`, the
+              `BIND`&ndash;`BOUND` pair, the sub-`SELECT` with its guards,
+              and the same <code>close</code> nesting, since both
+              translations close after the same three kinds of element;
+            </li>
+            <li>
+              <code>trRuleText</code> assembles the same
+              `CONSTRUCT { <i>head</i> } WHERE { <i>body</i> }` under the
+              same dataset convention, with <var>needsBase</var> true exactly
+              when a `NOT DATA` was translated inside an ordinary rule.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="translate-text-examples">
+        <h3>Examples</h3>
+
+        <p>
+          The copied `BASE` and `PREFIX` declarations are not shown, and the
+          final <code>close</code>, which would wrap the whole `WHERE`
+          clause, is elided
+          (<a href="ast-to-construct.html#translate-simplify">Simplifications</a>).
+        </p>
+
+        <aside class="example" title="Transcription of a rule">
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                ?x :distanceMiles ?miles .
+                NOT DATA { ?x :distanceKilometers ?km }
+                SET ( ?kilometers := xsd:integer(?miles * 1.60934))
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                { ?x :distanceMiles ?miles .
+                  FILTER NOT EXISTS {
+                      GRAPH &lt;urn:srl:base-graph&gt; { ?x :distanceKilometers ?km }
+                  }
+                }
+                BIND( xsd:integer(?miles * 1.60934) AS ?kilometers )
+                FILTER( BOUND(?kilometers) )
+            }
+          </pre>
+        </aside>
+
+        <p>
+          The head and the first triples block are copied; the `NOT DATA` and
+          the `SET` are rewritten, the expression inside the `SET` again
+          copied; <var>needsBase</var> is <var>true</var>. The emitted text
+          is flat — the layout above is cosmetic.
+        </p>
+
+        <aside class="example" title="A group element, reordered">
+          <pre class="block ex-rules">
+            RULE { ?x :vulnerabilityCount ?n ;
+                      :maxSeverity ?m }
+            WHERE {
+                ?x rdf:type :Component .
+                GROUP BY ?x { ?x :exposedTo ?v . ?v :severity ?s }
+                    [ ?n := COUNT(*) , ?m := MAX(?s) ]
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :vulnerabilityCount ?n ;
+                           :maxSeverity ?m }
+            WHERE {
+                ?x rdf:type :Component .
+                { SELECT ?x (COUNT(*) AS ?n) (MAX(?s) AS ?m)
+                  WHERE { ?x :exposedTo ?v . ?v :severity ?s }
+                  GROUP BY ?x
+                }
+                FILTER( BOUND(?m) )
+            }
+          </pre>
+        </aside>
+
+        <p>
+          The key `?x` is written twice, in the projection and in the
+          `GROUP BY`; the aggregation assignments move from after the group
+          pattern into the projection before it; the function and variable
+          texts are copies.
+        </p>
+
+        <aside class="example" title="Blank nodes">
+          <pre class="block ex-rules">
+            RULE { ?x :unreviewed true }
+            WHERE {
+                ?x :exposedTo _:v .
+                NOT { _:v :reviewedBy ?r }
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :unreviewed true }
+            WHERE {
+                ?x :exposedTo ?_t0 .
+                FILTER NOT EXISTS { ?_t0 :reviewedBy ?r }
+            }
+          </pre>
+        </aside>
+
+        <p>
+          The label `_:v` becomes the variable `?_t0` at both occurrences:
+          it is bound by the first triple pattern and substituted into the
+          `NOT EXISTS`, which is the SPARQL-RL reading of the label. Copied
+          unchanged, the text would not even parse as SPARQL. An anonymous
+          form such as `?x :exposedTo [ :severity ?s ]` in the same body
+          would be copied unchanged.
+        </p>
+
+        <p>
+          The rule and query file pairs listed in the
+          <a href="ast-to-construct.html#translation-files">companion appendix</a>
+          serve this translation equally: for each pair, the query text is a
+          transcription of the rule text in the sense of this appendix.
+        </p>
+      </section>
+
+      <section id="translate-text-details">
+        <h3>Details of the Text Level</h3>
+
+        <div class="list-indent">
+          <ul>
+            <li>
+              <em>Dots.</em> The optional `.` between pattern items is not
+              copied; the dots inside a copied triples block, including a
+              trailing one, are part of the span and are legal where they
+              land.
+            </li>
+            <li>
+              <em>Duplicate keys.</em> `ListVars` is `Var+`, so
+              `GROUP BY ?x ?x` parses; the projection and the `GROUP BY`
+              emit each key once.
+            </li>
+            <li>
+              <em>The rule's iri</em> has no counterpart in a query and
+              survives only as a comment.
+            </li>
+            <li>
+              <em>Prologue.</em> The declarations in force are copied in
+              order; both languages apply repeated `BASE` and `PREFIX`
+              declarations sequentially, so redeclaration between rules
+              carries over. If the rule text uses a relative IRI with no
+              `BASE` in force, the query must be executed with the rule
+              set's base, or the translator prepends a `BASE` declaration
+              giving it. The SPARQL-RL `VERSION` declaration versions the
+              rules language, not SPARQL, and is not copied. Pruning unused
+              prefixes is cosmetic.
+            </li>
+            <li>
+              <em>Aggregation assignments</em> are read from the parse tree;
+              their separating commas are punctuation only, and an empty
+              `[ ]` means the same as the ANON form `[]`.
+            </li>
+            <li>
+              <em>Output form.</em> The emitted text is flat;
+              pretty-printing is cosmetic. The simplifications of the
+              <a href="ast-to-construct.html#translate-simplify">companion appendix</a>
+              apply unchanged — eliding the final <code>close</code>,
+              omitting a <code>close</code> that nothing later can disturb,
+              reusing an existing `COUNT(*)` for the no-keys guard,
+              flattening a group of one group, and the single-graph dataset
+              when the rule has no `DATA` form.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="translate-text-notes">
+        <h3>Notes</h3>
+
+        <p>
+          The driver-side points of the companion appendix
+          (<a href="ast-to-construct.html#translate-use">Use within Rule Set Evaluation</a>)
+          are unchanged: the query is produced once and re-executed each
+          round with the dataset re-pointed; `NOW()` is pinned across the
+          rule set evaluation by the engine or by substituting a constant;
+          and rules that create fresh RDF terms are
+          <a href="index.html#dfn-run-once-rule">run-once rules</a>, which
+          the <a href="index.html#stratification">stratification</a> keeps
+          from being executed again. The
+          <a href="ast-to-construct.html#translate-open">open points</a>
+          recorded there apply to this translation verbatim.
+        </p>
+
+        <p class="ednote">
+          One observation belongs to the concrete syntax. SPARQL-RL places no
+          restriction on reusing a blank node label across triples blocks or
+          into a negation body — the label is a rule-wide variable — where
+          SPARQL and Turtle forbid the corresponding reuse. That asymmetry is
+          what makes the label substitution of this appendix mandatory. The
+          specification could state the intended scope of blank node labels
+          explicitly, so that implementers of a text-level translator do not
+          assume the SPARQL rule.
+        </p>
+      </section>
+
+    </section>
+    <!-- ============ end of the appendix section ============ -->
+
+  </body>
+</html>

@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
+    <title>Translation of SPARQL-RL to SPARQL</title>
+    <script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>
+    <script class="remove">
+      var respecConfig = {
+        specStatus: "unofficial",
+        shortName: "sparql12-rl-translation",
+        github: "w3c/data-shapes",
+        copyrightStart: "2025",
+
+        editors: [
+          {
+            name:       "Robert David",
+            company:    "GraphWise",
+            companyURL: "https://graphwise.ai",
+            orcid:      "0000-0002-3244-5341",
+            w3cid:      97894
+          },
+          {
+            name:       "David Habgood",
+            company:    "KurrawongAI",
+            companyURL: "https://kurrawong.ai",
+            mailto:     "david@kurrawong.ai",
+            orcid:      "0000-0002-3322-1868",
+            w3cid:      164266
+          },
+          {
+            name:       "Andy Seaborne",
+            company:    "Apache Software Foundation",
+            companyURL: "https://www.apache.org",
+            w3cid:      29909
+          },
+          {
+            name:       "Simon Steyskal",
+            company:    "Siemens AG",
+            companyURL: "https://siemens.com",
+            orcid:      "0000-0002-5183-2486",
+            w3cid:      73545
+          }
+        ],
+
+        xref: ["RDF12-CONCEPTS"],
+        lint: {
+          "no-unused-dfns": false
+        },
+      };
+    </script>
+
+    <!--
+        The <style> block below is copied from index.html, with one addition:
+        the ".ex-query" class, for a SPARQL query inside an <aside class="example">.
+        That class is the only style change index.html needs when this
+        appendix is merged.
+    -->
+    <style>
+
+      .grammarTable {
+          font-size: 11px;
+      }
+
+      /* Grammar table */
+      div.grammarTable table {
+        border-style: solid ;
+        border-width: 1px ;
+        border-color: #AAA ;
+        border-spacing: 0px ;
+        border-collapse: collapse ; }
+
+      div.grammarTable table * {
+          border-left-width: 0px ;
+          border-right-width: 0px ;
+          border-color: #AAA ; }
+
+      div.grammarTable table * tr {
+          border-top-style: solid ;
+          border-top-width: 1px ;
+          border-top-color: #AAA ; }
+
+      table { border-collapse: collapse }
+      table td, table th { border: 1px solid #444; padding: 0.2em 0.3em; }
+      table.cp-definitions { border-collapse:collapse; background-color: #DDDDFF}
+      body.darkmode table.cp-definitions { background-color: black}
+
+      table.cp-definitions,
+      table.cp-definitions th,
+      table.cp-definitions td { border:1px solid black; padding:0.2em; }
+      table.cp-definitions td:nth-child(2) { text-align: center; }
+
+      .term2escape-yes { background-color: lightgreen; }
+      .darkmode .term2escape-yes { background-color: darkgreen; }
+
+      /* lists */
+      .list-indent     { margin-left: 5px; }
+      .list-no-bullet  { list-style: none; }
+      .list-inner      { list-style: disc; }
+
+      .algorithm {
+          background:        #fafafa;
+          border:            1px solid #c0c0c0 ;
+          border-left-width: .5em;
+          margin:            1em;
+
+          padding:           0;
+          padding-left:      0.5em;
+          padding-right:     0.5em;
+      }
+      .darkmode .algorithm {
+          background:        #2b2b2b ;
+          border-color:      #55595f ;
+      }
+
+      /* Block to go inside <aside> "example" */
+
+      .block {
+          color: #666666 ;
+          border: 1px solid #444444;
+          page-break-inside: avoid;
+          display: block;
+          margin: 1em;
+          padding: 1em;
+          padding-top: 0em;
+      }
+
+      .darkmode .block {
+          color:  #bbbbbb;
+          border: 1px solid #aaaaaa ;
+      }
+
+      .ex-data                { background: #aaccaa; }
+      .ex-data::before        { content: "Data"; }
+      .darkmode .ex-data      { background: #446644; }
+
+      .ex-rules               { background: #aacccc; }
+      .ex-rules::before       { content: "Rules"}
+      .darkmode .ex-rules     { background: #446688; }
+
+      .ex-inferred            { background: #aaccaa; }
+      .ex-inferred::before    { content: "Inferred"; }
+      .darkmode .ex-inferred  { background: #558855; }
+
+      /* New: a SPARQL query in an example. */
+      .ex-query               { background: #d8c8a8; }
+      .ex-query::before       { content: "SPARQL"; }
+      .darkmode .ex-query     { background: #6b5636; }
+
+    </style>
+
+  </head>
+
+  <body>
+    <section id="abstract">
+      <p>
+        This document contains draft text for the appendix
+        "Translation of SPARQL-RL to SPARQL" of
+        <a href="index.html">SPARQL 1.2 RL</a>.
+      </p>
+      <p>
+        It gives an algorithm that translates one SPARQL-RL <a href="index.html#dfn-rule">rule</a> into
+        one SPARQL `CONSTRUCT` query, together with the RDF dataset that
+        query is executed over.
+      </p>
+    </section>
+
+    <section id="sotd">
+      <p>
+        This document is not a W3C publication. It is working material for the
+        <a href="https://www.w3.org/groups/wg/data-shapes/">W3C Data Shapes Working Group</a>,
+        addressing issue
+        <a href="https://github.com/w3c/data-shapes/issues/1303">#1303</a>.
+      </p>
+      <p>
+        The appendix below is written so that it can be placed in `index.html`
+        as the body of the section `translate-srl-sparql`. Two mechanical edits
+        are needed when it is merged:
+      </p>
+      <ul>
+        <li>
+          change each link of the form `index.html#`<i>name</i> to `#`<i>name</i>;
+          these are cross-document links here, and document-relative links
+          in the specification. A term of SPARQL-RL is written as such a link
+          rather than as `[=`<i>term</i>`=]`, because the definition is in
+          `index.html`; the two forms are interchangeable once the appendix is
+          in place. Terms of RDF are written as `[=`<i>term</i>`=]`, as they
+          are in the specification, and resolve through `xref`.
+        </li>
+        <li>
+          add the `.ex-query` style rule, given in the `&lt;style&gt;` element
+          of this document, to `index.html`.
+        </li>
+      </ul>
+    </section>
+
+    <!-- ==================================================================
+         The section below is the proposed replacement for
+
+             <section id="translate-srl-sparql" class="appendix">
+               <h2>Translation of SPARQL-RL to SPARQL</h2>
+               <div class="issue" data-number="1303"> ... </div>
+             </section>
+
+         in index.html.
+         ================================================================== -->
+
+    <section id="translate-srl-sparql" class="appendix informative">
+      <h2>Translation of SPARQL-RL to SPARQL</h2>
+
+      <p>
+        This appendix gives an algorithm that translates a single
+        <a href="index.html#dfn-rule">rule</a> into a single
+        SPARQL `CONSTRUCT` query, together with the
+        <a data-cite="SPARQL12-QUERY#rdfDataset">RDF dataset</a>
+        that query is executed over.
+        Executing the query produces the triples given by
+        <code>evalRule(R, G, GD)</code> of
+        <a href="index.html#eval-rule">Evaluation of a Rule</a>.
+      </p>
+      <p>
+        The translation covers one rule.
+        <a href="index.html#eval-rule-set">Rule set evaluation</a> is unchanged:
+        processing imports, checking
+        <a href="index.html#wellformed">well-formedness</a>,
+        calculating the <a href="index.html#dependency-graph">dependency graph</a>
+        and a <a href="index.html#stratification">stratification</a>,
+        the separation of
+        <a href="index.html#dfn-run-once-rule">run-once rules</a> from
+        <a href="index.html#dfn-general-rule">general rules</a>,
+        the repeated evaluation of a stratum, and the removal of triples
+        already in the <a href="index.html#dfn-base-graph">base graph</a>,
+        all remain outside the translation.
+        <a href="#translate-use">Use within Rule Set Evaluation</a>
+        shows where the translated query is used.
+      </p>
+      <p class="note">
+        A <a href="index.html#dfn-sparql-rl-processor">SPARQL-RL processor</a>
+        is not required to use this translation. It is given to show the
+        relationship between the two languages, and to show one way to
+        evaluate rules with a SPARQL query engine.
+      </p>
+
+      <section id="translate-scope">
+        <h3>Scope</h3>
+
+        <p>
+          The translation is defined over the
+          <a href="index.html#rules-abstract-syntax">abstract syntax</a>:
+          a rule is a <a href="index.html#dfn-rule-head">rule head</a>,
+          which is a sequence of
+          <a href="index.html#dfn-triple-template">triple templates</a>,
+          a <a href="index.html#dfn-rule-body">rule body</a>,
+          which is a sequence of
+          <a href="index.html#dfn-rule-element">rule elements</a>,
+          and the flag `rule.evaldata`.
+        </p>
+        <p>
+          The syntactic forms that abbreviate triples &mdash; collections,
+          blank node property lists, reifiers and annotation blocks &mdash;
+          are taken to have been expanded into
+          <a href="index.html#dfn-triple-pattern">triple patterns</a> and
+          <a href="index.html#dfn-triple-template">triple templates</a> by the parsing step, as they are for
+          evaluation.
+        </p>
+        <p>
+          Property paths in SPARQL-RL use only `/` and `^`, both of which are
+          SPARQL property paths. A path can be carried over unchanged, or
+          expanded into triple patterns with fresh variables.
+        </p>
+        <p>
+          The output is shown in SPARQL concrete syntax. The `BASE` and
+          `PREFIX` declarations of the rule set are copied to the query
+          prologue. `IMPORTS` and `DATA` are features of a
+          <a href="index.html#dfn-rule-set">rule set</a>, not of a rule, and
+          take no part in the translation of a single rule; the triples of a
+          <a href="index.html#dfn-data-block">data block</a> are already in the
+          <a href="index.html#dfn-evaluation-graph">evaluation graph</a>
+          when the query is executed.
+        </p>
+        <p>
+          The queries produced use a small part of SPARQL:
+          basic graph patterns,
+          `FILTER`,
+          `BIND`,
+          `GRAPH`,
+          `FILTER NOT EXISTS`,
+          a sub-`SELECT` with `GROUP BY` and the aggregates
+          `COUNT`, `MIN`, `MAX` and `SUM`,
+          and nested group graph patterns.
+          There is no `OPTIONAL`, `UNION`, `MINUS` or `VALUES`,
+          and no solution modifier on the outer query.
+        </p>
+      </section>
+
+      <section id="translate-dataset">
+        <h3>Inputs, Output and the Dataset</h3>
+
+        <p>
+          The inputs are those of <code>evalRule(R, G, GD)</code>:
+        </p>
+        <ul>
+          <li><var>R</var>, a <a href="index.html#dfn-well-formed-rule">well-formed rule</a>;</li>
+          <li>
+            <var>G</var>, the graph matched by the rule body when
+            `rule.evaldata` is <var>true</var>; during rule set evaluation
+            this is the evaluation graph;
+          </li>
+          <li>
+            <var>GD</var>, the <a href="index.html#dfn-base-graph">base graph</a>.
+          </li>
+        </ul>
+        <p>
+          Recall the sense of the two flags:
+          <code>rule.evaldata</code> is <var>false</var> for a `WHERE DATA` rule, and
+          <code>negation.evaldata</code> is <var>false</var> for a `NOT DATA` element.
+          In both cases, <var>false</var> means "match the base graph".
+        </p>
+        <p>
+          The output is a `CONSTRUCT` query <var>Q</var>, and the dataset on
+          which <var>Q</var> is to be executed.
+          Let <var>baseRef</var> be an IRI chosen by the translation and not
+          used for any other purpose; this appendix writes
+          `&lt;urn:srl:base-graph&gt;`.
+        </p>
+
+        <table class="simple">
+          <caption>The dataset for executing the translated query</caption>
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Default graph</th>
+              <th>Named graph</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>`WHERE` &mdash; <code>rule.evaldata</code> is <var>true</var></td>
+              <td><var>G</var></td>
+              <td>
+                (<var>baseRef</var>, <var>GD</var>),
+                and only when the rule body has a `NOT DATA` element
+              </td>
+            </tr>
+            <tr>
+              <td>`WHERE DATA` &mdash; <code>rule.evaldata</code> is <var>false</var></td>
+              <td><var>GD</var></td>
+              <td>none</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          A `WHERE DATA` rule needs no named graph. The whole rule body is
+          matched against the base graph, so `NOT` and `NOT DATA` have the
+          same effect: in
+          <code>evalRuleElements(B, SEQ, GD, GD)</code> both branches of the
+          negation case use <var>GD</var>. The translation emits no `GRAPH`
+          for such a rule.
+        </p>
+        <p>
+          The graph produced by executing <var>Q</var> on that dataset, and the
+          graph produced by <code>evalRule(R, G, GD)</code>, differ only in the
+          identity of the blank nodes created by the rule head: the two graphs
+          are
+          <a data-cite="RDF12-CONCEPTS#graph-isomorphism">graph isomorphic</a>.
+          If the rule head has no blank nodes, and the rule body uses none of
+          `BNODE`, `UUID` and `STRUUID`, the two graphs are equal.
+        </p>
+        <p class="note">
+          A processor that translates every rule of a rule set against a single
+          dataset &mdash; default graph the evaluation graph, named graph
+          (<var>baseRef</var>, <var>G0</var>) &mdash; can keep the handling of
+          `rule.evaldata` inside the query instead: for a `WHERE DATA` rule,
+          enclose the whole translated body in
+          `GRAPH <var>baseRef</var> { ... }`, because the active graph carries
+          into sub-`SELECT` and `EXISTS` patterns, and translate `NOT DATA`
+          with the `GRAPH` form in every rule. The form used in this appendix
+          leaves the common case &mdash; a rule with no `DATA` form &mdash; as
+          a query over a single graph.
+        </p>
+      </section>
+
+      <section id="translate-correspondence">
+        <h3>Correspondence of Forms</h3>
+
+        <p>
+          The table below summarizes the translation.
+          <code>close</code> is the scoping step described in
+          <a href="#translate-scope-positional">Positional Scope</a>.
+        </p>
+
+        <table class="simple">
+          <caption>Correspondence between SPARQL-RL and SPARQL</caption>
+          <thead>
+            <tr>
+              <th>SPARQL-RL</th>
+              <th>SPARQL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="index.html#dfn-rule-head">rule head</a></td>
+              <td>the `CONSTRUCT` template, unchanged</td>
+            </tr>
+            <tr>
+              <td><a href="index.html#dfn-triple-pattern-element">triple pattern element</a></td>
+              <td>a triple pattern in the group, unchanged</td>
+            </tr>
+            <tr>
+              <td><a href="index.html#dfn-filter-element">filter element</a></td>
+              <td><code>FILTER(<i>expr</i>)</code>, in place</td>
+            </tr>
+            <tr>
+              <td>
+                <a href="index.html#dfn-negation-element">negation element</a>,
+                <code>negation.evaldata</code> <var>true</var>
+              </td>
+              <td><code>FILTER NOT EXISTS { <i>inner</i> }</code>, then <code>close</code></td>
+            </tr>
+            <tr>
+              <td>
+                <a href="index.html#dfn-negation-element">negation element</a>,
+                <code>negation.evaldata</code> <var>false</var>
+              </td>
+              <td>
+                <code>FILTER NOT EXISTS { GRAPH <var>baseRef</var> { <i>inner</i> } }</code>,
+                then <code>close</code>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="index.html#dfn-assignment-element">assignment element</a>
+                <code>SET(?v := <i>expr</i>)</code>
+              </td>
+              <td>
+                <code>BIND(<i>expr</i> AS ?v)</code> <code>FILTER(BOUND(?v))</code>,
+                then <code>close</code>
+              </td>
+            </tr>
+            <tr>
+              <td><a href="index.html#dfn-group-element">group element</a></td>
+              <td>
+                a sub-`SELECT` with `GROUP BY`, followed by guard filters,
+                then <code>close</code>
+              </td>
+            </tr>
+            <tr>
+              <td>[=blank node=] in the <a href="index.html#dfn-rule-body">rule body</a></td>
+              <td>a fresh variable</td>
+            </tr>
+            <tr>
+              <td>[=blank node=] in the <a href="index.html#dfn-rule-head">rule head</a></td>
+              <td>
+                unchanged: `CONSTRUCT` creates a fresh blank node for each
+                solution
+              </td>
+            </tr>
+            <tr>
+              <td><a href="index.html#dfn-expression">expression</a></td>
+              <td>unchanged</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          Each <a href="index.html#dfn-aggregation-function">aggregation function</a>
+          becomes the SPARQL aggregate of the same name, as set out in
+          <a href="index.html#eval-expression">Evaluation of an Expression</a>:
+          `COUNT`, including the `DISTINCT` and `*` forms, `MIN`, `MAX` and `SUM`.
+        </p>
+      </section>
+
+      <section id="translate-scope-positional">
+        <h3>Positional Scope</h3>
+
+        <p>
+          A <a href="index.html#dfn-rule-body">rule body</a> is a <em>sequence</em>: each <a href="index.html#dfn-rule-element">rule element</a>
+          transforms the <a href="index.html#dfn-solution-sequence">solution sequence</a> produced by the elements before
+          it, as set out in <code>evalRuleElements</code>.
+          A SPARQL group graph pattern is not read in that way. Triple
+          patterns in a group are joined, and a `FILTER` &mdash; including a
+          `FILTER NOT EXISTS` &mdash; applies to the solutions of the whole
+          group it appears in, not to the part of the group written before it.
+          `BIND` is the exception: it is positional in SPARQL as well.
+        </p>
+        <p>
+          The translation closes this gap with one operation.
+          <code>close(P)</code> takes the sequence of SPARQL elements
+          translated so far and replaces it with a single nested group graph
+          pattern containing them, written `{ P }`. Elements appended after a
+          <code>close</code> are joined with that group as a whole, and cannot
+          affect a `FILTER` inside it.
+        </p>
+        <p>
+          Three kinds of rule element need a <code>close</code>; the other two
+          do not.
+        </p>
+
+        <section id="translate-scope-filter">
+          <h4>Filter Elements</h4>
+          <p>
+            A <a href="index.html#dfn-filter-element">filter element</a> is left where it is written.
+            <a href="index.html#wellformed">Well-formedness</a> requires every
+            variable of a <a href="index.html#dfn-filter-element">filter element</a> to be in scope at that point, and
+            every solution produced up to that point gives a value to every
+            variable in scope
+            (<a href="#translate-correctness">Notes on Correctness</a>).
+            Under that condition a filter commutes with the joins that follow
+            it, so moving it to the end of the group &mdash; which is where
+            SPARQL applies it &mdash; does not change the result.
+          </p>
+        </section>
+
+        <section id="translate-scope-negation">
+          <h4>Negation Elements</h4>
+          <p>
+            A <a href="index.html#dfn-negation-element">negation element</a> does not commute, because
+            `FILTER NOT EXISTS` substitutes the bindings of the current
+            solution into its pattern. A variable that is local to the
+            <a href="index.html#dfn-negation-element-body">negation element body</a> at its position in the rule body may be
+            given a value by a <em>later</em> rule element, and SPARQL would
+            then substitute that value.
+          </p>
+
+          <aside class="example" title="Negation and positional scope">
+            <pre class="block ex-data">
+              :c1 rdf:type :Component ;
+                  :approvedBy :alice ;
+                  :inTeam :t .
+              :c2 rdf:type :Component ;
+                  :inTeam :t .
+              :t  :reviewer :rob .
+            </pre>
+            <pre class="block ex-rules">
+              RULE { ?x :needsReview true }
+              WHERE {
+                  ?x rdf:type :Component .
+                  NOT { ?x :approvedBy ?a }
+                  ?x :inTeam ?t .
+                  ?t :reviewer ?a .
+              }
+            </pre>
+            <pre class="block ex-query">
+              CONSTRUCT { ?x :needsReview true }
+              WHERE {
+                  { ?x rdf:type :Component .
+                    FILTER NOT EXISTS { ?x :approvedBy ?a }
+                  }
+                  ?x :inTeam ?t .
+                  ?t :reviewer ?a .
+              }
+            </pre>
+            <pre class="block ex-inferred">
+              :c2 :needsReview true .
+            </pre>
+          </aside>
+
+          <p>
+            At the `NOT`, the variable `?a` is local to the
+            <a href="index.html#dfn-negation-element-body">negation element body</a>: the rule applies to a component with no
+            `:approvedBy` value at all. The `?a` of `?t :reviewer ?a` is a
+            different, later use of the same name.
+          </p>
+          <p>
+            The nested group graph pattern is necessary. Written as a single
+            group, the `FILTER NOT EXISTS` is evaluated where `?a` has the
+            value `:rob`, and the test becomes "`?x` is not approved by that
+            reviewer" instead of "`?x` has no approver". The query would then
+            also produce `:c1 :needsReview true`, although `:c1` is approved.
+          </p>
+        </section>
+
+        <section id="translate-scope-assignment">
+          <h4>Assignment Elements</h4>
+          <p>
+            As described in
+            <a href="index.html#srl-sparql-relationship">Relationship between SPARQL-RL and SPARQL</a>,
+            `SET(?v := `<i>expr</i>`)` has the effect of
+            `BIND(`<i>expr</i>` AS ?v)` followed by `FILTER(BOUND(?v))`:
+            an error evaluating the expression removes the solution, rather
+            than passing it on with `?v` unset.
+          </p>
+          <p>
+            The group is closed after the pair. Without the
+            <code>close</code>, a solution for which the expression gave an
+            error, and which therefore has no value for `?v`, can take a value
+            for `?v` from a later triple pattern; the `FILTER(BOUND(?v))` at
+            the end of the group then succeeds, and a solution that
+            `SET` removed is restored.
+          </p>
+        </section>
+
+        <section id="translate-scope-group">
+          <h4>Group Elements</h4>
+          <p>
+            A <a href="index.html#dfn-group-element">group element</a> becomes a sub-`SELECT` that does not mention
+            the variables of the enclosing group, joined into the group on the
+            <a href="index.html#dfn-group-keys">group keys</a>. This is possible because a <a href="index.html#dfn-group-element">group element</a> is
+            connected to the current solution only through the keys:
+            <code>evalRuleElements</code> restricts the current solution
+            <var>&mu;</var> to <code>GRP.keys</code> before evaluating the
+            <a href="index.html#dfn-group-pattern">group pattern</a>, and extends <var>&mu;</var> afterwards with
+            only the keys and the
+            <a href="index.html#dfn-aggregation-variable">aggregation variables</a>.
+          </p>
+          <p>
+            Two guard filters are placed after the sub-`SELECT`:
+          </p>
+          <ul>
+            <li>
+              <p>
+                <b>An error in an aggregate.</b>
+                An error calculating an aggregation function means the group is
+                not added to the results. In SPARQL, the error leaves the
+                aggregation variable unbound and the row is kept.
+                A `FILTER(BOUND(?v))` for each aggregation variable whose
+                function can give an error &mdash; `MIN`, `MAX` and `SUM`;
+                `COUNT` cannot &mdash; gives the SPARQL-RL behavior.
+              </p>
+            </li>
+            <li>
+              <p>
+                <b>No keys and no solutions.</b>
+                When there are no <a href="index.html#dfn-group-keys">group keys</a> and the <a href="index.html#dfn-group-pattern">group pattern</a> has
+                no solutions, a <a href="index.html#dfn-group-element">group element</a> forms no groups and produces
+                no solutions, whereas a SPARQL aggregate query without
+                `GROUP BY` produces one solution, with `COUNT` zero and the
+                other aggregates unbound. A fresh `(COUNT(*) AS ?n)` in the
+                projection, with `FILTER(?n &gt; 0)` after the sub-`SELECT`,
+                gives the SPARQL-RL behavior.
+                With one or more keys the two agree already: no solutions, no
+                groups.
+              </p>
+            </li>
+          </ul>
+          <p>
+            A <a href="index.html#dfn-group-element">group element</a> with no
+            <a href="index.html#dfn-aggregation-assignment">aggregation assignments</a>
+            &mdash; the `[]` form &mdash; produces one solution for each
+            distinct tuple of key values, and becomes
+            `SELECT DISTINCT` over the keys.
+          </p>
+        </section>
+
+        <section id="translate-scope-bnodes">
+          <h4>Blank Nodes in the Rule Body</h4>
+          <p>
+            Each blank node in the <a href="index.html#dfn-rule-body">rule body</a> is replaced by a fresh
+            variable before translation, the same variable for each occurrence
+            of the same blank node, as described by
+            <a href="index.html#dfn-bnodes-as-variables">treating blank nodes as variables</a>.
+          </p>
+          <p>
+            The translation has a second reason to make the replacement:
+            <code>close</code> divides the rule body between several basic
+            graph patterns, and SPARQL does not allow the same blank node
+            label to be used in two different basic graph patterns.
+          </p>
+        </section>
+      </section>
+
+      <section id="translate-algorithm">
+        <h3>Translation Algorithm</h3>
+
+        <p>
+          The algorithm uses the component names of
+          <a href="index.html#rules-defns">Elements of the Abstract Syntax</a>.
+          It also uses:
+        </p>
+        <ul>
+          <li>
+            a source of fresh variables, which are different from each other
+            and from every variable occurring in the rule;
+          </li>
+          <li>
+            <var>baseRef</var>, the IRI for the named graph holding the base
+            graph, or <code>none</code> when the rule is a `WHERE DATA` rule;
+          </li>
+          <li>
+            a group graph pattern under construction, held as a sequence of
+            elements &mdash; triple patterns, filters, `BIND`s, nested groups
+            and sub-`SELECT`s. Writing the sequence between `{` and `}` gives
+            the SPARQL syntax.
+          </li>
+        </ul>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define translateRule(R):
+    where
+        R is a well-formed rule
+    # The result is a SPARQL CONSTRUCT query, executed on the dataset
+    # given in the table of section "Inputs, Output and the Dataset".
+
+    let B be R.body, treating blank nodes as variables
+
+    if R.evaldata:
+        let bg = baseRef
+    else:
+        # The default graph is GD, so NOT DATA needs no GRAPH.
+        let bg = none
+    endif
+
+    let W = translateBody(B, bg)
+    let T = translateTemplate(R.head)
+
+    the result is the query:  CONSTRUCT { T } WHERE { W }
+enddefine
+</pre>
+        </div>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define translateBody(B, bg):
+    where
+        B is a sequence of rule elements
+        bg is an IRI, or none
+    # The result is a SPARQL group graph pattern.
+
+    let P be the empty sequence
+
+    foreach rule element rElt in B:
+
+        if rElt is a triple pattern element TP:
+            append TP to P
+        endif
+
+        if rElt is a filter element F:
+            append FILTER( F.expr ) to P
+        endif
+
+        if rElt is a negation element N:
+            let P1 = translateBody(N.inner, bg)
+            if N.evaldata is false and bg is not none:
+                let P1 = GRAPH bg { P1 }
+            endif
+            append FILTER NOT EXISTS { P1 } to P
+            P = close(P)
+        endif
+
+        if rElt is an assignment element A:
+            append BIND( A.expr AS A.var ) to P
+            append FILTER( BOUND( A.var ) ) to P
+            P = close(P)
+        endif
+
+        if rElt is a group element GRP:
+            let (SUB, GUARDS) = translateGroup(GRP, bg)
+            append { SUB } to P
+            foreach filter F in GUARDS:
+                append F to P
+            endfor
+            P = close(P)
+        endif
+
+    endfor
+    the result is P
+enddefine
+
+define close(P):
+    # Fix the scope of P.  The elements of P become one nested group
+    # graph pattern; elements appended afterwards join with the group
+    # as a whole and do not affect the filters inside it.
+    the result is the sequence of one element:  { P }
+enddefine
+</pre>
+        </div>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+define translateGroup(GRP, bg):
+    where
+        GRP is a group element
+        bg is an IRI, or none
+    # The result is a pair: a sub-SELECT, and a sequence of guard
+    # filters to be placed immediately after it.
+
+    let P1 = translateBody(GRP.pattern, bg)
+
+    let PROJ be the empty sequence
+    let GUARDS be the empty sequence
+
+    foreach variable k in GRP.keys:
+        append k to PROJ
+    endfor
+
+    foreach aggregation assignment AG in GRP.aggregations:
+        append ( sparqlAggregate(AG.function) AS AG.var ) to PROJ
+        if AG.function is one of MIN, MAX, SUM:
+            # An error calculating an aggregate removes the group.
+            # In SPARQL, AG.var is left unbound.  COUNT cannot error.
+            append FILTER( BOUND( AG.var ) ) to GUARDS
+        endif
+    endfor
+
+    if GRP.keys is empty:
+        # A group element produces no solutions when the group pattern
+        # has no solutions; a SPARQL aggregate without GROUP BY
+        # produces one solution.  This also covers the case of
+        # GRP.aggregations being empty.
+        let n be a fresh variable
+        append ( COUNT(*) AS n ) to PROJ
+        append FILTER( n &gt; 0 ) to GUARDS
+        let SUB = SELECT PROJ WHERE { P1 }
+    else if GRP.aggregations is empty:
+        let SUB = SELECT DISTINCT PROJ WHERE { P1 }
+    else:
+        let SUB = SELECT PROJ WHERE { P1 } GROUP BY GRP.keys
+    endif
+
+    the result is (SUB, GUARDS)
+enddefine
+</pre>
+        </div>
+
+        <p>
+          <code>translateTemplate(H)</code> writes the <a href="index.html#dfn-rule-head">rule head</a>
+          <var>H</var> as a `CONSTRUCT` template. Variables, IRIs and literals
+          are unchanged; blank nodes are unchanged; a template for a
+          [=triple term=] is written as a SPARQL triple term.
+          No other adjustment is needed:
+        </p>
+        <ul>
+          <li>
+            well-formedness requires every variable of the <a href="index.html#dfn-rule-head">rule head</a> to be
+            in scope at the end of the <a href="index.html#dfn-rule-body">rule body</a>, and every solution gives
+            a value to every variable in scope, so the `CONSTRUCT` rule that
+            skips an instantiation containing an unbound variable never
+            applies;
+          </li>
+          <li>
+            `CONSTRUCT` replaces the blank nodes of the template with fresh
+            blank nodes once for each solution, which is
+            <a href="index.html#dfn-replaceblanknodes">replaceBlankNodes</a>
+            applied for each solution in <code>evalRule</code>;
+          </li>
+          <li>
+            both <code>evalRule</code> and `CONSTRUCT` produce a set of
+            triples.
+          </li>
+        </ul>
+      </section>
+
+      <section id="translate-examples">
+        <h3>Examples</h3>
+
+        <p>
+          In the examples, the prologue of the query is not shown.
+          Unless stated otherwise, the query is executed with the graph
+          matched by the rule body as the default graph.
+        </p>
+
+        <aside class="example" title="Triple patterns and a filter">
+          <pre class="block ex-rules">
+            RULE { ?x :status :criticallyExposed }
+            WHERE {
+                ?x :exposedTo ?v .
+                ?v :severity ?s .
+                FILTER(?s &gt;= 9.0)
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :status :criticallyExposed }
+            WHERE {
+                ?x :exposedTo ?v .
+                ?v :severity ?s .
+                FILTER(?s &gt;= 9.0)
+            }
+          </pre>
+        </aside>
+
+        <p>
+          A rule body of <a href="index.html#dfn-triple-pattern-element">triple pattern elements</a> and <a href="index.html#dfn-filter-element">filter elements</a>
+          translates directly.
+        </p>
+
+        <aside class="example" title="NOT DATA and SET">
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                ?x :distanceMiles ?miles .
+                NOT DATA { ?x :distanceKilometers ?km }
+                SET ( ?kilometers := xsd:integer(?miles * 1.60934))
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                { ?x :distanceMiles ?miles .
+                  FILTER NOT EXISTS {
+                      GRAPH &lt;urn:srl:base-graph&gt; { ?x :distanceKilometers ?km }
+                  }
+                }
+                BIND( xsd:integer(?miles * 1.60934) AS ?kilometers )
+                FILTER( BOUND(?kilometers) )
+            }
+          </pre>
+        </aside>
+
+        <p>
+          This query is executed with the evaluation graph as the default
+          graph and the base graph as the named graph
+          `&lt;urn:srl:base-graph&gt;`.
+          The inner group graph pattern is the <code>close</code> after the
+          <a href="index.html#dfn-negation-element">negation element</a>; the <code>close</code> after the
+          <a href="index.html#dfn-assignment-element">assignment element</a> encloses the whole `WHERE` clause and is not
+          written (<a href="#translate-simplify">Simplifications</a>).
+        </p>
+        <p>
+          The same rule written with `WHERE DATA` translates to the same query
+          without the `GRAPH` form, executed with the base graph as the default
+          graph:
+        </p>
+
+        <aside class="example" title="WHERE DATA">
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE DATA {
+                ?x :distanceMiles ?miles .
+                NOT { ?x :distanceKilometers ?km }
+                SET ( ?kilometers := xsd:integer(?miles * 1.60934))
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                { ?x :distanceMiles ?miles .
+                  FILTER NOT EXISTS { ?x :distanceKilometers ?km }
+                }
+                BIND( xsd:integer(?miles * 1.60934) AS ?kilometers )
+                FILTER( BOUND(?kilometers) )
+            }
+          </pre>
+        </aside>
+
+        <aside class="example" title="Grouping with keys">
+          <pre class="block ex-rules">
+            RULE { ?x :vulnerabilityCount ?n ;
+                      :maxSeverity ?m }
+            WHERE {
+                ?x rdf:type :Component .
+                GROUP BY ?x { ?x :exposedTo ?v . ?v :severity ?s }
+                    [ ?n := COUNT(*) , ?m := MAX(?s) ]
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { ?x :vulnerabilityCount ?n ;
+                           :maxSeverity ?m }
+            WHERE {
+                ?x rdf:type :Component .
+                { SELECT ?x (COUNT(*) AS ?n) (MAX(?s) AS ?m)
+                  WHERE { ?x :exposedTo ?v . ?v :severity ?s }
+                  GROUP BY ?x
+                }
+                FILTER( BOUND(?m) )
+            }
+          </pre>
+        </aside>
+
+        <p>
+          `?m` is guarded because `MAX` can give an error; `?n` is not,
+          because `COUNT` cannot. A component with no matching
+          `:exposedTo` triple forms no group, and so produces no triples,
+          in the rule and in the query alike.
+        </p>
+
+        <aside class="example" title="Grouping with no keys">
+          <pre class="block ex-rules">
+            RULE { :deployment :exposureCount ?n }
+            WHERE {
+                GROUP { ?x :exposedTo ?v } [ ?n := COUNT(*) ]
+            }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { :deployment :exposureCount ?n }
+            WHERE {
+                { SELECT (COUNT(*) AS ?n) (COUNT(*) AS ?g0)
+                  WHERE { ?x :exposedTo ?v } }
+                FILTER( ?g0 &gt; 0 )
+            }
+          </pre>
+        </aside>
+
+        <p>
+          `?g0` is a fresh variable. Without the guard, the query produces
+          `:deployment :exposureCount 0` when there are no matches, where the
+          rule produces nothing. In this case the guard could use `?n`, since
+          a `COUNT(*)` is already in the projection.
+        </p>
+
+        <aside class="example" title="Blank node in the rule head">
+          <pre class="block ex-rules">
+            RULE { [] rdf:type :Notification ; :concerns ?x }
+            WHERE { ?x :status :criticallyExposed }
+          </pre>
+          <pre class="block ex-query">
+            CONSTRUCT { [] rdf:type :Notification ; :concerns ?x }
+            WHERE { ?x :status :criticallyExposed }
+          </pre>
+        </aside>
+
+        <p class="note">
+          A rule with a blank node in the <a href="index.html#dfn-rule-head">rule head</a> is a
+          <a href="index.html#dfn-run-once-rule">run-once rule</a>. That is a matter for
+          <a href="index.html#eval-rule-set">rule set evaluation</a>, not for
+          the translation: each execution of the query creates new blank
+          nodes.
+        </p>
+      </section>
+
+      <section id="translate-correctness">
+        <h3>Notes on Correctness</h3>
+
+        <p>
+          The translation rests on two properties of a
+          <a href="index.html#dfn-well-formed-rule">well-formed rule</a>.
+        </p>
+        <p>
+          First, solutions are total over the variables in scope. If each
+          solution of the incoming <a href="index.html#dfn-solution-sequence">solution sequence</a> gives a value to each
+          of the initial variables, then after the <var>i</var>-th
+          <a href="index.html#dfn-rule-element">rule element</a> each solution of
+          <code>evalRuleElements</code> gives a value to each variable of
+          <var>vars(S, i, V<sub>0</sub>)</var>. This follows by induction over
+          the cases of <code>evalRuleElements</code>: a
+          <a href="index.html#dfn-triple-pattern-element">triple pattern element</a> gives a value to each of its variables in
+          every match; an <a href="index.html#dfn-assignment-element">assignment element</a> either gives a value to its
+          variable or removes the solution; a <a href="index.html#dfn-group-element">group element</a> gives values to
+          the keys and to the aggregation variables; a <a href="index.html#dfn-filter-element">filter element</a> and
+          a <a href="index.html#dfn-negation-element">negation element</a> give values to no variables and either keep or
+          remove a whole solution.
+        </p>
+        <p>
+          Second, filters can be moved. If every solution of a pattern
+          <var>A</var> gives a value to every variable of an expression
+          <var>F</var>, then
+          <code>Filter(F, Join(A, B))</code> and
+          <code>Join(Filter(F, A), B)</code> have the same solutions.
+          With the first property, and the well-formedness condition on
+          <a href="index.html#dfn-filter-element">filter elements</a>, a translated `FILTER` can be left where it is
+          written.
+        </p>
+        <p>
+          The two properties give the following, by induction over the rule
+          body. Let <var>P<sub>i</sub></var> be the pattern built by
+          <code>translateBody</code> after the first <var>i</var> rule
+          elements, with any group still being built closed. The solutions of
+          <var>P<sub>i</sub></var>, evaluated on the dataset of
+          <a href="#translate-dataset">Inputs, Output and the Dataset</a>,
+          are the solutions of <code>evalRuleElements</code> after the
+          <var>i</var>-th rule element, with the same multiplicities.
+        </p>
+        <div class="list-indent">
+          <ul>
+            <li>
+              <em>Triple pattern element</em>: matching a basic graph pattern
+              on the active graph is <code>graphMatch</code>, and forming a
+              group is the join of compatible solutions used by
+              <code>evalRuleElements</code>.
+            </li>
+            <li>
+              <em>Filter element</em>: by the second property above.
+            </li>
+            <li>
+              <em>Negation element</em>: after the <code>close</code>, the
+              `FILTER NOT EXISTS` is applied to the solutions of the
+              translated prefix and to no others. For each such solution
+              <var>&mu;</var>, SPARQL substitutes the values of
+              <var>&mu;</var> into the inner pattern and tests it against the
+              active graph; for a pattern of triple patterns, filters and
+              `GRAPH`, that is
+              <code>evalRuleElements(N.inner, { <var>&mu;</var> }, &middot;, GD)</code>
+              being empty. Variables local to the
+              <a href="index.html#dfn-negation-element-body">negation element body</a> have no value in <var>&mu;</var>, are
+              not substituted, and cannot be given a value later because the
+              group is closed.
+            </li>
+            <li>
+              <em>Assignment element</em>: `BIND` is positional in SPARQL, and
+              the `FILTER(BOUND(...))` inside the closed group removes exactly
+              the solutions for which the expression gave an error.
+            </li>
+            <li>
+              <em>Group element</em>: the members of the group with a given
+              tuple of key values do not depend on the rest of the current
+              solution, because <code>evalRuleElements</code> evaluates the
+              <a href="index.html#dfn-group-pattern">group pattern</a> from the current solution restricted to the
+              keys. The sub-`SELECT` calculates those groups, one solution for
+              each; joining on the keys selects, for each current solution, the
+              groups compatible with it, which is the result of
+              <code>merge</code> in <code>evalRuleElements</code>. A key that
+              is in scope outside the <a href="index.html#dfn-group-element">group element</a> but does not occur in
+              the <a href="index.html#dfn-group-pattern">group pattern</a> has no value in the sub-`SELECT` solution,
+              and so joins with every current solution, which is again the
+              single group formed by <code>evalRuleElements</code>.
+              The guard filters account for the two remaining differences
+              (<a href="#translate-scope-group">Group Elements</a>).
+            </li>
+          </ul>
+        </div>
+        <p>
+          For the <a href="index.html#dfn-rule-head">rule head</a>, `CONSTRUCT` instantiates the template for each
+          solution, with fresh blank nodes for each solution, and collects the
+          triples as a set. That is <code>subst</code> applied to
+          <code>replaceBlankNodes</code> of the head, for each solution, as in
+          <code>evalRule</code>. The identity of the new blank nodes is the one
+          difference, which is why the two graphs are
+          <a data-cite="RDF12-CONCEPTS#graph-isomorphism">graph isomorphic</a>
+          rather than equal.
+        </p>
+      </section>
+
+      <section id="translate-simplify">
+        <h3>Simplifications</h3>
+
+        <p>
+          The algorithm is written so that every case is handled in the same
+          way. A translation can apply any of the following without changing
+          the result.
+        </p>
+        <div class="list-indent">
+          <ul>
+            <li>
+              <em>Remove the last <code>close</code>.</em>
+              The group made by the last <a href="index.html#dfn-negation-element">negation element</a>,
+              <a href="index.html#dfn-assignment-element">assignment element</a> or <a href="index.html#dfn-group-element">group element</a> encloses the whole
+              `WHERE` clause; `WHERE { { P } }` is `WHERE { P }`.
+            </li>
+            <li>
+              <em>Omit a <code>close</code> when nothing later is affected by
+              it.</em>
+              A <code>close</code> is needed only when a later element of the
+              same sequence can give a value to a variable that one of the
+              filters depends on: for a <a href="index.html#dfn-negation-element">negation element</a>, a variable of the
+              <a href="index.html#dfn-negation-element-body">negation element body</a> that is not in scope at that point;
+              for an <a href="index.html#dfn-assignment-element">assignment element</a> or a <a href="index.html#dfn-group-element">group element</a>, a guarded
+              variable that occurs later. In particular, a <a href="index.html#dfn-group-element">group element</a>
+              whose translation has no guard filters needs no
+              <code>close</code>.
+            </li>
+            <li>
+              <em>Use an existing `COUNT(*)`</em> for the guard on a
+              <a href="index.html#dfn-group-element">group element</a> with no keys, instead of projecting a fresh
+              one.
+            </li>
+            <li>
+              <em>Flatten a group</em> that contains only another group.
+            </li>
+            <li>
+              <em>Use a dataset of one graph</em> when the rule has no `DATA`
+              form; the query then has no `GRAPH` form.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="translate-use">
+        <h3>Use within Rule Set Evaluation</h3>
+
+        <p>
+          A translated query replaces <code>evalRule</code> in
+          <a href="index.html#eval-rule-set">Evaluation of a Rule Set</a>.
+          Nothing else in that algorithm changes. Each rule is translated once,
+          after <a href="index.html#evaluation-preparation">preparation</a>;
+          the query is then executed again for each round of the stratum, with
+          only the dataset changing as the evaluation graph grows.
+        </p>
+
+        <div class="algorithm">
+          <pre class="nohighlight">
+# After preparation, translate each rule once.
+foreach rule R in RS.rules:
+    let Q[R] = translateRule(R)
+endfor
+
+# In the evaluation of a stratum, replace
+#     let X = evalRule(R, GE, G0)
+# with:
+    if R.evaldata:
+        let DS be the dataset with default graph GE,
+            together with the named graph (baseRef, G0)
+            if Q[R] uses baseRef
+    else:
+        let DS be the dataset with default graph G0
+    endif
+    let X = the graph produced by executing Q[R] on DS
+# and continue as before:
+    let Y = { t &isin; X | t &notin; GE }
+    GI = GI &cup; Y
+    GE = GE &cup; Y
+</pre>
+        </div>
+
+        <p>
+          Two points from
+          <a href="index.html#srl-sparql-relationship">Relationship between SPARQL-RL and SPARQL</a>
+          are the responsibility of the process that executes the queries, not
+          of the translation.
+        </p>
+        <div class="list-indent">
+          <ul>
+            <li>
+              `NOW()` is fixed for one SPARQL query execution, but is defined
+              in SPARQL-RL to give the same point in time throughout a rule set
+              evaluation. Either the query engine is given the fixed value, or
+              the translation replaces `NOW()` by a constant.
+            </li>
+            <li>
+              Blank nodes in the <a href="index.html#dfn-rule-head">rule head</a>, and `BNODE`, `UUID` and
+              `STRUUID`, produce new terms on each execution of the query.
+              Rules that use them are <a href="index.html#dfn-run-once-rule">run-once rules</a>, and the
+              <a href="index.html#stratification">stratification</a>, not the translation, is what stops them being
+              executed again.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="translate-open">
+        <h3>Open Points</h3>
+
+        <p class="ednote">
+          <code>subst(<var>&mu;</var>, TT)</code> in <code>evalRule</code> can
+          produce something that is not an RDF triple &mdash; a literal in the
+          subject position, a literal or blank node in the predicate position,
+          or a triple term in the subject position &mdash; when a variable has
+          such a value. SPARQL `CONSTRUCT` passes over such an instantiation;
+          <a href="index.html#eval-rule">Evaluation of a Rule</a> adds it. The
+          specification needs to say which happens. The translation has the
+          `CONSTRUCT` behavior.
+        </p>
+        <p class="ednote">
+          The guard for a <a href="index.html#dfn-group-element">group element</a> with no <a href="index.html#dfn-group-keys">group keys</a> follows
+          <a href="index.html#eval-rule">Evaluation of a Rule</a> as written:
+          no solutions of the <a href="index.html#dfn-group-pattern">group pattern</a> means no groups and no
+          solutions. If the Working Group decides instead to follow SPARQL,
+          which produces one solution with `COUNT` zero, the guard is removed.
+        </p>
+        <p class="ednote">
+          The guards `FILTER(BOUND(...))` on the aggregation variables follow
+          the editorial note in
+          <a href="index.html#eval-expression">Evaluation of an Expression</a>,
+          that an error in calculating an aggregate means the group is not
+          added to the results. They should follow whatever that note becomes.
+        </p>
+        <p class="ednote">
+          <a href="index.html#wellformed">Well-formedness</a> allows a
+          <a href="index.html#dfn-group-pattern">group pattern</a> to use a variable that is in scope outside the
+          <a href="index.html#dfn-group-element">group element</a> and is not a <a href="index.html#dfn-group-keys">group key</a>, but evaluation
+          restricts the current solution to the keys, so such a variable
+          behaves as if it were local to the <a href="index.html#dfn-group-pattern">group pattern</a>. The
+          sub-`SELECT` translation depends on that, and is correct either way;
+          the well-formedness condition could be made to match evaluation by
+          taking the initial variables of the <a href="index.html#dfn-group-pattern">group pattern</a> to be the
+          <a href="index.html#dfn-group-keys">group keys</a> that are in scope.
+        </p>
+        <p class="ednote">
+          The translation depends on the way SPARQL evaluates `EXISTS`, by
+          substituting the current solution into the pattern,
+          and uses it only over triple patterns, filters
+          and `GRAPH`, which is the whole of a
+          <a href="index.html#dfn-negation-element-body">negation element body</a>.
+        </p>
+      </section>
+
+    </section>
+    <!-- ============ end of the appendix section ============ -->
+
+    <section id="translation-files" class="appendix informative">
+      <h2>Example Files</h2>
+      <p>
+        The examples of this document, and further cases, are in the
+        `translation/` directory beside it, as a pair of files for each
+        example: a rule set holding one rule, `exNN-name.srl`, and the
+        `CONSTRUCT` query it translates to, `exNN-name.rq`. A header comment
+        in each query file gives the dataset the query is executed over.
+      </p>
+      <p>
+        `translation/manifest.ttl` lists the pairs, using a test type
+        `srlt:RulesPositiveTranslationTest`, with `mf:action` the rule file and
+        `mf:result` the query file.
+      </p>
+      <table class="simple">
+        <caption>Example files</caption>
+        <thead>
+          <tr>
+            <th>Files</th>
+            <th>Shows</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>`ex01-patterns`</td>      <td>triple patterns</td></tr>
+          <tr><td>`ex02-filter`</td>        <td>a filter element in place</td></tr>
+          <tr><td>`ex03-not`</td>           <td>`NOT` as `FILTER NOT EXISTS`</td></tr>
+          <tr><td>`ex04-not-scope`</td>     <td>the nested group needed by a negation element</td></tr>
+          <tr><td>`ex05-not-data`</td>      <td>`NOT DATA` and `SET`</td></tr>
+          <tr><td>`ex06-where-data`</td>    <td>`WHERE DATA`</td></tr>
+          <tr><td>`ex07-set`</td>           <td>`SET` as `BIND` with `FILTER(BOUND(...))`</td></tr>
+          <tr><td>`ex08-group`</td>         <td>`GROUP BY` as a sub-`SELECT`</td></tr>
+          <tr><td>`ex09-group-nokeys`</td>  <td>a group element with no keys</td></tr>
+          <tr><td>`ex10-group-distinct`</td><td>a group element with no aggregation assignments</td></tr>
+          <tr><td>`ex11-bnode-head`</td>    <td>a blank node in the rule head</td></tr>
+          <tr><td>`ex12-bnode-body`</td>    <td>blank nodes in the rule body</td></tr>
+          <tr><td>`ex13-path-seq`</td>     <td>a sequence path, `/`</td></tr>
+          <tr><td>`ex14-path-inverse`</td> <td>an inverse path, `^`</td></tr>
+          <tr><td>`ex15-path`</td>         <td>a sequence and an inverse together</td></tr>
+          <tr><td>`ex16-path-inverse-seq`</td> <td>an inverse of a sequence, `^(:p1/:p2)`</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </body>
+</html>
