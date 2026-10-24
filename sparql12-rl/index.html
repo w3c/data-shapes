@@ -565,11 +565,14 @@
 
         <p>
           Rules involving [=assignments=], rules that create blank nodes
-          from evaluation of the [=rule head=] and rules with a template
+          from evaluation of the [=rule head=],
+          rules involving <a href="#desc-aggregation">aggregation</a>,
+          and rules with a template
           that involves a [=triple term=] containing [=variables=]
           are [=run-once rules=].
-          Such rules are run after all the rules that could produce data that they depend on,
-          and before any rules that depend on the data they produce.
+          Such rules are run after all the rules that could produce data
+          that they depend on, and before any rules that depend on the
+          data they produce.
         </p>
         <p>
           This condition ensures that such rules do not loop back to themselves
@@ -589,21 +592,72 @@
 
       <section id="desc-aggregation">
         <h3>Grouping and Aggregation</h3>
+
         <p>
+          Grouping and aggregation allow a rule to collect the solutions of a
+          pattern into groups, and then compute summary values for each group.
+          The aggregate values are assigned to
+          variables that can then be used in the [=rule head=].
           Rules with a [=group element=] are [=run-once rules=].
-          Such rules are run after all the rules that could produce data that they
-          depend on, and before any rules that depend on the data they produce.
-          A [=group element=] consumes the complete collection of
-          [=solution sequences=] of preceding [=rule elements=]
-          in the [=rule body=], collects them into groups based on
-          [=group keys=], then evaluates [=aggregation assignments=].
         </p>
         <p>
-          The output is a [=solution sequence=] where each [=solution mapping=]
-          is the current solution mapping extended with the [=group keys=] and
-          the values of the [=aggregation variables=].
+          A [=group element=] processes each solution sequence
+          of preceding rule elements by taking only the bindings
+          for the [=group keys=], evaluating the [=group pattern=],
+          and then grouping the solution mappings using the [=group keys=].
         </p>
-        <p>@@ example</p>
+        <p>
+          The output is a [=solution sequence=] with one [=solution mapping=]
+          for each group: the input solution mapping extended with the values of
+          the [=group keys=] and the values of the [=aggregation variables=].
+        </p>
+        <p>
+          For example, we can count the number of vulnerabilities that each
+          component is exposed to:
+        </p>
+
+        <aside class="example" title="Grouping and Aggregation">
+          <pre class="block ex-data">
+            :frontend rdf:type :Component ;
+                :exposedTo :vuln1 , :vuln2 .
+
+            :db rdf:type :Component ;
+                :exposedTo :vuln1 .
+
+            :logger rdf:type :Component .
+          </pre>
+          <pre class="block ex-rules">
+            RULE { ?x :vulnerabilityCount ?n }
+            WHERE {
+                ?x rdf:type :Component .
+                GROUP BY ?x { ?x :exposedTo ?v } [ ?n := COUNT(*) ]
+            }
+          </pre>
+          <pre class="block ex-inferred">
+            :frontend :vulnerabilityCount 2 .
+            :db       :vulnerabilityCount 1 .
+          </pre>
+        </aside>
+
+        <p>
+          The [=group pattern=] `?x :exposedTo ?v` is matched for each component
+          found by the preceding [=triple pattern=]. The solutions are collected
+          into groups by the [=group keys=], here `?x`. For each group,
+          `COUNT(*)`, the number of solutions in each group, is assigned to the
+          [=aggregation variable=] `?n`.
+        </p>
+        <p>
+          `:logger` is not exposed to any vulnerability, so the
+          [=group pattern=] has no solutions for it, there is no group, and
+          no `:vulnerabilityCount` triple is inferred for `:logger`.
+        </p>
+        <p>
+          Variables bound only inside the [=group pattern=], such as `?v`,
+          are not in scope after the [=group element=]:
+          only the [=group keys=] and the [=aggregation variables=] are
+          added to the solution mapping, so `?v` cannot be used in a later
+          [=rule element=] or in the [=rule head=].
+        </p>
       </section>
 
       <section id="desc-import">
@@ -907,8 +961,8 @@
             a <a>variable</a>, called the <dfn>aggregation variable</dfn>,
             and an <dfn>aggregation function</dfn>.
             The [=group pattern=] is composed
-            of a sequence of [=triple pattern elements=] and
-            [=filter elements=].
+            of a sequence of [=triple pattern elements=],
+            [=filter elements=] and [=assignment elements=].
           </dd>
 
           <dt><dfn>Rule element</dfn></dt>
