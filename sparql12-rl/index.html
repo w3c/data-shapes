@@ -952,18 +952,34 @@
             and an <a>expression</a>, called the <dfn>assignment expression</dfn>.
           </dd>
 
+          <dt><dfn>Aggregation assignment</dfn></dt>
+          <dd>
+            <p>
+              An [=aggregation assignment=] is used in a [=group element=].
+              It is a pair consisting of
+              a <a>variable</a>, called the <dfn>aggregation variable</dfn>,
+              and an <dfn>aggregation function</dfn>.
+              An [=aggregation function=] is a triple consisting of
+              a name, an <dfn>aggregation argument</dfn>
+              which is either a [=variable=] or `*`,
+              and a <dfn>distinct flag</dfn>, which is a boolean.
+            </p>
+            <p>
+              Only the [=aggregation function=] named `COUNT`
+              can have an [=aggregation argument=] of `*`,
+              or have a [=distinct flag=] with value <var>true</var>.
+            </p>
+          </dd>
+
           <dt><dfn>Group element</dfn></dt>
           <dd>
             A [=group element=] is a [=rule element=]
             with a set of variables, called the <dfn>group keys</dfn>,
             a <dfn>group pattern</dfn>, and a set of
-            <dfn data-lt="aggregation assignment">aggregation assignments</dfn>.
-            Each [=aggregation assignment=] is a pair consisting of
-            a <a>variable</a>, called the <dfn>aggregation variable</dfn>,
-            and an <dfn>aggregation function</dfn>.
+            [=aggregation assignments=].
             The [=group pattern=] is composed
             of a sequence of [=triple pattern elements=],
-            [=filter elements=] and [=assignment elements=].
+            [=filter elements=], and [=assignment elements=].
           </dd>
 
           <dt><dfn>Rule element</dfn></dt>
@@ -1206,6 +1222,19 @@
               <td><code>aggregation.function</code></td>
               <td>The [=aggregation function=] of an [=aggregation assignment=].</td>
             </tr>
+            <tr>
+              <td><code>aggfunc.name</code></td>
+              <td>The name of an [=aggregation function=]:
+                `COUNT`, `MIN`, `MAX` or `SUM`.</td>
+            </tr>
+            <tr>
+              <td><code>aggfunc.argument</code></td>
+              <td>The [=aggregation argument=] of an [=aggregation function=].</td>
+            </tr>
+            <tr>
+              <td><code>aggfunc.distinct</code></td>
+              <td>The [=distinct flag=] of an [=aggregation function=].</td>
+            </tr>
           </tbody>
         </table>
       </section>
@@ -1221,9 +1250,13 @@
           or [=assignment expression=]
           has a value at the point of evaluation;
           and that each
-          [=assignment variable=]
-          and [=aggregation variable=]
-          in a rule is new and has not been used earlier in the rule body.
+          [=assignment variable=] and [=aggregation variable=]
+          in a rule is new and is not in use at that point.
+        </p>
+        <p>
+          In a [=well-formed rule=], the set of [=variables=] in-scope
+          as calculated by <var>vars</var> is the same as the domain of every
+          [=solution mapping=] that arises during evaluation.
         </p>
         <p>
           Let <var>S</var> be a sequence of [=rule elements=].
@@ -1238,7 +1271,7 @@
         </p>
         <p>
           Define <var>vars(S, i, V<sub>0</sub>)</var> as the set of variables
-          that are in scope after the i-th element of the sequence <var>S</var>,
+          that are in-scope after the i-th element of the sequence <var>S</var>,
           given the initial variables <var>V<sub>0</sub></var>. <var>vars(S, i, V<sub>0</sub>)</var> is defined inductively:
         </p>
         <div class="list-indent">
@@ -1339,34 +1372,31 @@
               </ul>
             </li>
             <li>
-              if <var>elt<sub>i</sub></var> is a [=group element=], where
-              <var>P</var> is the [=group pattern=] of the group element <var>elt<sub>i</sub></var>
+              if <var>elt<sub>i</sub></var> is a [=group element=],
+              <var>GRP</var>, where
+                  <var>V<sub>in</sub></var> is <var>vars(S, i-1, V<sub>0</sub>)</var>
+                  and <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>,
               then
                <ul class="list-inner">
                  <li>
                    the sequence of [=rule elements=] in the
-                   [=group pattern=] given initial variables <var>vars(S, i-1, V<sub>0</sub>)</var>
+                   [=group pattern=] given initial variables <var>GK<sub>in</sub></var>
                    is a [=well-formed sequence=].
                  </li>
                  <li>
                    each member of the [=group keys=] is an element of
-                   <var>vars(S, i-1, V<sub>0</sub>)</var> &cup; <var>vars(P, vars(S, i-1, V<sub>0</sub>))</var>.
+                   <var>vars(GRP.pattern, GK<sub>in</sub>)</var>.
                  </li>
                  <li>
-                   none of the [=aggregation variables=] occur in the set of
-                   variables <var>vars(P, vars(S, i-1, V<sub>0</sub>))</var>.
-                 </li>
-                 <!-- Covered by the item above
-                 <li>
-                   none of the [=aggregation variables=] occur in the set of [=group keys=].
-                 </li>
-                 -->
-                 <li>
-                   the [=aggregation variables=] are distinct.
+                   none of the [=aggregation variables=] is an element of the set of variables
+                   <var>vars(GRP.pattern, GK<sub>in</sub>) &cup; V<sub>in</sub></var>.
                  </li>
                  <li>
-                   the [=variables=] in aggregation functions appear
-                   in <var>vars(P, vars(S, i-1, V<sub>0</sub>))</var>.
+                   no two [=aggregation assignments=] of <var>GRP</var> have the same [=aggregation variable=].
+                 </li>
+                 <li>
+                   each [=aggregation argument=] that is a [=variable=]
+                   is an element of <var>vars(GRP.pattern, GK<sub>in</sub>)</var>.
                  </li>
                </ul>
             </li>
@@ -2227,15 +2257,74 @@ define evalFunction(F, μ):
 enddefine
 </pre>
         </div>
+      </section>
+
+      <section id="eval-aggregatefunction">
+        <h3>Evaluation of an Aggregate Function</h3>
+        <p>
+          An [=aggregation function=] is evaluated with respect to the
+          [=solution sequence=] of one group and it returns an
+          [=RDF term=], or an error.
+        </p>
+        <p>
+          Each [=aggregation function=] is calculated by the corresponding
+          <a data-cite="SPARQL12-QUERY#setFunctions">SPARQL set function</a>,
+          as given in the table below.
+          `evalAggregate` builds the argument to the set function from the
+          [=solution sequence=] of the group, and applies the
+          [=distinct flag=], following the
+          <a data-cite="SPARQL12-QUERY#defn_algAggregation">SPARQL
+          <code>Aggregation</code></a> definition.
+          The operations used are those of
+          <a data-cite="SPARQL12-QUERY#aggregateAlgebra">SPARQL aggregate
+          algebra</a>:
+          <a data-cite="SPARQL12-QUERY#defn_Card"><code>Card</code></a>
+          is the cardinality of a sequence;
+          <a data-cite="SPARQL12-QUERY#defn_ListEval"><code>ListEval</code></a>,
+          for a one element list of a [=variable=] <var>V</var> and a
+          [=solution mapping=] <var>μ</var>, is the one element list
+          <code>(<var>μ</var>(<var>V</var>))</code>, or
+          <code>(error)</code> if <var>V</var> is not in
+          <code>dom(<var>μ</var>)</code>;
+          <code>Dedup</code> removes duplicate lists from a sequence of lists;
+          and
+          <a data-cite="SPARQL12-QUERY#defn_algDistinct"><code>Distinct</code></a>
+          removes duplicate [=solution mappings=].
+        </p>
+        <p>
+          A SPARQL set function takes a sequence of lists, whereas a
+          [=solution sequence=] has no defined order.
+          Any order of the [=solution mappings=] of the group may be used.
+        </p>
+
         <div class="algorithm">
           <pre class="nohighlight">
 define evalAggregate(AGGF, SEQ):
-@@
-    # AGGF is an aggregation function, which has an argument of a variable
-    # and a solution sequence. It returns an RDF term value.
+    # AGGF is an aggregation function: a name, an aggregation argument,
+    #   which is a variable or *, and a distinct flag.
+    #   The aggregation argument is * only for COUNT,
+    #   and the distinct flag is true only for COUNT.
+    # SEQ is the solution sequence of one group.
+    # It returns an RDF term, or an error.
 
-    # Noting that DISTINCT is only permitted for COUNT
-    # Special case COUNT(*).
+    if AGGF.argument is *:
+        # COUNT(*) and COUNT(DISTINCT *) count solution mappings.
+        # There is no argument value to calculate.
+        if AGGF.distinct:
+            return Card(Distinct(SEQ))
+        endif
+        return Card(SEQ)
+    endif
+
+    # AGGF.argument is a variable.
+    # M is a sequence of one element lists, one list for each solution
+    # mapping of SEQ, in any order, retaining duplicates.
+    let M = [ ListEval((AGGF.argument), <var>μ</var>) | <var>μ</var> in SEQ ]
+    if AGGF.distinct:
+        M = Dedup(M)
+    endif
+    let F = the SPARQL set function for AGGF.name
+    return F(M)
 enddefine
 </pre>
         </div>
@@ -2244,39 +2333,38 @@ enddefine
           <caption>Aggregation functions</caption>
           <thead>
             <tr>
-               <th style="text-align: center">Aggregation Function</th>
-               <th style="text-align: center">SPARQL equivalent</th>
+               <th style="text-align: center">Aggregation function name</th>
+               <th style="text-align: center">SPARQL set function</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td><code>COUNT</code></td>
-              <td><a data-cite="SPARQL12-QUERY#aggCount">SPARQL COUNT</a>
-                with <em>distinct</em> set `false`</td>
-            </tr>
-            <tr>
-              <td><code>COUNT DISTINCT</code></td>
-              <td><a data-cite="SPARQL12-QUERY#aggCount">SPARQL COUNT</a>
-                with <em>distinct</em> set `true`</td>
+              <td><a data-cite="SPARQL12-QUERY#defn_aggCount">SPARQL
+                <code>Count</code></a></td>
             </tr>
             <tr>
               <td><code>MIN</code></td>
-              <td><a data-cite="SPARQL12-QUERY#aggMin">SPARQL MIN</a></td>
+              <td><a data-cite="SPARQL12-QUERY#defn_aggMin">SPARQL
+                <code>Min</code></a></td>
             </tr>
             <tr>
               <td><code>MAX</code></td>
-              <td><a data-cite="SPARQL12-QUERY#aggMax">SPARQL MAX</a></td>
+              <td><a data-cite="SPARQL12-QUERY#defn_aggMax">SPARQL
+                <code>Max</code></a></td>
             </tr>
             <tr>
               <td><code>SUM</code></td>
-              <td><a data-cite="SPARQL12-QUERY#aggSum">SPARQL SUM</a></td>
+              <td><a data-cite="SPARQL12-QUERY#defn_aggSum">SPARQL
+                <code>Sum</code></a></td>
             </tr>
           </tbody>
         </table>
 
-        <p class="ednote">
-          Any error in calculating an aggregate function causes an
+        <p>
+          Any error in calculating an [=aggregation function=] causes an
           evaluation error and that group is not added to the results.
+          See <a href="#eval-rule" class="sectionRef"></a>.
         </p>
 
       </section>
@@ -2371,7 +2459,6 @@ define evalRuleElements(B, SEQ, G, GD):
             endfor
         endif
 
-        ## What about COUNT(*)?
         if rElt is a group element GRP:
             SEQ1 = {}
             foreach solution <var>μ</var> in SEQ:
@@ -2393,13 +2480,22 @@ define evalRuleElements(B, SEQ, G, GD):
                 foreach key K of map KGRP:
                     let X be the solution sequence of KGRP[K]
                     let Z be an empty solution mapping
-                    foreach aggregation function F in GRP.aggregations:
-                        let V = calculate F.function(X)
-                        add solution mapping (F.var, V) to Z
+                    let errorInGroup = false
+                    foreach aggregation assignment A in GRP.aggregations:
+                        let V = evalAggregate(A.function, X)
+                        if V is an error:
+                            errorInGroup = true
+                        else:
+                            add solution mapping (A.variable, V) to Z
+                        endif
                     endfor
-                    Z = merge(Z, K)
-                    Z = merge(Z, <var>μ</var>)
-                    add Z to SEQ1
+                    if errorInGroup:
+                        # Error: drop the group
+                    else:
+                        Z = merge(Z, K)
+                        Z = merge(Z, <var>μ</var>)
+                        add Z to SEQ1
+                    endif
                 endfor
             endfor
         endif
