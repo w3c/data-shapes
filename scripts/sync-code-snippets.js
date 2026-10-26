@@ -27,7 +27,14 @@ const jsonldContext = {
     rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
     sh: 'http://www.w3.org/ns/shacl#',
     xsd: 'http://www.w3.org/2001/XMLSchema#',
-    ex: 'http://example.com/ns#'
+    ex: 'http://example.com/ns#',
+    shnex: 'http://www.w3.org/ns/shacl-node-expr#',
+    sparql: 'http://www.w3.org/ns/sparql#',
+    skos: 'http://www.w3.org/2004/02/skos/core#',
+    qb: 'http://purl.org/linked-data/cube#',
+    'sdmx-dimension': 'http://purl.org/linked-data/sdmx/2009/dimension#',
+    eg: 'http://example.org/ns#',
+    'eg-measure': 'http://example.org/measure#'
   }
 }
 
@@ -38,6 +45,13 @@ const turtlePrefixes = `
 @prefix sh: <http://www.w3.org/ns/shacl#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 @prefix ex: <http://example.com/ns#>.
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#>.
+@prefix sparql: <http://www.w3.org/ns/sparql#>.
+@prefix skos: <http://www.w3.org/2004/02/skos/core#>.
+@prefix qb: <http://purl.org/linked-data/cube#>.
+@prefix sdmx-dimension: <http://purl.org/linked-data/sdmx/2009/dimension#>.
+@prefix eg: <http://example.org/ns#>.
+@prefix eg-measure: <http://example.org/measure#>.
 `
 
 function escape (str) {
