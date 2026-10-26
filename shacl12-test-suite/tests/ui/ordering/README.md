@@ -9,15 +9,16 @@ The `mf:action` has the following properties:
 
 - `sht:shapesGraph`: the shapes graph (the test document itself)
 - `sht:orderingContext`: the ordering to evaluate, one of:
-  - `sht:PresentationOrder`: presentation order of the property shapes and property groups of `sht:nodeShape`
-  - `sht:RolePrecedence`: precedence of the property shapes of `sht:nodeShape` that have the role `sht:propertyRole`
-  - `sht:TableColumnOrder`: column order of the `shui:ValueTableViewer` property shape `sht:propertyShape`, taken from its `sh:node` shape
+  - `sht:PresentationOrder`: the order in which a renderer displays the property shapes and property groups of `sht:nodeShape`, as defined in [Grouping, Ordering, and Layout Hints](../../../../shacl12-ui/index.html#grouping-and-ordering)
+  - `sht:RolePrecedence`: the precedence of the property shapes of `sht:nodeShape` that have the role `sht:propertyRole`, as defined in [Property Roles](../../../../shacl12-ui/index.html#property-roles)
+  - `sht:TableColumnOrder`: the column order of the `shui:ValueTableViewer` property shape `sht:propertyShape`, taken from its `sh:node` shape, as defined in [ValueTableViewer](../../../../shacl12-ui/index.html#ValueTableViewer)
 - `sht:nodeShape`, `sht:propertyShape`, `sht:propertyRole`: the selectors that the context requires
 
-`mf:result` is an RDF list of the expected property shapes, in order. In a
-presentation order, each property group appears as a *group entry*: a blank node
-with `sht:group` (the group) and `sht:members` (an RDF list of its property
-shapes, in order).
+`mf:result` is an RDF list of the expected property shapes, from first to last
+in the order that `sht:orderingContext` defines. For `sht:PresentationOrder`,
+each property group appears in this list as a *group entry*: a blank node with
+`sht:group` (the group) and `sht:members` (an RDF list of the group's property
+shapes, from first to last within the group).
 
 Property shapes and property groups in these tests are always IRIs, so that
 `mf:result` refers to the same resources as the shapes graph. The only blank
