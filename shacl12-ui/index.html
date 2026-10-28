@@ -1333,10 +1333,12 @@ ex:config a shui:Configuration ;
         </ul>
         <p>
           The scoring graph is populated with instances of `shui:WidgetMatcher`. A
-          `shui:WidgetMatcher` associates a widget (via `shui:widget`) with the
+          `shui:WidgetMatcher` associates a widget with the
           conditions under which it applies, expressed as SHACL shapes referenced through
           `shui:shapesGraphShape` (validated against the shape node in the shapes graph)
           and `shui:dataGraphShape` (validated against the focus node in the data graph).
+          The widget is the value of the matcher's <dfn>widget predicate</dfn>: `shui:editor` when the widget is an
+          editor, or `shui:viewer` when it is a viewer.
           Two kinds of matcher are defined:
         </p>
         <ul>
@@ -1380,7 +1382,7 @@ ex:config a shui:Configuration ;
         <p>
           Scores are compared <strong>globally</strong> across the whole scoring graph, not per widget. Two widgets whose
           matching `shui:WidgetScore` instances carry the same score are ordered lexicographically by the Unicode code point
-          values of their `shui:widget` IRIs, as defined in the <a href="#scoring-algorithm-score-function">score function</a>.
+          values of their <a>widget predicate</a> values, as defined in the <a href="#scoring-algorithm-score-function">score function</a>.
           A band is therefore a shared frame of reference, not a guarantee of a unique position.
         </p>
         <table class="def">
@@ -1487,14 +1489,14 @@ ex:config a shui:Configuration ;
               </li>
               <li>For each <code>W</code>
                 <ol>
-                  <li>If the <strong>scoring graph</strong> contains an instance of `shui:WidgetScore` whose `shui:widget`
+                  <li>If the <strong>scoring graph</strong> contains an instance of `shui:WidgetScore` whose <code>P</code>
                     value is <code>W</code>, continue with the next <code>W</code>. The <strong>scoring graph</strong>
                     already defines how <code>W</code> is scored.
                   </li>
                   <li>Otherwise, add an instance of `shui:WidgetScore` to the <strong>prepared scoring graph</strong> with
                     the following:
                     <ul>
-                      <li><code>W</code> as `shui:widget`.</li>
+                      <li><code>W</code> as <code>P</code>.</li>
                       <li><code>D</code> as `shui:score`.</li>
                       <li>As `shui:shapesGraphShape`, a `sh:NodeShape` with a single property shape whose `sh:path` is
                         <code>P</code> and whose `sh:hasValue` is <code>W</code>.
@@ -1525,7 +1527,7 @@ ex:PersonShapeName
           <div class="scoring-graph">
             <div class="turtle">
 []  a shui:WidgetScore ;
-    shui:widget ex:MyCustomEditor ;
+    shui:editor ex:MyCustomEditor ;
     shui:score 40 ;
     shui:shapesGraphShape [
         a sh:NodeShape ;
@@ -1673,14 +1675,14 @@ ex:PersonShapeName
           </li>
         </ul>
         <p>
-          A <strong>widget result</strong> holds the <code>shui:widget</code> of a matching <code>shui:WidgetScore</code>,
+          A <strong>widget result</strong> holds the value of the <a>widget predicate</a> of a matching <code>shui:WidgetScore</code>,
           the IRI of that <code>shui:WidgetScore</code>, and its <code>shui:score</code>.
         </p>
         <p>Steps:</p>
         <ol>
           <li>Initialize an empty ordered sequence <code>results</code>.</li>
           <li>Collect instances of <code>shui:WidgetScore</code> in the <strong>scoring graph</strong>, sorted by <code>shui:score</code>
-            in descending order and then lexicographically by the Unicode codepoint values of <code>shui:widget</code>.</li>
+            in descending order and then lexicographically by the Unicode codepoint values of the value of their <a>widget predicate</a>.</li>
           <li>For each instance <code>S</code> of type <code>shui:WidgetScore</code>, in that order
             <ol>
               <li>Call the matcher function with the following:
@@ -1700,14 +1702,14 @@ ex:PersonShapeName
                   <li><strong>Data graph</strong> as <strong>data graph</strong>.</li>
                   <li><strong>Shape node</strong> as <strong>shape node</strong>.</li>
                   <li><strong>Shapes graph</strong> as <strong>shapes graph</strong>.</li>
-                  <li>The <code>shui:widget</code> of <code>S</code> as <strong>widget node</strong>.</li>
+                  <li>The value of the <a>widget predicate</a> of <code>S</code> as <strong>widget node</strong>.</li>
                   <li><strong>Scoring graph</strong> as <strong>scoring graph</strong>.</li>
                 </ul>
               </li>
               <li>If the accept function returns <code>false</code>, continue with the next instance.</li>
               <li>Let <code>R</code> be the widget result with the following:
                 <ul>
-                  <li>The <code>shui:widget</code> of <code>S</code>.</li>
+                  <li>The value of the <a>widget predicate</a> of <code>S</code>.</li>
                   <li>The IRI of <code>S</code>.</li>
                   <li>The <code>shui:score</code> of <code>S</code>.</li>
                 </ul>
@@ -1719,7 +1721,7 @@ ex:PersonShapeName
         </ol>
         <p class="note">
           A caller that only needs the best matching widget takes the first result of the sequence.
-          The order of the results is fixed by the <code>shui:score</code> values and <code>shui:widget</code> IRIs alone,
+          The order of the results is fixed by the <code>shui:score</code> values and <a>widget predicate</a> values alone,
           which are known before any widget matcher is evaluated. The score function therefore does not need to evaluate
           every widget matcher in order to produce its first result, and implementations MAY produce <code>results</code>
           lazily — for example as an iterator or a generator — evaluating the matchers for each <code>shui:WidgetScore</code>
@@ -1729,7 +1731,7 @@ ex:PersonShapeName
           evaluation produce the same sequence.
         </p>
         <p class="note">
-          Several <code>shui:WidgetScore</code> instances may share the same <code>shui:widget</code>, in which case the accept
+          Several <code>shui:WidgetScore</code> instances may share the same widget, in which case the accept
           function is called more than once for that widget with the same inputs. The accept function is deterministic for a
           given focus node and shape node, so implementations MAY evaluate it once per widget and reuse the result.
         </p>
@@ -1767,7 +1769,7 @@ ex:PersonShapeName
         </ul>
         <p>Steps:</p>
         <ol>
-          <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>M</code> with a matching <code>shui:widget</code> value.</li>
+          <li>Find the <code>shui:WidgetAcceptMatcher</code> instance <code>M</code> whose <a>widget predicate</a> value is the <strong>widget node</strong>.</li>
           <li>If no such instance <code>M</code> exists, return <code>true</code>.</li>
           <li>Call the matcher function with the following:
             <ul>
@@ -1804,11 +1806,11 @@ ex:PersonShapeName
         </p>
         <ul>
           <li>`shui:ScoreShape` targets `shui:WidgetScore`. A well-formed `shui:WidgetScore` has exactly one
-            `shui:widget` (an IRI), exactly one `shui:score` (an `xsd:decimal` or `xsd:integer`), and any
+            <a>widget predicate</a> with exactly one value (an IRI), exactly one `shui:score` (an `xsd:decimal` or `xsd:integer`), and any
             `shui:dataGraphShape` or `shui:shapesGraphShape` it declares references a valid node.
           </li>
           <li>`shui:AcceptMatcherShape` targets `shui:WidgetAcceptMatcher`. A well-formed
-            `shui:WidgetAcceptMatcher` has exactly one `shui:widget` (an IRI), no `shui:score`, and any
+            `shui:WidgetAcceptMatcher` has exactly one <a>widget predicate</a> with exactly one value (an IRI), no `shui:score`, and any
             `shui:dataGraphShape` or `shui:shapesGraphShape` it declares references a valid node.
           </li>
         </ul>
