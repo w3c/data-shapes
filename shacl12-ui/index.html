@@ -855,8 +855,7 @@ ex:PersonShape a sh:NodeShape ;
           With both the data graph and shapes graph provided to the SHACL
           Renderer, the editable form can use shape constraints for input
           validation; see the related
-          <a href="#displaying-validation-results">Displaying Validation
-          Results</a> pattern. The renderer also uses
+          <a href="#message-anchoring">Message Anchoring</a> section. The renderer also uses
           <code>sh:group</code> and <code>sh:order</code> annotations to
           control the form layout, as defined in the related
           <a href="#grouping-and-ordering">Grouping, Ordering, and Layout
@@ -1306,6 +1305,270 @@ ex:config a shui:Configuration ;
 						</div>
 					</div>
         </p>
+      </section>
+
+      <section id="messages">
+        <h3>Messages</h3>
+
+        <section id="message-declaration">
+          <h4>Declaring Messages</h4>
+
+          <p>
+            A <dfn>message</dfn> is a human-readable text with a severity, which a <a>SHACL Renderer</a> presents in
+            association with a part of the rendered user interface, called its anchor. Messages originate from
+            <a>validation results</a>, from values of <code>shui:message</code> in the <a>shapes graph</a>, or from
+            the application itself.
+          </p>
+
+          <p class="note">
+            A <a>SHACL Renderer</a> can also present messages of its own, for example when saving the data fails.
+            This specification defines no vocabulary for such messages, but they can be given a severity and an anchor like any other message,
+            and the rules of <a href="#message-severity">Message Severity</a> apply to them as well.
+            For example, a renderer can present the message "Could not save. The server is unavailable." with severity <code>sh:Violation</code>
+            on the form, or a message with severity <code>sh:Warning</code> about a concurrent edit on the property UI component for
+            <code>schema:email</code>.
+          </p>
+
+          <p>
+            <a>Property shapes</a>, <a>node shapes</a> and instances of <code>shui:Configuration</code> can have
+            values for the property <code>shui:message</code>. Each value is either a <a>literal</a>, or an <a>IRI</a> or <a>blank node</a>,
+            called a node value.
+          </p>
+
+          <p class="syntax">
+            Literal values of <code>shui:message</code> are <a>literals</a> with <a>datatype</a> <code>xsd:string</code>,
+            <code>rdf:langString</code>, <code>rdf:dirLangString</code> or <code>rdf:HTML</code>.
+            A node value of <code>shui:message</code> has at least one value for <code>shui:message</code>, all of which
+            are such literals, and at most one value for <code>sh:severity</code>, which is an <a>IRI</a>.
+            A subject, including a node value, should not have more than one literal value for <code>shui:message</code>
+            with the same language tag, regardless of base direction, nor more than one literal value without a language tag.
+          </p>
+
+          <p>
+            All literal values of <code>shui:message</code> of a subject together form a single message with severity <code>sh:Info</code>,
+            of which each literal is a translation.
+            Each node value <code>m</code> of <code>shui:message</code> forms a single message whose translations are the
+            values of <code>shui:message</code> of <code>m</code> and whose severity is the value of <code>sh:severity</code>
+            of <code>m</code>, or <code>sh:Info</code> if <code>m</code> has no such value.
+          </p>
+
+          <p>
+            For each message, a <a>SHACL Renderer</a> selects one translation according to
+            <a href="#lang-resolution">Language Resolution</a>.
+          </p>
+
+          <p class="note">
+            SHACL Core defines <code>sh:Info</code> as the severity of a non-critical constraint violation.
+            This specification uses it as the default severity of messages declared with <code>shui:message</code>,
+            since such messages are informative in the same sense.
+            Values of datatype <code>rdf:HTML</code> are subject to the <a href="#security">Security Considerations</a>.
+          </p>
+
+          <aside class="example" title="Messages declared on a property shape">
+            <div class="shapes-graph">
+              <div class="turtle">
+ex:EmailShape
+    a sh:PropertyShape ;
+    sh:path schema:email ;
+    shui:message "Use your work address where possible."@en, "Gebruik waar mogelijk je werkadres."@nl ;
+    shui:message [
+        shui:message "This field becomes mandatory in 2027."@en, "Dit veld wordt verplicht in 2027."@nl ;
+        sh:severity sh:Warning
+    ] .
+              </div>
+            </div>
+            <p>
+              The property shape declares two messages: an informative message given as literals, and a warning given as a node value.
+              Each is presented in one language, selected according to Language Resolution.
+            </p>
+          </aside>
+
+          <aside class="example" title="Messages on a node shape and a configuration">
+            <div class="shapes-graph">
+              <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    shui:message "Records in this dataset are reviewed quarterly."@en .
+
+ex:config
+    a shui:Configuration ;
+    shui:message "Changes are reviewed before publication."@en .
+              </div>
+            </div>
+            <p>
+              The first message is presented with every node UI component derived from <code>ex:PersonShape</code>, the second one with the form.
+              Both have severity <code>sh:Info</code>.
+            </p>
+          </aside>
+        </section>
+
+        <section id="message-anchoring">
+          <h4>Message Anchoring</h4>
+
+          <p>
+            A message declared with <code>shui:message</code> is anchored to every rendered <a>property UI component</a>
+            derived from the property shape, every rendered <a>node UI component</a> derived from the node shape, or the form,
+            when the subject is a <a>property shape</a>, a <a>node shape</a> or a <code>shui:Configuration</code> instance respectively.
+            Such a message is presented whenever its anchor is rendered, subject to <a href="#message-severity">Message Severity</a>.
+          </p>
+
+          <p>
+            A <a>SHACL Renderer</a> SHOULD anchor a <a>validation result</a> <code>r</code> as follows, using the first step
+            that applies:
+          </p>
+
+          <ol>
+            <li>
+              If <code>r</code> has a value <code>f</code> for <code>sh:focusNode</code> and a value <code>p</code> for
+              <code>sh:resultPath</code>, and at least one rendered property UI component for focus node <code>f</code> has a
+              <a>property path</a> such that it and <code>p</code> are <a href="../shacl12-core/#dfn-equivalent-paths">equivalent paths</a>,
+              then each such property UI component.
+              If <code>r</code> also has a value <code>v</code> for <code>sh:value</code>, and such a property UI component renders
+              <code>v</code> using its own instance of a <code>shui:SingleViewer</code> or <code>shui:SingleEditor</code>,
+              then the message is anchored to that widget instance instead of the property UI component.
+              If several property UI components match, a SHACL Renderer MAY use <code>sh:sourceShape</code> of <code>r</code>
+              to select among them.
+            </li>
+            <li>
+              Otherwise, if <code>r</code> has a value <code>f</code> for <code>sh:focusNode</code> and at least one
+              node UI component for focus node <code>f</code> is rendered, then each such node UI component.
+            </li>
+            <li>
+              Otherwise, the form.
+            </li>
+          </ol>
+
+          <p>
+            A <a>SHACL Renderer</a> MAY summarise or filter validation results anchored to the form.
+            A <a>SHACL Renderer</a> MAY anchor the values of <code>sh:detail</code> of <code>r</code> following the same steps.
+          </p>
+
+          <p>
+            The message of a validation result has the values of <code>sh:resultMessage</code> as its translations and the
+            value of <code>sh:resultSeverity</code> as its severity.
+          </p>
+
+          <p>
+            The following examples assume a form for the focus node <code>ex:alice</code> with a property UI component for
+            <code>schema:email</code>.
+          </p>
+
+          <aside class="example" title="Result anchored to a value">
+            <div class="results-graph">
+              <div class="turtle">
+[] a sh:ValidationResult ;
+    sh:focusNode ex:alice ;
+    sh:resultPath schema:email ;
+    sh:value "alice(at)example.org" ;
+    sh:sourceConstraintComponent sh:PatternConstraintComponent ;
+    sh:resultSeverity sh:Violation ;
+    sh:resultMessage "Not a valid email address."@en .
+              </div>
+            </div>
+            <p>
+              The property UI component for <code>schema:email</code> renders the value with its own single-valued widget,
+              so the message is anchored to that widget (step 1). If the values were rendered by a <code>shui:MultiViewer</code> such as
+              <code>shui:ValueTableViewer</code>, there would be no such widget and the message would be anchored to the property UI component.
+            </p>
+          </aside>
+
+          <aside class="example" title="Result anchored to a property UI component">
+            <div class="results-graph">
+              <div class="turtle">
+[] a sh:ValidationResult ;
+    sh:focusNode ex:alice ;
+    sh:resultPath schema:email ;
+    sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+    sh:resultSeverity sh:Violation ;
+    sh:resultMessage "At least one email address is required."@en .
+              </div>
+            </div>
+            <p>
+              The result has a focus node and a path but no value, so the message is anchored to the property UI component for
+              <code>schema:email</code> (step 1).
+            </p>
+          </aside>
+
+          <aside class="example" title="Result anchored to a node UI component">
+            <div class="results-graph">
+              <div class="turtle">
+[] a sh:ValidationResult ;
+    sh:focusNode ex:alice ;
+    sh:sourceConstraintComponent sh:XoneConstraintComponent ;
+    sh:resultSeverity sh:Warning ;
+    sh:resultMessage "A person must match exactly one of the contact shapes."@en .
+              </div>
+            </div>
+            <p>
+              The result has no path, so the message is anchored to the node UI component for <code>ex:alice</code> (step 2).
+              Results of <code>sh:closed</code> usually end up here as well, since their path typically does not match any rendered property UI component.
+            </p>
+          </aside>
+
+          <aside class="example" title="Result anchored to the form">
+            <div class="results-graph">
+              <div class="turtle">
+[] a sh:ValidationResult ;
+    sh:focusNode ex:acme ;
+    sh:resultPath schema:name ;
+    sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+    sh:resultSeverity sh:Violation ;
+    sh:resultMessage "The employer record is missing a name."@en .
+              </div>
+            </div>
+            <p>
+              The focus node <code>ex:acme</code> is referenced from the form but not rendered, so the message is anchored to the form (step 3)
+              rather than being dropped. The same applies to blank nodes in a validation report that was produced from a different copy of the data,
+              as they do not match any rendered node.
+            </p>
+          </aside>
+
+          <aside class="example" title="Result anchored through an equivalent complex path">
+            <div class="shapes-graph">
+              <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path [ sh:inversePath ex:parent ] ;
+        sh:name "children"@en ;
+        sh:maxCount 10 ;
+    ] .
+              </div>
+            </div>
+            <div class="results-graph">
+              <div class="turtle">
+[] a sh:ValidationResult ;
+    sh:focusNode ex:alice ;
+    sh:resultPath [ sh:inversePath ex:parent ] ;
+    sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
+    sh:resultSeverity sh:Violation ;
+    sh:resultMessage "At most 10 children can be listed."@en .
+              </div>
+            </div>
+            <p>
+              Since the path of the property shape is a blank node, the <code>sh:resultPath</code> is a
+              <a href="../shacl12-core/#results-path">deep copy</a> of it, i.e. a different blank node.
+              The two are <a href="../shacl12-core/#dfn-equivalent-paths">equivalent paths</a>, so the message is anchored to the
+              property UI component for the inverse path (step 1).
+              Comparing the blank nodes themselves would never find a match.
+            </p>
+          </aside>
+        </section>
+
+        <section id="message-severity">
+          <h4>Message Severity</h4>
+
+          <p>
+            A <a>SHACL Renderer</a> SHOULD present messages with severity <code>sh:Info</code>, <code>sh:Warning</code> and
+            <code>sh:Violation</code>, and SHOULD NOT present messages with severity <code>sh:Trace</code> or <code>sh:Debug</code>
+            unless requested by the user.
+            A <a>SHACL Renderer</a> presents messages with a severity it does not recognise in the same way as messages with severity <code>sh:Info</code>.
+          </p>
+
+          <p>
+            This specification does not define an order among messages on the same anchor.
+          </p>
+        </section>
       </section>
 
       <p class="ednote">TODO: Describe the constraint collection/aggregation behaviour here for both Node and Property UI Component.</p>
@@ -2614,21 +2877,15 @@ ex:config
       <div class="issue" data-number="855"></div>
 
       <h3>Form Messages and Error Handling</h3>
+      <p>
+        <em>This section is non-normative.</em>
+        How a SHACL Renderer anchors validation results and other messages to the rendered user interface, and which severities it presents,
+        is defined in <a href="#messages">Messages</a>.
+      </p>
       <p class="ednote">
-        The pattern should describe how renderers may handle and display form errors, including validation errors and submission errors.
+        The pattern should describe when and where validation runs, and how renderers may handle submission errors.
       </p>
       <div class="issue" data-number="823"></div>
-      <div class="issue" data-number="541"></div>
-
-      <h4 id="displaying-validation-results">Displaying Validation Results</h4>
-      <p class="ednote">
-        This sub-section should address the <em>"Mapping validation results to the form"</em> mentioned in <a href="https://github.com/w3c/data-shapes/issues/823">ISSUE 823</a>.
-      </p>
-      <p class="ednote">
-        The pattern should describe how renderers may associate `sh:ValidationResult` entries with property UI components or node UI components,
-        using `sh:focusNode`, `sh:resultPath`, `sh:value`, `sh:sourceShape`, `sh:resultSeverity`, and `sh:resultMessage`. It should avoid defining when validation
-        runs or how an applications prevents malformed submissions.
-      </p>
     </section>
 
     <section id="search-query">
