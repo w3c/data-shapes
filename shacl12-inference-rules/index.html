@@ -241,8 +241,9 @@
 						<dfn data-cite="shacl12-core#dfn-shapes-graph" data-lt="shapes graph">shapes graph</dfn>,
 						<dfn data-cite="shacl12-core#dfn-target" data-lt="target|targets|target nodes">target</dfn>,
 						<dfn data-cite="shacl12-core#dfn-validators" data-lt="validator|validators">validator</dfn>,
-						<dfn data-cite="shacl12-core#dfn-node-expression" data-lt="node expression|node expresssions">node expression</dfn>,
-						<dfn data-cite="shacl12-core#dfn-node-expression-function" data-lt="node expression function|node expresssion functions">node expression function</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-expression" data-lt="node expression|node expressions">node expression</dfn>,
+						<dfn data-cite="shacl12-core#dfn-node-expression-function" data-lt="node expression function|node expression functions">node expression function</dfn>,
+						<dfn data-cite="shacl12-core#dfn-evaluation-failure" data-lt="evaluation failure|evaluation failures">evaluation failure</dfn>,
 						<dfn data-cite="shacl12-core#dfn-function-name" data-lt="node expression function name">function name</dfn>,
 						<dfn data-cite="shacl12-core#dfn-output-nodes" data-lt="output nodes">output nodes</dfn>,
 						<dfn data-cite="shacl12-core#dfn-focus-graph" data-lt="focus graph">focus graph</dfn>,
@@ -658,6 +659,10 @@ ex:SymmetricPropertyRule
 					<span data-syntax-rule="condition-node">The <a>values</a> of <code>sh:condition</code> at a <a>rule</a> must be well-formed <a>shapes</a>.</span>
 				</p>
 				<p>
+					If the conformance check for a <code>sh:condition</code> at a rule produces a <a>failure</a> then the
+					rule execution also reports a <a>failure</a>.
+				</p>
+				<p>
 					If the <a>value</a> <code>C</code> of <code>sh:condition</code> is a <a>SHACL instance</a> of both <code>sh:NodeShape</code>
 					and <code>rdfs:Class</code>, then the focus nodes must also conform to the <a>constraints</a> of the
 					<a data-cite="shacl12-core#deactivated">non-deactivated</a> <a>SHACL superclasses</a> of <code>C</code>
@@ -789,7 +794,9 @@ ex:RuleOrderExampleShape
 					are <a>literals</a> with <a>datatype</a> <code>xsd:boolean</code>.</span>
 				</p>
 				<p>
-					A <dfn>run-once rule</dfn> is a <a>rule</a> for which at most one <a>iteration</a> is performed (per <a>shape</a>, if it is a <a>shape rule</a>), i.e. it is executed at most once per <a>focus node</a>.
+					A <dfn>run-once rule</dfn> is a <a>rule</a> for which at most one <a>iteration</a> is performed,
+					i.e. it is executed at most once per <a>focus node</a>,
+					even if several <a>shapes</a> with overlapping <a>targets</a> link to it via <code>sh:rule</code>.
 					All other rules are called <dfn>iterating rules</dfn>.
 					A <a>rule</a> that has <code>true</code> as its <a>value</a> for <code>sh:runOnce</code> is a <a>run-once rule</a>.
 					<a href="#ruleProcessor">Custom rule processors</a> may compute additional run-once rules when <code>sh:runOnce</code> is absent.
@@ -886,7 +893,7 @@ ex:Granddaughter
 						For example, the default value of <code>ex:childCount</code> could be <code>0</code>.
 					</li>
 					<li>
-						<a data-cite="shacl12-core#syntax-rule-path-defaultValue"><code>sh:values</code></a> defines general instructions for computing
+						<a data-cite="shacl12-core#syntax-rule-path-values"><code>sh:values</code></a> defines general instructions for computing
 						derived values for a property.
 						For example, the <code>ex:area</code> of a rectangle may be derived by multiplying its <code>ex:width</code> and <code>ex:height</code>.
 					</li>
@@ -910,7 +917,13 @@ ex:Granddaughter
 					<a>property shape</a> that uses <code>p</code> as <code>sh:path</code> in the <a>shapes graph</a>.
 					For these <a>derived value nodes</a> <code>v</code> the <dfn>derived triples</dfn> are the <a>triples</a>
 					where <code>v</code> is the <a>object</a>, <code>p</code> is the <a>predicate</a> and the <a>subjects</a>
-					are the <a>target nodes</a> of the property shapes.
+					are the <a>focus nodes</a> of the property shapes.
+				</p>
+				<p>
+					The <a>derived triples</a> of a <a>layer</a> are computed once before its first <a>iteration</a>
+					using the <a>evaluation graph</a>, and are added to the <a>inference graph</a>.
+					They are not recomputed during the iterations of the layer, even if rules of that layer infer triples
+					that would change them.
 				</p>
 				<p>
 					The <dfn>expected derived triples</dfn> of a <a>rule</a> are the <a>derived triples</a> for all <a>values</a>
@@ -1046,8 +1059,8 @@ ex:RuleSet2
 				A <dfn>rules graph</dfn> is a <a>shapes graph</a> that contains <a>SHACL rules</a>.
 			</p>
 			<p>
-				<span data-syntax-rule="RulesGraph">The <code>sh:RulesGraph</code> class MAY be used as an <code>rdf:type</code>
-				of the <a>IRI</a> of a graph that typically acts in the role of a <a>rules graph</a>.</span>
+				The <code>sh:RulesGraph</code> class MAY be used as an <code>rdf:type</code>
+				of the <a>IRI</a> of a graph that typically acts in the role of a <a>rules graph</a>.
 			</p>
 			<p><em>The remainder of this section is non-normative.</em></p>
 			<p>
@@ -1461,7 +1474,11 @@ _:id sh:sourceRule ex:SymmetricPropertyRule .</pre>
 					<div class="def-text-body">
 						Let <code>S</code>, <code>P</code> and <code>O</code> be the sets of <a>nodes</a> produced by evaluating
 						the <a>node expressions</a> that are the values of <code>sh:subject</code>, <code>sh:predicate</code>
-						and <code>sh:object</code> respectively at the <a>triple rule</a>.
+						and <code>sh:object</code> respectively at the <a>triple rule</a>,
+						using <code>evalExpr(expr, <a>evaluation graph</a>, focusNode, {})</code> as defined in
+						<a data-cite="shacl12-core#node-expressions"></a>, where <code>focusNode</code> is the current <a>focus node</a> (no value for <a>global rules</a>).
+						If any of these evaluations produces an <a>evaluation failure</a>, then the <a>execution</a> of the
+						<a>triple rule</a> produces a <a>failure</a>.
 						Where <code>sh:subject</code>, <code>sh:predicate</code>, or <code>sh:object</code> are absent, use
 						the list consisting of the current <a>focus node</a> (which is empty for <a>global rules</a>).
 						For each combination of members <code>s</code> of <code>S</code>, <code>p</code> of <code>P</code> and
