@@ -1,0 +1,7 @@
+CONSTRUCT {
+  ?x dcterms:conformsTo ?z
+}
+WHERE {
+  ?x sh:conformsToShapesGraph ?y .
+  ?y prof:isProfileOf ?z .
+}

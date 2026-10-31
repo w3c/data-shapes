@@ -450,10 +450,7 @@ RULE {...} WHERE {...}</div>
       <li>Finding all the groups of <a>SHACL elements</a> that a group depends on</li>
       <li>Storing the validation results with context</li>
     </ol>
-    <div class="issue" data-number="624"></div>
-    <div class="issue" data-number="622"></div>
     <div class="issue" data-number="623"></div>
-    <div class="issue" data-number="1117">Store validation results as PROV-O RDF</div>
   </section>
   <section id="packaging-recommendations">
     <h3>Recommendations Summary</h3>
@@ -549,19 +546,28 @@ RULE {...} WHERE {...}</div>
       It is established practice within SHACL validation tooling to import <a>SHACL elements</a> from one collection, such as a
       file containing RDF data, into another via an <code>owl:imports</code> instruction. Many SHACL validation engines
       do this, such as pySHACL [[?PYSH]], and this practice is recommended to indicate dependence from one collection/group
-      to another, even if no particular validation engine's actions are expected to arise from the assertion: it is
+      to another, even if no particular validation engine actions are expected to arise from the assertion: it is
       likely usefully informative for SHACL data management too.
     </p>
     <p>
       An example of <code>owl:imports</code> is as per the example below.
     </p>
     <div class="turtle"><div data-include="examples/03.ttl" data-include-format="text"></div></div>
-    <section id="dependencies">
+    <p>
+      To be versy specific regarding the versions of dependencies, <code>owl:imports</code> MAY target a particular
+      version of a <code>sh:ShapesGraph</code> indicated with a <code>owl:versionIRI</code> predicate, as per the
+      example below.
+    </p>
+    <div class="turtle"><div data-include="examples/04.ttl" data-include-format="text"></div></div>
+    <section id="dependencies" class="notoc">
       <h4>Calculating Dependencies</h4>
       <p>
-      Dependency can be calculated when the packaging recommendations above are used.
-    </p>
-      <p class="todo">TODO</p>
+        Dependency of a <a data-cite="shacl12-core#shapes-graph">shapes graph</a> on another
+        <a data-cite="shacl12-core#shapes-graph">shapes graph</a> SHOULD be indicated with a predicate such as
+        <code>dcterms:requires</code>. When the packaging recommendations above are followed, dependency of
+        one shapes graph on another MAY be calculated with the following rules, which use <code>dcterms:requires</code>:
+      </p>
+      <div class="sparql-rl" data-include="examples/calc-deps.srl" data-include-format="text"></div>
     </section>
   </section>
   <section id="persisting-validation">
@@ -824,6 +830,7 @@ RULE {...} WHERE {...}</div>
         profile of a standard to be understood to conform to that standard. This rule is important for the
         creation of null profiles using SHACL, as per section <a href="#null-profiles"></a>.
       </p>
+      <p class="todo">TODO: ensure the conforms to standard rule is used in at least one Null Profile declaration</p>
     </section>
     <section id="hierarchies">
       <h3>Profile Hierarchies</h3>
@@ -1428,34 +1435,8 @@ RULE {...} WHERE {...}</div>
       This reasoning rule cannot be articulated as an OWL property chain axiom due to the test of the
       <code>sh:conforms</code> property value, so it is presented here as both a [[[sparql12-query]]] rule and a [[[shacl12-rules]]] rule.
     </p>
-    <div class="sparql">
-CONSTRUCT {
-  ?dg sh:conformsToShapesGraph ?sg
-}
-WHERE {
-  ?va
-      sh:usedDataGraph ?dg ;
-      sh:usedShapesGraph ?sg ;
-      prov:generated ?vr ;
-  .
-
-  ?vr sh:conforms true .
-}
-    </div>
-    <div class="sparql-rl">
-RULES {
-  ?dg sh:conformsToShapesGraph ?sg
-}
-WHERE {
-  ?va
-      sh:usedDataGraph ?dg ;
-      sh:usedShapesGraph ?sg ;
-      prov:generated ?vr ;
-  .
-
-  ?vr sh:conforms true .
-}
-    </div>
+    <div class="sparql" data-include="examples/conforms-to-sg.ql" data-include-format="text"></div>
+    <div class="sparql-rl" data-include="examples/conforms-to-sg.srl" data-include-format="text"></div>
   </section>
   <section id="rule-conformstostandard">
     <h3>Rule: conforms to standard</h3>
@@ -1471,24 +1452,8 @@ WHERE {
       This reasoning rule is presented here as both a [[[sparql12-query]]] rule and a [[[shacl12-rules]]] rule.
     </p>
     <div class="issue" data-number="868"></div>
-    <div class="sparql">
-CONSTRUCT {
-  ?x dcterms:conformsTo ?z
-}
-WHERE {
-  ?x sh:conformsToShapesGraph ?y .
-  ?y prof:isProfileOf ?z .
-}
-    </div>
-    <div class="sparql-rl">
-RULE {
-  ?x dcterms:conformsTo ?z
-}
-WHERE {
-  ?x sh:conformsToShapesGraph ?y .
-  ?y prof:isProfileOf ?z .
-}
-    </div>
+    <div class="sparql" data-include="examples/conforms-to-standard.ql" data-include-format="text"></div>
+    <div class="sparql-rl" data-include="examples/conforms-to-standard.srl" data-include-format="text"></div>
     <p class="note">
       The result of this rule also enables the [[[dx-prof]]] property chain axiom
       <code>dcterms:conformsTo owl:propertyChainAxiom ( dcterms:conformsTo prof:isProfileOf )</code>
@@ -1503,7 +1468,28 @@ WHERE {
       domain models, to keep SHACL's dependencies low. However, this document introduces informative alignments with
       which are summarized here.
     </p>
-    <section>
+    <section id="prof-alignment">
+      <h4>PROF Alignment</h4>
+      <div class="issue" data-number="868"></div>
+      <p>
+        The logic for this alignment with [[[dx-prof]]] is given in sections <a href="#profiling-of-shacl"></a> and
+        <a href="#profiling-with-shacl"></a>.
+      </p>
+      <table class="term-table">
+        <tr>
+          <th>From</th>
+          <th>Relationship</th>
+          <th>To</th>
+        </tr>
+        <tr>
+          <td><code>sh:conformsToShapesGraph</code></td>
+          <td><code>rdfs:subPropertyOf</code></td>
+          <td><code>dcterms:conformsTo</code></td>
+        </tr>
+      </table>
+      <p class="todo">TODO: complete</p>
+    </section>
+    <section id="prov-o-alignment">
       <h4>PROV-O Alignment</h4>
       <p>
         The logic for this alignment with [[[prov-o]]] is given in section <a href="#persisting-validation"></a>.
@@ -1550,6 +1536,7 @@ WHERE {
 <section id="unresolved-issues">
   <h2>Unresolved Issues</h2>
   <p>Issues labeled 'Profiles' not present elsewhere in the document:</p>
+  <div class="issue" data-number="242">&nbsp;</div>
   <div class="issue" data-number="312">&nbsp;</div>
   <div class="issue" data-number="321">&nbsp;</div>
   <div class="issue" data-number="582">&nbsp;</div>
@@ -1557,10 +1544,10 @@ WHERE {
   <div class="issue" data-number="643">&nbsp;</div>
   <div class="issue" data-number="669">&nbsp;</div>
   <div class="issue" data-number="670">&nbsp;</div>
+  <div class="issue" data-number="805">&nbsp;</div>
+  <div class="issue" data-number="847">&nbsp;</div>
   <div class="issue" data-number="850">&nbsp;</div>
-  <div class="issue" data-number="867">&nbsp;</div>
   <div class="issue" data-number="874">&nbsp;</div>
-  <div class="issue" data-number="875">&nbsp;</div>
   <div class="issue" data-number="880">&nbsp;</div>
   <div class="issue" data-number="882">&nbsp;</div>
   <div class="issue" data-number="891">&nbsp;</div>
@@ -1569,7 +1556,8 @@ WHERE {
   <div class="issue" data-number="973">&nbsp;</div>
   <div class="issue" data-number="974">&nbsp;</div>
   <div class="issue" data-number="985">&nbsp;</div>
-  <div class="issue" data-number="986">&nbsp;</div>
+  <div class="issue" data-number="1187">&nbsp;</div>
+  <div class="issue" data-number="1245">&nbsp;</div>
 
   <h3>Administrative</h3>
   <ul>
@@ -1668,7 +1656,6 @@ WHERE {
     </section>
     <section id="disallow-recursive-constraints">
       <h3>Disallowing Recursive Constraints Profile</h3>
-      <div class="issue" data-number="875">&nbsp;</div>
       <p>
         This profile establishes structural validation rules for defining SHACL shapes, explicitly prohibiting
         the authoring of recursive constraints. While the core SHACL specification permits structural recursion, it
@@ -1678,7 +1665,7 @@ WHERE {
         this profile defines the specific shape authoring patterns that are disallowed, such as
         self-referencing shapes, mutually dependent shapes, and recursive tree structures.
       </p>
-      <section>
+      <section class="notoc">
         <h4>Definition of Recursive Constraints</h4>
         <p>
           A SHACL shapes graph <strong>SG</strong> conforms to the Non‑Recursive Constraints Profile
@@ -1728,7 +1715,7 @@ WHERE {
           <li><strong>self-referential negation</strong> (a shape that negates itself)</li> 
         </ul>
       </section>
-      <section>
+      <section class="notoc">
        <h4>Validating the Absence of Recursive Constraints</h4>
        <p>
          The following SHACL-SHACL shapes graph can be used to validate that a given shapes graph does not
@@ -1794,7 +1781,7 @@ ex:NoRecursiveShapeReferencesConstraint
 .
          </div>
       </section>
-      <section>
+      <section class="notoc">
          <h4>Examples of Disallowed Recursive Constraints</h4>
          <p>
            The following examples illustrate the types of recursive constraints that are disallowed by this profile.
