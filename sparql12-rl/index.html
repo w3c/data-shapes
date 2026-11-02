@@ -18,30 +18,33 @@
 
         editors: [
           {
-            name: "Robert David",
-            company: "Ontotext",
-            //mailto:
-            w3cid: "97894"
+            name:       "Robert David",
+            company:    "GraphWise",
+            companyURL: "https://graphwise.ai",
+            orcid:      "0000-0002-3244-5341",
+            w3cid:      97894
           },
           {
-            name: "David Habgood",
-            company: "KurrawongAI",
+            name:       "David Habgood",
+            company:    "KurrawongAI",
             companyURL: "https://kurrawong.ai",
-            mailto: "david@kurrawong.ai",
-            w3cid: "164266"
+            mailto:     "david@kurrawong.ai",
+            orcid:      "0000-0002-3322-1868",
+            w3cid:      164266
           },
 
           {
-            name: "Andy Seaborne",
-            company: "Apache Software Foundation",
-            w3cid: "29909"
+            name:       "Andy Seaborne",
+            company:    "Apache Software Foundation",
+            companyURL: "https://www.apache.org",
+            w3cid:      29909
           },
           {
-            name: "Simon Steyskal",
-            company: "Siemens AG",
+            name:       "Simon Steyskal",
+            company:    "Siemens AG",
             companyURL: "https://siemens.com",
-            //mailto: "simon.steyskal@siemens.com",
-            w3cid: "73545"
+            orcid:      "0000-0002-5183-2486",
+            w3cid:      73545
           }
         ],
 
@@ -200,11 +203,15 @@
         that can be used in triple templates in the head of rules.
       </p>
       <p>
-        SPARQL-RL also supports negation as failure, which could lead to
+        SPARQL-RL supports negation as failure, which could lead to
         different inference graphs depending on the order in which rules are
         evaluated. To avoid this, rules are evaluated using the technique
         of <em>stratification</em>, which establishes an ordering among rules,
         ensuring that the same inference graph is always produced.
+      </p>
+      <p>
+        SPARQL-RL provides grouping and aggregation, with assignment of the
+        aggregation function result to a variable in the body of a rule.
       </p>
       <p>
         SPARQL-RL can be referred to as <em>SRL</em> when the context is clear.
@@ -287,12 +294,11 @@
         <li><a href="#sparql-rl-grammar">SPARQL-RL syntax</a></li>
       </ul>
 
-      <p>A conforming [=SPARQL-RL document=] is an
-        [=RDF string=] that
-        conforms to the <a href="#grammar">grammar</a> starting with the
-        <a href="#rRuleSet"><code>RuleSet</code></a>
-        production as defined in
-        <a href="#sparql-rl-grammar" class="sectionRef"></a>.
+      <p>A <dfn>conforming SPARQL-RL document</dfn> is an
+        [=RDF string=], encoded in UTF-8 [[!RFC3629]],
+        and that conforms to the grammar and
+        additional constraints defined in
+        <a href="#grammar" class="sectionRef"></a>.
       </p>
 
       <p class="note">
@@ -379,7 +385,7 @@
         <p>
           We can then derive `:exposedTo` relationships by adding a rule that depends
           on `:dependsOn` triples produced by the other rules
-          (see also <a href="#rule-dependency" class="sectionRef"></a>) below:
+          (see also <a href="#rule-dependency" class="sectionRef"></a> below):
         </p>
 
         <aside class="example" title="Depending on inferred triples">
@@ -529,7 +535,7 @@
       <section id="desc-creating-rdf-terms">
         <h3>Assignment and Creating RDF Terms</h3>
         <p>
-          Assignment allows you to assign the result of an expression to a variable
+          Assignment allows a rule to assign the result of an expression to a variable
           in the body of a rule. This can be used to create new RDF terms based
           on the data.
         </p>
@@ -559,15 +565,19 @@
 
         <p>
           Rules involving [=assignments=], rules that create blank nodes
-          from evaluation of the [=rule head=] and rules with a template
+          from evaluation of the [=rule head=],
+          rules involving <a href="#desc-aggregation">aggregation</a>,
+          and rules with a template
           that involves a [=triple term=] containing [=variables=]
           are [=run-once rules=].
-          Such rules are run after all the rules that could produce data that they depend on,
-          and before any rules that depend on the data they produce.
+          Such rules are run after all the rules that could produce data
+          that they depend on, and before any rules that depend on the
+          data they produce.
         </p>
         <p>
           This condition ensures that such rules do not loop back to themselves
-          and cause the creation of an unbounded number of RDF terms.
+          and cause the creation of an unbounded number of RDF terms, or
+          unbounded nesting of [=triple terms=].
         </p>
         <p class="note">
           A constant [=RDF term=] in a [=rule head=] does not make a rule a
@@ -578,6 +588,76 @@
         <p>
           If evaluating the expression in an [=assignment=] causes an error,
           then the current solution mapping is rejected by the [=assignment=].
+        </p>
+      </section>
+
+      <section id="desc-aggregation">
+        <h3>Grouping and Aggregation</h3>
+
+        <p>
+          Grouping and aggregation allow a rule to collect the solutions of a
+          pattern into groups, and then compute summary values for each group.
+          The aggregate values are assigned to
+          variables that can then be used in the [=rule head=].
+          Rules with a [=group element=] are [=run-once rules=].
+        </p>
+        <p>
+          A [=group element=] processes each solution sequence
+          of preceding rule elements by taking only the bindings
+          for the [=group keys=], evaluating the [=group pattern=],
+          and then grouping the solution mappings using the [=group keys=].
+        </p>
+        <p>
+          The output is a [=solution sequence=] with one [=solution mapping=]
+          for each group: the input solution mapping extended with the values of
+          the [=group keys=] and the values of the [=aggregation variables=].
+        </p>
+        <p>
+          For example, we can count the number of vulnerabilities that each
+          component is exposed to:
+        </p>
+
+        <aside class="example" title="Grouping and Aggregation">
+          <pre class="block ex-data">
+            :frontend rdf:type :Component ;
+                :exposedTo :vuln1 , :vuln2 .
+
+            :db rdf:type :Component ;
+                :exposedTo :vuln1 .
+
+            :logger rdf:type :Component .
+          </pre>
+          <pre class="block ex-rules">
+            RULE { ?x :vulnerabilityCount ?n }
+            WHERE {
+                ?x rdf:type :Component .
+                GROUP BY ?x { ?x :exposedTo ?v } [ ?n := COUNT(*) ]
+            }
+          </pre>
+          <pre class="block ex-inferred">
+            :frontend :vulnerabilityCount 2 .
+            :db       :vulnerabilityCount 1 .
+          </pre>
+        </aside>
+
+        <p>
+          The [=group pattern=] `?x :exposedTo ?v` is matched for each component
+          found by the preceding [=triple pattern=]. The solutions are collected
+          into groups by the [=group keys=], here `?x`. For each group,
+          `COUNT(*)`, the number of solutions in each group, is assigned to the
+          [=aggregation variable=] `?n`.
+        </p>
+        <p>
+          `:logger` is not exposed to any vulnerability, so the
+          [=group pattern=] has no solutions for it, there is no group, and
+          no `:vulnerabilityCount` triple is inferred for `:logger`.
+        </p>
+        <p>
+          Variables bound only inside the [=group pattern=], such as `?v`,
+          are not in scope after the [=group element=]:
+          only the [=group keys=] and the [=aggregation variables=] are
+          added to the solution mapping, so `?v` cannot be used in a later
+          [=rule element=] or in the [=rule head=].
         </p>
       </section>
 
@@ -605,7 +685,7 @@
       <section id="data-blocks">
         <h3>Data Blocks</h3>
         <p>
-          Data blocks allow concisely providing RDF triples directly to the rule set evaluation.
+          Data blocks provide RDF triples directly to the rule set evaluation.
           Triples in data blocks are added to the inference graph and are available for
           matching in the body of rules.
         </p>
@@ -635,8 +715,92 @@
 
       </section>
 
+      <section id="match-base-data">
+        <h3>Matching Base Data</h3>
+        <p>
+          During <a href="#rule-set-evaluation">rule set evaluation</a> it may be
+          necessary to pattern match only on the original [=base graph=],
+          not on any inferred triples.
+        </p>
+        <p>
+          An example of this is setting a default value.
+          The rule must test whether the base graph already contains a value and, if not,
+          the rule can then calculate a default value.
+        </p>
+        <aside class="example" title="Base Data with NOT">
+          <pre class="block ex-data">
+            :A :distanceMiles 5 .
+            :A :distanceKilometers 8 .
+            :B :distanceMiles 10 .
+          </pre>
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE {
+                ?x :distanceMiles ?miles .
+                NOT DATA { ?x :distanceKilometers ?km }
+                SET ( ?kilometers := xsd:integer(?miles * 1.60934))
+            }
+          </pre>
+          <pre class="block ex-inferred">
+            :B :distanceKilometers 16 .
+          </pre>
+        </aside>
+        <p>
+          Using `NOT DATA` allows other parts of the rule body to match inferred triples.
+          It is also possible to perform all [=rule body=] matching against the [=base graph=] by
+          using `WHERE DATA`.
+          Such rules then only rely on matching from the base graph.
+        </p>
+        <aside class="example" title="Base Data with WHERE">
+          <pre class="block ex-rules">
+            RULE  { ?x :distanceKilometers ?kilometers }
+            WHERE DATA {
+                ?x :distanceMiles ?miles .
+                NOT { ?x :distanceKilometers ?km }
+                SET ( ?kilometers := xsd:integer(?miles * 1.60934))
+            }
+          </pre>
+        </aside>
+
+        <p class="note">
+          The matching in this section is on the [=base graph=].
+          It does not include triples added by
+          <a href="#eval-rule-set">rule set evaluation</a>
+          from the [=rule set=] `DATA` blocks
+          (<a href="#data-blocks" class="sectionRef"></a>).
+        </p>
+
+      </section>
+
+      <!-- ===============
+      <section id="rule-tuples">
+        <h3>Rule Tuples</h3>
+        <p>
+          Rule tuples are disjoint from triples.
+          They are tuples of RDF terms (no variables) and exist only during
+          evaluation of a rule set.
+          They can be used to record intermediate results during rule evaluation
+          and to pass data between rules.
+        </p>
+        <p>
+          Possible syntax of tuple patterns, templates and tuples:
+        </p>
+        <ul>
+          <li>`TUPLE(termOrVar , ...)`</li>
+          <li>Shorthand: `$(termOrVar , ...)`</li>
+        </ul>
+        <p>
+          Often, the first argument will be a fixed name.
+        </p>
+        <p>
+          There is a tuple store which holds tuples for the lifetime of the
+          evaluation. The tuple store has set-semantics for lookup.
+        </p>
+      </section>
+      =============== -->
+
       <section id="about-evaluation">
-        <h3>Evaluation of a Rule Set</h3>
+        <h3>Evaluating a Rule Set</h3>
         <p>
           Rules are organized into [=rule sets=].
           A rule set and a data graph (the [=base graph=]) are inputs to evaluation.
@@ -647,9 +811,9 @@
         <p>
           During evaluation, triples inferred based on one rule are
           available for matching in other rules.
-          Rule set evaluation proceeds until the [=inference graph=]
-          contains all the possible triples from the inputs of
-          the [=rule set=] and the [=base graph=].
+          Rule set evaluation proceeds until
+          no further triples can be inferred
+          from the inputs of the [=rule set=] and the [=base graph=].
         </p>
         <p>
           Evaluation starts with steps to
@@ -681,98 +845,13 @@
         </ol>
         <p>
           Once a [=rule set=] has been prepared, evaluation proceeds
-          by taking each layer from the stratification, in order,
+          by taking each [=layer=] from the stratification, in order,
           evaluating the rules in that layer to completion,
           and then moving on to the next layer.
+          When triples are inferred by execution of a rule, they are immediately
+          available to other rules as those rules are executed.
         </p>
       </section>
-
-      <section id="match-base-data">
-        <h3>Matching Base Data</h3>
-        <p>
-          During <a href="#rule-set-evaluation">rule set evaluation</a> it may be
-          necessary to pattern match only on the original [=base graph=],
-          not on any inferred triples.
-        </p>
-        <p>
-          An example of this is setting a default value.
-          The rule must test whether the base graph already contains a value and, if not,
-          the rule can then calculate a default value.
-        </p>
-        <aside class="example" title="Base Data with NOT">
-          <pre class="block ex-data">
-            :A :distanceMiles 5 .
-            :A :distanceKilometers 8 .
-            :B :distanceMiles 10 .
-          </pre>
-          <pre class="block ex-rules">
-            RULE  { ?x :distanceKilometers ?kilometers }
-            WHERE {
-                ?x :distanceMiles ?miles .
-                NOT DATA { ?x :distanceKilometers ?km }
-                SET ( ?kilometers := xsd:integer(?miles *  1.60934))
-            }
-          </pre>
-          <pre class="block ex-inferred">
-            :B :distanceKilometers 16 .
-          </pre>
-        </aside>
-        <p>
-          Using `NOT DATA` allows other parts of the rule body to match inferred triples.
-          It is also possible to perform all [=rule body=] matching against the [=base graph=] by
-          using `WHERE DATA`.
-          Such rules then only rely on matching from the base graph.
-        </p>
-        <aside class="example" title="Base Data with WHERE">
-          <pre class="block ex-rules">
-            RULE  { ?x :distanceKilometers ?kilometers }
-            WHERE DATA {
-                ?x :distanceMiles ?originalMiles .
-                NOT { ?x :distanceKilometers ?km }
-                SET ( ?kilometers := xsd:integer(?originalMiles *  1.60934))
-            }
-          </pre>
-        </aside>
-
-        <p class="note">
-          The matching in this section is on the [=base graph=].
-          It does not include triples added by
-          <a href="#eval-rule-set">rule set evaluation</a>
-          from the [=rule set=] `DATA` blocks
-          (<a href="#data-blocks" class="sectionRef"></a>).
-        </p>
-
-      </section>
-
-      <!-- ===============
-      <section id="rule-tuples">
-        <h3>Rule Tuples</h3>
-        <div class="issue" data-number="752">
-          <p><em>At risk:</em></p>
-          <p>
-            Rule tuples are disjoint from triples.
-            They are tuples of RDF terms (no variables) and exist only during
-            evaluation of a rule set.
-            They can be used to record intermediate results during rule evaluation
-            and to pass data between rules.
-          </p>
-          <p>
-            Possible syntax of tuple patterns, templates and tuples:
-          </p>
-          <ul>
-            <li>`TUPLE(termOrVar , ...)`</li>
-            <li>Shorthand: `$(termOrVar , ...)`</li>
-          </ul>
-          <p>
-            Often, the first argument will be a fixed name.
-          </p>
-          <p>
-            There is a tuple store which holds tuples for the lifetime of the
-            evaluation. The tuple store has set-semantics for lookup.
-          </p>
-        </div>
-      </section>
-      =============== -->
 
     </section>
 
@@ -817,7 +896,7 @@
             A [=triple pattern=] is a 3-tuple where each element is
             a [=variable=], an [=RDF term=], or a pattern for a
             [=triple term=] with [=variables=].
-            The second element of the tuple must be an [=IRI=] or a [=variable=].
+            The second element of the tuple is an [=IRI=] or a [=variable=].
             [=Triple patterns=] appear in the [=body=] of a [=rule=]
             and are used to match [=RDF triples=].
           </dd>
@@ -828,7 +907,7 @@
               A [=triple template=] is a 3-tuple where each element is
               a [=variable=], an [=RDF term=], or a template for a
               [=triple term=] with [=variables=].
-              The second element of the tuple must be an [=IRI=] or a [=variable=].
+              The second element of the tuple is an [=IRI=] or a [=variable=].
               [=Triple templates=] appear in the [=head=] of a [=rule=] and
               are used to generate [=RDF triples=].
             </p>
@@ -839,18 +918,18 @@
             </p>
           </dd>
 
+          <dt><dfn>Triple pattern element</dfn></dt>
+          <dd>
+            A [=triple pattern element=] is a [=triple pattern=]
+            that appears as a [=rule element=].
+          </dd>
+
           <dt><dfn>Filter element</dfn></dt>
           <dd>
             A [=filter element=] is an [=expression=]
             that appears as a [=rule element=].
             It is used to restrict the values of variables
             in pattern matching.
-          </dd>
-
-          <dt><dfn>Triple pattern element</dfn></dt>
-          <dd>
-            A [=triple pattern element=] is a [=triple pattern=]
-            that appears as a [=rule element=].
           </dd>
 
           <dt><dfn>Negation element</dfn></dt>
@@ -873,19 +952,27 @@
             and an <a>expression</a>, called the <dfn>assignment expression</dfn>.
           </dd>
 
-          <!-- Postponed
-          <dt><dfn>aggregation element</dfn></dt>
+          <dt><dfn>Group element</dfn></dt>
           <dd>
-            An [=aggregation element=] is a [=rule element=] that ..@@.. .
+            A [=group element=] is a [=rule element=]
+            with a set of variables, called the <dfn>group keys</dfn>,
+            a <dfn>group pattern</dfn>, and a set of
+            <dfn data-lt="aggregation assignment">aggregation assignments</dfn>.
+            Each [=aggregation assignment=] is a pair consisting of
+            a <a>variable</a>, called the <dfn>aggregation variable</dfn>,
+            and an <dfn>aggregation function</dfn>.
+            The [=group pattern=] is composed
+            of a sequence of [=triple pattern elements=],
+            [=filter elements=] and [=assignment elements=].
           </dd>
-          -->
 
           <dt><dfn>Rule element</dfn></dt>
           <dd>A [=rule element=] is any one of
             [=triple pattern element=],
             [=filter element=],
-            [=negation element=], or
-            [=assignment element=].
+            [=negation element=],
+            [=assignment element=], or
+            [=group element=].
           </dd>
 
           <dt><dfn data-lt="rule head|head">Rule head</dfn></dt>
@@ -900,7 +987,8 @@
             a [=triple pattern element=],
             a [=filter element=],
             a [=negation element=],
-            or an [=assignment element=].
+            an [=assignment element=], or
+            a [=group element=].
           </dd>
 
           <dt><dfn data-lt="rule imports|imports">Rule set imports</dfn></dt>
@@ -930,6 +1018,7 @@
             </p>
             <ul>
               <li>the [=rule body=] has an [=assignment element=];</li>
+              <li>the [=rule body=] has a [=group element=];</li>
               <li>a [=triple template=] of the [=rule head=] has a [=blank node=];</li>
               <li>a [=triple template=] of the [=rule head=] has a template for a
                 [=triple term=] in which a [=variable=] occurs.
@@ -1095,7 +1184,27 @@
             <tr>
               <td><code id="negation.evaldata">negation.evaldata</code></td>
               <td>A boolean flag; if <var>false</var>, the `negation.inner` is matched
-                against the [=base graph=]. </td>
+                against the [=base graph=].</td>
+            </tr>
+            <tr>
+              <td><code>group.keys</code></td>
+              <td>The set of [=group keys=] of a [=group element=].</td>
+            </tr>
+            <tr>
+              <td><code>group.pattern</code></td>
+              <td>The [=group pattern=] of a [=group element=].</td>
+            </tr>
+            <tr>
+              <td><code>group.aggregations</code></td>
+              <td>The [=aggregation assignments=] of a [=group element=].</td>
+            </tr>
+            <tr>
+              <td><code>aggregation.variable</code></td>
+              <td>The [=aggregation variable=] of an [=aggregation assignment=].</td>
+            </tr>
+            <tr>
+              <td><code>aggregation.function</code></td>
+              <td>The [=aggregation function=] of an [=aggregation assignment=].</td>
             </tr>
           </tbody>
         </table>
@@ -1112,64 +1221,87 @@
           or [=assignment expression=]
           has a value at the point of evaluation;
           and that each
-          assignment in a rule introduces a new variable,
-          one that has not been used earlier in the rule body.
+          [=assignment variable=]
+          and [=aggregation variable=]
+          in a rule is new and has not been used earlier in the rule body.
         </p>
         <p>
-          Define <em>well-formedness</em> for a sequence of [=rule elements=]
-          given an initial set of variables.
+          Let <var>S</var> be a sequence of [=rule elements=].
         </p>
         <p>
-          Let <var>elt<sub>i</sub></var> be the i-th element of a sequence of [=rule elements=].
+          Let <var>elt<sub>i</sub></var> be the i-th element of <var>S</var>,
+          and let <var>N</var> be the length of the sequence.
         </p>
         <p>
-          Let <var>vars<sub>i</sub></var> be the set of variables defined by
-          <var>elt<sub>i</sub></var> as follows:
+          Let <var>V<sub>0</sub></var> be a set of variables, called the initial
+          variables of the sequence <var>S</var>.
+        </p>
+        <p>
+          Define <var>vars(S, i, V<sub>0</sub>)</var> as the set of variables
+          that are in scope after the i-th element of the sequence <var>S</var>,
+          given the initial variables <var>V<sub>0</sub></var>. <var>vars(S, i, V<sub>0</sub>)</var> is defined inductively:
         </p>
         <div class="list-indent">
-          <ul class="list-no-bullet">
+          <ul>
             <li>
-              If <var>elt<sub>i</sub></var> is a [=triple pattern element=] then
-              <ul class="list-inner">
-                <li>
-                  <var>vars<sub>i</sub></var> is the set of [=variables=]
-                  that occur in the [=triple pattern element=].
-                </li>
-              </ul>
+              Let <var>vars(S, 0, V<sub>0</sub>)</var> be <var>V<sub>0</sub></var>.
             </li>
             <li>
-              If <var>elt<sub>i</sub></var> is an [=assignment element=] then
-              <ul class="list-inner">
+              Let <var>vars(S, i, V<sub>0</sub>)</var>, for each i from 1 to <var>N</var> be
+              <ul>
                 <li>
-                  <var>vars<sub>i</sub></var> is the set of the [=assignment variable=].
+                  if <var>elt<sub>i</sub></var> is a [=triple pattern element=]
+                  and <var>X</var> is the set of variables that occur in the
+                  [=triple pattern element=]
+                  then
+                  <ul class="list-inner">
+                    <li>
+                      <var>vars(S, i, V<sub>0</sub>)</var> is the set <var>X</var> &cup; <var>vars(S, i-1, V<sub>0</sub>)</var>.
+                    </li>
+                  </ul>
                 </li>
-              </ul>
-            </li>
-            <li>
-              Otherwise,
-              <ul class="list-inner">
                 <li>
-                  <var>vars<sub>i</sub></var> is the empty set.
+                  if <var>elt<sub>i</sub></var> is an [=assignment element=]
+                  with [=assignment variable=] <var>avar</var> then
+                  <ul class="list-inner">
+                    <li>
+                      <var>vars(S, i, V<sub>0</sub>)</var> is the set
+                      `{` <var>avar</var> `}` &cup; <var>vars(S, i-1, V<sub>0</sub>)</var>.
+                      </li>
+                  </ul>
+                </li>
+                <li>
+                  if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
+                  where the set <var>aggVars</var> is the set of
+                  [=aggregation variables=] of <var>GRP</var>
+                  then
+                    <ul class="list-inner">
+                    <li>
+                      <var>vars(S, i, V<sub>0</sub>)</var> is the set <var>vars(S, i-1, V<sub>0</sub>)</var>
+                      &cup; <var>GRP.keys</var> &cup; <var>aggVars</var>.
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  otherwise,
+                  <ul class="list-inner">
+                    <li>
+                      <var>vars(S, i, V<sub>0</sub>)</var> is equal to the set <var>vars(S, i-1, V<sub>0</sub>)</var>.
+                    </li>
+                  </ul>
                 </li>
               </ul>
             </li>
           </ul>
         </div>
         <p>
-          Let <var>V<sub>0</sub></var> be the initial variables of the sequence.
+          Define <var>vars(S, V<sub>0</sub>)</var>, the set of variables in-scope for <var>S</var>
+          as <var>vars(S, N, V<sub>0</sub>)</var>, the set of variables in-scope
+          after the last element of the sequence.
         </p>
         <p>
-          Let <var>V<sub>i</sub></var>
-          be the union of
-          <var>V<sub>0</sub></var> and all <var>vars<sub>j</sub></var>,
-          for <var>j</var> from 1 to <var>i</var>.
-        </p>
-        <p>
-          Let <var>V<sub>all</sub></var> be the value of <var>V<sub>N</sub></var>,
-          where <var>N</var> is the length of the sequence.
-        </p>
-        <p>
-          A <dfn>well-formed sequence</dfn> is a sequence of [=rule elements=],
+          A sequence of [=rule elements=], <var>S</var>,
+          is a <dfn>well-formed sequence</dfn>,
           given a set of variables <var>V<sub>0</sub></var>,
           if the following conditions are met for each <var>i</var>,
           from 1 to <var>N</var>:
@@ -1177,35 +1309,66 @@
         <div class="list-indent">
           <ul class="list-no-bullet">
             <li>
-              If <var>elt<sub>i</sub></var> is a [=filter element=] then
+              if <var>elt<sub>i</sub></var> is a [=filter element=] then
               <ul class="list-inner">
                 <li>every [=variable=] mentioned in the [=filter element=]
-                  is an element of <var>V<sub>i-1</sub></var>.
+                  is an element of <var>vars(S, i-1, V<sub>0</sub>)</var>.
                 </li>
               </ul>
             </li>
             <li>
-              If <var>elt<sub>i</sub></var> is an [=assignment element=] then
+              if <var>elt<sub>i</sub></var> is an [=assignment element=] then
               <ul class="list-inner">
                 <li>every variable mentioned in the [=assignment expression=]
-                  is an element of <var>V<sub>i-1</sub></var>
+                  is an element of <var>vars(S, i-1, V<sub>0</sub>)</var>
                 </li>
                 <li>
-                  the [=assignment variable=] is not an element of <var>V<sub>i-1</sub></var>.
+                  the [=assignment variable=] is not an element of <var>vars(S, i-1, V<sub>0</sub>)</var>.
                 </li>
               </ul>
             </li>
             <li>
-              If <var>elt<sub>i</sub></var> is a [=negation element=] then
+              if <var>elt<sub>i</sub></var> is a [=negation element=]
+              with [=negation element body=] <var>P</var> then
               <ul class="list-inner">
                 <li>
                   the sequence of [=rule elements=] in the
                   [=negation element body=] is a [=well-formed sequence=],
-                  setting <var>V<sub>0</sub></var> to the
-                  value of <var>V<sub>i-1</sub></var>
-                  of the [=rule element=].
+                  with initial variables <var>vars(S, i-1, V<sub>0</sub>)</var>.
                 </li>
               </ul>
+            </li>
+            <li>
+              if <var>elt<sub>i</sub></var> is a [=group element=], where
+              <var>P</var> is the [=group pattern=] of the group element <var>elt<sub>i</sub></var>
+              then
+               <ul class="list-inner">
+                 <li>
+                   the sequence of [=rule elements=] in the
+                   [=group pattern=] given initial variables <var>vars(S, i-1, V<sub>0</sub>)</var>
+                   is a [=well-formed sequence=].
+                 </li>
+                 <li>
+                   each member of the [=group keys=] is an element of
+                   <var>vars(S, i-1, V<sub>0</sub>)</var> &cup; <var>vars(P, vars(S, i-1, V<sub>0</sub>))</var>.
+                 </li>
+                 <li>
+                   none of the [=aggregation variables=] occur in the set of
+                   variables <var>vars(P, vars(S, i-1, V<sub>0</sub>))</var>.
+                 </li>
+                 <!-- Covered by the item above
+                 <li>
+                   none of the [=aggregation variables=] occur in the set of [=group keys=].
+                 </li>
+                 -->
+                 <li>
+                   the [=aggregation variables=] are distinct.
+                 </li>
+                 <li>
+                   the [=variables=] in aggregation functions appear
+                   in <var>vars(P, vars(S, i-1, V<sub>0</sub>))</var>.
+                 </li>
+               </ul>
             </li>
           </ul>
         </div>
@@ -1215,13 +1378,12 @@
           is a [=well-formed sequence=], starting with <var>V<sub>0</sub></var>
           being the empty set,
           and if each variable in a [=triple template=] of the [=rule head=]
-          is an element of <var>V<sub>all</sub></var>.
+          is an element of <var>vars(S, V<sub>0</sub>)</var>.
         </p>
         <p>
           A [=rule set=] is a <dfn>well-formed rule set</dfn> if and only if all
           rules of the rule set are [=well-formed rules=].
         </p>
-
       </section>
 
       <section id="rule-dependency">
@@ -1232,15 +1394,16 @@
           affects the evaluation of the body of the first rule. That is, the head of `R2`
           has a [=triple template=] that can generate a triple that matches
           a [=triple pattern=] in the body of `R1`,
-          either as a [=triple pattern element=] or inside a [=negation element=].
+          either as a [=triple pattern element=], or inside a [=negation element=]
+          or a [=group pattern=].
         </p>
         <p>
           There are two kinds of dependency:
           [=closed dependencies=] and [=open dependencies=].
           A <em>closed dependency</em> ensures that rule `R2`
           has generated all its possible output before rule `R1` is executed.
-          If a rule dependency is not closed, it is an <em>open dependency</em>
-          which allows the first rule `R1` to be executed
+          If a rule dependency is not closed, it is an <em>open dependency</em>.
+          It allows the first rule `R1` to be executed
           while the rule `R2` might be run again to generate further triples
           which can then cause `R1` to be reevaluated with the new triples from `R2`.
         </p>
@@ -1305,8 +1468,9 @@
               Rule `R1` <dfn data-lt="depends-on-rule" data-lt-noDefault>depends on</dfn>
               rule `R2` if
               `R1.evaldata` is `true` and any [=triple pattern=] in the body of `R1`,
-              whether as a [=triple pattern element=] or inside a
+              whether as a [=triple pattern element=], inside a
               [=negation element=] `neg` where `neg.evaldata` is `true`,
+              or inside a [=group pattern=],
               <a href="#dfn-depends-pattern-template">depends on a triple template</a>
               in the head of `R2`.
             </p>
@@ -1322,6 +1486,13 @@
                 `R1` where the [=negation element=] flag `.evaldata` is `true`
                 matches a [=triple template=] in the [=rule head=] of `R2`.
               </li>
+              <!--
+                  Subsumed by run-once.
+              <li>A [=triple pattern=] occurring inside the [=group pattern=]
+                of a [=group element=] of `R1`
+                matches a [=triple template=] in the [=rule head=] of `R2`.
+              </li>
+              -->
               <li>Rule `R1` <a href="#dfn-depends-on-rule">depends on</a> rule `R2`
                 and `R1` is a [=run-once rule=].
               </li>
@@ -1349,7 +1520,8 @@
           <p>
             Similarly, a [=triple pattern=] <dfn>matches</dfn> a triple `T1`
             if there are values for the variables of the
-            [=triple pattern=] such that replacing variables
+            [=triple pattern=] such that replacing variables, including
+            treating <a href="#dfn-bnodes-as-variables">blank nodes as variables</a>,
             in the pattern by the values gives a triple `T2` where
             `T2` <a data-cite="RDF12-CONCEPTS#dfn-triple-equality">equals</a>
             `T1`.
@@ -1437,29 +1609,34 @@ define buildDependencyGraph(ruleSet):
 
         if R1.evaldata then:
             # Classify each triple pattern TP in the rule as requiring "open" or "closed"
-            # depending on whether it is in a negation element or not.
+            # depending on whether it is in a negation element or a group pattern, or not.
             foreach rule element RBE in R1.body:
-                if RBE is a negation element:
+                if RBE is a triple pattern element of triple pattern TP:
+                    let item be a pair (TP, "open")
+                    add item to bodyDependencies
+                else if RBE is a filter element:
+                    # Do nothing
+                else if RBE is a negation element:
                     if RBE.evaldata then:
                         foreach triple pattern TP in RBE.inner:
                             let item be a pair (TP, "closed")
                             add item to bodyDependencies
                         endfor
                     endif
-                else if RBE is a triple pattern element of triple pattern TP:
-                    let item be a pair (TP, "open")
-                    add item to bodyDependencies
-                else if RBE is a filter element:
-                    # Do nothing
                 else if RBE is an assignment element:
                     # Do nothing
+                else if RBE is a group element:
+                    foreach triple pattern TP in RBE.pattern:
+                        let item be a pair (TP, "closed")
+                        add item to bodyDependencies
+                    endfor
                 endif
             endfor
         endif
 
         foreach pair (triple pattern TP, depLabel) in bodyDependencies:
             if R1 is a run-once rule:
-              set depLabel to "closed"
+                set depLabel to "closed"
             endif
             # Find dependencies for this triple pattern element or negation element.
             foreach rule R2 in ruleSet.rules:
@@ -1501,7 +1678,8 @@ enddefine
         </p>
         <p>
           [=Stratification=] imposes constraints on dependencies between [=rules=]
-          to ensure that [=negation elements=] and [=run-once rules=] depend only
+          to ensure that [=negation elements=], [=group elements=],
+          and [=run-once rules=] depend only
           on results computed using earlier (lower) [=strata=] and the
           [=base graph=].
           This guarantees a single, well-defined, and finite
@@ -1529,7 +1707,7 @@ enddefine
               `SL.once` is exactly the [=run-once rules=] of the layer;
               these rules are each evaluated
               exactly once at the start of evaluation of the [=stratification layer=].
-              `SL.general` is the set of remaining rules of the layer, 
+              `SL.general` is the set of remaining rules of the layer,
               which are evaluated repeatedly until no new triples are inferred.
             </p>
           </dd>
@@ -1577,7 +1755,7 @@ enddefine
             such a [=rule set=].
           </p>
           <dl>
-            <dt><dfn>Stratification Condition</dfn></dt>
+            <dt><dfn>Stratification condition</dfn></dt>
             <dd>
               The [=stratification condition=] requires that
               there is no [=recursive dependency=] involving a
@@ -1617,7 +1795,7 @@ define stratification(ruleSet):
         stratumMap.set(rule, 0)
     endfor
 
-    boolean changed = true
+    let changed = true
     while changed:
         changed = false
         foreach edge E in DP:
@@ -1648,8 +1826,8 @@ define stratification(ruleSet):
     endwhile
 
     # Initialize the result map.
-    let stratumRules be a map from integer to rules.
-    foreach i = 0 to maxStratum
+    let stratumRules be a map from integer to rules
+    foreach i = 0 to maxStratum:
         stratumRules.set(i, {})
     endfor
 
@@ -1660,8 +1838,8 @@ define stratification(ruleSet):
     endfor
 
     # Partition each level into once and general
-    let stratumLevels be a sequence of pairs of sets of rules.
-    for i = 0 to maxStratum:
+    let stratumLevels be a sequence of pairs of sets of rules
+    foreach i = 0 to maxStratum:
         let rules = stratumRules.get(i)
         let once = { R in rules | R is a run-once rule }
         let general = rules \ once
@@ -1713,7 +1891,7 @@ enddefine
             or if the document is not syntactically valid.
           </li>
           <li>
-            Processors MUST only import a rule set once to avoid infinite loops
+            Processors MUST import a rule set only once to avoid infinite loops
             when processing `IMPORTS` statements.
           </li>
         </ul>
@@ -1819,7 +1997,7 @@ enddefine
       <h2>Rule Set Evaluation</h2>
       <p>
         This section defines the outcome of evaluating a rule set on given data.
-        It does not prescribe the algorithm as the method of implementation.
+        Implementations are not required to use this algorithm.
         An implementation can use any algorithm that generates the same outcome.
       </p>
       <div class="algorithm">
@@ -1829,8 +2007,8 @@ Output: an RDF graph GI of inferred triples
 </pre>
       </div>
       <p>
-        The inferred triples do not include triples present in the set
-        of triples of the [=base graph=].
+        The inferred triples do not include triples present in
+        the [=base graph=].
       </p>
 
       <section id="rule-eval-definitions">
@@ -1962,7 +2140,7 @@ merge(S1, S2) = { <var>μ</var> |
               </p>
               <p>
                 If the two solutions have no variables in common, then they are compatible,
-                and the merge of the two solutions is the union of the
+                and the merge of the two solutions is the union of
                 <var>μ</var><sub>1</sub> and <var>μ</var><sub>2</sub>.
               </p>
             </div>
@@ -2023,24 +2201,84 @@ merge(S1, S2) = { <var>μ</var> |
           <pre class="nohighlight">
 define evalFunction(F, μ):
     # F is an expression: an RDF term, a variable, or op(expr1, ..., exprN)
-    # where op is a function or a functional form.
+    #   where op is a function or a functional form.
     # μ is a solution mapping
+
+    # Any error during evaluation causes evalFunction to return an error.
+    if F is an error:
+        return error
+    endif
     if F is an RDF term:
         return F
+    endif
     if F is a variable:
         # By well-formedness, F &isin; dom(μ).
         return μ(F)
+    endif
     # F is of the form F = op(expr1, ..., exprN)
     if op is a functional form (e.g., IF, logical-or):
         # Evaluated specifically for op; op may evaluate only some arguments.
-        # For example, IF(c, t, f) evaluates c, then exactly one of t or f.
+        # For example, IF(c, t, f) evaluates c, then exactly
+        # one of t or f is evaluated.
         return the value defined for op over expr1, ..., exprN under μ
+    endif
     # op is an ordinary function: evaluate all arguments first.
     return op(evalFunction(expr1, μ), ..., evalFunction(exprN, μ))
 enddefine
-
 </pre>
         </div>
+        <div class="algorithm">
+          <pre class="nohighlight">
+define evalAggregate(AGGF, SEQ):
+@@
+    # AGGF is an aggregation function, which has an argument of a variable
+    # and a solution sequence. It returns an RDF term value.
+
+    # Noting that DISTINCT is only permitted for COUNT
+    # Special case COUNT(*).
+enddefine
+</pre>
+        </div>
+
+        <table class="simple">
+          <caption>Aggregation functions</caption>
+          <thead>
+            <tr>
+               <th style="text-align: center">Aggregation Function</th>
+               <th style="text-align: center">SPARQL equivalent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>COUNT</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggCount">SPARQL COUNT</a>
+                with <em>distinct</em> set `false`</td>
+            </tr>
+            <tr>
+              <td><code>COUNT DISTINCT</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggCount">SPARQL COUNT</a>
+                with <em>distinct</em> set `true`</td>
+            </tr>
+            <tr>
+              <td><code>MIN</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggMin">SPARQL MIN</a></td>
+            </tr>
+            <tr>
+              <td><code>MAX</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggMax">SPARQL MAX</a></td>
+            </tr>
+            <tr>
+              <td><code>SUM</code></td>
+              <td><a data-cite="SPARQL12-QUERY#aggSum">SPARQL SUM</a></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="ednote">
+          Any error in calculating an aggregate function causes an
+          evaluation error and that group is not added to the results.
+        </p>
+
       </section>
 
       <section id="eval-rule">
@@ -2052,11 +2290,22 @@ enddefine
           generate triples using the [=rule head=].
         </p>
         <p>
-          Blank nodes within [=triple patterns=] behave like variables.
+          Within the body of a rule, blank nodes in [=triple patterns=] behave like variables.
           This is compatible with
           <a data-cite="SPARQL12-QUERY#BGPsparql">SPARQL graph pattern matching</a>.
         </p>
-
+        <dl>
+          <dt><dfn data-lt="bnodes-as-variables">Treating blank nodes as variables</dfn></dt>
+          <dd>
+            Blank nodes are treated as variables within [=triple patterns=] of a
+            [=rule body=] by replacing each blank node by a variable which is
+            not used in the rule.
+            This includes replacing blank nodes inside [=triple terms=].
+            The same variable is used for each occurrence of
+            the same blank node, and a different variable is used for each
+            different blank node.
+          </dd>
+        </dl>
         <div class="algorithm">
           <pre class="nohighlight">
 # Evaluate rule body
@@ -2076,8 +2325,8 @@ define evalRuleElements(B, SEQ, G, GD):
             foreach <var>μ</var><sub>1</sub> in X:
                 foreach <var>μ</var><sub>2</sub> in SEQ:
                     if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>):
-                      <var>μ</var><sub>3</sub> = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                      add <var>μ</var><sub>3</sub> to SEQ1
+                        <var>μ</var><sub>3</sub> = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
+                        add <var>μ</var><sub>3</sub> to SEQ1
                     endif
                 endfor
             endfor
@@ -2087,7 +2336,7 @@ define evalRuleElements(B, SEQ, G, GD):
             SEQ1 = {}
             foreach solution <var>μ</var> in SEQ:
                 let x = evalFunction(F.expr, <var>μ</var>)
-                if EBV(x) is <var>true</var>:
+                if x is not an error and EBV(x) is <var>true</var>:
                     add <var>μ</var> to SEQ1
                 endif
             endfor
@@ -2108,20 +2357,52 @@ define evalRuleElements(B, SEQ, G, GD):
             endfor
         endif
 
-        if rElt is an assignment A:
+        if rElt is an assignment element A:
             SEQ1 = {}
             foreach solution <var>μ</var> in SEQ:
                 let x = evalFunction(A.expr, <var>μ</var>)
                 if x is not an error:
                     # Add mapping A.var -> x to solution μ
-                    let <var>μ2</var> be a solution mapping <var>μ</var> &cup; { (A.var, x) }
-                    add <var>μ2</var> to SEQ1
+                    let <var>μ<sub>2</sub></var> be a solution mapping <var>μ</var> &cup; { (A.var, x) }
+                    add <var>μ<sub>2</sub></var> to SEQ1
                 else:
                     # Error: drop solution <var>μ</var>
                 endif
             endfor
         endif
 
+        ## What about COUNT(*)?
+        if rElt is a group element GRP:
+            SEQ1 = {}
+            foreach solution <var>μ</var> in SEQ:
+                let <var>μ<sub>p</sub></var> be the restriction of <var>μ</var> to GRP.keys
+                let SEQX = evalRuleElements(GRP.pattern, { <var>μ<sub>p</sub></var> }, G, GD)
+                # Allocate solution mappings to groups.
+                let KGRP = empty map of solution mappings to solution sequences
+                foreach solution <var>μ<sub>x</sub></var> in SEQX:
+                    let <var>μ<sub>k</sub></var> be the restriction of <var>μ<sub>x</sub></var> to GRP.keys
+                    if KGRP[<var>μ<sub>k</sub></var>] is defined:
+                        add <var>μ<sub>x</sub></var> to the solution sequence KGRP[<var>μ<sub>k</sub></var>]
+                    else:
+                        KGRP[<var>μ<sub>k</sub></var>] = solution sequence of one element <var>μ<sub>x</sub></var>
+                    endif
+                endfor
+                # For each group, calculate the aggregate functions and extend
+                # the current solution mapping <var>μ</var> with the group keys
+                # and the results of the aggregation assignments.
+                foreach key K of map KGRP:
+                    let X be the solution sequence of KGRP[K]
+                    let Z be an empty solution mapping
+                    foreach aggregation function F in GRP.aggregations:
+                        let V = calculate F.function(X)
+                        add solution mapping (F.var, V) to Z
+                    endfor
+                    Z = merge(Z, K)
+                    Z = merge(Z, <var>μ</var>)
+                    add Z to SEQ1
+                endfor
+            endfor
+        endif
         SEQ = SEQ1
     endfor
 
@@ -2133,14 +2414,10 @@ define evalRule(R, G, GD):
         R is a well-formed rule
         G and GD are RDF graphs
     let B be R.body
-        where each blank node in a triple pattern in R.body
-        is replaced by a variable which is not used in the rule.
-        The same variable is used for each occurrence of the
-        same blank node, and a different variable is used for
-        each different blank node.
+        treating <a href="#dfn-bnodes-as-variables">blank nodes as variables</a>.
 
     # Solution sequence of one solution that does not map any variables.
-    let SEQ0: Solution sequence = { <var>μ</var><sub>0</sub> }
+    let SEQ0 be the solution sequence { <var>μ</var><sub>0</sub> }
 
     if R.evaldata:
         let SEQ = evalRuleElements(B, SEQ0, G, GD)
@@ -2154,9 +2431,9 @@ define evalRule(R, G, GD):
         let S = {}
         # Rule head with each blank node replaced by a fresh blank node
         let HT = replaceBlankNodes(R.head)
-        foreach triple template TT in HT
+        foreach triple template TT in HT:
             let triple = subst(<var>μ</var>, TT)
-            Add triple to S
+            add triple to S
         endfor
         OUT = OUT &cup; S
     endfor
@@ -2191,7 +2468,7 @@ let LS be the sequence of layers after stratification
 # Inference graph
 let GI = { t &isin; D | t &notin; G0 }
 
-# Evaluation graph and data blocks
+# Evaluation graph: base graph and data blocks
 let GE = G0 &cup; D
 
 foreach stratum ST in LS:
@@ -2673,16 +2950,18 @@ the result is GI
 
       <p>
         A <dfn data-lt="SRL document">SPARQL-RL document</dfn>
-        is an [=RDF string=] encoded in UTF-8 [[!RFC3629]] and starting with the
-        <a href="#rRuleSet"><code>RuleSet</code></a>
-        production and conforming to the additional constraints defined in
-        <a href="#grammar" class="sectionRef"></a>.
-        Only <a data-cite="I18N-GLOSSARY#dfn-scalar-value" class="lint-ignore">Unicode scalar values</a>,
+        is an [=RDF string=], encoded in UTF-8 [[!RFC3629]],
+        and that conforms to the grammar and
+        additional constraints defined in
+        <a href="#grammar" class="sectionRef"></a>. Only
+        <a data-cite="I18N-GLOSSARY#dfn-scalar-value" class="lint-ignore">Unicode scalar values</a>,
         in the ranges <code class="codepoint">U+0000</code> to <code class="codepoint">U+D7FF</code>
         and <code class="codepoint">U+E000</code> to <code class="codepoint">U+10FFFF</code>,
-        are allowed. This excludes
+        are allowed.
+        This excludes
         <a data-cite="I18N-GLOSSARY#dfn-surrogate" class="lint-ignore">surrogate code points</a>,
-        range <code class="codepoint">U+D800</code> to <code class="codepoint">U+DFFF</code>.
+        the range <code class="codepoint">U+D800</code> to
+        <code class="codepoint">U+DFFF</code>.
       </p>
 
       <section id="version-announcement">
@@ -2707,12 +2986,13 @@ the result is GI
         </table>
 
         <p>
-          The version announcement SHOULD be made early in the document.
+          The version announcement is a hint. It should be made early in the
+          document and before any feature depending on that version.
         </p>
 
         <p>
           Multiple <a href="#rVersionDecl"><code>VERSION</code></a> directives
-          may appear in a [=SPARQL-RL document=].
+          can appear in a [=SPARQL-RL document=].
           Each directive applies to the part of the document following the directive,
           until another directive is encountered or the end of the document is reached.
         </p>
@@ -2730,8 +3010,9 @@ the result is GI
         <p>
           White space
           (production <a href="#rWS"><code>WS</code></a>) is used
-          to separate two terminals that would otherwise be (mis-)recognized as one
-          terminal. Rule names below in capitals indicate where white space is
+          to separate two terminals that would otherwise be incorrectly
+          recognized as one terminal.
+          Rule names in capitals below indicate where white space is
           significant; these form a possible choice of terminals for constructing a
           SPARQL-RL parser.
         </p>
@@ -2977,13 +3258,13 @@ the result is GI
             </li>
             <li>
               Keywords are case-insensitive except for
-              '<code class="grammar-literal">a</code>'
+              '<code class="grammar-literal">a</code>',
               which is case-sensitive.
             </li>
             <li>
               Escape sequences <a href="#rUCHAR"><code>UCHAR</code></a>
               and <a href="#rECHAR"><code>ECHAR</code></a>
-              are case sensitive.
+              are case-sensitive.
             </li>
             <li>
               Variables are not allowed in a <a href="#rDataTriplesBlock">`DATA`</a> block.
@@ -3001,8 +3282,8 @@ the result is GI
         <div data-include="sparql-rl-grammar.html"></div>
 
         <p>
-          A text version of this grammar is available
-          <a href="sparql-rl-grammar.bnf">here</a>.
+          A text version of this grammar is available in
+           <code><a href="sparql-rl-grammar.bnf">sparql-rl-grammar.bnf</a></code>.
         </p>
 
       </section>
@@ -3010,10 +3291,10 @@ the result is GI
       <section id="terminal-literal-strings">
         <h3>Selected Terminal Literal Strings</h3>
         <p>
-          This document uses some specific terminal literal strings
+          This document uses some terminal literal strings
           [[EBNF-NOTATION]]. To clarify the Unicode code points used for these
-          terminal literal strings, the following table describes specific
-          characters used in this section.
+          terminal literal strings, the following table describes the specific
+          characters used.
         </p>
         <table class="cp-definitions">
           <thead>
@@ -3049,6 +3330,15 @@ the result is GI
         </table>
       </section>
 
+    </section>
+
+    <section id="translate-srl-sparql" class="appendix">
+      <h2>Translation of SPARQL-RL to SPARQL</h2>
+      <div class="issue" data-number="1303">
+        <p>
+          Provide an algorithm to show a translation of SPARQL-RL to SPARQL Query.
+        </p>
+      </div>
     </section>
 
     <section id="alg-imports" class="appendix informative">
@@ -3178,8 +3468,7 @@ result is imports(RS)
               <dt>Base URI:</dt>
               <dd>
                 The SPARQL-RL 'BASE &lt;IRIref&gt;' term can change the
-                current base URI for relative IRIrefs in the language that
-                are used later in the document.
+                current base URI for resolving IRIrefs in the language.
               </dd>
             </dl>
           </dd>
@@ -3210,7 +3499,7 @@ result is imports(RS)
         those documents are also imported.
       </p>
       <p>
-        While useful to modularize [=rule sets=], the use of `IMPORTS` statements can
+        While useful for modularizing [=rule sets=], the use of `IMPORTS` statements can
         introduce security risks.
         Risks include, but are not limited to, [=rule sets=]
         causing excessive computation, whether maliciously or accidentally, while being evaluated;
@@ -3267,7 +3556,7 @@ result is imports(RS)
         The following people contributed to the development of SPARQL-RL in the
         rules task force of the Data Shapes Working Group:
         Robert David, David Habgood, Livio Robaldo, Ognjen Savkovic,
-        Simon Steyskal, Ted Thibodeau Jr, and Andy Seaborne.
+        Andy Seaborne, Simon Steyskal, and Ted Thibodeau Jr.
       </p>
       <p>Members of the Data Shapes Working Group included @@.</p>
 

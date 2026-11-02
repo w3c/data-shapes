@@ -1,0 +1,73 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sparql: <http://www.w3.org/ns/sparql#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Derived triples are deleted at the end of their layer, except those that a rule has also inferred.
+# The rule here copies the derived ex:area triple into the inferences, so it must survive.
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:RectangleShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:property ex:RectangleShape-area ;
+	sh:rule ex:Rectangle-keepArea .
+
+ex:RectangleShape-area
+	a sh:PropertyShape ;
+	sh:path ex:area ;
+	sh:values [
+		sparql:multiply ( [ shnex:pathValues ex:width ] [ shnex:pathValues ex:height ] )
+	] .
+
+ex:Rectangle-keepArea
+	a sh:SPARQLRule ;
+	sh:expectedPredicate ex:area ;
+	sh:prefixes ex: ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:area ?area .
+		}
+		WHERE {
+			$this ex:area ?area .
+		}
+		""" .
+
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:width 4 ;
+	ex:height 5 .
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <expectedPredicate-also-inferred>
+    ) .
+
+<expectedPredicate-also-inferred>
+  rdf:type sht:Infer ;
+  rdfs:label "Test that a derived triple is kept at the end of its layer when a rule has also inferred it" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-inference-rules/#expectedPredicate> ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:InferenceRules ;
+  mf:result (
+    ( ex:ExampleRectangle ex:area 20 )
+  ) ;
+  mf:status sht:approved ;
+  sht:compliance sht:SPARQL, sht:NodeExpr ;
+.

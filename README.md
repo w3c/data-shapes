@@ -4,50 +4,45 @@
 
 This repository is the working space of the [W3C's Data Shapes Working Group](https://www.w3.org/groups/wg/data-shapes/). 
 
-The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/shacl/) recommendations, as per the [WG's Charter](https://www.w3.org/2024/12/data-shapes.html).
+The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/shacl/) recommendations - 1.2 series - as per the [WG's Charter](https://www.w3.org/2024/12/data-shapes.html).
 
-## Deliverables:
+## Deliverables
 
-#### Phase 1, prioritised until July 2025.
-
-##### Public Working Drafts
+### Recommendations Editor's drafts
 
 * [SHACL 1.2 Core](https://w3c.github.io/data-shapes/shacl12-core/)
 * [SHACL 1.2 SPARQL Extensions](https://w3c.github.io/data-shapes/shacl12-sparql/)
-
-##### Editor's draft
-
 * [SHACL 1.2 Node Expressions](https://w3c.github.io/data-shapes/shacl12-node-expr/)
-
-#### Phase 2, now in progress since July 2025:
-
-##### Editor's drafts
-
-* [SHACL 1.2 Overview](https://w3c.github.io/data-shapes/shacl12-overview/)
-* [SHACL 1.2 UI](https://w3c.github.io/data-shapes/shacl12-ui/)
-* [SHACL 1.2 Compact Syntax](https://w3c.github.io/data-shapes/shacl12-cs/)
+* [SHACL 1.2 Inference Rules](https://w3c.github.io/data-shapes/shacl12-inf-rules/)
+* [SHACL 1.2 User Interfaces](https://w3c.github.io/data-shapes/shacl12-ui/)
 * [SHACL 1.2 Profiling](https://w3c.github.io/data-shapes/shacl12-profiling/)
 * [SPARQL 1.2 RL](https://w3c.github.io/data-shapes/sparql12-rl/)
 
-All of the above specifications are drafts that are automatically rebuilt on pushes to this repository.
+### Note Editor's drafts
 
-#### Previous WG & Community Group Deliverables
+* [SHACL 1.2 Overview](https://w3c.github.io/data-shapes/shacl12-overview/)
 
-##### Recommendations
+### Abandoned
+
+* [SHACL 1.2 Compact Syntax](https://w3c.github.io/data-shapes/shacl12-cs/)
+
+## Previous WG & Community Group Deliverables
+
+### Recommendations
 
 * [SHACL](https://www.w3.org/TR/shacl/)
 
-##### WG Notes
+### WG Notes
 
 * [SHACL Use Cases and Requirements](https://www.w3.org/TR/shacl-ucr/)
 * [SHACL Advanced Features](https://www.w3.org/TR/shacl-af/)
 * [SHACL JavaScript Extensions](https://www.w3.org/TR/shacl-js/)
 
-##### Test Suites
+### Test Suites
 
 * [SHACL Test Suite and Implementation Report](https://w3c.github.io/data-shapes/data-shapes-test-suite/)
 
-##### Community Drafts
+### Community Drafts
 
 * [SHACL Compact Syntax](https://w3c.github.io/shacl/shacl-compact-syntax/)
 

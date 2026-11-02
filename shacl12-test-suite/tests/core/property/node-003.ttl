@@ -1,0 +1,71 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:Alice
+  ex:address ex:Address1 ;
+.
+ex:Address1
+  ex:zip "12345" ;
+.
+ex:Bob
+  ex:address ex:Address2 ;
+.
+ex:Address2
+  ex:city "Nowhere" ;
+.
+ex:AddressShape
+  rdf:type sh:NodeShape ;
+  rdfs:comment "Has a target that matches no node; its value nodes via sh:node are validated anyway" ;
+  sh:property ex:AddressShape-zip ;
+  sh:targetClass ex:Unrelated ;
+.
+ex:AddressShape-zip
+  sh:path ex:zip ;
+  sh:minCount 1 ;
+.
+ex:PersonShape
+  rdf:type sh:NodeShape ;
+  sh:property ex:PersonShape-address ;
+  sh:targetNode ex:Alice ;
+  sh:targetNode ex:Bob ;
+.
+ex:PersonShape-address
+  sh:path ex:address ;
+  sh:node ex:AddressShape ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <node-003>
+    ) ;
+.
+<node-003>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:node at property shape 003, where the targets of the referenced shape are ignored for the value nodes" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:Core ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:Bob ;
+          sh:resultPath ex:address ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraintComponent sh:NodeConstraintComponent ;
+          sh:sourceShape ex:PersonShape-address ;
+          sh:value ex:Address2 ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.
