@@ -1356,12 +1356,8 @@ ex:config a shui:Configuration ;
           matches and the widget is accepted according to its `shui:WidgetAcceptMatcher` instances.
         </p>
         <p>
-          A widget can also be attached to a shape directly, using `shui:editor` or `shui:viewer`. Such a widget
-          takes part in scoring like any other: the scoring graph is expected to contain a `shui:WidgetScore`
-          whose `shui:shapesGraphShape` matches shapes that declare the widget in this way.
-          <a href="#scoring-algorithm-scoring-graph-preparation">Scoring graph preparation</a> supplies such a
-          `shui:WidgetScore` for declared widgets that have none, so that a widget attached to a shape is never
-          silently ignored.
+          A shape can also pin a widget with `shui:editor` or `shui:viewer`. How pinned widgets and the scoring system
+          together determine the widget for a <a>value node</a> is described in <a href="#widget-selection">Widget Selection</a>.
         </p>
       </section>
 
@@ -1390,10 +1386,7 @@ ex:config a shui:Configuration ;
           <tbody>
             <tr>
               <td><strong>40</strong></td>
-              <td>The shape explicitly declares this widget with `shui:editor` or `shui:viewer`. This is also the default
-                value of `shui:defaultWidgetScore` used by <a href="#scoring-algorithm-scoring-graph-preparation">scoring
-                graph preparation</a> for a declared widget that has no `shui:WidgetScore` of its own, so a declared widget
-                always competes at the top of the ladder.
+              <td>The shape pins this widget with `shui:editor` or `shui:viewer`.
               </td>
             </tr>
             <tr>
@@ -1440,123 +1433,6 @@ ex:config a shui:Configuration ;
           negative score.
         </p>
       </section>
-
-      <section id="scoring-algorithm-scoring-graph-preparation">
-        <h3>Scoring Graph Preparation</h3>
-        <p>
-          A widget can be attached to a shape directly, with `shui:editor` or `shui:viewer`, without the
-          <strong>scoring graph</strong> saying anything about that widget. Scoring graph preparation extends the
-          <strong>scoring graph</strong> with a `shui:WidgetScore` for each such widget, so that it participates in
-          the <a href="#scoring-algorithm-score-function">score function</a> like any other widget.
-        </p>
-        <p>
-          A scoring graph MUST be prepared by this function before it is passed to the
-          <a href="#scoring-algorithm-score-function">score function</a>. Without preparation, a widget that is only
-          attached to a shape with `shui:editor` or `shui:viewer` is never returned.
-        </p>
-        <p>
-          Inputs:
-        </p>
-        <ul>
-          <li><strong>Shapes graph</strong> — The RDF graph containing the SHACL shapes.</li>
-          <li><strong>Scoring graph</strong> — The RDF graph containing the `shui:WidgetMatcher` definitions
-            (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`).
-          </li>
-        </ul>
-        <p>Output:</p>
-        <ul>
-          <li>A <strong>prepared scoring graph</strong> — the <strong>scoring graph</strong> extended with a
-            `shui:WidgetScore` for each explicitly declared widget that has none.
-          </li>
-        </ul>
-        <p>Steps:</p>
-        <ol>
-          <li>Initialize the <strong>prepared scoring graph</strong> as a copy of the <strong>scoring graph</strong>.</li>
-          <li>Let <code>D</code> be the value of the <a>global configuration</a> property `shui:defaultWidgetScore`.
-            If no such value is given, let <code>D</code> be <code>40</code>, which is the score conventionally used by the
-            `shui:WidgetScore` instances of the <a href="#builtin-widgets">built-in widgets</a> that match an explicitly
-            declared widget.
-          </li>
-          <li>For each property <code>P</code> in <code>shui:editor</code> and <code>shui:viewer</code>
-            <ol>
-              <li>Collect the set of IRI <a>values</a> <code>W</code> of the property <code>P</code> of the <a>shapes</a> in the
-                <strong>shapes graph</strong>. These are the widgets that are explicitly declared on a shape. A value of
-                <code>P</code> at a node that is not a shape does not declare a widget and is ignored. A value of
-                <code>P</code> that is not an IRI is also ignored: a widget is identified by an IRI, and a non-IRI value
-                such as a blank node cannot be matched reliably with `sh:hasValue` across graphs.
-              </li>
-              <li>For each <code>W</code>
-                <ol>
-                  <li>If the <strong>scoring graph</strong> contains an instance of `shui:WidgetScore` whose `shui:widget`
-                    value is <code>W</code>, continue with the next <code>W</code>. The <strong>scoring graph</strong>
-                    already defines how <code>W</code> is scored.
-                  </li>
-                  <li>Otherwise, add an instance of `shui:WidgetScore` to the <strong>prepared scoring graph</strong> with
-                    the following:
-                    <ul>
-                      <li><code>W</code> as `shui:widget`.</li>
-                      <li><code>D</code> as `shui:score`.</li>
-                      <li>As `shui:shapesGraphShape`, a `sh:NodeShape` with a single property shape whose `sh:path` is
-                        <code>P</code> and whose `sh:hasValue` is <code>W</code>.
-                      </li>
-                    </ul>
-                  </li>
-                </ol>
-              </li>
-            </ol>
-          </li>
-          <li>Return the <strong>prepared scoring graph</strong>.</li>
-        </ol>
-        <aside class="example" title="A widget score added by scoring graph preparation">
-          <div class="shapes-graph">
-            <div class="turtle">
-ex:PersonShapeName
-    a sh:PropertyShape ;
-    sh:path ex:name ;
-    shui:editor ex:MyCustomEditor ;
-.
-            </div>
-          </div>
-          <p>
-            The scoring graph says nothing about <code>ex:MyCustomEditor</code>, so preparation adds the following
-            <code>shui:WidgetScore</code>, which matches exactly those shapes that declare that widget with
-            <code>shui:editor</code>:
-          </p>
-          <div class="scoring-graph">
-            <div class="turtle">
-[]  a shui:WidgetScore ;
-    shui:widget ex:MyCustomEditor ;
-    shui:score 40 ;
-    shui:shapesGraphShape [
-        a sh:NodeShape ;
-        sh:property [
-            sh:path shui:editor ;
-            sh:hasValue ex:MyCustomEditor ;
-        ] ;
-    ] ;
-.
-            </div>
-          </div>
-        </aside>
-        <p class="ednote">
-          The <a>global configuration</a> is defined by
-          <a href="https://github.com/w3c/data-shapes/pull/900">PR #900</a>, which is not merged yet.
-          Add `shui:defaultWidgetScore` to its property table once it is.
-        </p>
-        <p class="note">
-          Scoring graph preparation depends only on the <strong>shapes graph</strong> and the <strong>scoring graph</strong>,
-          not on a focus node or a shape node. It is therefore the same for every call of the score function over those two
-          graphs, and implementations MAY perform it once and reuse the result. Applying it to an already prepared scoring
-          graph makes no further changes.
-        </p>
-        <p class="note">
-          A widget that the <strong>scoring graph</strong> already scores is left untouched, even when the existing
-          `shui:WidgetScore` instances do not cover the declared case. A scoring graph that scores a widget is expected to
-          also define how that widget is scored when a shape declares it, conventionally with a `shui:WidgetScore` whose
-          `shui:shapesGraphShape` tests the `shui:editor` or `shui:viewer` property.
-        </p>
-      </section>
-
 
       <section id="scoring-algorithm-validation-function">
         <h3>Validation Function</h3>
@@ -1662,8 +1538,7 @@ ex:PersonShapeName
           <li><strong>Shape node</strong> — The SHACL shape IRI.</li>
           <li><strong>Shapes graph</strong> — The RDF graph containing the list of SHACL shapes.</li>
           <li><strong>Scoring graph</strong> — The RDF graph containing the `shui:WidgetMatcher` definitions
-            (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`). It MUST be a scoring graph that has been prepared
-            according to <a href="#scoring-algorithm-scoring-graph-preparation">scoring graph preparation</a>.
+            (`shui:WidgetScore` and `shui:WidgetAcceptMatcher`).
           </li>
         </ul>
         <p>Output:</p>
@@ -1783,19 +1658,6 @@ ex:PersonShapeName
         </ol>
       </section>
 
-      <section id="scoring-algorithm-widget-selection">
-        <h3>Widget Selection</h3>
-        <p>
-          The widget with the highest score SHOULD be selected as the default widget from the Scoring Algorithm results.
-          Implementations MAY allow users to switch to any widget included in the results.
-        </p>
-        <p>
-          Since multiple score entries may reference the same widget,
-          a post-processing step SHOULD be performed to normalize the score results (for example,
-          by aggregating or de-duplicating entries by widget) before presenting the widget choices to the user.
-        </p>
-      </section>
-
       <section id="scoring-algorithm-widget-score-validation">
         <h3>Widget Matcher Validation</h3>
         <p>
@@ -1816,6 +1678,39 @@ ex:PersonShapeName
 
     </section>
 
+    <section id="widget-selection">
+      <h2>Widget Selection</h2>
+      <p>
+        A shape can pin a widget with `shui:editor` or `shui:viewer`. A shape has at most one value for `shui:editor`
+        and at most one for `shui:viewer`.
+      </p>
+      <p>
+        If a shape pins a widget, the <a>SHACL Renderer</a> MUST check for each <a>value node</a> whether it implements
+        the pinned widget and whether the pinned widget is accepted, using the
+        <a href="#scoring-algorithm-accept-function">accept function</a>. If both hold, the <a>SHACL Renderer</a> MUST
+        select the pinned widget for that <a>value node</a>, and no widget score can rank above it.
+      </p>
+      <p>
+        If the <a>SHACL Renderer</a> doesn't implement the pinned widget, or the pinned widget is not accepted, the
+        <a>SHACL Renderer</a> MUST NOT use it for that <a>value node</a>. The <a>SHACL Renderer</a> SHOULD then select a
+        widget with the <a href="#scoring-system">scoring system</a>, as if the shape didn't pin a widget. If the
+        <a>SHACL Renderer</a> doesn't fall back to the scoring system, it MUST make clear to the end user, the person
+        viewing or editing the data through the user interface generated by the <a>SHACL Renderer</a>, that the value
+        can't be shown or edited with the widget the shape requires.
+      </p>
+      <p>
+        If a shape doesn't pin a widget, the <a>SHACL Renderer</a> MUST select a widget with the scoring system. The
+        widget with the highest score SHOULD be selected.
+      </p>
+      <p>
+        A <a>SHACL Renderer</a> MAY use the scoring system to offer the end user alternative widgets for a
+        <a>value node</a>, including when the pinned widget is selected. The pinned widget remains the selected widget
+        until the end user chooses another one. Since multiple score entries may reference the same widget, a
+        post-processing step SHOULD be performed to normalize the score results (for example, by aggregating or
+        de-duplicating entries by widget) before presenting the widget choices to the end user.
+      </p>
+    </section>
+
     <section id="widgets">
       <h2>Widgets</h2>
 
@@ -1825,9 +1720,10 @@ ex:PersonShapeName
         <h3>Editors</h3>
         <p>
           The following sub-sections enumerate the currently defined instances of <code>shui:Editor</code> from the SHACL UI namespace.
-          Property shapes can explicitly specify the preferred editor for its values using <code>shui:editor</code>.
-          If no such value has been specified, the system should pick a suitable default viewer based on the
-          <a href="#scoring-system">scoring system</a> outlined for each widget.
+          Property shapes can pin the editor for their values using <code>shui:editor</code>.
+          If no such value has been specified, the system should pick a suitable default editor based on the
+          <a href="#scoring-system">scoring system</a> outlined for each widget, as described in
+          <a href="#widget-selection">Widget Selection</a>.
         </p>
       </section>
 
@@ -1835,9 +1731,10 @@ ex:PersonShapeName
         <h3>Viewers</h3>
         <p>
           The following sub-sections enumerate the currently defined instances of <code>shui:Viewer</code> from the SHACL UI namespace.
-          A property shape can have an explicitly specified preferred viewer for its values in <code>shui:viewer</code>.
+          Property shapes can pin the viewer for their values using <code>shui:viewer</code>.
           If no such value has been specified, the system should pick a suitable default viewer based on the
-          <a href="#scoring-system">scoring system</a> outlined for each widget.
+          <a href="#scoring-system">scoring system</a> outlined for each widget, as described in
+          <a href="#widget-selection">Widget Selection</a>.
         </p>
         <p id="multi">
           Most viewers render a single RDF value on the screen, typically as a single widget.
