@@ -1633,12 +1633,6 @@ ex:MyShape-myProperty2
 						on a <a>reifier</a> for a triple where the <a>shape</a> is the <a>subject</a> and one of the <a>parameters</a>
 						of the <a>constraint</a> is the <a>predicate</a>.
 					</p>
-					<p class="syntax">
-						<span data-syntax-rule="message-reifier-maxCount">
-						Let `T` be the set of <a>triples</a> that represent a <a>constraint</a> in a <a>shape</a>.
-						A <a>shapes graph</a> can specify at most one <a>value</a> for the property `sh:message`
-						in the <a>reifiers</a> of the <a>triples</a> in `T`.
-					</span></p>
 					<p><em>The remainder of this section is non-normative.</em></p>
 					<p>
 						See the <a href="#results-message">section on `sh:resultMessage` in the validation results</a>
@@ -2325,6 +2319,30 @@ ex:CompanyShape
 				</aside>
 			</section>
 
+			<section id="sh-data-graph">
+				<h3>Linking shapes graphs to data graphs (sh:dataGraph)</h3>
+				<p class="syntax">
+					A <a>shapes graph</a> can include triples used to suggest one or more <a>data graphs</a> to a SHACL processor with the predicate `sh:dataGraph`.
+					<span data-syntax-rule="dataGraph-nodeKind">Every <a>value</a> of `sh:dataGraph` is an <a>IRI</a></span> representing a graph that the <a>shapes graph</a> is intended to validate.
+					A SHACL processor MAY use these values to determine the <a>data graph</a> when none is provided explicitly.
+					Unlike for `sh:shapesGraph`, `owl:imports` statements in the graphs referenced by `sh:dataGraph` are not followed,
+					consistent with the treatment of `owl:imports` in <a href="#data-graph">data graphs</a>.
+				</p>
+				<p>
+					In the following example, the shapes graph states that it is intended to validate the data graph `ex:bridges-2026`.
+				</p>
+
+				<aside class="example" title="Using sh:dataGraph to link to a data graph from a shapes graph">
+					<div class="shapes-graph">
+						<div class="turtle">
+&lt;http://example.com/myShapesGraph&gt;
+    a sh:ShapesGraph ;
+    sh:dataGraph ex:bridges-2026 .
+						</div>
+					</div>
+				</aside>
+			</section>
+
 			<section id="validation-definition">
 				<h3>Validation</h3>
 				<p>
@@ -2546,6 +2564,27 @@ ex:CompanyShape
 						</div>
 					</div>
 				</aside>
+
+				<p>
+					A validation report MAY optionally provide information on shape assignments to focus nodes. 
+					The following graph represents an example of a validation report for the validation of a data graph that provides shape assignment information.
+				</p>
+				<aside class="example" title="Example of a validation report providing shape assignment information">
+					<div class="results-graph">
+						<div class="turtle">
+[	a sh:ValidationReport ;
+	sh:conforms true ;
+	sh:nodeAssignmentCount 1 ;
+	sh:assignment [
+		a sh:ShapeAssignment ;
+		sh:focusNode ex:Bob ;
+		sh:sourceShape ex:PersonShape-age ;
+	]
+] .
+						</div>
+					</div>
+				</aside>
+
 				<p>
 					SHACL-compliant processors MAY be capable of returning a <a>results graph</a> containing a <a>validation report</a>
 					linked to additional items described in <a data-cite="shacl12-profiling#vocabulary">SHACL 1.2 Profiling's vocabulary</a>.
@@ -2643,6 +2682,26 @@ ex:CompanyShape
 							maximum recursion depth, or other runtime parameters.
 						</p>
 					</section>
+					<section id="nodeAssignmentCount"><!-- ISSUE-1221 -->
+						<h5>Node Assignment Count (sh:nodeAssignmentCount)</h5>
+						<p>
+							A validation report MAY contain one value for the property <code>sh:nodeAssignmentCount</code>.
+							The value MUST be equal to the total number of shape assignments of a <a>shape</a> to a <a>focus node</a> 
+							declared or produced by a <a href="#targets">target declaration</a>.
+						</p>
+						<p class="informative">
+							For example, target declarations of <a href="#targetNode"><code>sh:targetNode</code></a> directly specify the target nodes, 
+							whereas the target nodes of a <a href="#targetClass"><code>sh:targetClass</code></a> target declaration are the <a>SHACL instances</a> of the specified class. 
+						</p>
+					</section>
+					<section id="assignment"><!-- ISSUE-1221 -->
+						<h5>Assignment (sh:assignment)</h5>
+						<p>
+							A validation report MAY contain values for the property <code>sh:assignment</code>.
+							If it does, it MUST provide one value for every pair of <a>shape</a> and <a>focus node</a> declared or produced by a <a href="#targets">target declaration</a>. 
+							Each value of <code>sh:assignment</code> is a <a>SHACL instance</a> of the class <code>sh:ShapeAssignment</code>. 
+						</p>
+					</section>
 				</section>
 
 				<section id="results-validation-result">
@@ -2735,6 +2794,13 @@ ex:CompanyShape
 						</ol>
 					</section>
 				</section>
+				<section id="results-shape-assignment"><!-- ISSUE-1221 -->
+					<h4>Validation Details (sh:ShapeAssignment)</h4>
+					<p>
+						SHACL defines <code>sh:ShapeAssignment</code> to report individual assigmments of a <a>focus node</a> to a <a>shape</a>.
+						Each instance of <code>sh:ShapeAssignment</code> MUST have exactly one value for the property <code>sh:focusNode</code>
+						and exactly one value for the property <code>sh:sourceShape</code>. 
+						<code>sh:ShapeAssignment</code> is disjoint with <code>sh:ValidationResult</code>.
 
 				<section id="incomplete-data">
 					<h3>Incomplete Data</h3>
@@ -6876,6 +6942,7 @@ ex:NameGroup
 				<li>Individual constraints can now declare their own <a href="#severity">`sh:severity`</a>, <a href="#message">`sh:message`</a> and <a href="#deactivated">`sh:deactivated`</a> using reification of the triples that hold their parameters</li>
 				<li>Added the properties <a href="#usedDataGraph">`sh:usedDataGraph`</a>, <a href="#usedShapesGraph">`sh:usedShapesGraph`</a> and <a href="#usedConfiguration">`sh:usedConfiguration`</a> and the class <a href="#processorConfiguration">`sh:ProcessorConfiguration`</a> to the validation report</li>
 				<li>Added the property <a href="#conformsToShapesGraph">`sh:conformsToShapesGraph`</a> for data graphs</li>
+				<li>Added the property <a href="#sh-data-graph">`sh:dataGraph`</a> to link shapes graphs to the data graphs they are intended to validate</li>
 				<li>Added the node kind `sh:TripleTerm` to <a href="#NodeKindConstraintComponent">`sh:nodeKind`</a></li>
 				<li>Added the new constraint component <a href="#MemberShapeConstraintComponent">`sh:memberShape`</a></li>
 				<li>Changed the meaning of <a href="#name">`sh:name` and `sh:description`</a>: they now name and describe the defining characteristic of a shape, i.e. the property path of a property shape or the kind of resource targeted by a node shape, rather than the shape itself</li>
