@@ -602,8 +602,8 @@
           Rules with a [=group element=] are [=run-once rules=].
         </p>
         <p>
-          A [=group element=] processes each solution sequence
-          of preceding rule elements by taking only the bindings
+          A [=group element=] processes each solution of the solution sequence
+          of the preceding rule elements by taking only the bindings
           for the [=group keys=], evaluating the [=group pattern=],
           and then grouping the solution mappings using the [=group keys=].
         </p>
@@ -2270,26 +2270,13 @@ enddefine
           Each [=aggregation function=] is calculated by the corresponding
           <a data-cite="SPARQL12-QUERY#setFunctions">SPARQL set function</a>,
           as given in the table below.
-          `evalAggregate` builds the argument to the set function from the
-          [=solution sequence=] of the group, and applies the
-          [=distinct flag=], following the
+          `evalAggregate` builds the argument to the set function by
+          applying the [=aggregation argument=] to each [=solution mapping=]
+          of the group, using `evalFunction` of
+          <a href="#eval-expression" class="sectionRef"></a>,
+          and then applies the [=distinct flag=], following the
           <a data-cite="SPARQL12-QUERY#defn_algAggregation">SPARQL
           <code>Aggregation</code></a> definition.
-          The operations used are those of
-          <a data-cite="SPARQL12-QUERY#aggregateAlgebra">SPARQL aggregate
-          algebra</a>:
-          <a data-cite="SPARQL12-QUERY#defn_Card"><code>Card</code></a>
-          is the cardinality of a sequence;
-          <a data-cite="SPARQL12-QUERY#defn_ListEval"><code>ListEval</code></a>,
-          for a one element list of a [=variable=] <var>V</var> and a
-          [=solution mapping=] <var>μ</var>, is the one element list
-          <code>(<var>μ</var>(<var>V</var>))</code>, or
-          <code>(error)</code> if <var>V</var> is not in
-          <code>dom(<var>μ</var>)</code>;
-          <code>Dedup</code> removes duplicate lists from a sequence of lists;
-          and
-          <a data-cite="SPARQL12-QUERY#defn_algDistinct"><code>Distinct</code></a>
-          removes duplicate [=solution mappings=].
         </p>
         <p>
           A SPARQL set function takes a sequence of lists, whereas a
@@ -2311,17 +2298,25 @@ define evalAggregate(AGGF, SEQ):
         # COUNT(*) and COUNT(DISTINCT *) count solution mappings.
         # There is no argument value to calculate.
         if AGGF.distinct:
-            return Card(Distinct(SEQ))
+            let n = the number of distinct solution mappings in SEQ
+        else:
+            let n = the number of solution mappings in SEQ
         endif
-        return Card(SEQ)
+        return n as an xsd:integer
     endif
 
     # AGGF.argument is a variable.
-    # M is a sequence of one element lists, one list for each solution
-    # mapping of SEQ, in any order, retaining duplicates.
-    let M = [ ListEval((AGGF.argument), <var>μ</var>) | <var>μ</var> in SEQ ]
+    # Apply the aggregation argument to each solution mapping of SEQ,
+    # retaining duplicates. A SPARQL set function takes a sequence of
+    # lists, so each element of M is a list of one value.
+    let M = empty sequence
+    foreach solution <var>μ</var> in SEQ:
+        # By well-formedness, AGGF.argument &isin; dom(<var>μ</var>).
+        let x = evalFunction(AGGF.argument, <var>μ</var>)
+        add the one element list (x) to M
+    endfor
     if AGGF.distinct:
-        M = Dedup(M)
+        M = the sequence M with duplicate lists removed
     endif
     let F = the SPARQL set function for AGGF.name
     return F(M)
@@ -2467,10 +2462,10 @@ define evalRuleElements(B, SEQ, G, GD):
 
                 # Allocate solution mappings to groups.
                 let KGRP = empty map of solution mappings to solution sequences
-                # The case of no BY. There is always one group key which 
-                # is the empty solution mapping, <var>μ<sub>0</sub><var>.
+                # The case of no BY. There is always one group key which
+                # is the empty solution mapping, <var>μ<sub>0</sub></var>.
                 if GRP.keys is empty:
-                    KGRP[<var>μ<sub>0</sub><var>] = empty solution sequence
+                    KGRP[<var>μ<sub>0</sub></var>] = empty solution sequence
                 endif
                 # Accumulate groups
                 foreach solution <var>μ<sub>x</sub></var> in SEQX:
