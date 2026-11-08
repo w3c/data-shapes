@@ -1258,12 +1258,30 @@
           has a value at the point of evaluation;
           and that each
           [=assignment variable=] and [=aggregation variable=]
-          in a rule is new and is not in use at that point.
+          in a rule is new.
+          Variable names are not reused in a rule: a name that has been used
+          in one part of a rule is not set again in another part,
+          whether at the top level of the [=rule body=],
+          a [=negation element body=], or a [=group pattern=].
         </p>
         <p>
-          In a [=well-formed rule=], the set of [=variables=] in-scope
-          as calculated by <var>vars</var> is the same as the domain of every
+          In a [=well-formed rule=], the set of [=variables=] <i>in-scope</i>, calculated by
+          <var>inScope</var>, is the same as the domain of every
           [=solution mapping=] that arises during evaluation.
+        </p>
+        <p>
+          The set of [=variables=] <i>in-use</i>, calculated by <var>inUse</var>,
+          is the set of variables that have been used in the rule but which
+          do not have a value at the point in question.
+          The variables used in a [=negation element body=] or a
+          [=group pattern=] are not in-scope outside it.
+          A [=group pattern=] is also connected to the enclosing sequence of
+          [=rule elements=] only by its [=group keys=], so the other
+          [=variables=] in-scope before the [=group element=] do not have a
+          value inside it.
+          A variable name that is in-use may not be set again, whether by a
+          later [=rule element=] in the sequence or inside a
+          [=negation element body=] or [=group pattern=].
         </p>
         <p>
           Let <var>S</var> be a sequence of [=rule elements=].
@@ -1272,155 +1290,253 @@
           Let <var>elt<sub>i</sub></var> be the <var>i</var>-th element of <var>S</var>,
           and let <var>N</var> be the length of the sequence.
         </p>
-        <p>
-          Let <var>V<sub>0</sub></var> be a set of variables, called the initial
-          variables of the sequence <var>S</var>.
-        </p>
-        <p>
-          Define <var>vars(S, i, V<sub>0</sub>)</var> as the set of variables
-          that are in-scope after the <var>i</var>-th element of the sequence <var>S</var>,
-          given the initial variables <var>V<sub>0</sub></var>. <var>vars(S, i, V<sub>0</sub>)</var> is defined inductively:
-        </p>
-        <div class="list-indent">
-          <ul>
-            <li>
-              Let <var>vars(S, 0, V<sub>0</sub>)</var> be <var>V<sub>0</sub></var>.
-            </li>
-            <li>
-              Let <var>vars(S, i, V<sub>0</sub>)</var>, for each <var>i</var> from 1 to <var>N</var> be
-              <ul>
-                <li>
-                  if <var>elt<sub>i</sub></var> is a [=triple pattern element=]
-                  and <var>X</var> is the set of variables that occur in the
-                  [=triple pattern element=]
-                  then
-                  <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is the set <var>X</var> &cup; <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                    </li>
-                  </ul>
-                </li>
-                <li>
-                  if <var>elt<sub>i</sub></var> is an [=assignment element=]
-                  with [=assignment variable=] <var>avar</var> then
-                  <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is the set
-                      `{` <var>avar</var> `}` &cup; <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                      </li>
-                  </ul>
-                </li>
-                <li>
-                  if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
-                  where the set <var>aggVars</var> is the set of
-                  [=aggregation variables=] of <var>GRP</var>
-                  then
+
+        <section id="in-scope-variables">
+          <h4>In-scope Variables</h4>
+          <p>
+            Let <var>V<sub>0</sub></var> be a set of variables, called the initial
+            variables of the sequence <var>S</var>.
+          </p>
+          <p>
+            Define <var>inScope(S, i, V<sub>0</sub>)</var> as the set of variables
+            that are in-scope after the <var>i</var>-th element of the sequence <var>S</var>,
+            given the initial variables <var>V<sub>0</sub></var>. <var>inScope(S, i, V<sub>0</sub>)</var> is defined inductively,
+            writing <var>V<sub>in</sub></var> for <var>inScope(S, i-1, V<sub>0</sub>)</var>:
+          </p>
+          <div class="list-indent">
+            <ul>
+              <li>
+                Let <var>inScope(S, 0, V<sub>0</sub>)</var> be <var>V<sub>0</sub></var>.
+              </li>
+              <li>
+                Let <var>inScope(S, i, V<sub>0</sub>)</var>, for each <var>i</var> from 1 to <var>N</var> be
+                <ul>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=triple pattern element=]
+                    and <var>X</var> is the set of variables that occur in the
+                    [=triple pattern element=]
+                    then
                     <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is the set <var>vars(S, i-1, V<sub>0</sub>)</var>
-                      &cup; <var>GRP.keys</var> &cup; <var>aggVars</var>.
-                    </li>
-                  </ul>
-                </li>
-                <li>
-                  otherwise,
-                  <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is equal to the set <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                    </li>
-                  </ul>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-        <p>
-          Define <var>vars(S, V<sub>0</sub>)</var>, the set of variables in-scope for <var>S</var>
-          as <var>vars(S, N, V<sub>0</sub>)</var>, the set of variables in-scope
-          after the last element of the sequence.
-        </p>
-        <p>
-          A sequence of [=rule elements=], <var>S</var>,
-          is a <dfn>well-formed sequence</dfn>,
-          given a set of variables <var>V<sub>0</sub></var>,
-          if the following conditions are met for each <var>i</var>,
-          from 1 to <var>N</var>:
-        </p>
-        <div class="list-indent">
-          <ul class="list-no-bullet">
-            <li>
-              if <var>elt<sub>i</sub></var> is a [=filter element=] then
-              <ul class="list-inner">
-                <li>every [=variable=] mentioned in the [=filter element=]
-                  is an element of <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                </li>
-              </ul>
-            </li>
-            <li>
-              if <var>elt<sub>i</sub></var> is an [=assignment element=] then
-              <ul class="list-inner">
-                <li>every variable mentioned in the [=assignment expression=]
-                  is an element of <var>vars(S, i-1, V<sub>0</sub>)</var>
-                </li>
-                <li>
-                  the [=assignment variable=] is not an element of <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                </li>
-              </ul>
-            </li>
-            <li>
-              if <var>elt<sub>i</sub></var> is a [=negation element=]
-              with [=negation element body=] <var>P</var> then
-              <ul class="list-inner">
-                <li>
-                  the sequence of [=rule elements=] in the
-                  [=negation element body=] is a [=well-formed sequence=],
-                  with initial variables <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                </li>
-              </ul>
-            </li>
-            <li>
-              if <var>elt<sub>i</sub></var> is a [=group element=],
-              <var>GRP</var>, where
-                  <var>V<sub>in</sub></var> is <var>vars(S, i-1, V<sub>0</sub>)</var>
-                  and <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>,
-              then
-               <ul class="list-inner">
-                 <li>
-                   the sequence of [=rule elements=] in the
-                   [=group pattern=] given initial variables <var>GK<sub>in</sub></var>
-                   is a [=well-formed sequence=].
-                 </li>
-                 <li>
-                   each member of the [=group keys=] is an element of
-                   <var>vars(GRP.pattern, GK<sub>in</sub>)</var>.
-                 </li>
-                 <li>
-                   none of the [=aggregation variables=] is an element of the set of variables
-                   <var>vars(GRP.pattern, GK<sub>in</sub>) &cup; V<sub>in</sub></var>.
-                 </li>
-                 <li>
-                   no two [=aggregation assignments=] of <var>GRP</var> have the same [=aggregation variable=].
-                 </li>
-                 <li>
-                   each [=aggregation argument=] that is a [=variable=]
-                   is an element of <var>vars(GRP.pattern, GK<sub>in</sub>)</var>.
-                 </li>
-               </ul>
-            </li>
-          </ul>
-        </div>
-        <p>
-          A [=rule=] is a <dfn>well-formed rule</dfn>
-          if the sequence of [=rule elements=] of the [=rule body=]
-          is a [=well-formed sequence=], starting with <var>V<sub>0</sub></var>
-          being the empty set,
-          and if each variable in a [=triple template=] of the [=rule head=]
-          is an element of <var>vars(S, V<sub>0</sub>)</var>.
-        </p>
-        <p>
-          A [=rule set=] is a <dfn>well-formed rule set</dfn> if and only if all
-          rules of the rule set are [=well-formed rules=].
-        </p>
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is the set <var>X</var> &cup; <var>V<sub>in</sub></var>.
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is an [=assignment element=]
+                    with [=assignment variable=] <var>avar</var> then
+                    <ul class="list-inner">
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is the set
+                        `{` <var>avar</var> `}` &cup; <var>V<sub>in</sub></var>.
+                        </li>
+                    </ul>
+                  </li>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
+                    where the set <var>aggVars</var> is the set of
+                    [=aggregation variables=] of <var>GRP</var>
+                    then
+                      <ul class="list-inner">
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is the set <var>V<sub>in</sub></var>
+                        &cup; <var>GRP.keys</var> &cup; <var>aggVars</var>.
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    otherwise,
+                    <ul class="list-inner">
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is equal to the set <var>V<sub>in</sub></var>.
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <p>
+            Define <var>inScope(S, V<sub>0</sub>)</var>, the set of variables in-scope for <var>S</var>
+            as <var>inScope(S, N, V<sub>0</sub>)</var>, the set of variables in-scope
+            after the last element of the sequence.
+          </p>
+        </section>
+
+        <section id="in-use-variables">
+          <h4>In-use Variables</h4>
+          <p>
+            Let <var>U<sub>0</sub></var> be a set of variables, called the initial
+            in-use variables of the sequence <var>S</var>.
+          </p>
+          <p>
+            Define <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> as the set of
+            variables that are in-use after the <var>i</var>-th element of the sequence
+            <var>S</var>, given the initial variables <var>V<sub>0</sub></var>
+            and the initial in-use variables <var>U<sub>0</sub></var>.
+            <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is defined inductively,
+            writing <var>V<sub>in</sub></var> for <var>inScope(S, i-1, V<sub>0</sub>)</var>
+            and <var>U<sub>in</sub></var> for <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>:
+          </p>
+          <div class="list-indent">
+            <ul>
+              <li>
+                Let <var>inUse(S, 0, V<sub>0</sub>, U<sub>0</sub>)</var> be <var>U<sub>0</sub></var>.
+              </li>
+              <li>
+                Let <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var>, for each <var>i</var> from 1 to <var>N</var> be
+                <ul>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=negation element=]
+                    with [=negation element body=] <var>NEG</var>
+                    then
+                    <ul class="list-inner">
+                      <li>
+                        <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is the set
+                        <var>U<sub>in</sub></var> &cup;
+                        ( ( <var>inScope(NEG, V<sub>in</sub>)</var> &cup;
+                        <var>inUse(NEG, V<sub>in</sub>, U<sub>in</sub>)</var> )
+                        &setminus; <var>inScope(S, i, V<sub>0</sub>)</var> ).
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
+                    where <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>
+                    and <var>GU<sub>in</sub></var> is
+                    <var>U<sub>in</sub> &cup; ( V<sub>in</sub> &setminus; GRP.keys )</var>
+                    then
+                    <ul class="list-inner">
+                      <li>
+                        <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is the set
+                        <var>U<sub>in</sub></var> &cup;
+                        ( ( <var>inScope(GRP.pattern, GK<sub>in</sub>)</var> &cup;
+                        <var>inUse(GRP.pattern, GK<sub>in</sub>, GU<sub>in</sub>)</var> )
+                        &setminus; <var>inScope(S, i, V<sub>0</sub>)</var> ).
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    otherwise,
+                    <ul class="list-inner">
+                      <li>
+                        <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is equal to the set <var>U<sub>in</sub></var>.
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <p>
+            Define <var>inUse(S, V<sub>0</sub>, U<sub>0</sub>)</var>, the set of variables in-use for <var>S</var>
+            as <var>inUse(S, N, V<sub>0</sub>, U<sub>0</sub>)</var>, the set of variables in-use
+            after the last element of the sequence.
+          </p>
+        </section>
+
+        <section id="well-formed-rules">
+          <h4>Well-formed Rules</h4>
+          <p>
+            A sequence of [=rule elements=], <var>S</var>,
+            is a <dfn>well-formed sequence</dfn>,
+            given a set of variables <var>V<sub>0</sub></var>
+            and a set of in-use variables <var>U<sub>0</sub></var>,
+            if the following conditions are met for each <var>i</var>,
+            from 1 to <var>N</var>:
+          </p>
+          <div class="list-indent">
+            <ul class="list-no-bullet">
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=triple pattern element=] then
+                <ul class="list-inner">
+                  <li>no [=variable=] that occurs in the [=triple pattern element=]
+                    is an element of <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=filter element=] then
+                <ul class="list-inner">
+                  <li>every [=variable=] mentioned in the [=filter element=]
+                    is an element of <var>inScope(S, i-1, V<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is an [=assignment element=] then
+                <ul class="list-inner">
+                  <li>every variable mentioned in the [=assignment expression=]
+                    is an element of <var>inScope(S, i-1, V<sub>0</sub>)</var>
+                  </li>
+                  <li>
+                    the [=assignment variable=] is not an element of
+                    <var>inScope(S, i-1, V<sub>0</sub>)</var> &cup;
+                    <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=negation element=] then
+                <ul class="list-inner">
+                  <li>
+                    the sequence of [=rule elements=] in the
+                    [=negation element body=] is a [=well-formed sequence=],
+                    with initial variables <var>inScope(S, i-1, V<sub>0</sub>)</var>
+                    and initial in-use variables <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=group element=],
+                <var>GRP</var>, where
+                    <var>V<sub>in</sub></var> is <var>inScope(S, i-1, V<sub>0</sub>)</var>,
+                    <var>U<sub>in</sub></var> is <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>,
+                    <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>
+                    and <var>GU<sub>in</sub></var> is
+                    <var>U<sub>in</sub> &cup; ( V<sub>in</sub> &setminus; GRP.keys )</var>,
+                then
+                 <ul class="list-inner">
+                   <li>
+                     the sequence of [=rule elements=] in the
+                     [=group pattern=] given initial variables <var>GK<sub>in</sub></var>
+                     and initial in-use variables <var>GU<sub>in</sub></var>
+                     is a [=well-formed sequence=].
+                   </li>
+                   <li>
+                     each member of the [=group keys=] is an element of
+                     <var>inScope(GRP.pattern, GK<sub>in</sub>)</var>.
+                   </li>
+                   <li>
+                     none of the [=aggregation variables=] is an element of the set of variables
+                     <var>V<sub>in</sub></var> &cup; <var>U<sub>in</sub></var> &cup;
+                     <var>inScope(GRP.pattern, GK<sub>in</sub>)</var> &cup;
+                     <var>inUse(GRP.pattern, GK<sub>in</sub>, GU<sub>in</sub>)</var>.
+                   </li>
+                   <li>
+                     no two [=aggregation assignments=] of <var>GRP</var> have the same [=aggregation variable=].
+                   </li>
+                   <li>
+                     each [=aggregation argument=] that is a [=variable=]
+                     is an element of <var>inScope(GRP.pattern, GK<sub>in</sub>)</var>.
+                   </li>
+                 </ul>
+              </li>
+            </ul>
+          </div>
+          <p>
+            A [=rule=] is a <dfn>well-formed rule</dfn>
+            if the sequence of [=rule elements=] of the [=rule body=]
+            is a [=well-formed sequence=], starting with <var>V<sub>0</sub></var>
+            and <var>U<sub>0</sub></var> both being the empty set,
+            and if each variable in a [=triple template=] of the [=rule head=]
+            is an element of <var>inScope(S, V<sub>0</sub>)</var>.
+          </p>
+          <p>
+            A [=rule set=] is a <dfn>well-formed rule set</dfn> if and only if all
+            rules of the rule set are [=well-formed rules=].
+          </p>
+        </section>
       </section>
 
       <section id="rule-dependency">
