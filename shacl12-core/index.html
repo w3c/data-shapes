@@ -899,6 +899,7 @@ ex:Person
 							<div><a href="#name">sh:name</a> : xsd:string or rdf:dirLangString or rdf:langString</div>
 							<div><a href="#description">sh:description</a> : text</div>
 							<div><a href="#deactivated">sh:deactivated</a> : xsd:boolean</div>
+							<div><a href="#condition">sh:condition</a> : sh:Shape</div>
 							<div><a href="#message">sh:message</a> : text</div>
 							<div><a href="#severity">sh:severity</a> : sh:Severity</div>
 						</div>
@@ -967,6 +968,9 @@ ex:Person
 						<li>
 							`s` is a <a>value</a> of a <a>shape-expecting</a>, non-<a>list-taking</a> <a>parameter</a> such as `sh:node`,
 							or a <a>member</a> of a <a>SHACL list</a> that is a <a>value</a> of a <a>shape-expecting</a> and <a>list-taking</a> parameter such as `sh:or`.
+						</li>
+						<li>
+							`s` is a <a>value</a> of `sh:condition` at a <a>shape</a>.
 						</li>
 					</ul>
 				</div>
@@ -1758,6 +1762,190 @@ ex:PersonShape-name
 						</div>
 					</aside>
 				</section>
+
+				<section id="condition">
+					<h4>Conditional Shapes (sh:condition)</h4>
+					<p>
+						A <a>shape</a> may have <a>values</a> for the property `sh:condition` to specify <a>shapes</a>
+						that a <a>focus node</a> needs to conform to before it is validated against the <a>constraints</a> of the shape.
+						These values are called the <dfn data-lt="condition|condition shape|condition shapes">conditions</dfn> of the shape.
+						Both <a>node shapes</a> and <a>property shapes</a> can have conditions.
+					</p>
+					<p class="syntax">
+						<span data-syntax-rule="condition-node">The <a>values</a> of `sh:condition` in a shape must be <a>well-formed</a> <a>shapes</a>.</span>
+					</p>
+					<p>
+						A <a>focus node</a> <dfn data-lt="meets the conditions|meet the conditions">meets the conditions</dfn> of a <a>shape</a>
+						if and only if it <a>conforms</a> to each of the <a>conditions</a> of the shape.
+						In particular, every focus node meets the conditions of a shape that has no values for `sh:condition`.
+						A shape is ignored during the validation of a focus node that does not meet its conditions:
+						the <a>validation results</a> of that focus node against the shape are empty, and therefore
+						the focus node <a>conforms</a> to the shape.
+					</p>
+					<p>
+						If the <a>conformance checking</a> of a <a>focus node</a> against a <a>condition</a> of a <a>shape</a>
+						produces a <a>failure</a>, then the <a>validation</a> of the focus node against the shape MUST also produce a <a>failure</a>.
+					</p>
+					<p>
+						If a <a>condition</a> `C` is a <a>SHACL instance</a> of both `sh:NodeShape` and `rdfs:Class`,
+						then the focus node also needs to conform to the <a>SHACL superclasses</a> of `C`
+						that are <a>SHACL instances</a> of both `sh:NodeShape` and `rdfs:Class`.
+						This is similar to how <a href="#implicit-targetClass">implicit class targets</a> are interpreted.
+					</p>
+					<p>
+						The conditions of a shape are always checked against the <a>focus node</a>, also for <a>property shapes</a>,
+						where the <a>constraints</a> apply to the <a>value nodes</a>.
+						The conditions apply regardless of how the focus node was produced: they apply to the
+						<a>target</a> nodes of a shape that declares its own targets as well as to the nodes that are validated
+						against the shape through <a>shape-expecting</a> parameters such as `sh:node` or `sh:property`,
+						and to the nodes for which <a>conformance checking</a> against the shape is performed in any other way.
+						The <a>validation results</a> that are produced while checking the conditions are not
+						<a>validation results</a> of the shape.
+					</p>
+					<p><em>The remainder of this section is non-normative.</em></p>
+					<p>
+						Conditions express constraints that only apply to some of the focus nodes,
+						without the need to state the condition a second time in negated form, as would be needed
+						when the same intent is expressed using <a href="#OrConstraintComponent">`sh:or`</a> and
+						<a href="#NotConstraintComponent">`sh:not`</a>.
+						The validation results are those of the conditional shape itself, including its
+						<a href="#message">`sh:message`</a> and <a href="#severity">`sh:severity`</a>.
+					</p>
+					<p>
+						A focus node conforms to a <a>deactivated</a> shape.
+						Therefore, deactivated conditions have no effect.
+						As with all <a>conformance checking</a>, the set of disallowed severity levels of the surrounding
+						validation process applies to the conditions too: by default a focus node does not meet a
+						condition that produces a validation result with severity `sh:Warning`.
+					</p>
+					<p>
+						Conditions do not change the <a>targets</a> of a shape.
+						They also do not affect the features of shapes that are not about <a>validation</a>,
+						for example the <a href="#property-shapes">`sh:values`</a> of a property shape.
+					</p>
+					<p class="note">
+						The property `sh:condition` is also used by SHACL Inference Rules [[shacl12-inference-rules]]
+						to state the shapes that focus nodes need to conform to before a rule is executed on them.
+					</p>
+					<p>
+						The following example illustrates the use of `sh:condition` at a node shape that declares its own target.
+						The postal code is only required for addresses in the US.
+					</p>
+					<aside class="example" title="A conditional node shape with a target">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:USAddressShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Address ;
+	sh:condition [
+		sh:property [
+			sh:path ex:country ;
+			sh:hasValue "US" ;
+		] ;
+	] ;
+	sh:property [
+		sh:path ex:postalCode ;
+		sh:minCount 1 ;
+		sh:message "Postal code is required for US addresses." ;
+	] .
+							</div>
+						</div>
+						<div class="data-graph">
+							<div class="turtle">
+ex:ValidUSAddress
+	a ex:Address ;
+	ex:country "US" ;
+	ex:postalCode "12345" .
+
+<span class="focus-node-error">ex:InvalidUSAddress</span>
+	a ex:Address ;
+	ex:country "US" .
+
+ex:OtherAddress       # Does not meet the condition, so the postal code is not required
+	a ex:Address ;
+	ex:country "DE" .
+							</div>
+						</div>
+					</aside>
+					<p>
+						Conditions can also be used at shapes that are nested within other shapes.
+						In the following example, the condition is stated at a property shape and applies to
+						each address that is a value of `ex:address`, because those addresses are the focus nodes
+						of that property shape.
+					</p>
+					<aside class="example" title="A conditional property shape nested in another shape">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:LocalBusinessShape
+	a sh:NodeShape ;
+	sh:targetClass ex:LocalBusiness ;
+	sh:property [
+		sh:path ex:address ;
+		sh:minCount 1 ;
+		sh:node [
+			a sh:NodeShape ;
+			sh:property [
+				sh:condition [
+					sh:property [
+						sh:path ex:country ;
+						sh:hasValue "US" ;
+					] ;
+				] ;
+				sh:path ex:postalCode ;
+				sh:minCount 1 ;
+				sh:message "Postal code is required for US addresses." ;
+			] ;
+		] ;
+	] .
+							</div>
+						</div>
+						<div class="data-graph">
+							<div class="turtle">
+ex:ValidBusiness
+	a ex:LocalBusiness ;
+	ex:address [ ex:country "DE" ] ;
+	ex:address [ ex:country "US" ; ex:postalCode "12345" ] .
+
+<span class="focus-node-error">ex:InvalidBusiness</span>
+	a ex:LocalBusiness ;
+	ex:address [ ex:country "US" ] .
+							</div>
+						</div>
+					</aside>
+					<p>
+						The same can be expressed with a conditional node shape, which is useful if the condition applies to
+						multiple constraints:
+					</p>
+					<aside class="example" title="A conditional node shape nested in another shape">
+						<div class="shapes-graph">
+							<div class="turtle">
+ex:LocalBusinessShape
+	a sh:NodeShape ;
+	sh:targetClass ex:LocalBusiness ;
+	sh:property [
+		sh:path ex:address ;
+		sh:minCount 1 ;
+		sh:node [
+			sh:condition [
+				sh:property [
+					sh:path ex:country ;
+					sh:hasValue "US" ;
+				] ;
+			] ;
+			sh:property [
+				sh:path ex:postalCode ;
+				sh:minCount 1 ;
+			] ;
+			sh:property [
+				sh:path ex:state ;
+				sh:minCount 1 ;
+			] ;
+		] ;
+	] .
+							</div>
+						</div>
+					</aside>
+				</section>
 			</section>
 
 			<section id="node-shapes">
@@ -2365,8 +2553,9 @@ ex:CompanyShape
 					<dfn>Validation of a focus node against a shape:</dfn>
 					Given a <a>focus node</a> in the <a>data graph</a> and a <a>shape</a> in the <a>shapes graph</a>,
 					the <a>validation results</a> are the union of the results of the <a>validation</a> of the <a>focus node</a> against all
-					<a>constraints</a> declared by the <a>shape</a>, unless the <a>shape</a> has been <a>deactivated</a>,
-					in which case the <a>validation results</a> are empty.
+					<a>constraints</a> declared by the <a>shape</a>, unless the <a>shape</a> has been <a>deactivated</a>
+					or the <a>focus node</a> does not <a>meet the conditions</a> of the <a>shape</a>,
+					in which cases the <a>validation results</a> are empty.
 				</p>
 				<p>
 					<dfn>Validation of a focus node against a constraint:</dfn>
@@ -2441,7 +2630,7 @@ ex:CompanyShape
 						in `G` if it has `s2` as <a>value</a> for some non-list-taking,
 						shape-expecting parameter of some constraint component or `s2` as a <a>member</a> of
 						the <a>value</a> for some list-taking, shape-expecting parameter of some constraint component,
-						or if it has `s2` as <a>value</a> for `sh:targetWhere`.
+						or if it has `s2` as <a>value</a> for `sh:targetWhere` or `sh:condition`.
 						A shape in an RDF graph `G` is a <dfn data-lt="recursive shape|recursive">recursive shape</dfn> in `G` if it is related to
 						itself by the transitive closure of the <a>refers</a> relationship in `G`.
 					</p>
@@ -2485,7 +2674,7 @@ ex:CompanyShape
 				</p>
 				<p id="conformance-nested">
 					Note that all <a href="#shape-expecting-constraint-parameters">shape-expecting constraint parameters</a> of SHACL Core
-					rely on conformance checking.
+					rely on conformance checking, and so do the <a>conditions</a> of shapes.
 					In these cases, the <a>validation results</a> used to determine the outcome of conformance checking are
 					separated from those of the surrounding validation process and typically do not end up in the same validation report
 					(except perhaps as values of <a href="#results-detail">`sh:detail`</a>).
@@ -6942,6 +7131,7 @@ ex:NameGroup
 				<li>Individual constraints can now declare their own <a href="#severity">`sh:severity`</a>, <a href="#message">`sh:message`</a> and <a href="#deactivated">`sh:deactivated`</a> using reification of the triples that hold their parameters</li>
 				<li>Added the properties <a href="#usedDataGraph">`sh:usedDataGraph`</a>, <a href="#usedShapesGraph">`sh:usedShapesGraph`</a> and <a href="#usedConfiguration">`sh:usedConfiguration`</a> and the class <a href="#processorConfiguration">`sh:ProcessorConfiguration`</a> to the validation report</li>
 				<li>Added the property <a href="#conformsToShapesGraph">`sh:conformsToShapesGraph`</a> for data graphs</li>
+				<li>Added the property <a href="#condition">`sh:condition`</a> for shapes that only apply to the focus nodes that conform to given shapes</li>
 				<li>Added the property <a href="#sh-data-graph">`sh:dataGraph`</a> to link shapes graphs to the data graphs they are intended to validate</li>
 				<li>Added the node kind `sh:TripleTerm` to <a href="#NodeKindConstraintComponent">`sh:nodeKind`</a></li>
 				<li>Added the new constraint component <a href="#MemberShapeConstraintComponent">`sh:memberShape`</a></li>
