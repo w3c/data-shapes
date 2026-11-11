@@ -1,0 +1,74 @@
+@prefix dash: <http://datashapes.org/dash#> .
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://example.com/base>
+  owl:versionIRI <http://example.com/base/v1> ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#"^^xsd:anyURI ;
+      sh:prefix "ex" ;
+    ] ;
+.
+<http://example.com/shapes>
+  owl:imports <http://example.com/base/v1> ;
+  owl:versionIRI <http://example.com/shapes/v2> ;
+  sh:declare [
+      sh:namespace "http://test.com/ns#"^^xsd:anyURI ;
+      sh:prefix "test" ;
+    ] ;
+.
+ex:InvalidResource1
+  ex:property <http://test.com/ns#Value> ;
+.
+ex:TestSPARQL
+  rdfs:comment "Points at the version IRI of the shapes graph, which imports the version IRI of the base graph" ;
+  sh:prefixes <http://example.com/shapes/v2> ;
+  sh:select """
+		SELECT $this ?value
+		WHERE {
+			$this ex:property ?value .
+			FILTER (?value = test:Value) .
+		} """ ;
+.
+ex:TestShape
+  rdf:type sh:NodeShape ;
+  sh:sparql ex:TestSPARQL ;
+  sh:targetNode ex:InvalidResource1 ;
+  sh:targetNode ex:ValidResource1 ;
+.
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <prefixes-003>
+    ) ;
+.
+<prefixes-003>
+  rdf:type sht:Validate ;
+  rdfs:label "Test of sh:prefixes 003, reaching prefix declarations through owl:versionIRI and owl:imports" ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:SPARQLValidation ;
+  mf:result [
+      rdf:type sh:ValidationReport ;
+      sh:conforms "false"^^xsd:boolean ;
+      sh:result [
+          rdf:type sh:ValidationResult ;
+          sh:focusNode ex:InvalidResource1 ;
+          sh:resultSeverity sh:Violation ;
+          sh:sourceConstraint ex:TestSPARQL ;
+          sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+          sh:sourceShape ex:TestShape ;
+          sh:value <http://test.com/ns#Value> ;
+        ] ;
+    ] ;
+  mf:status sht:approved ;
+.

@@ -1,0 +1,71 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# The triples inferred by a rule are visible to the rules with a higher sh:order in the same
+# iteration. Here the second rule only fires if the first rule's triple is absent, so it never
+# fires. Compare same-order, where two rules of the same order do not see each other's triples.
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:NodeShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Node ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		sh:order 1 ;
+		sh:prefixes ex: ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:a true .
+			}
+			WHERE {
+			}
+			""" ;
+	] ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		sh:order 2 ;
+		sh:prefixes ex: ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:b true .
+			}
+			WHERE {
+				FILTER NOT EXISTS { $this ex:a true } .
+			}
+			""" ;
+	] .
+
+ex:N
+	a ex:Node .
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <rule-order-visibility>
+    ) .
+
+<rule-order-visibility>
+  rdf:type sht:Infer ;
+  rdfs:label "Test that a rule sees the triples inferred by the rules with a lower sh:order in the same iteration" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-inference-rules/#rule-order> ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:InferenceRules ;
+  mf:result (
+    ( ex:N ex:a true )
+  ) ;
+  mf:status sht:approved .
