@@ -5,7 +5,7 @@
 This repository is the working space of the [W3C's Data Shapes Working Group](https://www.w3.org/groups/wg/data-shapes/). 
 
 The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/shacl/) recommendations - 1.2 series - as per the [WG's Charter](https://www.w3.org/2024/12/data-shapes.html) -
-as well as a new SPARQL specification.
+as well as a new SPARQL family specification.
 
 ## Deliverables
 
