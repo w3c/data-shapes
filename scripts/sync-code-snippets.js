@@ -15,7 +15,11 @@ rdf.formats.import(pretty)
 
 const ignore = new Set([
   'shacl12-core/5', // can be removed when https://github.com/rubensworks/jsonld-streaming-parser.js/issues/130 is fixed
-  'shacl12-core/74', // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-core/28', // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-core/29', // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-core/32', // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-core/114', // can be removed when RDF/JS parser and serializer support RDF 1.2
+  'shacl12-core/130', // can be removed when RDF/JS parser and serializer support RDF 1.2
   'shacl12-sparql/3', // can be removed when https://github.com/rubensworks/jsonld-streaming-parser.js/issues/130 is fixed
   'shacl12-sparql/6', // can be removed when https://github.com/rubensworks/jsonld-streaming-parser.js/issues/130 is fixed
 ])
