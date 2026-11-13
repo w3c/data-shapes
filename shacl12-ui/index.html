@@ -2480,18 +2480,74 @@ ex:book1 a ex:Book ;
         SHACL Renderers MUST determine the presentation order of <a>property shapes</a> and
         property groups using the value of <code>sh:order</code>. At each level of rendering,
         property groups and ungrouped <a>property shapes</a> MUST be treated as members of a single
-        ordered sequence.
+        ordered sequence. A <a>property shape</a> that specifies <code>sh:group</code> is not a member
+        of that sequence; it is rendered inside the referenced property group, where its
+        <code>sh:order</code> determines its position relative to the other members of that group.
       </p>
 
       <p>
-        For a <a>property shape</a> that specifies <code>sh:group</code>, the position of the
-        property shape in the top-level sequence MUST be determined by the <code>sh:order</code> of
-        the referenced property group. The property shape's own <code>sh:order</code> MUST be used
-        only to determine its position within that property group. Within a property group,
-        <a>property shapes</a> MUST be ordered according to their own <code>sh:order</code> values.
-        The same ordering rules MUST be applied recursively to nested property groups, if supported
-        by the renderer.
+        A property group may specify a value for <code>shui:parentGroup</code> to indicate that it is
+        nested inside another property group. A property group MUST have at most one value for
+        <code>shui:parentGroup</code>, and that value MUST be a <code>sh:PropertyGroup</code>.
+        A renderer that supports nested property groups MUST render a nested property group inside its parent property group and
+        not as a member of any other sequence. Within the parent group, the nested property groups
+        and the <a>property shapes</a> of that group are treated as members
+        of a single ordered sequence. The same ordering rules MUST be applied recursively at each
+        level of nesting. A renderer that does not support nested property groups MUST ignore
+        <code>shui:parentGroup</code>, so that each <a>property shape</a> is rendered
+        in the property group it specifies, and property groups that contain no
+        <a>property shapes</a> directly are not rendered. If the chain of
+        <code>shui:parentGroup</code> values of a property group leads back to itself, renderers
+        MUST ignore the <code>shui:parentGroup</code> values of all property groups in that cycle.
       </p>
+
+      <p>
+        Renderers SHOULD expose the structure of nested property groups in their output, for example
+        by rendering each property group as a distinct element that can be identified by the IRI of
+        the property group, or by another stable identifier if it is a blank node, so that the
+        layout of a form or view can be controlled with technologies such as CSS.
+      </p>
+
+      <aside class="example" title="Nested property groups">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path ex:firstName ;
+        sh:order 0 ;
+        sh:group ex:NameGroup ;
+    ] ;
+    sh:property [
+        sh:path ex:lastName ;
+        sh:order 1 ;
+        sh:group ex:NameGroup ;
+    ] ;
+    sh:property [
+        sh:path ex:birthDate ;
+        sh:order 1 ;
+        sh:group ex:PersonalGroup ;
+    ] .
+
+ex:PersonalGroup
+    a sh:PropertyGroup ;
+    rdfs:label "Personal details"@en ;
+    sh:order 0 .
+
+ex:NameGroup
+    a sh:PropertyGroup ;
+    rdfs:label "Name"@en ;
+    shui:parentGroup ex:PersonalGroup ;
+    sh:order 0 .
+          </div>
+        </div>
+        <p>
+          A renderer renders the group "Personal details" containing first the nested group "Name",
+          with the fields for <code>ex:firstName</code> and <code>ex:lastName</code>, followed by the
+          field for <code>ex:birthDate</code>. Using CSS, the nested group "Name" could for example
+          be laid out horizontally so that the first and last name appear side by side.
+        </p>
+      </aside>
 
       <p>
         The <dfn>effective order</dfn> of a <a>property shape</a> or
