@@ -1,0 +1,62 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# A rule may have several types. An engine executes it with any of the types it supports,
+# so the unsupported ex:JavaScriptRule type does not make this rule fail (compare unknown-rule-type).
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:RectangleRulesShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Rectangle ;
+	sh:rule [
+		a ex:JavaScriptRule, sh:SPARQLRule ;
+		ex:js "focusNode.area = focusNode.width * focusNode.height" ;
+		sh:prefixes ex: ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:area ?area .
+			}
+			WHERE {
+				$this ex:width ?width .
+				$this ex:height ?height .
+				BIND (?width * ?height AS ?area) .
+			}
+			""" ;
+	] .
+
+ex:ExampleRectangle
+	a ex:Rectangle ;
+	ex:width 7 ;
+	ex:height 8 .
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <multiple-rule-types>
+    ) .
+
+<multiple-rule-types>
+  rdf:type sht:Infer ;
+  rdfs:label "Test that a rule with several types is executed via a supported type instead of failing for the unsupported one" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-inference-rules/#rule-types> ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:InferenceRules ;
+  mf:result (
+    ( ex:ExampleRectangle ex:area 56 )
+  ) ;
+  mf:status sht:approved .

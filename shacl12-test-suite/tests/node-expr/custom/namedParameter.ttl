@@ -1,0 +1,230 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shnex: <http://www.w3.org/ns/shacl-node-expr#> .
+@prefix sparql: <http://www.w3.org/ns/sparql#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Tests of custom named parameter functions (sh:NamedParameterExpressionFunction) and shnex:arg.
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <namedParameter-constant>
+      <namedParameter-expression-argument>
+      <namedParameter-nested>
+      <namedParameter-multi-valued-argument>
+      <namedParameter-optional-parameter-missing>
+      <namedParameter-focusNode-in-body>
+      <namedParameter-identity-list>
+      <namedParameter-arg-ignores-outer-scope>
+    ) ;
+.
+
+# Multiplies the node provided by ex:double with 2
+ex:DoubleExpression
+  a sh:NamedParameterExpressionFunction ;
+  rdfs:label "Double expression"@en ;
+  rdfs:comment "Computes the double of the node provided by ex:double."@en ;
+  rdfs:subClassOf sh:NamedParameterExpression ;
+  sh:parameter ex:DoubleExpression-double ;
+  sh:bodyExpression [
+    sparql:multiply (
+      [ shnex:arg ex:double ]
+      2
+    )
+  ] ;
+.
+ex:DoubleExpression-double
+  a sh:Parameter ;
+  sh:path ex:double ;
+  sh:name "double" ;
+  sh:description "The number that shall be doubled." ;
+  sh:keyParameter true ;
+.
+
+# Prefixes each string provided by ex:prefixed with the (optional) string provided by ex:prefix
+ex:PrefixedExpression
+  a sh:NamedParameterExpressionFunction ;
+  rdfs:label "Prefixed expression"@en ;
+  rdfs:subClassOf sh:NamedParameterExpression ;
+  sh:parameter ex:PrefixedExpression-prefixed ;
+  sh:parameter ex:PrefixedExpression-prefix ;
+  sh:bodyExpression [
+    shnex:nodes [ shnex:arg ex:prefixed ] ;
+    shnex:flatMap [
+      sparql:concat (
+        [ sparql:coalesce ( [ shnex:arg ex:prefix ] "" ) ]
+        [ shnex:var "focusNode" ]
+      )
+    ] ;
+  ] ;
+.
+ex:PrefixedExpression-prefixed
+  a sh:Parameter ;
+  sh:path ex:prefixed ;
+  sh:name "prefixed" ;
+  sh:description "The strings that shall be prefixed." ;
+  sh:keyParameter true ;
+.
+ex:PrefixedExpression-prefix
+  a sh:Parameter ;
+  sh:path ex:prefix ;
+  sh:name "prefix" ;
+  sh:description "The prefix, defaulting to the empty string." ;
+  sh:optional true ;
+.
+
+# Returns the focus node followed by the nodes provided by ex:selfAnd
+ex:SelfAndExpression
+  a sh:NamedParameterExpressionFunction ;
+  rdfs:label "Self and expression"@en ;
+  rdfs:subClassOf sh:NamedParameterExpression ;
+  sh:parameter ex:SelfAndExpression-selfAnd ;
+  sh:bodyExpression [
+    shnex:concat (
+      [ shnex:var "focusNode" ]
+      [ shnex:arg ex:selfAnd ]
+    )
+  ] ;
+.
+ex:SelfAndExpression-selfAnd
+  a sh:Parameter ;
+  sh:path ex:selfAnd ;
+  sh:name "self and" ;
+  sh:keyParameter true ;
+.
+
+# Returns the nodes provided by ex:identity unchanged
+ex:IdentityExpression
+  a sh:NamedParameterExpressionFunction ;
+  rdfs:label "Identity expression"@en ;
+  rdfs:subClassOf sh:NamedParameterExpression ;
+  sh:parameter ex:IdentityExpression-identity ;
+  sh:bodyExpression [
+    shnex:arg ex:identity ;
+  ] ;
+.
+ex:IdentityExpression-identity
+  a sh:Parameter ;
+  sh:path ex:identity ;
+  sh:name "identity" ;
+  sh:keyParameter true ;
+.
+
+ex:TestNode
+  ex:value 21 ;
+.
+
+<namedParameter-constant>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression with a constant argument" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:double 21 ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 42 ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-expression-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression where the argument is a node expression evaluated against the focus node" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:double [
+        shnex:pathValues ex:value ;
+      ] ;
+    ] ;
+    sht:focusNode ex:TestNode ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 42 ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-nested>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression nested in another one" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:double [
+        ex:double 10 ;
+      ] ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 40 ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-multi-valued-argument>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression with two parameters, where the key parameter produces multiple nodes" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:prefixed ( "a" "b" ) ;
+      ex:prefix "x-" ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "x-a" "x-b" ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-optional-parameter-missing>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression where an optional parameter is absent, so that its shnex:arg produces no nodes" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:prefixed ( "a" "b" ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( "a" "b" ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-focusNode-in-body>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression whose body refers to the focus node" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:selfAnd ( 1 2 ) ;
+    ] ;
+    sht:focusNode ex:TestNode ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( ex:TestNode 1 2 ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-identity-list>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test of a custom named parameter expression that passes through a list of nodes" ;
+  mf:action [
+    sht:nodeExpr [
+      ex:identity ( 1 2 3 ) ;
+    ] ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result ( 1 2 3 ) ;
+  mf:status sht:approved ;
+.
+<namedParameter-arg-ignores-outer-scope>
+  rdf:type sht:EvalNodeExpr ;
+  rdfs:label "Test that an argument of a custom named parameter expression is evaluated with an empty scope" ;
+  rdfs:comment "shnex:arg evaluates the argument expression with the empty scope, so the var expression does not see the variable that is bound in the outer scope." ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-node-expr/#ArgExpression> ;
+  mf:action [
+    sht:nodeExpr [
+      ex:identity [
+        shnex:var "number" ;
+      ] ;
+    ] ;
+    sht:scope-number 21 ;
+  ] ;
+  mf:requires sht:NodeExpr ;
+  mf:result () ;
+  mf:status sht:approved ;
+.

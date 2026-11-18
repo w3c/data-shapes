@@ -1,0 +1,64 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Two shapes with the same target link to the same run-once rule. The rule is executed once per
+# focus node, not once per shape, so only one blank node is created for ex:ExampleItem.
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:ItemShape1
+	a sh:NodeShape ;
+	sh:targetClass ex:Item ;
+	sh:rule ex:CreateHeadRule .
+
+ex:ItemShape2
+	a sh:NodeShape ;
+	sh:targetClass ex:Item ;
+	sh:rule ex:CreateHeadRule .
+
+ex:CreateHeadRule
+	a sh:SPARQLRule ;
+	sh:runOnce true ;
+	sh:prefixes ex: ;
+	sh:construct """
+		CONSTRUCT {
+			$this ex:head ?head .
+		}
+		WHERE {
+			BIND (BNODE() AS ?head) .
+		}
+		""" .
+
+ex:ExampleItem
+	a ex:Item .
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <run-once-shared-shapes>
+    ) .
+
+<run-once-shared-shapes>
+  rdf:type sht:Infer ;
+  rdfs:label "Test that a run-once rule linked from two shapes with the same target is executed once per focus node" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-inference-rules/#run-once> ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:InferenceRules ;
+  mf:result (
+    ( ex:ExampleItem ex:head _:head )
+  ) ;
+  mf:status sht:approved .

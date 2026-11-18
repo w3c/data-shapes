@@ -1,0 +1,67 @@
+@prefix ex: <http://example.com/ns#> .
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sht: <http://www.w3.org/ns/shacl-test#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# The triples that one execution of a rule infers are added to the inference graph after the
+# execution, i.e. after the rule has been evaluated for all of its focus nodes. So the focus nodes
+# of the same execution do not see each other's inferences, and the result does not depend on the
+# order in which the focus nodes are processed: every node gets ex:first true, not just the first one.
+
+ex:
+  a sh:ShapesGraph ;
+  sh:declare [
+      sh:namespace "http://example.com/ns#" ;
+      sh:prefix "ex" ;
+    ] .
+
+ex:NodeShape
+	a sh:NodeShape ;
+	sh:targetClass ex:Node ;
+	sh:rule [
+		a sh:SPARQLRule ;
+		sh:prefixes ex: ;
+		sh:construct """
+			CONSTRUCT {
+				$this ex:first true .
+			}
+			WHERE {
+				FILTER NOT EXISTS { ?any ex:first true } .
+			}
+			""" ;
+	] .
+
+ex:N1
+	a ex:Node .
+
+ex:N2
+	a ex:Node .
+
+ex:N3
+	a ex:Node .
+
+<>
+  rdf:type mf:Manifest ;
+  mf:entries (
+      <SPARQLRule-focus-nodes-isolated>
+    ) .
+
+<SPARQLRule-focus-nodes-isolated>
+  rdf:type sht:Infer ;
+  rdfs:label "Test that the focus nodes of one execution of a shape rule do not see each other's inferences" ;
+  rdfs:seeAlso <https://www.w3.org/TR/shacl12-inference-rules/#rules-execution> ;
+  mf:action [
+      sht:dataGraph <> ;
+      sht:shapesGraph <> ;
+    ] ;
+  mf:requires sht:InferenceRules ;
+  mf:result (
+    ( ex:N1 ex:first true )
+    ( ex:N2 ex:first true )
+    ( ex:N3 ex:first true )
+  ) ;
+  mf:status sht:approved .
