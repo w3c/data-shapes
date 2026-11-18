@@ -4,7 +4,8 @@
 
 This repository is the working space of the [W3C's Data Shapes Working Group](https://www.w3.org/groups/wg/data-shapes/). 
 
-The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/shacl/) recommendations - 1.2 series - as per the [WG's Charter](https://www.w3.org/2024/12/data-shapes.html).
+The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/shacl/) recommendations - 1.2 series - as per the [WG's Charter](https://www.w3.org/2024/12/data-shapes.html) -
+as well as a new SPARQL family specification.
 
 ## Deliverables
 
@@ -13,7 +14,7 @@ The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/sha
 * [SHACL 1.2 Core](https://w3c.github.io/data-shapes/shacl12-core/)
 * [SHACL 1.2 SPARQL Extensions](https://w3c.github.io/data-shapes/shacl12-sparql/)
 * [SHACL 1.2 Node Expressions](https://w3c.github.io/data-shapes/shacl12-node-expr/)
-* [SHACL 1.2 Inference Rules](https://w3c.github.io/data-shapes/shacl12-inf-rules/)
+* [SHACL 1.2 Inference Rules](https://w3c.github.io/data-shapes/shacl12-inference-rules/)
 * [SHACL 1.2 User Interfaces](https://w3c.github.io/data-shapes/shacl12-ui/)
 * [SHACL 1.2 Profiling](https://w3c.github.io/data-shapes/shacl12-profiling/)
 * [SPARQL 1.2 RL](https://w3c.github.io/data-shapes/sparql12-rl/)
@@ -48,7 +49,7 @@ The WG is currently working on updated and new [SHACL](https://www.w3.org/TR/sha
 
 ## Agendas and other admin
 
-Please look to the [admin directory in the agenda fork](https://github.com/w3c/data-shapes/tree/agenda/admin).
+Please look at the [admin directory in the agenda fork](https://github.com/w3c/data-shapes/tree/agenda/admin).
 
 ## Contact & Involvement
 
