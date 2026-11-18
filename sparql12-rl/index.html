@@ -105,20 +105,27 @@
       .list-no-bullet  { list-style: none; }
       .list-inner      { list-style: disc; }
 
-      .algorithm {
+      .algorithm,
+      .def {
           background:        #fafafa;
           border:            1px solid #c0c0c0 ;
           border-left-width: .5em;
           margin:            1em;
 
-          padding:           0;
-          padding-left:      0.5em;
-          padding-right:     0.5em;
+          padding:           0.3em 0.5em;
       }
-      .darkmode .algorithm {
+      .darkmode .algorithm,
+      .darkmode .def {
           background:        #2b2b2b ;
           border-color:      #55595f ;
       }
+
+      /* The box supplies its own vertical padding: drop the end children's
+         margins so that the gap is not doubled. */
+      .algorithm > :first-child,
+      .def       > :first-child { margin-top:    0; }
+      .algorithm > :last-child,
+      .def       > :last-child  { margin-bottom: 0; }
 
       /* Block to go inside <aside> "example" */
 
@@ -602,8 +609,8 @@
           Rules with a [=group element=] are [=run-once rules=].
         </p>
         <p>
-          A [=group element=] processes each solution sequence
-          of preceding rule elements by taking only the bindings
+          A [=group element=] processes each solution of the solution sequence
+          of the preceding rule elements by taking only the bindings
           for the [=group keys=], evaluating the [=group pattern=],
           and then grouping the solution mappings using the [=group keys=].
         </p>
@@ -967,7 +974,7 @@
             <p>
               Only the [=aggregation function=] named `COUNT`
               can have an [=aggregation argument=] of `*`,
-              or have a [=distinct flag=] with value <var>true</var>.
+              or have a [=distinct flag=] with value <i>true</i>.
             </p>
           </dd>
 
@@ -1170,7 +1177,7 @@
             </tr>
             <tr>
               <td><code id="rule.evaldata">rule.evaldata</code></td>
-              <td>A boolean flag; if <var>false</var>, the [=rule body=] is matched
+              <td>A boolean flag; if <i>false</i>, the [=rule body=] is matched
                 against the [=base graph=].
               </td>
               </tr>
@@ -1199,7 +1206,7 @@
             </tr>
             <tr>
               <td><code id="negation.evaldata">negation.evaldata</code></td>
-              <td>A boolean flag; if <var>false</var>, the `negation.inner` is matched
+              <td>A boolean flag; if <i>false</i>, the `negation.inner` is matched
                 against the [=base graph=].</td>
             </tr>
             <tr>
@@ -1251,169 +1258,285 @@
           has a value at the point of evaluation;
           and that each
           [=assignment variable=] and [=aggregation variable=]
-          in a rule is new and is not in use at that point.
+          in a rule is new.
+          Variable names are not reused in a rule: a name that has been used
+          in one part of a rule is not set again in another part,
+          whether at the top level of the [=rule body=],
+          a [=negation element body=], or a [=group pattern=].
         </p>
         <p>
-          In a [=well-formed rule=], the set of [=variables=] in-scope
-          as calculated by <var>vars</var> is the same as the domain of every
+          In a [=well-formed rule=], the set of [=variables=] <i>in-scope</i>, calculated by
+          <var>inScope</var>, is the same as the domain of every
           [=solution mapping=] that arises during evaluation.
+        </p>
+        <p>
+          The set of [=variables=] <i>in-use</i>, calculated by <var>inUse</var>,
+          is the set of variables that have been used in the rule but which
+          do not have a value at the point in question.
+          The variables used in a [=negation element body=] or a
+          [=group pattern=] are not in-scope outside it.
+          A [=group pattern=] is also connected to the enclosing sequence of
+          [=rule elements=] only by its [=group keys=], so the other
+          [=variables=] in-scope before the [=group element=] do not have a
+          value inside it.
+          A variable name that is in-use may not be set again, whether by a
+          later [=rule element=] in the sequence or inside a
+          [=negation element body=] or [=group pattern=].
         </p>
         <p>
           Let <var>S</var> be a sequence of [=rule elements=].
         </p>
         <p>
-          Let <var>elt<sub>i</sub></var> be the i-th element of <var>S</var>,
+          Let <var>elt<sub>i</sub></var> be the <var>i</var>-th element of <var>S</var>,
           and let <var>N</var> be the length of the sequence.
         </p>
-        <p>
-          Let <var>V<sub>0</sub></var> be a set of variables, called the initial
-          variables of the sequence <var>S</var>.
-        </p>
-        <p>
-          Define <var>vars(S, i, V<sub>0</sub>)</var> as the set of variables
-          that are in-scope after the i-th element of the sequence <var>S</var>,
-          given the initial variables <var>V<sub>0</sub></var>. <var>vars(S, i, V<sub>0</sub>)</var> is defined inductively:
-        </p>
-        <div class="list-indent">
-          <ul>
-            <li>
-              Let <var>vars(S, 0, V<sub>0</sub>)</var> be <var>V<sub>0</sub></var>.
-            </li>
-            <li>
-              Let <var>vars(S, i, V<sub>0</sub>)</var>, for each i from 1 to <var>N</var> be
-              <ul>
-                <li>
-                  if <var>elt<sub>i</sub></var> is a [=triple pattern element=]
-                  and <var>X</var> is the set of variables that occur in the
-                  [=triple pattern element=]
-                  then
-                  <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is the set <var>X</var> &cup; <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                    </li>
-                  </ul>
-                </li>
-                <li>
-                  if <var>elt<sub>i</sub></var> is an [=assignment element=]
-                  with [=assignment variable=] <var>avar</var> then
-                  <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is the set
-                      `{` <var>avar</var> `}` &cup; <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                      </li>
-                  </ul>
-                </li>
-                <li>
-                  if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
-                  where the set <var>aggVars</var> is the set of
-                  [=aggregation variables=] of <var>GRP</var>
-                  then
+
+        <section id="in-scope-variables">
+          <h4>In-scope Variables</h4>
+          <p>
+            Let <var>V<sub>0</sub></var> be a set of variables, called the initial
+            variables of the sequence <var>S</var>.
+          </p>
+          <p>
+            Define <var>inScope(S, i, V<sub>0</sub>)</var> as the set of variables
+            that are in-scope after the <var>i</var>-th element of the sequence <var>S</var>,
+            given the initial variables <var>V<sub>0</sub></var>. <var>inScope(S, i, V<sub>0</sub>)</var> is defined inductively,
+            writing <var>V<sub>in</sub></var> for <var>inScope(S, i-1, V<sub>0</sub>)</var>:
+          </p>
+          <div class="list-indent">
+            <ul>
+              <li>
+                Let <var>inScope(S, 0, V<sub>0</sub>)</var> be <var>V<sub>0</sub></var>.
+              </li>
+              <li>
+                Let <var>inScope(S, i, V<sub>0</sub>)</var>, for each <var>i</var> from 1 to <var>N</var> be
+                <ul>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=triple pattern element=]
+                    and <var>X</var> is the set of variables that occur in the
+                    [=triple pattern element=]
+                    then
                     <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is the set <var>vars(S, i-1, V<sub>0</sub>)</var>
-                      &cup; <var>GRP.keys</var> &cup; <var>aggVars</var>.
-                    </li>
-                  </ul>
-                </li>
-                <li>
-                  otherwise,
-                  <ul class="list-inner">
-                    <li>
-                      <var>vars(S, i, V<sub>0</sub>)</var> is equal to the set <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                    </li>
-                  </ul>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-        <p>
-          Define <var>vars(S, V<sub>0</sub>)</var>, the set of variables in-scope for <var>S</var>
-          as <var>vars(S, N, V<sub>0</sub>)</var>, the set of variables in-scope
-          after the last element of the sequence.
-        </p>
-        <p>
-          A sequence of [=rule elements=], <var>S</var>,
-          is a <dfn>well-formed sequence</dfn>,
-          given a set of variables <var>V<sub>0</sub></var>,
-          if the following conditions are met for each <var>i</var>,
-          from 1 to <var>N</var>:
-        </p>
-        <div class="list-indent">
-          <ul class="list-no-bullet">
-            <li>
-              if <var>elt<sub>i</sub></var> is a [=filter element=] then
-              <ul class="list-inner">
-                <li>every [=variable=] mentioned in the [=filter element=]
-                  is an element of <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                </li>
-              </ul>
-            </li>
-            <li>
-              if <var>elt<sub>i</sub></var> is an [=assignment element=] then
-              <ul class="list-inner">
-                <li>every variable mentioned in the [=assignment expression=]
-                  is an element of <var>vars(S, i-1, V<sub>0</sub>)</var>
-                </li>
-                <li>
-                  the [=assignment variable=] is not an element of <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                </li>
-              </ul>
-            </li>
-            <li>
-              if <var>elt<sub>i</sub></var> is a [=negation element=]
-              with [=negation element body=] <var>P</var> then
-              <ul class="list-inner">
-                <li>
-                  the sequence of [=rule elements=] in the
-                  [=negation element body=] is a [=well-formed sequence=],
-                  with initial variables <var>vars(S, i-1, V<sub>0</sub>)</var>.
-                </li>
-              </ul>
-            </li>
-            <li>
-              if <var>elt<sub>i</sub></var> is a [=group element=],
-              <var>GRP</var>, where
-                  <var>V<sub>in</sub></var> is <var>vars(S, i-1, V<sub>0</sub>)</var>
-                  and <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>,
-              then
-               <ul class="list-inner">
-                 <li>
-                   the sequence of [=rule elements=] in the
-                   [=group pattern=] given initial variables <var>GK<sub>in</sub></var>
-                   is a [=well-formed sequence=].
-                 </li>
-                 <li>
-                   each member of the [=group keys=] is an element of
-                   <var>vars(GRP.pattern, GK<sub>in</sub>)</var>.
-                 </li>
-                 <li>
-                   none of the [=aggregation variables=] is an element of the set of variables
-                   <var>vars(GRP.pattern, GK<sub>in</sub>) &cup; V<sub>in</sub></var>.
-                 </li>
-                 <li>
-                   no two [=aggregation assignments=] of <var>GRP</var> have the same [=aggregation variable=].
-                 </li>
-                 <li>
-                   each [=aggregation argument=] that is a [=variable=]
-                   is an element of <var>vars(GRP.pattern, GK<sub>in</sub>)</var>.
-                 </li>
-               </ul>
-            </li>
-          </ul>
-        </div>
-        <p>
-          A [=rule=] is a <dfn>well-formed rule</dfn>
-          if the sequence of [=rule elements=] of the [=rule body=]
-          is a [=well-formed sequence=], starting with <var>V<sub>0</sub></var>
-          being the empty set,
-          and if each variable in a [=triple template=] of the [=rule head=]
-          is an element of <var>vars(S, V<sub>0</sub>)</var>.
-        </p>
-        <p>
-          A [=rule set=] is a <dfn>well-formed rule set</dfn> if and only if all
-          rules of the rule set are [=well-formed rules=].
-        </p>
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is the set <var>X</var> &cup; <var>V<sub>in</sub></var>.
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is an [=assignment element=]
+                    with [=assignment variable=] <var>avar</var> then
+                    <ul class="list-inner">
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is the set
+                        `{` <var>avar</var> `}` &cup; <var>V<sub>in</sub></var>.
+                        </li>
+                    </ul>
+                  </li>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
+                    where the set <var>aggVars</var> is the set of
+                    [=aggregation variables=] of <var>GRP</var>
+                    then
+                      <ul class="list-inner">
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is the set <var>V<sub>in</sub></var>
+                        &cup; <var>GRP.keys</var> &cup; <var>aggVars</var>.
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    otherwise,
+                    <ul class="list-inner">
+                      <li>
+                        <var>inScope(S, i, V<sub>0</sub>)</var> is equal to the set <var>V<sub>in</sub></var>.
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <p>
+            Define <var>inScope(S, V<sub>0</sub>)</var>, the set of variables in-scope for <var>S</var>
+            as <var>inScope(S, N, V<sub>0</sub>)</var>, the set of variables in-scope
+            after the last element of the sequence.
+          </p>
+        </section>
+
+        <section id="in-use-variables">
+          <h4>In-use Variables</h4>
+          <p>
+            Let <var>U<sub>0</sub></var> be a set of variables, called the initial
+            in-use variables of the sequence <var>S</var>.
+          </p>
+          <p>
+            Define <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> as the set of
+            variables that are in-use after the <var>i</var>-th element of the sequence
+            <var>S</var>, given the initial variables <var>V<sub>0</sub></var>
+            and the initial in-use variables <var>U<sub>0</sub></var>.
+            <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is defined inductively,
+            writing <var>V<sub>in</sub></var> for <var>inScope(S, i-1, V<sub>0</sub>)</var>
+            and <var>U<sub>in</sub></var> for <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>:
+          </p>
+          <div class="list-indent">
+            <ul>
+              <li>
+                Let <var>inUse(S, 0, V<sub>0</sub>, U<sub>0</sub>)</var> be <var>U<sub>0</sub></var>.
+              </li>
+              <li>
+                Let <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var>, for each <var>i</var> from 1 to <var>N</var> be
+                <ul>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=negation element=]
+                    with [=negation element body=] <var>NEG</var>
+                    then
+                    <ul class="list-inner">
+                      <li>
+                        <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is the set
+                        <var>U<sub>in</sub></var> &cup;
+                        ( ( <var>inScope(NEG, V<sub>in</sub>)</var> &cup;
+                        <var>inUse(NEG, V<sub>in</sub>, U<sub>in</sub>)</var> )
+                        &setminus; <var>inScope(S, i, V<sub>0</sub>)</var> ).
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    if <var>elt<sub>i</sub></var> is a [=group element=], <var>GRP</var>,
+                    where <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>
+                    and <var>GU<sub>in</sub></var> is
+                    <var>U<sub>in</sub> &cup; ( V<sub>in</sub> &setminus; GRP.keys )</var>
+                    then
+                    <ul class="list-inner">
+                      <li>
+                        <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is the set
+                        <var>U<sub>in</sub></var> &cup;
+                        ( ( <var>inScope(GRP.pattern, GK<sub>in</sub>)</var> &cup;
+                        <var>inUse(GRP.pattern, GK<sub>in</sub>, GU<sub>in</sub>)</var> )
+                        &setminus; <var>inScope(S, i, V<sub>0</sub>)</var> ).
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    otherwise,
+                    <ul class="list-inner">
+                      <li>
+                        <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var> is equal to the set <var>U<sub>in</sub></var>.
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <p>
+            Define <var>inUse(S, V<sub>0</sub>, U<sub>0</sub>)</var>, the set of variables in-use for <var>S</var>
+            as <var>inUse(S, N, V<sub>0</sub>, U<sub>0</sub>)</var>, the set of variables in-use
+            after the last element of the sequence.
+          </p>
+        </section>
+
+        <section id="well-formed-rules">
+          <h4>Well-formed Rules</h4>
+          <p>
+            A sequence of [=rule elements=], <var>S</var>,
+            is a <dfn>well-formed sequence</dfn>,
+            given a set of variables <var>V<sub>0</sub></var>
+            and a set of in-use variables <var>U<sub>0</sub></var>,
+            if the following conditions are met for each <var>i</var>,
+            from 1 to <var>N</var>:
+          </p>
+          <div class="list-indent">
+            <ul class="list-no-bullet">
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=triple pattern element=] then
+                <ul class="list-inner">
+                  <li>no [=variable=] that occurs in the [=triple pattern element=]
+                    is an element of <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=filter element=] then
+                <ul class="list-inner">
+                  <li>every [=variable=] mentioned in the [=filter element=]
+                    is an element of <var>inScope(S, i-1, V<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is an [=assignment element=] then
+                <ul class="list-inner">
+                  <li>every variable mentioned in the [=assignment expression=]
+                    is an element of <var>inScope(S, i-1, V<sub>0</sub>)</var>
+                  </li>
+                  <li>
+                    the [=assignment variable=] is not an element of
+                    <var>inScope(S, i-1, V<sub>0</sub>)</var> &cup;
+                    <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=negation element=] then
+                <ul class="list-inner">
+                  <li>
+                    the sequence of [=rule elements=] in the
+                    [=negation element body=] is a [=well-formed sequence=],
+                    with initial variables <var>inScope(S, i-1, V<sub>0</sub>)</var>
+                    and initial in-use variables <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                if <var>elt<sub>i</sub></var> is a [=group element=],
+                <var>GRP</var>, where
+                    <var>V<sub>in</sub></var> is <var>inScope(S, i-1, V<sub>0</sub>)</var>,
+                    <var>U<sub>in</sub></var> is <var>inUse(S, i-1, V<sub>0</sub>, U<sub>0</sub>)</var>,
+                    <var>GK<sub>in</sub></var> is <var>GRP.keys &cap; V<sub>in</sub></var>
+                    and <var>GU<sub>in</sub></var> is
+                    <var>U<sub>in</sub> &cup; ( V<sub>in</sub> &setminus; GRP.keys )</var>,
+                then
+                 <ul class="list-inner">
+                   <li>
+                     the sequence of [=rule elements=] in the
+                     [=group pattern=] given initial variables <var>GK<sub>in</sub></var>
+                     and initial in-use variables <var>GU<sub>in</sub></var>
+                     is a [=well-formed sequence=].
+                   </li>
+                   <li>
+                     each member of the [=group keys=] is an element of
+                     <var>inScope(GRP.pattern, GK<sub>in</sub>)</var>.
+                   </li>
+                   <li>
+                     none of the [=aggregation variables=] is an element of the set of variables
+                     <var>V<sub>in</sub></var> &cup; <var>U<sub>in</sub></var> &cup;
+                     <var>inScope(GRP.pattern, GK<sub>in</sub>)</var> &cup;
+                     <var>inUse(GRP.pattern, GK<sub>in</sub>, GU<sub>in</sub>)</var>.
+                   </li>
+                   <li>
+                     no two [=aggregation assignments=] of <var>GRP</var> have the same [=aggregation variable=].
+                   </li>
+                   <li>
+                     each [=aggregation argument=] that is a [=variable=]
+                     is an element of <var>inScope(GRP.pattern, GK<sub>in</sub>)</var>.
+                   </li>
+                 </ul>
+              </li>
+            </ul>
+          </div>
+          <p>
+            A [=rule=] is a <dfn>well-formed rule</dfn>
+            if the sequence of [=rule elements=] of the [=rule body=]
+            is a [=well-formed sequence=], starting with <var>V<sub>0</sub></var>
+            and <var>U<sub>0</sub></var> both being the empty set,
+            and if each variable in a [=triple template=] of the [=rule head=]
+            is an element of <var>inScope(S, V<sub>0</sub>)</var>.
+          </p>
+          <p>
+            A [=rule set=] is a <dfn>well-formed rule set</dfn> if and only if all
+            rules of the rule set are [=well-formed rules=].
+          </p>
+        </section>
       </section>
 
       <section id="rule-dependency">
@@ -1638,8 +1761,9 @@ define buildDependencyGraph(ruleSet):
         let bodyDependencies = {}
 
         if R1.evaldata then:
-            # Classify each triple pattern TP in the rule as requiring "open" or "closed"
-            # depending on whether it is in a negation element or a group pattern, or not.
+            # Classify each triple pattern TP in the rule as requiring
+            # "open" or "closed" depending on whether it is in a
+            # negation element or a group pattern, or not.
             foreach rule element RBE in R1.body:
                 if RBE is a triple pattern element of triple pattern TP:
                     let item be a pair (TP, "open")
@@ -2123,55 +2247,57 @@ Output: an RDF graph GI of inferred triples
 
           <dt><dfn data-lt="compatible">Solution compatible</dfn></dt>
           <dd>
-            Two solutions S1 and S2 are [=compatible=] if they agree on the variables in common.
+            Two solutions are [=compatible=] if they agree on the variables in common.
             <div class="def">
               <p>
-                Let S1 and S2 be solutions.
+                Let <var>μ<sub>1</sub></var> and <var>μ<sub>2</sub></var>
+                be solution mappings.
               </p>
-              <pre class="nohighlight">compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>) = true
-                      if forall v in dom(μ1) intersection dom(μ2)
-                          μ1(v) = μ2(v)
-compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>) = false otherwise
-              </pre>
+              <pre class="nohighlight">compatible(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>) = true
+                      if forall v in dom(<var>μ<sub>1</sub></var>) intersection dom(<var>μ<sub>2</sub></var>)
+                          <var>μ<sub>1</sub></var>(v) = <var>μ<sub>2</sub></var>(v)
+compatible(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>) = false otherwise</pre>
             </div>
           </dd>
 
           <dt><dfn>Solution sequence</dfn></dt>
           <dd>
-            A [=solution sequence=] is a multi-set of solutions.
+            A [=solution sequence=] is a multiset of solutions.
             There is no defined order to the sequence.
             It is equivalent to an unordered list and it can contain duplicates.
           </dd>
 
           <dt><dfn data-lt="merge">Solution merge</dfn></dt>
           <dd>
-            If two solutions are compatible, the merge of two solutions is the solution
+            If two solutions are compatible, the [=merge=] of two solutions is the solution
             that maps variables of each solution to the [=RDF term=]
             from one or other of the solutions.
             <div class="def">
-              Let <var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>
-              be solution mappings, and S1 and S2 be solution sequences.
+              <p>
+                Let <var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>
+                be solution mappings, and S1 and S2 be solution sequences.
+              </p>
               <pre class="nohighlight">
-merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>) = <var>μ</var> such that
-                    μ(v) = μ1(v) if v in dom(μ1)
-                    μ(v) = μ2(v) otherwise</pre>
+merge(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>) = <var>μ</var> such that
+                    <var>μ</var>(v) = <var>μ<sub>1</sub></var>(v) if v in dom(<var>μ<sub>1</sub></var>)
+                    <var>μ</var>(v) = <var>μ<sub>2</sub></var>(v) otherwise</pre>
 
               <pre class="nohighlight">
 merge(S1, S2) = { <var>μ</var> |
-                    <var>μ</var><sub>1</sub> in S1, <var>μ</var><sub>2</sub> in S2
-                    and compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                    <var>μ</var> = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>) }</pre>
+                    <var>μ<sub>1</sub></var> in S1, <var>μ<sub>2</sub></var> in S2
+                    and compatible(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>)
+                    <var>μ</var> = merge(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>) }</pre>
             </div>
 
             <div class="note">
               <p>
-                The domain of <code>merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)</code>
-                is <code>domain(<var>μ</var><sub>1</sub>) &cup; domain(<var>μ</var><sub>2</sub>)</code>.
+                The domain of <code>merge(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>)</code>
+                is <code>domain(<var>μ<sub>1</sub></var>) &cup; domain(<var>μ<sub>2</sub></var>)</code>.
               </p>
               <p>
                 If the two solutions have no variables in common, then they are compatible,
                 and the merge of the two solutions is the union of
-                <var>μ</var><sub>1</sub> and <var>μ</var><sub>2</sub>.
+                <var>μ<sub>1</sub></var> and <var>μ<sub>2</sub></var>.
               </p>
             </div>
           </dd>
@@ -2180,7 +2306,7 @@ merge(S1, S2) = { <var>μ</var> |
                 data-cite="SPARQL12-QUERY#ebv"
                 >Effective boolean value</dfn></dt>
           <dd>
-            The function `EBV(x)` returns the effective boolean value
+            The function <code><a data-cite="SPARQL12-QUERY#ebv">EBV(x)</a></code> returns the effective boolean value
             for an [=RDF term=].
           </dd>
         </dl>
@@ -2229,10 +2355,10 @@ merge(S1, S2) = { <var>μ</var> |
 
         <div class="algorithm">
           <pre class="nohighlight">
-define evalFunction(F, μ):
+define evalFunction(F, <var>μ</var>):
     # F is an expression: an RDF term, a variable, or op(expr1, ..., exprN)
     #   where op is a function or a functional form.
-    # μ is a solution mapping
+    # <var>μ</var> is a solution mapping
 
     # Any error during evaluation causes evalFunction to return an error.
     if F is an error:
@@ -2242,18 +2368,18 @@ define evalFunction(F, μ):
         return F
     endif
     if F is a variable:
-        # By well-formedness, F &isin; dom(μ).
-        return μ(F)
+        # By well-formedness, F &isin; dom(<var>μ</var>).
+        return <var>μ</var>(F)
     endif
     # F is of the form F = op(expr1, ..., exprN)
     if op is a functional form (e.g., IF, logical-or):
         # Evaluated specifically for op; op may evaluate only some arguments.
         # For example, IF(c, t, f) evaluates c, then exactly
         # one of t or f is evaluated.
-        return the value defined for op over expr1, ..., exprN under μ
+        return the value defined for op over expr1, ..., exprN under <var>μ</var>
     endif
     # op is an ordinary function: evaluate all arguments first.
-    return op(evalFunction(expr1, μ), ..., evalFunction(exprN, μ))
+    return op(evalFunction(expr1, <var>μ</var>), ..., evalFunction(exprN, <var>μ</var>))
 enddefine
 </pre>
         </div>
@@ -2270,26 +2396,13 @@ enddefine
           Each [=aggregation function=] is calculated by the corresponding
           <a data-cite="SPARQL12-QUERY#setFunctions">SPARQL set function</a>,
           as given in the table below.
-          `evalAggregate` builds the argument to the set function from the
-          [=solution sequence=] of the group, and applies the
-          [=distinct flag=], following the
+          `evalAggregate` builds the argument to the set function by
+          applying the [=aggregation argument=] to each [=solution mapping=]
+          of the group, using `evalFunction` of
+          <a href="#eval-expression" class="sectionRef"></a>,
+          and then applies the [=distinct flag=], following the
           <a data-cite="SPARQL12-QUERY#defn_algAggregation">SPARQL
           <code>Aggregation</code></a> definition.
-          The operations used are those of
-          <a data-cite="SPARQL12-QUERY#aggregateAlgebra">SPARQL aggregate
-          algebra</a>:
-          <a data-cite="SPARQL12-QUERY#defn_Card"><code>Card</code></a>
-          is the cardinality of a sequence;
-          <a data-cite="SPARQL12-QUERY#defn_ListEval"><code>ListEval</code></a>,
-          for a one element list of a [=variable=] <var>V</var> and a
-          [=solution mapping=] <var>μ</var>, is the one element list
-          <code>(<var>μ</var>(<var>V</var>))</code>, or
-          <code>(error)</code> if <var>V</var> is not in
-          <code>dom(<var>μ</var>)</code>;
-          <code>Dedup</code> removes duplicate lists from a sequence of lists;
-          and
-          <a data-cite="SPARQL12-QUERY#defn_algDistinct"><code>Distinct</code></a>
-          removes duplicate [=solution mappings=].
         </p>
         <p>
           A SPARQL set function takes a sequence of lists, whereas a
@@ -2311,17 +2424,25 @@ define evalAggregate(AGGF, SEQ):
         # COUNT(*) and COUNT(DISTINCT *) count solution mappings.
         # There is no argument value to calculate.
         if AGGF.distinct:
-            return Card(Distinct(SEQ))
+            let n = the number of distinct solution mappings in SEQ
+        else:
+            let n = the number of solution mappings in SEQ
         endif
-        return Card(SEQ)
+        return n as an xsd:integer
     endif
 
     # AGGF.argument is a variable.
-    # M is a sequence of one element lists, one list for each solution
-    # mapping of SEQ, in any order, retaining duplicates.
-    let M = [ ListEval((AGGF.argument), <var>μ</var>) | <var>μ</var> in SEQ ]
+    # Apply the aggregation argument to each solution mapping of SEQ,
+    # retaining duplicates. A SPARQL set function takes a sequence of
+    # lists, so each element of M is a list of one value.
+    let M = empty sequence
+    foreach solution <var>μ</var> in SEQ:
+        # By well-formedness, AGGF.argument &isin; dom(<var>μ</var>).
+        let x = evalFunction(AGGF.argument, <var>μ</var>)
+        add the one element list (x) to M
+    endfor
     if AGGF.distinct:
-        M = Dedup(M)
+        M = the sequence M with duplicate lists removed
     endif
     let F = the SPARQL set function for AGGF.name
     return F(M)
@@ -2410,11 +2531,11 @@ define evalRuleElements(B, SEQ, G, GD):
         if rElt is a triple pattern element TP:
             X = graphMatch(G, TP)
             SEQ1 = {}
-            foreach <var>μ</var><sub>1</sub> in X:
-                foreach <var>μ</var><sub>2</sub> in SEQ:
-                    if compatible(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>):
-                        <var>μ</var><sub>3</sub> = merge(<var>μ</var><sub>1</sub>, <var>μ</var><sub>2</sub>)
-                        add <var>μ</var><sub>3</sub> to SEQ1
+            foreach <var>μ<sub>1</sub></var> in X:
+                foreach <var>μ<sub>2</sub></var> in SEQ:
+                    if compatible(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>):
+                        <var>μ<sub>3</sub></var> = merge(<var>μ<sub>1</sub></var>, <var>μ<sub>2</sub></var>)
+                        add <var>μ<sub>3</sub></var> to SEQ1
                     endif
                 endfor
             endfor
@@ -2424,7 +2545,7 @@ define evalRuleElements(B, SEQ, G, GD):
             SEQ1 = {}
             foreach solution <var>μ</var> in SEQ:
                 let x = evalFunction(F.expr, <var>μ</var>)
-                if x is not an error and EBV(x) is <var>true</var>:
+                if x is not an error and EBV(x) is <i>true</i>:
                     add <var>μ</var> to SEQ1
                 endif
             endfor
@@ -2450,7 +2571,7 @@ define evalRuleElements(B, SEQ, G, GD):
             foreach solution <var>μ</var> in SEQ:
                 let x = evalFunction(A.expr, <var>μ</var>)
                 if x is not an error:
-                    # Add mapping A.var -> x to solution μ
+                    # Add mapping A.var -> x to solution <var>μ</var>
                     let <var>μ<sub>2</sub></var> be a solution mapping <var>μ</var> &cup; { (A.var, x) }
                     add <var>μ<sub>2</sub></var> to SEQ1
                 else:
@@ -2467,10 +2588,10 @@ define evalRuleElements(B, SEQ, G, GD):
 
                 # Allocate solution mappings to groups.
                 let KGRP = empty map of solution mappings to solution sequences
-                # The case of no BY. There is always one group key which 
-                # is the empty solution mapping, <var>μ<sub>0</sub><var>.
+                # The case of no BY. There is always one group key which
+                # is the empty solution mapping, <var>μ<sub>0</sub></var>.
                 if GRP.keys is empty:
-                    KGRP[<var>μ<sub>0</sub><var>] = empty solution sequence
+                    KGRP[<var>μ<sub>0</sub></var>] = empty solution sequence
                 endif
                 # Accumulate groups
                 foreach solution <var>μ<sub>x</sub></var> in SEQX:
@@ -2521,7 +2642,7 @@ define evalRule(R, G, GD):
         treating <a href="#dfn-bnodes-as-variables">blank nodes as variables</a>.
 
     # Solution sequence of one solution that does not map any variables.
-    let SEQ0 be the solution sequence { <var>μ</var><sub>0</sub> }
+    let SEQ0 be the solution sequence { <var>μ<sub>0</sub></var> }
 
     if R.evaldata:
         let SEQ = evalRuleElements(B, SEQ0, G, GD)
@@ -3053,7 +3174,7 @@ the result is GI
       <h2>SPARQL-RL Grammar</h2>
 
       <p>
-        A <dfn data-lt="SRL document">SPARQL-RL document</dfn>
+        A <dfn data-lt="SPARQL-RL document|SRL document">SPARQL-RL document</dfn>
         is an [=RDF string=], encoded in UTF-8 [[!RFC3629]],
         and that conforms to the grammar and
         additional constraints defined in
@@ -3541,7 +3662,7 @@ result is imports(RS)
             The syntax of SPARQL-RL is expressed over code points in Unicode
             [[UNICODE]]. The encoding is always UTF-8 [[RFC3629]].</dd>
           <dd>Unicode code points may also be expressed using an \uXXXX (U+0 to
-            U+FFFF) or \UXXXXXXXX syntax (for U+10000 onward)
+            U+FFFF) or \UXXXXXXXX syntax (for code points up to U+10FFFF)
             where X is a hexadecimal digit [0-9A-Fa-f],
             excluding U+D800 to U+DFFF,
             the <a data-cite="I18N-GLOSSARY#dfn-surrogate">surrogate code points</a>.
