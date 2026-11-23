@@ -8,6 +8,10 @@ It is not a comprehensive list of changes to the specification.
 This file is temporary while the specification is in-development — it is not
 intended for publication.
 
+## 2026-11-19
+Rename `NOT DATA` as `NOT GROUND`.
+Rename `WHERE DATA` as `WHERE GROUND`.
+
 ## 2026-11-10
 New well-formedness condition. Variable names are not reused in a rule.
 `vars` is renamed `inScope`.
