@@ -55,41 +55,47 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-          // Replace code div blocks in shapes, data, and results graph with tabs
-          for (const graph of document.querySelectorAll(".shapes-graph, .data-graph, .results-graph")) {
+          const labels = { turtle: "Turtle", jsonld: "JSON-LD", sparql: "SPARQL", "sparql-rl": "SPARQL RL" };
+          for (const graph of document.querySelectorAll(".rdf-graph, .shapes-graph, .results-graph, .data-graph, .rules")) {
+              const isRules = graph.classList.contains("rules");
+              const panels = Array.from(graph.children).filter(child =>
+                  child.matches(isRules ? ".sparql, .sparql-rl" : ".turtle, .jsonld")
+              );
+              if (!panels.length) continue;
+
               const tabs = document.createElement("aside");
               tabs.classList.add("ds-selector-tabs");
-              graph.firstElementChild.classList.add("selected");
-
-              for (const child of graph.children) {
-                  child.classList.add("tab");
-              }
-
-              tabs.append(...graph.children);
-              graph.append(tabs)
-          }
-
-          // Generate buttons for the selection logic
-          for (const tabs of document.querySelectorAll(".ds-selector-tabs")) {
               const selectors = document.createElement("div");
               selectors.classList.add("selectors");
-              selectors.innerHTML = `
-						<button class="selected" data-selects="turtle">Turtle</button>
-						${hasJsonld ? '<button data-selects="jsonld">JSON-LD</button>' : ''}
-					`
+              selectors.setAttribute("role", "group");
+              selectors.setAttribute("aria-label", isRules ? "Rule syntax" : "RDF serialization");
+              tabs.append(selectors);
 
-            tabs.prepend(selectors);
-          }
+              for (const [index, panel] of panels.entries()) {
+                  const format = Object.keys(labels).find(format => panel.classList.contains(format));
+                  panel.classList.add("tab");
+                  panel.classList.toggle("selected", index === 0);
+                  tabs.append(panel);
 
-          // Add example button selection logic
-          for (const button of document.querySelectorAll(".ds-selector-tabs .selectors button")) {
-              button.onclick = () => {
-                  const ex = button.closest(".ds-selector-tabs");
-                  ex.querySelector("button.selected").classList.remove("selected");
-                  ex.querySelector(".selected").classList.remove("selected");
-                  button.classList.add('selected');
-                  ex.querySelector("." + button.dataset.selects).classList.add("selected");
+                  const button = document.createElement("button");
+                  button.type = "button";
+                  button.dataset.selects = format;
+                  button.textContent = labels[format];
+                  button.classList.toggle("selected", index === 0);
+                  button.setAttribute("aria-pressed", String(index === 0));
+                  button.addEventListener("click", () => {
+                      for (const candidate of panels) {
+                          candidate.classList.toggle("selected", candidate === panel);
+                      }
+                      for (const selector of selectors.children) {
+                          const selected = selector === button;
+                          selector.classList.toggle("selected", selected);
+                          selector.setAttribute("aria-pressed", String(selected));
+                      }
+                  });
+                  selectors.append(button);
               }
+              graph.append(tabs);
           }
       });
 
@@ -346,7 +352,11 @@
       </tr>
       <tr>
         <td><code>sh:</code></td>
-        <td><code>http://www.w3.org/ns/shacl#</code></td>
+        <td><code><a href="http://www.w3.org/ns/shacl">http://www.w3.org/ns/shacl#</a></code></td>
+      </tr>
+      <tr>
+        <td><code>xsd:</code></td>
+        <td><code>http://www.w3.org/2001/XMLSchema#</code></td>
       </tr>
     </table>
     <p>
@@ -362,7 +372,8 @@
     "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#" ,
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
     "role": "http://www.w3.org/ns/dx/prof/role/" ,
-    "sh": "http://www.w3.org/ns/shacl#"
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#"
   }
 }</pre>
     <p>
@@ -379,35 +390,26 @@
       The Turtle specification fragments use the prefix bindings given above.
       Only the Turtle specifications will have parts highlighted.
     </p>
-    <div class="turtle">
-# This box presents RDF data in the Turtle syntax
-
-&lt;s&gt; &lt;p&gt; &lt;o&gt; .</div>
-    <p>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="conventions/rdf.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="conventions/rdf.jsonld" data-include-format="text"></div>
+    </div>
     <div class="shapes-graph">
-# This box presents RDF data within a Shapes Graph
-
-&lt;s&gt; &lt;p&gt; &lt;o&gt; .</div>
-    <p>
+      <div class="turtle" data-include="conventions/sg.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="conventions/sg.jsonld" data-include-format="text"></div>
+    </div>
     <div class="data-graph">
-# This box presents RDF data within a Data Graph
-
-&lt;s&gt; &lt;p&gt; &lt;o&gt; .</div>
+      <div class="turtle" data-include="conventions/dg.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="conventions/dg.jsonld" data-include-format="text"></div>
+    </div>
     <div class="results-graph">
-# This box presents RDF data within a Results Graph
-
-&lt;s&gt; &lt;p&gt; &lt;o&gt; .</div>
-    <div class="sparql">
-# This box presents SPARQL syntax
-
-SELECT * WHERE {...}</div>
-    <div class="sparql-rl">
-# This box presents SPARQL RL syntax
-
-RULE {...} WHERE {...}</div>
-    <p>
-      Conventions within figures are described by this key:
-    </p>
+      <div class="turtle" data-include="conventions/rg.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="conventions/rg.jsonld" data-include-format="text"></div>
+    </div>
+    <div class="rules">
+      <div class="sparql"><div class="turtle" data-include="conventions/sparql.sparql" data-include-format="text"></div></div>
+      <div class="sparql-rl"><div class="turtle" data-include="conventions/sparql-rl.srl" data-include-format="text"></div></div>
+    </div>
     <figure>
       <a href="images/key.svg">
         <img src="images/key.svg" alt="Diagram Key" />
@@ -450,10 +452,7 @@ RULE {...} WHERE {...}</div>
       <li>Finding all the groups of <a>SHACL elements</a> that a group depends on</li>
       <li>Storing the validation results with context</li>
     </ol>
-    <div class="issue" data-number="624"></div>
-    <div class="issue" data-number="622"></div>
     <div class="issue" data-number="623"></div>
-    <div class="issue" data-number="1117">Store validation results as PROV-O RDF</div>
   </section>
   <section id="packaging-recommendations">
     <h3>Recommendations Summary</h3>
@@ -515,7 +514,10 @@ RULE {...} WHERE {...}</div>
       This recommendation is that the creator of a <a>SHACL element</a> SHOULD indicate the group
       within which the <a>SHACL element</a> is defined. An example of such an assertion in RDF is as follows:
     </p>
-    <div class="turtle"><div data-include="examples/01.ttl" data-include-format="text"></div></div>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="examples/01.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="examples/01.jsonld" data-include-format="text"></div>
+    </div>
     <p class="note">
       In Section <a data-cite="shacl12-core#syntactic-variations-of-shapes-and-classes">2.5 Syntactic Variations of Shapes and Classes</a> of [[[shacl12-core]]],
       a warning is issued that while <a data-cite="shacl12-core#dfn-property-shape">property shapes</a> may be declared
@@ -538,7 +540,10 @@ RULE {...} WHERE {...}</div>
       An example of the use of the <code>rdfs:member</code> predicate to indicate inclusion of a <a>SHACL element</a> in a group
       that does not define it, as well use of <code>rdfs:isDefinedBy</code>, as in the example above, is as follows:
     </p>
-    <div class="turtle"><div data-include="examples/02.ttl" data-include-format="text"></div></div>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="examples/02.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="examples/02.jsonld" data-include-format="text"></div>
+    </div>
   </section>
   <section id="rec-imports">
     <h3>Indicating group dependence</h3>
@@ -549,19 +554,32 @@ RULE {...} WHERE {...}</div>
       It is established practice within SHACL validation tooling to import <a>SHACL elements</a> from one collection, such as a
       file containing RDF data, into another via an <code>owl:imports</code> instruction. Many SHACL validation engines
       do this, such as pySHACL [[?PYSH]], and this practice is recommended to indicate dependence from one collection/group
-      to another, even if no particular validation engine's actions are expected to arise from the assertion: it is
+      to another, even if no particular validation engine actions are expected to arise from the assertion: it is
       likely usefully informative for SHACL data management too.
     </p>
     <p>
       An example of <code>owl:imports</code> is as per the example below.
     </p>
-    <div class="turtle"><div data-include="examples/03.ttl" data-include-format="text"></div></div>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="examples/03.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="examples/03.jsonld" data-include-format="text"></div>
+    </div>
     <section id="dependencies">
+    <p>
+      To be very specific regarding the versions of dependencies, <code>owl:imports</code> MAY target a particular
+      version of a <code>sh:ShapesGraph</code> indicated with a <code>owl:versionIRI</code> predicate, as per the
+      example below.
+    </p>
+    <div class="turtle"><div data-include="examples/04.ttl" data-include-format="text"></div></div>
+    <section id="dependencies" class="notoc">
       <h4>Calculating Dependencies</h4>
       <p>
-      Dependency can be calculated when the packaging recommendations above are used.
-    </p>
-      <p class="todo">TODO</p>
+        Dependency of a <a data-cite="shacl12-core#shapes-graph">shapes graph</a> on another
+        <a data-cite="shacl12-core#shapes-graph">shapes graph</a> SHOULD be indicated with a predicate such as
+        <code>dcterms:requires</code>. When the packaging recommendations above are followed, dependency of
+        one shapes graph on another MAY be calculated with the following rules, which use <code>dcterms:requires</code>:
+      </p>
+      <div class="sparql-rl" data-include="examples/calc-deps.srl" data-include-format="text"></div>
     </section>
   </section>
   <section id="persisting-validation">
@@ -569,11 +587,10 @@ RULE {...} WHERE {...}</div>
     <p>
       <strong>When persisting <a data-cite="shacl12-core#results-graph">results graph</a> elements results, context for <a data-cite="shacl12-core#validation-report">validation report</a>, SHOULD be given by using elements of the <a href="#vocabulary">SHACL Profiling Vocabulary</a></strong>.
     </p>
-    <div class="issue" data-number="770">Is this UC answered here?</div>
     <p>
       To persist a <a data-cite="shacl12-core#results-graph">results graph</a> with that can be understood into the future,
       it may be necessary to associate context with the <a data-cite="shacl12-core#validation-report">validation report</a>.
-      The context that is likely important to know are the <a data-cite="shacl12-core##dfn-validation">validation</a>'s
+      The context that is likely important to know are the <a data-cite="shacl12-core#dfn-validation">validation</a>'s
       inputs - <a data-cite="shacl12-core#data-graph">data graph</a> and <a data-cite="shacl12-core#shapes-graph">shapes graph</a>
       - the timing of the validation and details of the systems used to perform the validation.
     </p>
@@ -627,8 +644,14 @@ RULE {...} WHERE {...}</div>
       may be modeled, as per the examples below. This allows for provenance with temporality and simpler provenance,
       respectively.
     </p>
-    <div class="turtle"><div data-include="examples/prov-activity.ttl" data-include-format="text"></div></div>
-    <div class="turtle"><div data-include="examples/prov-simple.ttl" data-include-format="text"></div></div>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="examples/prov-activity.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="examples/prov-activity.jsonld" data-include-format="text"></div>
+    </div>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="examples/prov-simple.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="examples/prov-simple.jsonld" data-include-format="text"></div>
+    </div>
     <p>
       This document's <a href="#rule-conformstoshapesgraph">conforms to shapes graph</a> rule may be used to create a
       direct relationship between the <a data-cite="shacl12-core#data-graph">data graph</a> and <a data-cite="shacl12-core#shapes-graph">shapes graph</a>, as per 'output-liked' example above.
@@ -652,7 +675,10 @@ RULE {...} WHERE {...}</div>
       Profiles of SHACL SHOULD be declared using [[[dx-prof]]]. The declaration of the Core profile of SHACL 1.2 is as
       follows:
     </p>
-    <div class="turtle"><div data-include="examples/profile-core.ttl" data-include-format="text"></div></div>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="examples/profile-core.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="examples/profile-core.jsonld" data-include-format="text"></div>
+    </div>
     <p>
       This declaration identifies the Core profile with the IRI <code>&lt;http://www.w3.org/ns/shacl/profile/core></code>
       and indicates it is an instance of <code>prof:Profile</code>, that it is a profile of the original SHACL
@@ -668,7 +694,7 @@ RULE {...} WHERE {...}</div>
       role of <a data-cite="dx-prof-1.0#Role:specification">Specification</a> — "Defining the profile
       in human-readable form" — and other resources play other roles. Of particular interest to SHACL users is the SHACL
       <a data-cite="shacl12-core#shapes-graph">shapes graph</a> for each profile that plays the role of
-      <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:validation">Validation</a> —
+      <a data-cite="dx-prof-1.0#Role:validation">Validation</a> —
       "Supplies instructions about how to verify conformance of data to the
       profile". The various profiles of SHACL 1.2
       may supply additional resources with other profile resource roles, for example the Core supplies the core schema —
@@ -680,7 +706,7 @@ RULE {...} WHERE {...}</div>
       in the <em><a href="https://w3c.github.io/data-shapes/shacl12-overview/#shacl-shacl">SHACL 1.2 Overview's SHACL-SHACL appendix</a></em>.
     </p>
   </section>
-  <p class="todo">Describe how to pick and choose SHACL elements to support in your profile using Packaging of SHACL.</p>
+  <div class="issue" data-number="1418">&nbsp;</div>
   <section id="creating-profiles">
     <h3>Creating other Profiles</h3>
     <p>
@@ -739,7 +765,6 @@ RULE {...} WHERE {...}</div>
 
 <section id="profiling-with-shacl">
   <h2>Profiling with SHACL</h2>
-  <div class="issue" data-number="546">&nbsp;</div>
   <p>
     This section describes how to create profiles of RDF resources with SHACL.
   </p>
@@ -767,7 +792,7 @@ RULE {...} WHERE {...}</div>
       <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a> of it.
     </p>
     <p>
-      In addition to profiling <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:specification">specifications</a>, when used to extract data
+      In addition to profiling <a data-cite="dx-prof-1.0#Role:specification">specifications</a>, when used to extract data
       from an RDF dataset, SHACL creates data profiles of that dataset.
     </p>
     <p>
@@ -777,30 +802,34 @@ RULE {...} WHERE {...}</div>
   <section id="profiling-specifications">
     <h3>Profiling Specifications</h3>
     <p class="note">
-      Aligning with [[[dx-prof]]], we take the term <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:specification">Specification</a>
+      Aligning with [[[dx-prof]]], we take the term <a data-cite="dx-prof-1.0#Role:specification">Specification</a>
       to be synonymous with the term <em>Standard</em> which it defines.
     </p>
     <section id="characterization">
       <h4>Characterization</h4>
-      <div class="issue" data-number="617">Is the situation characterization part of this UC answered here?</div>
-      <div class="issue" data-number="764">Is this UC answered here?</div>
       <p>
         A <a data-cite="shacl12-core#shapes-graph">shapes graph</a>, <code>SG1</code>, used to
         <a data-cite="dx-prof#dfn-profile">profile</a> a <em>specification</em> <code>S1</code>, SHOULD be characterized
         using the following <a href="https://www.w3.org/TR/dx-prof/">Profiles Vocabulary</a> formulation:
       </p>
-      <div class="turtle"><div data-include="examples/profiling-01.ttl" data-include-format="text"></div></div>
+      <div class="rdf-graph">
+        <div class="turtle" data-include="examples/profiling-01.ttl" data-include-format="text"></div>
+        <div class="jsonld" data-include="examples/profiling-01.jsonld" data-include-format="text"></div>
+      </div>
       <p>
         As per [[[dx-prof]]], resources within a profile perform <em>roles</em> and in this above formulation,
-        <code>SG1</code> is undertaking both <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:schema">schema</a> - data
-        model - and <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:validation">validation</a> - actionable Shapes Graph -
+        <code>SG1</code> is undertaking both <a data-cite="dx-prof-1.0#Role:schema">schema</a> - data
+        model - and <a data-cite="dx-prof-1.0#Role:validation">validation</a> - actionable Shapes Graph -
         roles, so a more complete formulation that indicates the Shapes Graph artifact itself conforms to
         [[[shacl12-core]]] and is available in the [[[turtle]]] format and which leaves out the SHACL classing, follows.
       </p>
-      <div class="turtle"><div data-include="examples/profiling-02.ttl" data-include-format="text"></div></div>
+      <div class="rdf-graph">
+        <div class="turtle" data-include="examples/profiling-02.ttl" data-include-format="text"></div>
+        <div class="jsonld" data-include="examples/profiling-02.jsonld" data-include-format="text"></div>
+      </div>
       <p class="note">
         There are additional profile roles that SHACL resources may play, for example, rules formulated according to
-        [[[shacl12-rules]]] may in the <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:mapping">mapping</a> role allowing
+        [[[shacl12-rules]]] may in the <a data-cite="dx-prof-1.0#Role:mapping">mapping</a> role allowing
         for conversions to/from a profile to another data model.
       </p>
     </section>
@@ -810,7 +839,10 @@ RULE {...} WHERE {...}</div>
         [[[dx-prof]]] contains a single reasoning axiom which allows data conformant with a profile to be understood to
         conform to the standard that the profile is a profile of:
       </p>
-      <div class="turtle"><div data-include="examples/profiling-03.ttl" data-include-format="text"></div></div>
+      <div class="rdf-graph">
+        <div class="turtle" data-include="examples/profiling-03.ttl" data-include-format="text"></div>
+        <div class="jsonld" data-include="examples/profiling-03.jsonld" data-include-format="text"></div>
+      </div>
       <p class="todo">
         Check back with PROF regarding use of <code>dcterms:conformsTo</code> in case they define a <code>prof:conformsTo</code>
       </p>
@@ -824,13 +856,14 @@ RULE {...} WHERE {...}</div>
         profile of a standard to be understood to conform to that standard. This rule is important for the
         creation of null profiles using SHACL, as per section <a href="#null-profiles"></a>.
       </p>
+      <div class="issue" data-number="1419">&nbsp;</div>
     </section>
     <section id="hierarchies">
       <h3>Profile Hierarchies</h3>
       <p>
         If data must be tested for conformance to a profile defined using SHACL and also the standards that the profile is
         a profile of, if those standards are either defined also using SHACL or if they provide resources with role
-        <a href="https://www.w3.org/TR/dx-prof-1.0/#Role:validation">validation</a> created using SHACL, then a <a data-cite="shacl12-core#shapes-graph">shapes graph</a>
+        <a data-cite="dx-prof-1.0#Role:validation">validation</a> created using SHACL, then a <a data-cite="shacl12-core#shapes-graph">shapes graph</a>
         may be created that is a compound of the profile and the standards or their validators.
       </p>
       <p>
@@ -857,7 +890,7 @@ RULE {...} WHERE {...}</div>
       While null profiles of standards can be created using modeling or rule systems other than SHACL, here we
       focus only on the use of SHACL.
     </p>
-    <p class="todo">Up to here</p>
+    <div class="issue" data-number="1420">&nbsp;</div>
     <p>
       The main purpose of creating a null profile of a standard using SHACL is to enable the testing of conformance
       to that standard by SHACL validation. This purpose exists because many RDF data models exist that have a
@@ -889,9 +922,7 @@ RULE {...} WHERE {...}</div>
   </section>
   <section id="profiling-data">
     <h3>Profiling Data</h3>
-    <p class="todo">
-      Section content removed as duplicative of Profiling Specifications above.
-    </p>
+    <div class="issue" data-number="1421">&nbsp;</div>
   </section>
 </section>
 
@@ -1433,40 +1464,16 @@ RULE {...} WHERE {...}</div>
       This reasoning rule cannot be articulated as an OWL property chain axiom due to the test of the
       <code>sh:conforms</code> property value, so it is presented here as both a [[[sparql12-query]]] rule and a [[[shacl12-rules]]] rule.
     </p>
-    <div class="sparql">
-CONSTRUCT {
-  ?dg sh:conformsToShapesGraph ?sg
-}
-WHERE {
-  ?va
-      sh:usedDataGraph ?dg ;
-      sh:usedShapesGraph ?sg ;
-      prov:generated ?vr ;
-  .
-
-  ?vr sh:conforms true .
-}
-    </div>
-    <div class="sparql-rl">
-RULES {
-  ?dg sh:conformsToShapesGraph ?sg
-}
-WHERE {
-  ?va
-      sh:usedDataGraph ?dg ;
-      sh:usedShapesGraph ?sg ;
-      prov:generated ?vr ;
-  .
-
-  ?vr sh:conforms true .
-}
+    <div class="rules">
+      <div class="sparql"><div class="turtle" data-include="rules/conforms-to-sg.sparql" data-include-format="text"></div></div>
+      <div class="sparql-rl"><div class="turtle" data-include="rules/conforms-to-sg.srl" data-include-format="text"></div></div>
     </div>
   </section>
   <section id="rule-conformstostandard">
     <h3>Rule: conforms to standard</h3>
     <p>
       The rule 'conforms to standard' is a reasoning rule that allows for a <a data-cite="shacl12-core#data-graph">data graph</a> to be indicated as
-      conforming to a <a href="https://www.w3.org/TR/dx-prof-1.0/#dfn-standard">Standard</a> if the <a data-cite="shacl12-core#data-graph">data graph</a> conforms to a
+      conforming to a <a data-cite="dx-prof-1.0/#dfn-standard">Standard</a> if the <a data-cite="shacl12-core#data-graph">data graph</a> conforms to a
       <a data-cite="shacl12-core#shapes-graph">shapes graph</a> that is a <a data-cite="dx-prof#dfn-profile">profile</a> of that Standard.
       This reasoning allows for static conformance claims of data to profiles of standards and standards
       themselves to be made, which will have utility for data whose conformance to these things must be known but which
@@ -1476,30 +1483,15 @@ WHERE {
       This reasoning rule is presented here as both a [[[sparql12-query]]] rule and a [[[shacl12-rules]]] rule.
     </p>
     <div class="issue" data-number="868"></div>
-    <div class="sparql">
-CONSTRUCT {
-  ?x dcterms:conformsTo ?z
-}
-WHERE {
-  ?x sh:conformsToShapesGraph ?y .
-  ?y prof:isProfileOf ?z .
-}
-    </div>
-    <div class="sparql-rl">
-RULE {
-  ?x dcterms:conformsTo ?z
-}
-WHERE {
-  ?x sh:conformsToShapesGraph ?y .
-  ?y prof:isProfileOf ?z .
-}
+    <div class="rules">
+      <div class="sparql"><div class="turtle" data-include="rules/conforms-to-standard.sparql" data-include-format="text"></div></div>
+      <div class="sparql-rl"><div class="turtle" data-include="rules/conforms-to-standard.srl" data-include-format="text"></div></div>
     </div>
     <p class="note">
       The result of this rule also enables the [[[dx-prof]]] property chain axiom
       <code>dcterms:conformsTo owl:propertyChainAxiom ( dcterms:conformsTo prof:isProfileOf )</code>
       to propagate conformance claims up a profile hierarchy.
     </p>
-    <div class="issue">The property chain axiom is at-risk. See <a href="https://github.com/w3c/dx-prof/issues/29">Issue dx-prof/29</a>.</div>
   </section>
   <section id="alignments" class="informative">
     <h3>Alignments</h3>
@@ -1508,7 +1500,26 @@ WHERE {
       domain models, to keep SHACL's dependencies low. However, this document introduces informative alignments with
       which are summarized here.
     </p>
-    <section>
+    <section id="prof-alignment">
+      <h4>PROF Alignment</h4>
+      <p>
+        The logic for this alignment with [[[dx-prof]]] is given in sections <a href="#profiling-of-shacl"></a> and
+        <a href="#profiling-with-shacl"></a>.
+      </p>
+      <table class="term-table">
+        <tr>
+          <th>From</th>
+          <th>Relationship</th>
+          <th>To</th>
+        </tr>
+        <tr>
+          <td><code>sh:conformsToShapesGraph</code></td>
+          <td><code>rdfs:subPropertyOf</code></td>
+          <td><code>dcterms:conformsTo</code></td>
+        </tr>
+      </table>
+    </section>
+    <section id="prov-o-alignment">
       <h4>PROV-O Alignment</h4>
       <p>
         The logic for this alignment with [[[prov-o]]] is given in section <a href="#persisting-validation"></a>.
@@ -1555,7 +1566,7 @@ WHERE {
 <section id="unresolved-issues">
   <h2>Unresolved Issues</h2>
   <p>Issues labeled 'Profiles' not present elsewhere in the document:</p>
-  <div class="issue" data-number="312">&nbsp;</div>
+  <div class="issue" data-number="242">&nbsp;</div>
   <div class="issue" data-number="321">&nbsp;</div>
   <div class="issue" data-number="582">&nbsp;</div>
   <div class="issue" data-number="602">&nbsp;</div>
@@ -1564,22 +1575,15 @@ WHERE {
   <div class="issue" data-number="670">&nbsp;</div>
   <div class="issue" data-number="850">&nbsp;</div>
   <div class="issue" data-number="867">&nbsp;</div>
+  <div class="issue" data-number="868">&nbsp;</div>
   <div class="issue" data-number="874">&nbsp;</div>
-  <div class="issue" data-number="875">&nbsp;</div>
-  <div class="issue" data-number="880">&nbsp;</div>
-  <div class="issue" data-number="882">&nbsp;</div>
   <div class="issue" data-number="891">&nbsp;</div>
   <div class="issue" data-number="920">&nbsp;</div>
   <div class="issue" data-number="923">&nbsp;</div>
   <div class="issue" data-number="973">&nbsp;</div>
-  <div class="issue" data-number="974">&nbsp;</div>
   <div class="issue" data-number="985">&nbsp;</div>
-  <div class="issue" data-number="986">&nbsp;</div>
-
-  <h3>Administrative</h3>
-  <ul>
-    <li>Convert all references to <code>dx-prof-1.0</code> to use <code>data-cite</code> rather than <code>href</code> when it resolves at on SpecRef</li>
-  </ul>
+  <div class="issue" data-number="1187">&nbsp;</div>
+  <div class="issue" data-number="1381">&nbsp;</div>
 </section>
 
 <section id="profiles" class="appendix">
@@ -1592,7 +1596,6 @@ WHERE {
   </p>
   <section id="specification-profiles">
     <h3>Specification Profiles</h3>
-    <div class="issue" data-number="827">Allow SHACL UI implementations to define a profile of SHACL UI that explicitly states the set of features they support</div>
     <section id="shacl12-profiles">
       <h4>SHACL 1.2 Specifications</h4>
       <p>
@@ -1673,7 +1676,6 @@ WHERE {
     </section>
     <section id="disallow-recursive-constraints">
       <h3>Disallowing Recursive Constraints Profile</h3>
-      <div class="issue" data-number="875">&nbsp;</div>
       <p>
         This profile establishes structural validation rules for defining SHACL shapes, explicitly prohibiting
         the authoring of recursive constraints. While the core SHACL specification permits structural recursion, it
@@ -1683,7 +1685,7 @@ WHERE {
         this profile defines the specific shape authoring patterns that are disallowed, such as
         self-referencing shapes, mutually dependent shapes, and recursive tree structures.
       </p>
-      <section>
+      <section class="notoc">
         <h4>Definition of Recursive Constraints</h4>
         <p>
           A SHACL shapes graph <strong>SG</strong> conforms to the Non‑Recursive Constraints Profile
@@ -1733,73 +1735,18 @@ WHERE {
           <li><strong>self-referential negation</strong> (a shape that negates itself)</li> 
         </ul>
       </section>
-      <section>
+      <section class="notoc">
        <h4>Validating the Absence of Recursive Constraints</h4>
        <p>
          The following SHACL-SHACL shapes graph can be used to validate that a given shapes graph does not
          contain any recursive constraints.
        </p>
-         <div class="shapes-graph">
-ex:NonRecursiveConstraintsValidator
-  a sh:NodeShape ;
-
-  # Cover both explicitly typed and structurally-used shapes:
-  sh:targetClass sh:Shape ;
-  sh:targetClass sh:NodeShape ;
-  sh:targetClass sh:PropertyShape ;
-  sh:targetSubjectsOf sh:node ;
-  sh:targetSubjectsOf sh:property ;
-  sh:targetSubjectsOf sh:qualifiedValueShape ;
-  sh:targetSubjectsOf sh:not ;
-  sh:targetSubjectsOf sh:and ;
-  sh:targetSubjectsOf sh:or ;
-  sh:targetSubjectsOf sh:xone ;
-
-  # Capture shapes that appear only as list members or property shapes:
-  sh:targetObjectsOf sh:property ;
-  sh:targetObjectsOf rdf:first ;
-
- # Target members inside shape lists
- sh:targetNode [
-    sh:select """
-      SELECT ?member
-      WHERE {
-        ?shape (sh:and|sh:or|sh:xone)/rdf:rest*/rdf:first ?member .
-      }
-    """
-  ] ;
-
-  sh:sparql ex:NoRecursiveShapeReferencesConstraint
-.
-
-ex:NoRecursiveShapeReferencesConstraint
-  a sh:SPARQLConstraint ;
-  sh:severity sh:Violation ;
-  sh:message "Recursive constraints are disallowed by this profile: a shape is (directly or indirectly) reachable from itself via shape references (e.g., sh:node, sh:property, sh:not, sh:and/or/xone members, sh:qualifiedValueShape)." ;
-  sh:select """
-    PREFIX sh: &lt;http://www.w3.org/ns/shacl#&gt;
-    PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
-
-    SELECT $this
-    WHERE {
-       FILTER EXISTS {
-         $this (
-              sh:node
-           | sh:property
-           | sh:qualifiedValueShape
-           | sh:not
-           | sh:memberShape
-           | sh:reifierShape
-           | sh:someValue
-           | (sh:and|sh:or|sh:xone)/(rdf:rest*/rdf:first)
-         )+ $this .
-       }
-    }
-  """
-.
-         </div>
+       <div class="shapes-graph">
+         <div class="turtle" data-include="examples/drcp/sg-01.ttl" data-include-format="text"></div>
+         <div class="jsonld" data-include="examples/drcp/sg-01.jsonld" data-include-format="text"></div>
+       </div>
       </section>
-      <section>
+      <section class="notoc">
          <h4>Examples of Disallowed Recursive Constraints</h4>
          <p>
            The following examples illustrate the types of recursive constraints that are disallowed by this profile.
@@ -1807,75 +1754,44 @@ ex:NoRecursiveShapeReferencesConstraint
          <strong>Direct recursion in a single shape example</strong>
          <aside class="example" title="Shape raising constraint violation when recursive constraints are present">
            <div class="shapes-graph">
-  ex:PersonShape a sh:NodeShape ;
-    sh:targetClass ex:Person ;
-    sh:property [
-      sh:path ex:hasManager ;
-      sh:node ex:PersonShape ;
-      sh:minCount 1 ;
-    ] .
+             <div class="turtle" data-include="examples/drcp/sg-02.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/sg-02.jsonld" data-include-format="text"></div>
            </div>
            <div class="data-graph">
-  # causes an infinite validation loop
-  ex:Alice a ex:Person ; ex:hasManager ex:Bob .
-  ex:Bob a ex:Person ; ex:hasManager ex:Alice .
+             <div class="turtle" data-include="examples/drcp/dg-01.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/dg-01.jsonld" data-include-format="text"></div>
            </div>
          </aside>
          <aside class="example" title="Recursive tree shape.">
            <div class="shapes-graph">
-  ex:FolderShape a sh:NodeShape ;
-    sh:targetClass ex:Folder ;
-    sh:property [
-      sh:path ex:containsFolder ;
-      sh:node ex:FolderShape ;
-    ] .
+             <div class="turtle" data-include="examples/drcp/sg-03.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/sg-03.jsonld" data-include-format="text"></div>
            </div>
            <div class="data-graph">
-  # causes an infinite validation loop
-  ex:FolderA a ex:Folder ; ex:containsFolder ex:FolderB .
-  ex:FolderB a ex:Folder ; ex:containsFolder ex:FolderA .
-
-  # causes an infinite validation loop
-  ex:FolderA a ex:Folder ; ex:containsFolder ex:FolderB .
-  ex:FolderB a ex:Folder ; ex:containsFolder ex:FolderC .
-  ex:FolderC a ex:Folder ; ex:containsFolder ex:FolderA .
+             <div class="turtle" data-include="examples/drcp/dg-02.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/dg-02.jsonld" data-include-format="text"></div>
            </div>
          </aside>
          <strong>Mutually referencing shapes example</strong>
          <aside class="example" title="Two shapes that reference each other, creating a cycle.">
            <div class="shapes-graph">
-  ex:DepartmentShape a sh:NodeShape ;
-    sh:targetClass ex:Department ;
-    sh:property [
-      sh:path ex:hasMember ;
-      sh:node ex:EmployeeShape ;
-      sh:minCount 1 ;
-    ] .
-
-  ex:EmployeeShape a sh:NodeShape ;
-    sh:targetClass ex:Employee ;
-    sh:property [
-      sh:path ex:belongsTo ;
-      sh:node ex:DepartmentShape ;
-      sh:minCount 1 ;
-    ] .
+             <div class="turtle" data-include="examples/drcp/sg-04.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/sg-04.jsonld" data-include-format="text"></div>
            </div>
            <div class="data-graph">
-  # causes an infinite validation loop
-  ex:Engineering a ex:Department ; ex:hasMember ex:Alice .
-  ex:Alice a ex:Employee ; ex:belongsTo ex:Engineering .
+             <div class="turtle" data-include="examples/drcp/dg-03.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/dg-03.jsonld" data-include-format="text"></div>
            </div>
          </aside>
          <strong>Self-referential negation</strong>
          <aside class="example" title="Logical paradox example.">
            <div class="shapes-graph">
-  ex:ParadoxShape a sh:NodeShape ;
-    sh:targetClass ex:ClassA ;
-    sh:not ex:ParadoxShape .
+             <div class="turtle" data-include="examples/drcp/sg-05.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/sg-05.jsonld" data-include-format="text"></div>
            </div>
            <div class="data-graph">
-  # causes an infinite validation loop
-  ex:Widget a ex:ClassA .
+             <div class="turtle" data-include="examples/drcp/dg-04.ttl" data-include-format="text"></div>
+             <div class="jsonld" data-include="examples/drcp/dg-04.jsonld" data-include-format="text"></div>
            </div>
          </aside>
       </section>
@@ -1902,7 +1818,7 @@ ex:NoRecursiveShapeReferencesConstraint
       purpose of including this null profile definition here is to demonstrate what a null profile of a very simple RDF
       vocabulary looks like.
     </p>
-    <p class="todo">TODO - see file pos.ttl in repo</p>
+    <div class="issue" data-number="1422">&nbsp;</div>
   </section>
   <section id="null-profile-of-prof">
     <h3>Null Profile of PROF</h3>
@@ -1917,7 +1833,7 @@ ex:NoRecursiveShapeReferencesConstraint
       This null profile implements all the OWL rules of PROF as well as some rules stated in the PROF standard
       that are not implemented in the PROF ontology.
     </p>
-    <p class="todo">TODO</p>
+    <div class="issue" data-number="1423">&nbsp;</div>
   </section>
   <section>
     <h3>Null profile of SKOS</h3>
@@ -1934,7 +1850,7 @@ ex:NoRecursiveShapeReferencesConstraint
       This null profile implements all the OWL rules of SKOS, as well as some rules stated in
       the SKOS standard that are not implemented in the SKOS ontology.
     </p>
-    <p class="todo">TODO</p>
+    <div class="issue" data-number="1424">&nbsp;</div>
   </section>
 </section>
 
@@ -1968,7 +1884,7 @@ ex:NoRecursiveShapeReferencesConstraint
 
 <section id="internationalization">
   <h2>Internationalization Considerations</h2>
-  <p>TODO</p>
+  <div class="issue" data-number="1388">&nbsp;</div>
 </section>
 
 <section id="index"></section>

@@ -8,7 +8,13 @@ It is not a comprehensive list of changes to the specification.
 This file is temporary while the specification is in-development — it is not
 intended for publication.
 
-== 2026-10-20
+## 2026-11-10
+New well-formedness condition. Variable names are not reused in a rule.
+`vars` is renamed `inScope`.
+Well-formedness now has`inUse` to track inner pattern usage.
+See https://github.com/w3c/data-shapes/issues/690
+
+## 2026-10-20
 Add `GROUP` and aggregation functions, `COUNT`, `MIN`, `MAX` and `SUM`.
 
 ## 2026-10-01

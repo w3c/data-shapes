@@ -578,7 +578,7 @@
         <div class="shapes-graph">
           <div class="turtle">
 # This box represents an input shapes graph
-&lt;s&gt; &lt;p&gt; &lt;o&gt; .
+ex:s ex:p ex:o .
           </div>
           <div class="jsonld">
             <pre class="text">// This box represents an input shapes graph</pre>
@@ -1116,7 +1116,7 @@ ex:PersonShape a sh:NodeShape ;
                 [ shnex:pathValues schema:familyName ]
             )
         ] ;
-    ] ;
+    ],
     <ins>[</ins>
         <ins>sh:path schema:affiliation ;</ins>
         <ins>sh:nodeKind sh:IRI ;</ins>
@@ -1293,6 +1293,14 @@ ex:PersonShapeNameGroup a sh:PropertyGroup ;
                   A SHACL Renderer MUST respect the read-only state of triples, indicate it accordingly in the user interface and thereby distinguish editable data from read-only data. 
 								</td>
 							</tr>
+							<tr>
+								<td><code>shui:defaultOrder</code></td>
+								<td>
+									The <a>effective order</a> assumed for <a>property shapes</a> and property groups that do not specify <code>sh:order</code>, as defined in <a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a>. 
+                  The value of <code>shui:defaultOrder</code> is of datatype <code>xsd:decimal</code> or <code>xsd:integer</code>, which are the datatypes that <code>sh:order</code> permits. 
+                  Where it is absent, a property shape or property group without <code>sh:order</code> has no <a>effective order</a>.
+								</td>
+							</tr>
 						</tbody>
 					</table>
 				<aside class="example" title="Sample Instance Data">
@@ -1302,7 +1310,8 @@ ex:config a shui:Configuration ;
     shui:defaultNamespace "http://example.com/ns#" ;
     shui:languagePreference ("" "en" "de") ;
     shui:timeZone "Europe/Vienna" ;
-    shui:labelPreference (skos:prefLabel dcterms:title rdfs:label) .
+    shui:labelPreference (skos:prefLabel dct:title rdfs:label) ;
+    shui:defaultOrder 0 .
 						</div>
 					</div>
         </p>
@@ -1337,6 +1346,12 @@ ex:config a shui:Configuration ;
           conditions under which it applies, expressed as SHACL shapes referenced through
           `shui:shapesGraphShape` (validated against the shape node in the shapes graph)
           and `shui:dataGraphShape` (validated against the focus node in the data graph).
+        </p>
+        <p>
+          An implementation MUST NOT select or offer a widget that it does not implement.
+          When a widget that the implementation does not implement matches, or when no
+          widget matches, the implementation MUST report this to the application. How
+          these reports are handled or presented is left to the application.
           Two kinds of matcher are defined:
         </p>
         <ul>
@@ -1732,6 +1747,13 @@ ex:PersonShapeName
           Several <code>shui:WidgetScore</code> instances may share the same <code>shui:widget</code>, in which case the accept
           function is called more than once for that widget with the same inputs. The accept function is deterministic for a
           given focus node and shape node, so implementations MAY evaluate it once per widget and reuse the result.
+        </p>
+        <p class="note">
+          The sequence returned by the score function can be empty, for example when no value is present yet and the shape
+          node declares no constraints from which a suitable widget can be derived. This mostly affects editing, since an
+          existing value usually provides enough information to select a widget for viewing it. This specification
+          deliberately does not define a fallback widget for this case. How a renderer handles it is left to the
+          implementation, which may for instance take into account how familiar its intended users are with RDF.
         </p>
 
         <section id="scoring-algorithm-score-function-processing">
@@ -2474,18 +2496,74 @@ ex:book1 a ex:Book ;
         SHACL Renderers MUST determine the presentation order of <a>property shapes</a> and
         property groups using the value of <code>sh:order</code>. At each level of rendering,
         property groups and ungrouped <a>property shapes</a> MUST be treated as members of a single
-        ordered sequence.
+        ordered sequence. A <a>property shape</a> that specifies <code>sh:group</code> is not a member
+        of that sequence; it is rendered inside the referenced property group, where its
+        <code>sh:order</code> determines its position relative to the other members of that group.
       </p>
 
       <p>
-        For a <a>property shape</a> that specifies <code>sh:group</code>, the position of the
-        property shape in the top-level sequence MUST be determined by the <code>sh:order</code> of
-        the referenced property group. The property shape's own <code>sh:order</code> MUST be used
-        only to determine its position within that property group. Within a property group,
-        <a>property shapes</a> MUST be ordered according to their own <code>sh:order</code> values.
-        The same ordering rules MUST be applied recursively to nested property groups, if supported
-        by the renderer.
+        A property group may specify a value for <code>shui:parentGroup</code> to indicate that it is
+        nested inside another property group. A property group MUST have at most one value for
+        <code>shui:parentGroup</code>, and that value MUST be a <code>sh:PropertyGroup</code>.
+        A renderer that supports nested property groups MUST render a nested property group inside its parent property group and
+        not as a member of any other sequence. Within the parent group, the nested property groups
+        and the <a>property shapes</a> of that group are treated as members
+        of a single ordered sequence. The same ordering rules MUST be applied recursively at each
+        level of nesting. A renderer that does not support nested property groups MUST ignore
+        <code>shui:parentGroup</code>, so that each <a>property shape</a> is rendered
+        in the property group it specifies, and property groups that contain no
+        <a>property shapes</a> directly are not rendered. If the chain of
+        <code>shui:parentGroup</code> values of a property group leads back to itself, renderers
+        MUST ignore the <code>shui:parentGroup</code> values of all property groups in that cycle.
       </p>
+
+      <p>
+        Renderers SHOULD expose the structure of nested property groups in their output, for example
+        by rendering each property group as a distinct element that can be identified by the IRI of
+        the property group, or by another stable identifier if it is a blank node, so that the
+        layout of a form or view can be controlled with technologies such as CSS.
+      </p>
+
+      <aside class="example" title="Nested property groups">
+        <div class="shapes-graph">
+          <div class="turtle">
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property [
+        sh:path ex:firstName ;
+        sh:order 0 ;
+        sh:group ex:NameGroup ;
+    ] ;
+    sh:property [
+        sh:path ex:lastName ;
+        sh:order 1 ;
+        sh:group ex:NameGroup ;
+    ] ;
+    sh:property [
+        sh:path ex:birthDate ;
+        sh:order 1 ;
+        sh:group ex:PersonalGroup ;
+    ] .
+
+ex:PersonalGroup
+    a sh:PropertyGroup ;
+    rdfs:label "Personal details"@en ;
+    sh:order 0 .
+
+ex:NameGroup
+    a sh:PropertyGroup ;
+    rdfs:label "Name"@en ;
+    shui:parentGroup ex:PersonalGroup ;
+    sh:order 0 .
+          </div>
+        </div>
+        <p>
+          A renderer renders the group "Personal details" containing first the nested group "Name",
+          with the fields for <code>ex:firstName</code> and <code>ex:lastName</code>, followed by the
+          field for <code>ex:birthDate</code>. Using CSS, the nested group "Name" could for example
+          be laid out horizontally so that the first and last name appear side by side.
+        </p>
+      </aside>
 
       <p>
         The <dfn>effective order</dfn> of a <a>property shape</a> or
@@ -2718,7 +2796,7 @@ ex:config
 
       <p class="note">
         This specification does not define how <a href="#property-roles">property roles</a>, such as
-        <code>shui:LabelRole</code>, are resolved or auto-injected into the search query. Renderers MAY combine
+        <a href="#LabelRole"><code>shui:LabelRole</code></a>, are resolved or auto-injected into the search query. Renderers MAY combine
         value filtering and label retrieval in a single query, using the additional bindings beyond the first
         described above, or retrieve them via different mechanisms.
       </p>
@@ -3615,7 +3693,7 @@ ex:ConceptTableShape-altLabel
       <h3>Direct Role Annotation</h3>
 
       <p>
-        Property roles can be annotated on property shapes by using the <code></code>shui:propertyRole</code> predicate and linking directly to a property role instance.
+        Property roles can be annotated on property shapes by using the <code>shui:propertyRole</code> predicate and linking directly to a property role instance.
         SHACL renderers may use such direct annotations to drive the way specific user-interface elements are displayed.
       </p>
 
@@ -3625,7 +3703,7 @@ ex:ConceptTableShape-altLabel
       </p>
 
       <p>
-        The example below illustrates the common case where a property shape is directly annotated with shui:LabelRole. This informs user-interfaces that the shape's value nodes
+        The example below illustrates the common case where a property shape is directly annotated with <a href="#LabelRole"><code>shui:LabelRole</code></a>. This informs user-interfaces that the shape's value nodes
         represent human-readable labels for resources.
       </p>
 
@@ -3639,7 +3717,7 @@ ex:Label a sh:PropertyShape ;
           </div>
         </div>
         <p>
-          This example illustrates the common case where a property shape is directly annotated with <code>shui:LabelRole</code>.
+          This example illustrates the common case where a property shape is directly annotated with <a href="#LabelRole"><code>shui:LabelRole</code></a>.
           This informs user-interfaces that the shape's value nodes represent human-readable labels for resources.
         </p>
       </aside>
@@ -3651,8 +3729,8 @@ ex:Label a sh:PropertyShape ;
       <p>
         If multiple property shapes share the same role, they must be sorted in ascending order of their <code>sh:order</code> values, and any
         property shape using a qualified role annotation comes before a shape using a direct, unqualified role annotation. For roles that render
-        a single value, such as <code>shui:LabelRole</code>, this order determines precedence, and user interfaces should prefer the first shape
-        that yields a value. For roles that render all values, such as <code>shui:ClassificationRole</code>, all shapes contribute, and this order
+        a single value, such as <a href="#LabelRole"><code>shui:LabelRole</code></a>, this order determines precedence, and user interfaces should prefer the first shape
+        that yields a value. For roles that render all values, such as <a href="#ClassificationRole"><code>shui:ClassificationRole</code></a>, all shapes contribute, and this order
         only determines the display order of their values. The order of the values within a single shape is left to the implementation.
         In both cases, this use of <code>sh:order</code> is unrelated to the presentation order defined in
         <a href="#grouping-and-ordering">Grouping, Ordering, and Layout Hints</a>.
@@ -3713,7 +3791,7 @@ ex:Name a sh:PropertyShape ;
         The following sections define the instances of <code>shui:PropertyRole</code> in the SHUI namespace. Additional property roles may be defined in other namespaces.
       </p>
 
-      <h4>shui:LabelRole</h4>
+      <h4 id="LabelRole">shui:LabelRole</h4>
 
       <p>
         The <code>shui:LabelRole</code> is used to identify properties whose values serve as human-readable display labels.
@@ -3727,7 +3805,7 @@ ex:Name a sh:PropertyShape ;
       <img src="images/property-roles/label-role.png" style="margin-block: 40px;"
            alt="Example of a selected resource rendered with its display label instead of its IRI"/>
 
-      <h4>shui:DepictionRole</h4>
+      <h4 id="DepictionRole">shui:DepictionRole</h4>
 
       <p>
         Properties marked with the property role <code>shui:DepictionRole</code> provide images that depict the individual resource, such as a photo of a person.
@@ -3744,7 +3822,7 @@ ex:Name a sh:PropertyShape ;
 
       <p class="note">
         Depictions are typically rendered larger than icons and are not constrained to a square box. In contrast to
-        <code>shui:IconRole</code>, a depiction is expected to be specific to the individual resource rather than shared across instances.
+        <a href="#IconRole"><code>shui:IconRole</code></a>, a depiction is expected to be specific to the individual resource rather than shared across instances.
       </p>
 
       <img src="images/property-roles/label-and-depiction-roles.png" style="margin-block: 40px;"
@@ -3768,7 +3846,7 @@ ex:PersonImage a sh:PropertyShape ;
         </p>
       </aside>
 
-      <h4>shui:ClassificationRole</h4>
+      <h4 id="ClassificationRole">shui:ClassificationRole</h4>
 
       <p>
         Properties marked with the property role <code>shui:ClassificationRole</code> indicate the kind or group that the resource belongs to.
@@ -3819,7 +3897,7 @@ ex:ConceptScheme a sh:PropertyShape ;
         </p>
       </aside>
 
-      <h4>shui:DescriptionRole</h4>
+      <h4 id="DescriptionRole">shui:DescriptionRole</h4>
 
       <p>
         Properties marked with the property role <code>shui:DescriptionRole</code> provide textual descriptions that typically summarize or introduce the resource.
@@ -3854,7 +3932,7 @@ ex:Comment a sh:PropertyShape ;
         </p>
       </aside>
 
-      <h4>shui:IconRole</h4>
+      <h4 id="IconRole">shui:IconRole</h4>
 
       <p>
         Properties marked with the property role <code>shui:IconRole</code> produce small images that may be displayed next to a resource's label,
@@ -3874,7 +3952,7 @@ ex:Comment a sh:PropertyShape ;
 
       <p class="note">
         Icons are typically rendered at small sizes and are often reused across many resources. Scalable formats such as SVG are therefore
-        usually a good choice. In contrast to <code>shui:DepictionRole</code>, icon values are not expected to be distinct per resource.
+        usually a good choice. In contrast to <a href="#DepictionRole"><code>shui:DepictionRole</code></a>, icon values are not expected to be distinct per resource.
       </p>
 
       <img src="images/property-roles/icon-role.png" style="margin-block: 40px;"
@@ -3958,12 +4036,75 @@ ex:Island-icon
 
     <section id="security" class="appendix informative">
       <h2>Security Considerations</h2>
-      <p>TODO</p>
+      <p>
+        SHACL UI shares the security considerations of <a href="../shacl12-core/#security">SHACL Core</a>
+        and, where SPARQL-based features are used, <a href="../shacl12-sparql/#security">SHACL-SPARQL</a>.
+        The shapes graph, the scoring graph, and the data graph together determine what is rendered, which
+        widgets are used, and which queries are evaluated, so any of these graphs from an untrusted source,
+        for example submitted by end users, is a risk in itself.
+      </p>
+      <p>
+        SHACL UI does not define access control. Not rendering a property does not protect its values; access
+        has to be enforced in the data layer.
+      </p>
+      <p>
+        <code>rdf:HTML</code> literals, rendered by the <a href="#HTMLViewer">HTMLViewer</a>, the
+        <a href="#RichTextEditor">RichTextEditor</a>, and the <a href="#DescriptionRole"><code>shui:DescriptionRole</code></a>, can inject
+        scripts or event handlers when inserted as is. IRIs turned into links, for example by the
+        <a href="#HyperlinkViewer">HyperlinkViewer</a>, can use schemes such as <code>javascript:</code>.
+        Common mitigations are sanitizing HTML, sandboxing, restricting IRI schemes, and a Content Security
+        Policy [[CSP3]].
+      </p>
+      <p>
+        Search input is <a>substituted</a> as escaped string literals and cannot alter the structure of a
+        <code>shui:searchQuery</code>. The query itself, and <a href="../shacl12-sparql/#SelectExpression">select expressions</a>, can contain a
+        <code>SERVICE</code> clause that sends requests to arbitrary endpoints. Implementations can restrict the
+        endpoints that may be queried or route requests through a proxy.
+      </p>
+      <p>
+        Shapes graphs from third parties can be used for denial of service: queries, complex property paths,
+        node expressions, and recursive forms can cause excessive computation, and search queries may be
+        evaluated on every keystroke. Implementations can limit this
+        with timeouts, result limits, and debouncing.
+      </p>
+      <p>
+        Implementations may support widgets beyond the <a href="#builtin-widgets">built-in widgets</a>. How such
+        custom widgets are loaded is up to the implementation, which is responsible for doing so safely, for
+        example by only loading widgets that are trusted and necessary. Their matchers can also be
+        computationally heavy and lead to denial of service.
+      </p>
     </section>
 
     <section id="privacy" class="appendix informative">
       <h2>Privacy Considerations</h2>
-      <p>TODO</p>
+      <p>
+        A <a>SHACL Renderer</a> does not itself collect data about the end user or their interactions, persist
+        state across sessions, or access device sensors. It displays and edits the data handed to it by the
+        application. The data graph may contain
+        personally identifiable information; applications are advised to pass only the data the end user needs
+        and is allowed to see, and to take applicable regulations such as <a href="https://eur-lex.europa.eu/eli/reg/2016/679/oj">GDPR</a>
+        into account.
+      </p>
+      <p>Some features disclose information to third parties:</p>
+      <ul>
+        <li>
+          A <code>shui:searchQuery</code> sends the search input, as it is typed, and the preferred language
+          to the endpoint evaluating it and to any endpoint in a <code>SERVICE</code> clause.
+        </li>
+        <li>
+          The <a href="#ImageViewer">ImageViewer</a>, the <a href="#DepictionRole"><code>shui:DepictionRole</code></a> and
+          <a href="#IconRole"><code>shui:IconRole</code></a>, and rendered HTML may load resources from IRIs in the data graph, revealing
+          the end user's IP address and viewing time to whoever controls the IRI. Implementations can load
+          such resources only after a user action, or through a proxy.
+        </li>
+        <li>
+          Identifiers of new resources derived from user input, such as a name, can expose personal information
+          even after that input has changed.
+        </li>
+      </ul>
+      <p>
+        This specification does not require revealing the use of assistive technology.
+      </p>
     </section>
 
     <section id="internationalization" class="appendix informative">
