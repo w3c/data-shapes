@@ -1293,6 +1293,52 @@
 
         <section id="in-scope-variables">
           <h4>In-scope Variables</h4>
+          <!-- Alternative to the definition below: keep one. -->
+          <p>
+            The following algorithm is an alternative to the definition below.
+            It calculates the same
+            <var>inScope(S, i, V<sub>0</sub>)</var>.
+          </p>
+          <div class="algorithm">
+            <pre class="nohighlight">
+# Calculate the variables in-scope for a sequence of rule elements.
+# output -- The set of variables in-scope after the i-th element of S.
+
+define inScope(S, i, V0):
+    where
+        S is a sequence of rule elements
+        i is an index, 0 &lt;= i &lt;= N, where N is the length of S
+        V0 is the set of initial variables
+
+    let V = V0
+
+    foreach k = 1 to i:
+        let elt = the k-th element of S
+
+        if elt is a triple pattern element:
+            let X = the set of variables that occur in elt
+            V = V &cup; X
+        else if elt is an assignment element:
+            V = V &cup; { elt.var }
+        else if elt is a group element:
+            V = V &cup; elt.keys
+            foreach aggregation assignment A in elt.aggregations:
+                V = V &cup; { A.variable }
+            endfor
+        else:
+            # Filter and negation elements do not add variables.
+        endif
+    endfor
+
+    the result is V
+enddefine
+
+define inScope(S, V0):
+    # N is the length of S.
+    the result is inScope(S, N, V0)
+enddefine
+            </pre>
+          </div>
           <p>
             Let <var>V<sub>0</sub></var> be a set of variables, called the initial
             variables of the sequence <var>S</var>.
@@ -1365,6 +1411,58 @@
 
         <section id="in-use-variables">
           <h4>In-use Variables</h4>
+          <!-- Alternative to the definition below: keep one. -->
+          <p>
+            The following algorithm is an alternative to the definition below.
+            It calculates the same
+            <var>inUse(S, i, V<sub>0</sub>, U<sub>0</sub>)</var>.
+          </p>
+          <div class="algorithm">
+            <pre class="nohighlight">
+# Calculate the variables in-use for a sequence of rule elements.
+# output -- The set of variables in-use after the i-th element of S.
+
+define inUse(S, i, V0, U0):
+    where
+        S is a sequence of rule elements
+        i is an index, 0 &lt;= i &lt;= N, where N is the length of S
+        V0 is the set of initial variables
+        U0 is the set of initial in-use variables
+
+    let U = U0
+
+    foreach k = 1 to i:
+        let elt = the k-th element of S
+        # Vin and Vout are the variables in-scope before and after elt.
+        # U is the set of variables in-use before elt.
+        let Vin = inScope(S, k-1, V0)
+        let Vout = inScope(S, k, V0)
+
+        if elt is a negation element:
+            # The variables of the negation element body that do not
+            # have a value after elt.
+            let W = inScope(elt.inner, Vin) &cup; inUse(elt.inner, Vin, U)
+            U = U &cup; ( W &setminus; Vout )
+        else if elt is a group element:
+            let GKin = elt.keys &cap; Vin
+            let GUin = U &cup; ( Vin &setminus; elt.keys )
+            let W = inScope(elt.pattern, GKin) &cup; inUse(elt.pattern, GKin, GUin)
+            U = U &cup; ( W &setminus; Vout )
+        else:
+            # Triple pattern, filter and assignment elements do not
+            # put a variable out of scope.
+        endif
+    endfor
+
+    the result is U
+enddefine
+
+define inUse(S, V0, U0):
+    # N is the length of S.
+    the result is inUse(S, N, V0, U0)
+enddefine
+            </pre>
+          </div>
           <p>
             Let <var>U<sub>0</sub></var> be a set of variables, called the initial
             in-use variables of the sequence <var>S</var>.
@@ -1455,6 +1553,63 @@
               SPARQL-RL does not have basic graph patterns as such, but adjacent
               triple patterns have a similar effect.
             </p>
+          </div>
+
+          <!-- At-risk with issue 1445. -->
+          <div>
+            <p>
+              A <dfn>triple pattern block</dfn> is a run of one or more
+              adjacent [=triple pattern elements=] in a sequence of
+              [=rule elements=] that is not part of a longer run.
+            </p>
+            <p>
+              [=Triple pattern blocks=] occur in the [=rule body=],
+              in the [=negation element body=] of a [=negation element=],
+              and in the [=group pattern=] of a [=group element=].
+            </p>
+            <p>
+              Define <var>tpBlocks(S)</var> as the sequence of
+              [=triple pattern blocks=] of <var>S</var>, in left-to-right
+              order. Each [=triple pattern block=] of <var>S</var> occurs
+              once in <var>tpBlocks(S)</var>.
+              <var>tpBlocks(S)</var> is calculated by the following algorithm:
+            </p>
+            <div class="algorithm">
+              <pre class="nohighlight">
+# Calculate the triple pattern blocks of a sequence of rule elements.
+# output -- A sequence of triple pattern blocks, in left-to-right order.
+
+define tpBlocks(S):
+    where
+        S is a sequence of rule elements
+
+    # The result.
+    let blocks = empty sequence
+    # The triple pattern block being accumulated.
+    let tpBlock = empty sequence
+
+    foreach rule element elt in S:
+        if elt is a triple pattern element:
+            add elt to tpBlock
+        else:
+            # Any rule element that is not a triple pattern element
+            # ends the triple pattern block before it.
+            if tpBlock is not empty:
+                add tpBlock to blocks
+                tpBlock = empty sequence
+            endif
+        endif
+    endfor
+
+    # A triple pattern block that ends the sequence S.
+    if block is not empty:
+        add tpBlock to blocks
+    endif
+
+    the result is blocks
+enddefine
+              </pre>
+            </div>
           </div>
         </section>
 
