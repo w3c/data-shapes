@@ -15,25 +15,15 @@ from tempfile import TemporaryDirectory
 
 from pyld import jsonld
 
-# Keep this in sync with the JSON-LD context in index.html.
-CONTEXT = {
-    "dcterms": "http://purl.org/dc/terms/",
-    "ex": "http://example.com/ns#",
-    "owl": "http://www.w3.org/2002/07/owl#",
-    "prof": "http://www.w3.org/ns/dx/prof/",
-    "prov": "http://www.w3.org/ns/prov#",
-    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-    "role": "http://www.w3.org/ns/dx/prof/role/",
-    "sh": "http://www.w3.org/ns/shacl#",
-    "xsd": "http://www.w3.org/2001/XMLSchema#",
-}
+# Use the shared example context for both parsing and compaction.
+CONTEXT = json.loads(
+    (Path(__file__).resolve().parent / "_prefixes.jsonld").read_text(encoding="utf-8")
+)
 PREFIXES = "".join(f"PREFIX {prefix}: <{iri}>\n" for prefix, iri in CONTEXT.items())
 # Additional Turtle defaults used by the Prez example; these are not part of
 # the shared JSON-LD context, so their IRIs remain expanded in the output.
 PREFIXES += """\
 PREFIX schema: <https://schema.org/>
-PREFIX shext: <http://example.com/shacl-extension#>
 """
 
 # These files illustrate query syntax, despite their .ttl suffix.
