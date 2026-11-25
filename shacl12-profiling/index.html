@@ -117,6 +117,14 @@
           group: "wg/data-shapes",
           github: "w3c/data-shapes",
           //preProcess:     [  ],
+          postProcess: [function removeUnsupportedPopupAttributes(_config, doc) {
+              // ReSpec adds aria-haspopup to implicit term/generic roles, which do not support it.
+              // Popup interaction uses the elements' selectors and tabindex, not this attribute.
+              doc.querySelectorAll(
+                  'dfn[id]:not([data-cite]):not([role])[aria-haspopup="dialog"], ' +
+                  '#index-defined-elsewhere span.index-term:not([role])[aria-haspopup="dialog"]'
+              ).forEach(element => element.removeAttribute("aria-haspopup"));
+          }],
           edDraftURI: "https://w3c.github.io/data-shapes/shacl12-profiling/",
           shortName: "shacl12-profiling",
           copyrightStart: "2025",
@@ -205,7 +213,7 @@
     [[[#packaging]]] covers packaging of SHACL for management.
   </p>
   <p>
-    [[[#profiling-of-shacl]]] describes profiles of SHACL and how to make new ones.
+    [[[#profiling-shacl]]] describes profiles of SHACL and how to make new ones.
   </p>
   <p>
     [[[#profiling-with-shacl]]] covers the use of SHACL in profiling of RDF data.
@@ -273,7 +281,7 @@
     </p>
     <ol start="2">
       <li><a href="#packaging">Packaging SHACL</a></li>
-      <li><a href="#profiling-of-shacl">Profiling of SHACL</a></li>
+      <li><a href="#profiling-shacl">Profiling of SHACL</a></li>
       <li><a href="#profiling-with-shacl">Profiling with SHACL</a></li>
       <li><a href="#vocabulary">SHACL Profiling Vocabulary</a></li>
     </ol>
@@ -363,33 +371,23 @@
     <p>
       Within this specification, the following JSON-LD context is used:
     </p>
-    <pre class="jsonld">{
-  "@context": {
-    "dcterms": "http://purl.org/dc/terms/",
-    "ex": "http://example.com/ns#",
-    "owl": "http://www.w3.org/2002/07/owl#",
-    "prof": "http://www.w3.org/ns/dx/prof/" ,
-    "prov": "http://www.w3.org/ns/prov#" ,
-    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#" ,
-    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-    "role": "http://www.w3.org/ns/dx/prof/role/" ,
-    "sh": "http://www.w3.org/ns/shacl#",
-    "xsd": "http://www.w3.org/2001/XMLSchema#"
-  }
-}</pre>
+    <pre class="jsonld" data-include="examples/_prefixes.jsonld" data-include-format="text"></pre>
     <p>
       Note that the URI of the graph defining the SHACL vocabulary itself is equivalent to
       the namespace above, i.e., it includes the <code>#</code>.
       References to the SHACL vocabulary, e.g., via <code>owl:imports</code> should include the <code>#</code>.
     </p>
     <p>
-      Throughout the specification, color-coded boxes containing RDF graphs in Turtle and JSON-LD will appear.
+      Throughout the specification, color-coded boxes containing graphs in [[[turtle]]] and JSON-LD will appear.
       The color and title of a box indicate whether it is a
       <a data-cite="shacl12-core#shapes-graph">shapes graph</a>, a
       <a data-cite="shacl12-core#data-graph">data graph</a>, or something
       else.
       The Turtle specification fragments use the prefix bindings given above.
-      Only the Turtle specifications will have parts highlighted.
+    </p>
+    <p>
+      [[[json-ld11]]] is also used alongside Turtle as another RDF format. When given, assume that the above JSON-LD
+      context is applied.
     </p>
     <div class="rdf-graph">
       <div class="turtle" data-include="conventions/rdf.ttl" data-include-format="text"></div>
@@ -453,7 +451,6 @@
       <li>Finding all the groups of <a>SHACL elements</a> that a group depends on</li>
       <li>Storing the validation results with context</li>
     </ol>
-    <div class="issue" data-number="623"></div>
   </section>
   <section id="packaging-recommendations">
     <h3>Recommendations Summary</h3>
@@ -659,21 +656,21 @@
   </section>
 </section>
 
-<section id="profiling-of-shacl">
-  <h2>Profiling of SHACL</h2>
+<section id="profiling-shacl">
+  <h2>Profiling SHACL</h2>
   <p>
-    This section describes how existing profiles of SHACL 1.2 are made, gives examples of some and indicates how to
+    This section describes how profiles of SHACL 1.2 are made, gives examples of some and indicates how to
     create more.
   </p>
   <p>
-    See <a href="#profiles">Appendix A</a> for a listing of profiles of SHACL 1.2 known at the time of this specification's
+    See [[[#profiles]]] for a listing of profiles of SHACL 1.2 known at the time of this specification's
     publication and for links to community managed profiles.
   </p>
   <section id="defining-profiles">
     <h3>Defining Profiles of SHACL</h3>
     <p>
-      Profiles of SHACL SHOULD be declared using [[[dx-prof]]]. The declaration of the Core profile of SHACL 1.2 is as
-      follows:
+      Profiles of SHACL SHOULD be declared using [[[dx-prof]]]. The declaration of the Core profile of SHACL 1.2 using
+      it is as follows:
     </p>
     <div class="rdf-graph">
       <div class="turtle" data-include="examples/profile-core.ttl" data-include-format="text"></div>
@@ -681,11 +678,12 @@
     </div>
     <p>
       This declaration identifies the Core profile with the IRI <code>&lt;http://www.w3.org/ns/shacl/profile/core></code>
-      and indicates it is an instance of <code>prof:Profile</code>, that it is a profile of the original SHACL
-      publication from 2017 and that it has three profile resources: a specification, a schema and a validator.
+      and indicates it is an instance of <code>prof:Profile</code>, that it is a profile of the Union Profile of SHACL
+      1.1. (see [[[#profiles]]] for more info) and that it has three profile resources: a
+      specification, a schema and a validator.
     </p>
     <p>
-      Due to SHACL being used to validate SHACL (see <a href="https://www.w3.org/TR/shacl12-overview#shacl-shacl">SHACL-SHACL</a>,
+      Due to SHACL being used to validate SHACL (see <a href="https://www.w3.org/TR/shacl12-overview#shacl-shacl">SHACL-SHACL</a>),
       the data model to which the schema is indicated as conforming is this Core profile's own validator.
     </p>
     <p>
@@ -706,18 +704,17 @@
       in the <em><a href="https://w3c.github.io/data-shapes/shacl12-overview/#shacl-shacl">SHACL 1.2 Overview's SHACL-SHACL appendix</a></em>.
     </p>
   </section>
-  <div class="issue" data-number="1418">&nbsp;</div>
   <section id="creating-profiles">
-    <h3>Creating other Profiles</h3>
+    <h3>Creating Profiles</h3>
     <p>
       Additional profiles of SHACL 1.2 may be created using any criteria. For example, it may be desirable to have profiles
       of SHACL 1.2 Core that only implement shape types limited to particular computational complexities, much like the
-      profiles of OWL [[[?owl2-profiles]]]. In this case, a profile definition could be made that uses the mechanisms given
+      profiles of OWL defined in [[[?owl2-profiles]]]. In this case, a profile definition could be made that uses the mechanisms given
       in the <a href="#packaging">Packaging SHACL section</a> above, to only include some of SHACL 1.2 Core's elements.
     </p>
     <p>
       Any other criteria can be used to select <a>SHACL elements</a> or to constrain their use, not just computational
-      complexity and the examples in [[[#profiles]]] show profiles created with different criteria.
+      complexity, and the examples in [[[#profiles]]] show profiles created with different criteria.
     </p>
     <p>
       When making profiles of SHACL 1.2, it is important to identify and present the profile as per the currently known
@@ -727,17 +724,21 @@
       <li>Identify the profile with an IRI</li>
       <li>Describe the profile using [[[dx-prof]]]</li>
       <li>
-        Define the profile building on the profiles of SHACL 1.2, as defined in this specification
+        Define the profile building on known profiles of SHACL 1.2, as defined in this specification and community-created
+        profiles
         <ul>
-          <li>See <a href="#profiles">Appendix A</a></li>
+          <li>
+            See [[[#known-profiles-of-shacl]]]
+          </li>
         </ul>
       </li>
       <li>
         Share the profile with the SHACL user community
         <ul>
-          <li>See the <a href="https://github.com/w3c/shacl-resources">SHACL
-          Resources Repository</a> for information on SHACL community resource
-          sharing</li>
+          <li>
+            Present the profile to the <a href="https://github.com/w3c/shacl-resources">SHACL Resources Repository</a>
+            for inclusion among the SHACL community's known profiles
+          </li>
         </ul>
       </li>
     </ol>
@@ -746,13 +747,13 @@
     <h3>Known Profiles of SHACL</h3>
     <p>
       A profile of SHACL 1.2 for each of the <a href="#specifications">SHACL 1.2 specifications, listed above</a>, as
-      known at the time of this specification's publication are given below in <a href="#profiles">Appendix A</a>'s
+      known at the time of this specification's publication are given below in [[[#profiles]]]'s
       <a href="#specification-profiles">Specification Profiles</a>. In addition, a union profile - all the
-      specification profiles combined - is also given in <a href="#profiles">Appendix A</a>.
+      specification profiles combined - is also given in [[[#profiles]]].
     </p>
     <p>
       Multiple other profiles of SHACL have been created by the W3C's Data Shapes Working Group, and they are listed in
-      <a href="#profiles">Appendix A</a> also. However, that listing is indicative of different kinds of profiles, such
+      [[[#profiles]]] also. However, that listing is indicative of different kinds of profiles, such
       as specifications-based, computational effort based - similar to profiles of OWL [[?owl2-profiles]] and so on, but
       it is not intended to be a comprehensive listing of profiles of SHACL.
     </p>
@@ -843,9 +844,7 @@
         <div class="turtle" data-include="examples/profiling-03.ttl" data-include-format="text"></div>
         <div class="jsonld" data-include="examples/profiling-03.jsonld" data-include-format="text"></div>
       </div>
-      <p class="todo">
-        Check back with PROF regarding use of <code>dcterms:conformsTo</code> in case they define a <code>prof:conformsTo</code>
-      </p>
+      <div class="issue" data-number="1416">&nbsp;</div>
       <p>
         Given this axiom, the definition provided here of <code><a href="#prop-conformstoshapesgraph">conformsToShapesGraph</a></code>
         and the modeling in the section <a href="#persisting-validation">Persisting validation results</a>, we can infer
@@ -854,9 +853,8 @@
       <p>
         This rule is presented to allow data which is declared to be valid according to a <a data-cite="shacl12-core#shapes-graph">shapes graph</a> that is a
         profile of a standard to be understood to conform to that standard. This rule is important for the
-        creation of null profiles using SHACL, as per section <a href="#null-profiles"></a>.
+        creation of null profiles using SHACL, as per section [[[#creating-null-profiles]]].
       </p>
-      <div class="issue" data-number="1419">&nbsp;</div>
     </section>
     <section id="hierarchies">
       <h3>Profile Hierarchies</h3>
@@ -872,13 +870,22 @@
         standards and profiles might be far preferable to manual assembly.
       </p>
     </section>
-    <section id="null-profiles">
+    <section id="creating-null-profiles">
     <h3>Creating Null Profiles</h3>
     <p>
-      Before the creation of SHACL, there was no standardized way of expressing closed-world RDF data models or
-      validators for RDF models. Now that we have SHACL, we may create a <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a>
-      of a standard that allows us to retrofit a mechanism for validation onto standards created using modeling
-      systems such as [[[owl2-overview]]].
+      Before the creation of SHACL, there was no easy, standardized way of expressing sophisticated validation rules for
+      RDF vocabularies so many RDF standards made before 2017 do not provide a simple way for users to validate data
+      according to them.
+    </p>
+    <p>
+      Many RDF vocabulary standards do provide model constraints in the form of OWL axioms, but these are not readily
+      usable as data validators. Others have unofficial validation tools provided by the standards editors or third
+      parties, for example [[[prov-o]]] has <em><a href="https://github.com/pgroth/prov-check/">prov-check</a></em>,
+      an application code (Python) package created by one of the standard's editors, that runs SPARQL queries.
+    </p>
+    <p>
+      Now that we have SHACL, we can create <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a>s of standards
+      that express many, and perhaps all, of their axioms and implied rules in a standardized data validation language.
     </p>
     <p>
       As per [[[dx-prof]]] and [[[#profiling-with-shacl-intro]]], a
@@ -887,36 +894,21 @@
       rules.
     </p>
     <p>
-      While null profiles of standards can be created using modeling or rule systems other than SHACL, here we
+      While null profiles of standards may be created using modeling or rule systems other than SHACL, here we
       focus only on the use of SHACL.
     </p>
-    <div class="issue" data-number="1420">&nbsp;</div>
     <p>
-      The main purpose of creating a null profile of a standard using SHACL is to enable the testing of conformance
-      to that standard by SHACL validation. This purpose exists because many RDF data models exist that have a
-      model standard, perhaps an OWL model or only a natural-language document of a model, but do not provide a
-      mechanism for data validation, such as a SHACL validator. Examples of such models are: [[[vocab-dcat-3]]], [[[schema-org]]],
-      [[[vocab-data-cube]]], and many W3C standards.
-    </p>
-    <div class="note">
-
-      <p>
-        An example of a non-SHACL validator for RDF data that acts as a null profile is the W3C's [[[prov-constraints]]]
-        which provides a list of constraints that apply to provenance data formulated according to [[[prov-o]]].
-        [[[prov-constraints]]] implements no constraints beyond those stated or implied in [[[prov-o]]] and the
-        conceptual [[[prov-dm]]], however it does include tests for things that the models do not explicitly model but
-        whose proper use requires, e.g., for ordering of temporal entities. Implementations of those constraints <a
-              href="https://github.com/pgroth/prov-check/tree/master">have been made</a> as Python scripts that execute
-        SPARQL queries, allowing for RDF data validation.
-      </p>
-    </div>
-    <p>
-      No universal and precise methodology can be given for creation of a null profile of a standard,
-      because, by the task's very nature, the standard's rule(s) may be imprecisely defined, and thus
-      the method used to characterize them in SHACL, which is precise, will vary just as the imprecise rule definition does.
+      No universal and precise methodology can be given for creation of a null profile of a standard, because standards
+      without validators don't usually itemize their rules in a testable way. However, there are methods known to be
+      useful. One commonly seen approach is converting OWL rules to SHACL using any of the many available tools, such as
+      <a href="https://github.com/sparna-git/owl2shacl">software packages</a> or
+      <a href="https://docs.topquadrant.com/8.2/reference/Transform_ConvertOWLAxiomsToSHACLConstraints.html">functions within products</a>.
+      Additionally, class or property definitions or other annotations often state their intended
+      use in natural language. For example, [[[vocab-dcat-3]]]'s usage note for the <code>dcat:Role</code> class
+      says "Used in a qualified-attribution to specify the role of an Agent with respect to an Entity".
     </p>
     <p>
-      See [[[#null-profile-examples]]] for examples of null profiles of other standards.
+      See [[[#null-profile-examples]]] for examples of null profiles of standards with notes on their creation.
     </p>
   </section>
   </section>
@@ -1482,7 +1474,6 @@
     <p>
       This reasoning rule is presented here as both a [[[sparql12-query]]] rule and a [[[shacl12-rules]]] rule.
     </p>
-    <div class="issue" data-number="868"></div>
     <div class="rules">
       <div class="sparql"><div class="turtle" data-include="rules/conforms-to-standard.sparql" data-include-format="text"></div></div>
       <div class="sparql-rl"><div class="turtle" data-include="rules/conforms-to-standard.srl" data-include-format="text"></div></div>
@@ -1503,7 +1494,7 @@
     <section id="prof-alignment">
       <h4>PROF Alignment</h4>
       <p>
-        The logic for this alignment with [[[dx-prof]]] is given in sections <a href="#profiling-of-shacl"></a> and
+        The logic for this alignment with [[[dx-prof]]] is given in sections <a href="#profiling-shacl"></a> and
         <a href="#profiling-with-shacl"></a>.
       </p>
       <table class="term-table">
@@ -1565,7 +1556,7 @@
 
 <section id="unresolved-issues">
   <h2>Unresolved Issues</h2>
-  <p>Issues labeled 'Profiles' not present elsewhere in the document:</p>
+  <p>Open issues labeled 'Profiling' not present elsewhere in the document:</p>
   <div class="issue" data-number="242">&nbsp;</div>
   <div class="issue" data-number="321">&nbsp;</div>
   <div class="issue" data-number="582">&nbsp;</div>
@@ -1574,8 +1565,6 @@
   <div class="issue" data-number="669">&nbsp;</div>
   <div class="issue" data-number="670">&nbsp;</div>
   <div class="issue" data-number="850">&nbsp;</div>
-  <div class="issue" data-number="867">&nbsp;</div>
-  <div class="issue" data-number="868">&nbsp;</div>
   <div class="issue" data-number="874">&nbsp;</div>
   <div class="issue" data-number="891">&nbsp;</div>
   <div class="issue" data-number="920">&nbsp;</div>
@@ -1584,13 +1573,14 @@
   <div class="issue" data-number="985">&nbsp;</div>
   <div class="issue" data-number="1187">&nbsp;</div>
   <div class="issue" data-number="1381">&nbsp;</div>
+  <div class="issue" data-number="1441">&nbsp;</div>
 </section>
 
 <section id="profiles" class="appendix">
   <h2>Profiles of SHACL</h2>
   <p>
     This appendix lists profiles of SHACL 1.2 known at the time of this specification's publication, formulated as per
-    the section <a href="#profiling-of-shacl">Profiling of SHACL</a>. It shall be used to indicate different kinds of
+    the section <a href="#profiling-shacl">Profiling of SHACL</a>. It shall be used to indicate different kinds of
     profiles of SHACL only, not as a comprehensive listing of profiles of SHACL. For a comprehensive, or at least
     community controlled and growing list of profiles of SHACL, see the <a href="https://github.com/w3c/shacl-resources">SHACL Resources Repository</a>.
   </p>
@@ -1637,7 +1627,6 @@
       </p>
     </section>
     <section id="original">
-      <div class="issue" data-number="872">&nbsp;</div>
       <h4>SHACL Original</h4>
       <p>
         The profile of SHACL 1.2 that contains only elements present in the original SHACL publication is available here:
@@ -1801,41 +1790,91 @@
 
 <section id="null-profile-examples" class="appendix informative">
   <h2>Null Profile Examples</h2>
+  <div class="issue" data-number="1464">&nbsp;</div>
   <p>
-    This appendix contains examples of <a data-cite="dx-prof-1.0#dfn-null-profile">null profiles</a> of other standards
-    with the rules of those standards expounded using SHACL to allow for the testing of data's conformance to the
-    standards.
+    This appendix contains examples of <a data-cite="dx-prof-1.0#dfn-null-profile">null profiles</a> of RDF vocabulary
+    standards created according to [[[#creating-null-profiles]]].
   </p>
   <p class="note">
-    The sections here provide descriptions of the null profiles however the maintained definitional resources for them are
-    contained in the <a href="https://github.com/w3c/shacl-resources">SHACL Community's SHACL Resources Repository</a>
-    within the folder <code>null-profiles</code>.
+    The null profile descriptions here are for demonstration purposes only. See the
+    <a href="https://github.com/w3c/shacl-resources">SHACL Community's SHACL Resources Repository</a> for maintained
+    versions of these null profiles and many more
   </p>
   <section id="null-profile-of-pos">
     <h3>Null Profile of POS</h3>
     <p>
-      This profile is a <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a> of the [[[!w3c-basic-geo]]]. The
-      purpose of including this null profile definition here is to demonstrate what a null profile of a very simple RDF
-      vocabulary looks like.
+      This profile is a <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a> of the [[[!w3c-basic-geo]]] also
+      known as POS. The
+      purpose of including it here is to demonstrate what a null profile of a very simple RDF
+      vocabulary looks like and how such is easily made.
     </p>
-    <div class="issue" data-number="1422">&nbsp;</div>
+    <p>
+      The original RDF declaration of POS with all but the first and last change notes removed for brevity is:
+    </p>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="null-profiles/pos.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="null-profiles/pos.jsonld" data-include-format="text"></div>
+    </div>
+    <p>
+      The vocabulary above defines two RDFS Class and 5 RDFS Property instances with 3 RDFS domain and one RDFS range
+      constraint. It does not define an ontology but the namespace of
+      <code>http://www.w3.org/2003/01/geo/wgs84_pos#</code> is annotated as if it was one.
+    </p>
+    <p>
+      In the comments on properties, some additional constraints are indicated, such as, for <code>pos:alt</code>: "The
+      WGS84 altitude of a SpatialThing (decimal meters above the local reference ellipsoid)". From these sorts of
+      comments we can infer additional SHACL constraints that we can test data with. In this case, we can test that a
+      value for the predicate <code>pos:alt</code> is a decimal. We cannot require it to be positive as a negative
+      height can be sensibly interpreted as a depth.
+    </p>
+    <p>
+      The following <a data-cite="shacl12-core#shapes-graph">shapes graph</a> is a simple attempt at a comprehensive set
+      of constraints for POS' rule presented as per the recommendations in the [[[#packaging]]] section.
+    </p>
+    <div class="shapes-graph">
+      <div class="turtle" data-include="null-profiles/pos-null-sg.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="null-profiles/pos-null-sg.jsonld" data-include-format="text"></div>
+    </div>
+    <p>
+      The above shapes graph was created in two steps:
+    </p>
+    <ol>
+      <li>
+        direct creation of SHACL constraints from OWL constraints
+        <ul>
+          <li>this was done easily and automatically with a common AI tool and then manually enhanced</li>
+        </ul>
+      </li>
+      <li>
+        creation of SHACL constraints from descriptions / usage notes in the POS vocabulary annotations
+        <ul>
+          <li>this was done easily and manually</li>
+        </ul>
+      </li>
+    </ol>
+    <p>
+      The resultant shapes graph has good coverage of the POS vocabulary: 9 SHACL shapes for the 2 classes and 6
+      properties.
+    </p>
+    <p>
+      To complete the null profile of POS, we need more than just this shapes graph: we also need a profile declaration.
+      As per the procedure for defining profile of SHACL in [[[#defining-profiles]]], we can declare a null profile of
+      POS like this:
+    </p>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="null-profiles/pos-null.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="null-profiles/pos-null.jsonld" data-include-format="text"></div>
+    </div>
+    <p>
+      In the profile declaration above, four resources are described: the original vocabulary, here assigned a profile
+      resource role of <code>Schema</code>, the shapes graph with role of <code>Validation</code> and a human-readable
+      document with role of <code>Guidance</code>. This last resource is not given here and is
+      included just to indicate what you might expect a complete null profile to provide. The guidance document would
+      likely describe how the null profile does and does not implement constraints in the standard profiled - POS - and
+      perhaps how best to use it.
+    </p>
   </section>
-  <section id="null-profile-of-prof">
-    <h3>Null Profile of PROF</h3>
-    <p>
-      This profile is a <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a> of [[[dx-prof]]].
-    </p>
-    <p>
-      The purposes of this profile are to both provide a SHACL-based validator for PROF data and to demonstrate what a
-      slightly more complex null profile of a vocabulary looks like.
-    </p>
-    <p>
-      This null profile implements all the OWL rules of PROF as well as some rules stated in the PROF standard
-      that are not implemented in the PROF ontology.
-    </p>
-    <div class="issue" data-number="1423">&nbsp;</div>
-  </section>
-  <section>
+  <section id="null-profile-of-skos">
     <h3>Null profile of SKOS</h3>
     <p>
       This profile is a <a data-cite="dx-prof-1.0#dfn-null-profile">null profile</a> of [[[skos-reference]]].
@@ -1850,12 +1889,40 @@
       This null profile implements all the OWL rules of SKOS, as well as some rules stated in
       the SKOS standard that are not implemented in the SKOS ontology.
     </p>
-    <div class="issue" data-number="1424">&nbsp;</div>
+    <p>
+      The SHACL validator for this profile is as follows:
+    </p>
+    <details class="shapes-graph">
+      <summary>Shapes graph for the null profile of SKOS' validation resource</summary>
+      <div class="turtle" data-include="null-profiles/skos-null-sg.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="null-profiles/skos-null-sg.jsonld" data-include-format="text"></div>
+    </details>
+    <p>
+      The shapes graph above was generated from SKOS' ontology rules and the [[[skos-reference]]] annotations. As with
+      the POS null profile, a profile declaration is needed in addition to the shapes graph:
+    </p>
+    <div class="rdf-graph">
+      <div class="turtle" data-include="null-profiles/skos-null.ttl" data-include-format="text"></div>
+      <div class="jsonld" data-include="null-profiles/skos-null.jsonld" data-include-format="text"></div>
+    </div>
+    <p>
+      Unlike for POS, SKOS has neatly documented requirements in its specification document, so validation shapes have
+      been created for it referencing those requirements. As with the null profile for POS, the original standard's
+      specification is used as this null profile's specification because the intent of the null profile is to match
+      that specification exactly.
+    </p>
+    <p class="note">
+      A SHACL community-maintained version of this null profile is available at
+      <a href="https://github.com/w3c/shacl-resources">https://github.com/w3c/shacl-resources</a>. That profile uses the
+      identifier `https://w3id.org/profile/skos-null` so that, following [[[#rule-conformstostandard]]], any resource
+      that conforms to this null profile - by passing its validator - conforms to SKOS, at least to the extent of the
+      authors of the null profiles shapes graph creation skills.
+    </p>
   </section>
 </section>
 
 <section id="security" class="appendix informative">
-  <h2>Security and Privacy Considerations</h2>
+  <h2>Security Considerations</h2>
   <p>
     Like most RDF-based technologies, SHACL processors may operate on graphs that are assembled
     from various sources. Some applications may have an open "linked data" ("LD") architecture and dynamically
@@ -1874,6 +1941,15 @@
     profile's rules, but not the standard's rules, were used to check for data validity, by accident or by design,
     data could be wrongly calculated to be valid. This could lead to accidental data release or use, potentially
     introducing security issues.
+  </p>
+</section>
+
+<section id="privacy" class="appendix informative">
+  <h2>Privacy Considerations</h2>
+  <p>
+    Persisted validation results may identify data graphs, shapes graphs, validation agents, and the times at which
+    validation occurred. Publishers should consider whether this information reveals personal or confidential
+    information and apply appropriate access controls before sharing it.
   </p>
 </section>
 

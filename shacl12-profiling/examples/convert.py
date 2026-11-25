@@ -8,18 +8,7 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-PREFIXES = """\
-PREFIX dcterms: <http://purl.org/dc/terms/>
-PREFIX ex: <http://example.com/ns#>
-PREFIX owl: <http://www.w3.org/2002/07/owl#>
-PREFIX prof: <http://www.w3.org/ns/dx/prof/>
-PREFIX prov: <http://www.w3.org/ns/prov#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX role: <http://www.w3.org/ns/dx/prof/role/>
-PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-"""
+PREFIXES = open("_prefixes.ttl").read()
 
 # These files illustrate query syntax, despite their .ttl suffix.
 SPARQL_EXAMPLES = {"conv-sparql.ttl", "conv-sparql-rl.ttl"}
